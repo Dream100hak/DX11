@@ -13,7 +13,7 @@ WPARAM Game::Run(GameDesc& desc)
 	MyRegisterClass();
 
 	// 2) 윈도우 창 생성
-	if (!InitInstance(SW_MAXIMIZE))
+	if (!InitInstance(SW_SHOWNORMAL))
 		return FALSE;
 
 	GRAPHICS->Init(_desc.hWnd);
@@ -67,9 +67,9 @@ ATOM Game::MyRegisterClass()
 BOOL Game::InitInstance(int cmdShow)
 {
 	RECT windowRect = { 0, 0, _desc.width, _desc.height };
-	::AdjustWindowRect(&windowRect, WS_POPUPWINDOW, false);
+	::AdjustWindowRect(&windowRect, WS_POPUP, false);
 
-	_desc.hWnd = CreateWindowW(_desc.appName.c_str(), _desc.appName.c_str(), WS_POPUPWINDOW,
+	_desc.hWnd = CreateWindowW(_desc.appName.c_str(), _desc.appName.c_str(), WS_POPUP,
 		CW_USEDEFAULT, 0, windowRect.right - windowRect.left, windowRect.bottom - windowRect.top, nullptr, nullptr, _desc.hInstance, nullptr);
 
 	if (!_desc.hWnd)

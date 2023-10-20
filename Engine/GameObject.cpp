@@ -14,11 +14,16 @@
 #include "SnowBillboard.h"
 #include <chrono>
 
+uint64 GameObject::_nextId = 0;
 
 GameObject::GameObject()
 {
+	_id = _nextId++;
+
 	auto currentTime = std::chrono::system_clock::now();
 	_createdTime = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime.time_since_epoch()).count();
+	HRESULT hr = CoCreateGuid(&_guid);
+	CHECK(hr);
 }
 
 GameObject::~GameObject()

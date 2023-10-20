@@ -9,10 +9,12 @@
 #include "MeshRenderer.h"
 #include "Material.h"
 
+int EditorTool::_selectedObj = 0;
 
 void EditorTool::Init()
 {
 	_shader = make_shared<Shader>(L"23. RenderDemo.fx");
+
 	// Camera
 	{
 		shared_ptr<GameObject> camera = make_shared<GameObject>();
@@ -35,31 +37,6 @@ void EditorTool::Init()
 		light->GetLight()->SetLightDesc(lightDesc);
 		CUR_SCENE->Add(light);
 	}
-
-	// Model
-	{
-		shared_ptr<class Model> m2 = make_shared<Model>();
-		m2->ReadModel(L"Tower/Tower");
-		m2->ReadMaterial(L"Tower/Tower");
-
-		for (int i = 0 ; i < 50; i++)
-		{
-			auto obj = make_shared<GameObject>();
-			wstring name = L"Tower" + to_wstring(i);
-			obj->SetObjectName(name);
-
-			obj->GetOrAddTransform()->SetPosition(Vec3(rand() % 100, 0, rand() % 100));
-			obj->GetOrAddTransform()->SetScale(Vec3(0.01f));
-
-			obj->AddComponent(make_shared<ModelRenderer>(_shader));
-			{
-				obj->GetModelRenderer()->SetModel(m2);
-				obj->GetModelRenderer()->SetPass(1);
-			}
-			CUR_SCENE->Add(obj);
-		}
-	}
-
 	{
 		auto shader = make_shared<Shader>(L"18. SkyDemo.fx");
 
@@ -93,6 +70,29 @@ void EditorTool::Init()
 			CUR_SCENE->Add(obj);
 		}
 	}
+	// Model
+	{
+		shared_ptr<class Model> m2 = make_shared<Model>();
+		m2->ReadModel(L"Tower/Tower");
+		m2->ReadMaterial(L"Tower/Tower");
+
+		for (int i = 0 ; i < 50; i++)
+		{
+			auto obj = make_shared<GameObject>();
+			wstring name = L"Tower" + to_wstring(i);
+			obj->SetObjectName(name);
+
+			obj->GetOrAddTransform()->SetPosition(Vec3(rand() % 100, 0, rand() % 100));
+			obj->GetOrAddTransform()->SetScale(Vec3(0.01f));
+
+			obj->AddComponent(make_shared<ModelRenderer>(_shader));
+			{
+				obj->GetModelRenderer()->SetModel(m2);
+				obj->GetModelRenderer()->SetPass(1);
+			}
+			CUR_SCENE->Add(obj);
+		}
+	}
 }
 
 void EditorTool::Update()
@@ -110,6 +110,7 @@ void EditorTool::ToolTest()
 
 	ImGui::ShowDemoWindow(&_showWindow);
 	AppMainMenuBar();
+	AppPlayMenu();
 	SceneEditorWindow();
 	GameEditorWindow();
 	HierachyEditorWindow();
@@ -120,6 +121,8 @@ void EditorTool::ToolTest()
 
 void EditorTool::AppMainMenuBar()
 {
+	ImVec2 menuBarSize = ImGui::GetWindowSize();
+
 	if (ImGui::BeginMainMenuBar())
 	{
 		if (ImGui::BeginMenu("File"))
@@ -139,7 +142,7 @@ void EditorTool::AppMainMenuBar()
 		}
 		if (ImGui::BeginMenu("GameObject"))
 		{
-			if (ImGui::MenuItem("Create Empty", "CTRL+Z")) {}
+			if (ImGui::MenuItem("Create Empty", "CTRL+SHIFT+B")) { GUI->CreateEmptyGameObject(); }
 			if (ImGui::MenuItem("Create Empty Child", "CTRL+Z")) {}
 			if (ImGui::MenuItem("Create Empty Parent", "CTRL+Z")) {}
 			
@@ -157,8 +160,29 @@ void EditorTool::AppMainMenuBar()
 
 			ImGui::EndMenu();
 		}
+
 		ImGui::EndMainMenuBar();
 	}
+}
+
+void EditorTool::AppPlayMenu()
+{
+	ImGui::SetNextWindowPos(ImVec2(800, 21));
+	ImGui::SetNextWindowSize(ImVec2(1920-800, 30));
+	ImGui::Begin("PlayMenu", NULL, ImGuiCol_FrameBg);
+
+	ImGui::SetCursorPos(ImVec2((1920 - 800) * 0.5f, ImGui::GetCursorPosY()));
+	if (ImGui::Button("Play", ImVec2(50, 0)))
+	{
+
+	}
+
+	ImGui::SameLine();
+	if (ImGui::Button("Stop", ImVec2(50, 0)))
+	{
+	
+	}
+	ImGui::End();
 }
 
 void EditorTool::MenuFileList()
@@ -220,8 +244,6 @@ void EditorTool::MenuFileList()
 void EditorTool::SceneEditorWindow()
 {
 
-
-
 }
 
 void EditorTool::GameEditorWindow()
@@ -237,44 +259,56 @@ void EditorTool::GameEditorWindow()
 
 void EditorTool::HierachyEditorWindow()
 {
-	ImGui::SetNextWindowPos(ImVec2(800, 21)); // 오른쪽 상단에 위치
-	ImGui::SetNextWindowSize(ImVec2(373, 1060)); // 크기 설정
+	ImGui::SetNextWindowPos(ImVec2(800, 51)); 
+	ImGui::SetNextWindowSize(ImVec2(373, 1010)); 
 	static bool hiearchyWindow = false;
 	ImGui::Begin("Hiearchy", &hiearchyWindow);
+	
+	ImGui::BeginChild("left pane", ImVec2(360, 0), true);
 
-	// Left
-	static int selected = 0;
+	const auto gameObjects = CUR_SCENE->GetCreatedObjects();
+	ImGuiStyle& style = ImGui::GetStyle();
+	style.Colors[ImGuiCol_Header] = ImVec4(0.2f, 0.2f, 0.2f, 0.2f);
+
+	int i = 0;
+	for (auto& object : gameObjects)
 	{
-		ImGui::BeginChild("left pane", ImVec2(360, 0), true);
+		wstring wstr = object.second->GetObjectName();
+		if (wstr.empty())
+			continue;
+		string name(wstr.begin(), wstr.end());
 
-		const auto gameObjects = CUR_SCENE->GetCreatedObjects();
-		ImGuiStyle& style = ImGui::GetStyle();
-		style.Colors[ImGuiCol_Header] = ImVec4(0.2f, 0.2f, 0.2f, 0.2f); // 검정 배경색
+		bool isSelected = (_selectedObj == i);
 
-		int i = 0;
-		for (auto& object : gameObjects)
+		// Set the background color based on selection
+		if (isSelected)
+			ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.25f, 0.58f, 1.0f, 1.f)); // Blue background
+		else
+			ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.2f, 0.2f, 0.2f, 0.2f)); // Default background
+
+		if (ImGui::Selectable(name.c_str(), _selectedObj == i))
 		{
-			wstring wstr = object.second->GetObjectName();
-			if(wstr.empty())
-				continue;
-			string name(wstr.begin() , wstr.end());
-
-			if (ImGui::Selectable(name.c_str(), selected == i))
-			{
-				selected = i;		
-			}
+			_selectedObj = i;
+			//TODO : 인스펙터
 		}
 
-		ImGui::EndChild();
+		ImGui::PopStyleColor();
+
+		i++;
 	}
+
+	ImGui::EndChild();
+	
+		
+	
 
 	ImGui::End();
 }
 
 void EditorTool::ProjectEditorWindow()
 {
-	ImGui::SetNextWindowPos(ImVec2(800 + 373, 21)); // 오른쪽 상단에 위치
-	ImGui::SetNextWindowSize(ImVec2(373, 1060)); // 크기 설정
+	ImGui::SetNextWindowPos(ImVec2(800 + 373, 51)); 
+	ImGui::SetNextWindowSize(ImVec2(373, 1010)); 
 	ImGui::Begin("Project");
 
 	ImGui::End();
@@ -284,8 +318,8 @@ void EditorTool::ProjectEditorWindow()
 void EditorTool::InspectorEditorWindow()
 {
 
-	ImGui::SetNextWindowPos(ImVec2(800 + 373 + 373, 21)); // 오른쪽 상단에 위치
-	ImGui::SetNextWindowSize(ImVec2(373, 1060)); // 크기 설정
+	ImGui::SetNextWindowPos(ImVec2(800 + 373 + 373, 51)); 
+	ImGui::SetNextWindowSize(ImVec2(373, 1010)); 
 
 	ImGui::Begin("Inspector");
 

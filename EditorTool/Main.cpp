@@ -16,7 +16,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		desc.width = 1980;
 		desc.height = 1080;
 		desc.clearColor = Color(0.f, 0.f, 0.f, 0.f);
-		desc.windowed = true;
+
 		desc.app = make_shared<EditorTool>();
 
 		GAME->Run(desc);

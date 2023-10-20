@@ -31,6 +31,5 @@ private:
 	
 	// Cache Sorted by Time 
 	map<int64, shared_ptr<GameObject>> _createdObjects;
-
 };
 

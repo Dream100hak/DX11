@@ -11,6 +11,7 @@ public:
 	void ToolTest();
 	// MENU // 
 	void AppMainMenuBar();
+	void AppPlayMenu();
 	void MenuFileList();
 
 	// EditorWindow //
@@ -21,7 +22,10 @@ public:
 	void InspectorEditorWindow();
 
 	bool _showWindow = true;
+
 private:
 	shared_ptr<Shader> _shader;
+
+	static int _selectedObj;
 
 };

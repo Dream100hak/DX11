@@ -22,6 +22,12 @@
     <Filter Include="MenuBar">
       <UniqueIdentifier>{069158d8-2562-423f-a313-f18848569b4c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Components">
+      <UniqueIdentifier>{d427a921-5a52-46e1-96b8-e9a6786881c0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GameObject">
+      <UniqueIdentifier>{af55a9da-d2fc-4c63-808e-fde191dd89e6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">

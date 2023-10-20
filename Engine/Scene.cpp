@@ -60,7 +60,7 @@ void Scene::Add(shared_ptr<GameObject> object)
 	if (object->GetLight() != nullptr)
 		_lights.insert(object);
 	
-	_createdObjects[object->GetCreatedTime()] = object;
+	_createdObjects[object->GetId()] = object;
 }
 
 void Scene::Remove(shared_ptr<GameObject> object)

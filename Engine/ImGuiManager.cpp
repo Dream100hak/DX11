@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "ImGuiManager.h"
+#include "GameObject.h"
 
 
 void ImGuiManager::Init()
@@ -32,4 +33,14 @@ void ImGuiManager::Render()
 	// Rendering
 	ImGui::Render();
 	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+}
+
+void ImGuiManager::CreateEmptyGameObject()
+{
+	shared_ptr<GameObject> obj = make_shared<GameObject>();
+
+	wstring name = L"GameObject " + to_wstring(obj->GetId());
+	obj->SetObjectName(name);
+	obj->GetOrAddTransform()->SetPosition(Vec3{ 0.f, 0.f, 0.f });
+	CUR_SCENE->Add(obj);
 }

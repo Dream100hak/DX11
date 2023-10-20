@@ -18,7 +18,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		desc.clearColor = Color(0.f, 0.f, 0.f, 0.f);
 
 		desc.app = make_shared<EditorTool>();
-
 		GAME->Run(desc);
 	}
 	return 0;

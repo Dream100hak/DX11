@@ -8,11 +8,15 @@
 #include "CameraScript.h"
 #include "MeshRenderer.h"
 #include "Material.h"
+#include "Shortcut.h"
 
-int EditorTool::_selectedObj = 0;
+int32 EditorTool::_selectedObj = -1;
+bool EditorTool::_hiearchyWindow = false;
 
 void EditorTool::Init()
 {
+	GET_SINGLE(ShortcutManager)->Init();
+
 	_shader = make_shared<Shader>(L"23. RenderDemo.fx");
 
 	// Camera
@@ -76,7 +80,7 @@ void EditorTool::Init()
 		m2->ReadModel(L"Tower/Tower");
 		m2->ReadMaterial(L"Tower/Tower");
 
-		for (int i = 0 ; i < 50; i++)
+		for (int i = 0 ; i < 20; i++)
 		{
 			auto obj = make_shared<GameObject>();
 			wstring name = L"Tower" + to_wstring(i);
@@ -97,6 +101,7 @@ void EditorTool::Init()
 
 void EditorTool::Update()
 {
+	GET_SINGLE(ShortcutManager)->Update();
 	ToolTest();
 }
 
@@ -142,10 +147,12 @@ void EditorTool::AppMainMenuBar()
 		}
 		if (ImGui::BeginMenu("GameObject"))
 		{
-			if (ImGui::MenuItem("Create Empty", "CTRL+SHIFT+B")) { GUI->CreateEmptyGameObject(); }
+			if (ImGui::MenuItem("Create Empty", "CTRL+B")) { GUI->CreateEmptyGameObject(); }
 			if (ImGui::MenuItem("Create Empty Child", "CTRL+Z")) {}
 			if (ImGui::MenuItem("Create Empty Parent", "CTRL+Z")) {}
 			
+			ImGui::Separator();
+			if (ImGui::MenuItem("Delete Object", "DELETE")) { GUI->RemoveGameObject(_selectedObj) ; }
 			ImGui::Separator();
 			if (ImGui::MenuItem("2D Object", "CTRL+Z")) {}
 			if (ImGui::MenuItem("3D Object", "CTRL+Z")) {}
@@ -243,7 +250,7 @@ void EditorTool::MenuFileList()
 
 void EditorTool::SceneEditorWindow()
 {
-
+	
 }
 
 void EditorTool::GameEditorWindow()
@@ -261,16 +268,18 @@ void EditorTool::HierachyEditorWindow()
 {
 	ImGui::SetNextWindowPos(ImVec2(800, 51)); 
 	ImGui::SetNextWindowSize(ImVec2(373, 1010)); 
-	static bool hiearchyWindow = false;
-	ImGui::Begin("Hiearchy", &hiearchyWindow);
-	
+
+	ImGui::Begin("Hiearchy", &_hiearchyWindow);
+
 	ImGui::BeginChild("left pane", ImVec2(360, 0), true);
 
+	if (ImGui::IsWindowFocused() == false)
+		_selectedObj = -1;
+	
 	const auto gameObjects = CUR_SCENE->GetCreatedObjects();
 	ImGuiStyle& style = ImGui::GetStyle();
 	style.Colors[ImGuiCol_Header] = ImVec4(0.2f, 0.2f, 0.2f, 0.2f);
 
-	int i = 0;
 	for (auto& object : gameObjects)
 	{
 		wstring wstr = object.second->GetObjectName();
@@ -278,29 +287,23 @@ void EditorTool::HierachyEditorWindow()
 			continue;
 		string name(wstr.begin(), wstr.end());
 
-		bool isSelected = (_selectedObj == i);
+		bool isSelected = (_selectedObj == object.first);
 
-		// Set the background color based on selection
 		if (isSelected)
 			ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.25f, 0.58f, 1.0f, 1.f)); // Blue background
 		else
 			ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.2f, 0.2f, 0.2f, 0.2f)); // Default background
 
-		if (ImGui::Selectable(name.c_str(), _selectedObj == i))
+		if (ImGui::Selectable(name.c_str(), _selectedObj == object.first, ImGuiSelectableFlags_SpanAllColumns))
 		{
-			_selectedObj = i;
+			_selectedObj = object.first;
 			//TODO : ¿ŒΩ∫∆Â≈Õ
 		}
 
 		ImGui::PopStyleColor();
-
-		i++;
 	}
 
 	ImGui::EndChild();
-	
-		
-	
 
 	ImGui::End();
 }
@@ -311,8 +314,8 @@ void EditorTool::ProjectEditorWindow()
 	ImGui::SetNextWindowSize(ImVec2(373, 1010)); 
 	ImGui::Begin("Project");
 
-	ImGui::End();
 
+	ImGui::End();
 }
 
 void EditorTool::InspectorEditorWindow()

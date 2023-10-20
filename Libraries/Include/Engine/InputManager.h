@@ -7,6 +7,9 @@ enum class KEY_TYPE
 	LEFT = VK_LEFT,
 	RIGHT = VK_RIGHT,
 
+	CTRL = VK_CONTROL,
+	SHIFT = VK_SHIFT,
+
 	W = 'W',
 	A = 'A',
 	S = 'S',
@@ -16,6 +19,11 @@ enum class KEY_TYPE
 	E = 'E',
 	Z = 'Z',
 	C = 'C',
+	R = 'R',
+	T = 'T',
+	Y = 'Y',
+	V = 'V',
+	B = 'B', 
 
 	KEY_1 = '1',
 	KEY_2 = '2',

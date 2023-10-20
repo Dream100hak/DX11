@@ -26,6 +26,8 @@ public:
 private:
 	shared_ptr<Shader> _shader;
 
-	static int _selectedObj;
+	static bool _hiearchyWindow;
+	static int32 _selectedObj;
+
 
 };

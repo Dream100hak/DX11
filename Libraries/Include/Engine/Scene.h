@@ -13,6 +13,12 @@ public:
 
 	unordered_set<shared_ptr<GameObject>>& GetObjects() { return _objects; }
 	map<int64, shared_ptr<GameObject>>& GetCreatedObjects() { return _createdObjects; }
+	shared_ptr<GameObject>& GetCreatedObject(int32 id) 
+	{
+		if(_createdObjects.find(id) != _createdObjects.end()) 
+			return  _createdObjects[id];
+	}
+
 	shared_ptr<GameObject> GetMainCamera();
 	shared_ptr<GameObject> GetUICamera();
 	shared_ptr<GameObject> GetLight() { return _lights.empty() ? nullptr : *_lights.begin(); }

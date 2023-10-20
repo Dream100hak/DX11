@@ -49,6 +49,9 @@
     <ClInclude Include="Hiearchy.h">
       <Filter>EditorWindow</Filter>
     </ClInclude>
+    <ClInclude Include="Shortcut.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -69,6 +72,9 @@
     </ClCompile>
     <ClCompile Include="Hiearchy.cpp">
       <Filter>EditorWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="Shortcut.cpp">
+      <Filter>Utils</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

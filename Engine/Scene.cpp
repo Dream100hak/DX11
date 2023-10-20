@@ -70,6 +70,8 @@ void Scene::Remove(shared_ptr<GameObject> object)
 	_cameras.erase(object);
 
 	_lights.erase(object);
+
+	_createdObjects.erase(object->GetId());
 }
 
 std::shared_ptr<GameObject> Scene::GetMainCamera()

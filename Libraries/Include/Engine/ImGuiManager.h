@@ -10,6 +10,7 @@ public:
 	void Render();
 
 	void CreateEmptyGameObject();
+	void RemoveGameObject(int32 id);
 
 };
 

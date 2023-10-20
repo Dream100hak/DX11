@@ -18,7 +18,6 @@ void ImGuiManager::Init()
 	// Setup Platform/Renderer backends
 	ImGui_ImplWin32_Init(GAME->GetGameDesc().hWnd);
 	ImGui_ImplDX11_Init(DEVICE.Get(), DC.Get());
-	
 }
 
 void ImGuiManager::Update()
@@ -43,4 +42,15 @@ void ImGuiManager::CreateEmptyGameObject()
 	obj->SetObjectName(name);
 	obj->GetOrAddTransform()->SetPosition(Vec3{ 0.f, 0.f, 0.f });
 	CUR_SCENE->Add(obj);
+}
+
+void ImGuiManager::RemoveGameObject(int32 id)
+{
+	if(id == -1)
+		return;
+	
+	shared_ptr<GameObject> obj = CUR_SCENE->GetCreatedObject(id);
+
+	if(obj != nullptr)
+		CUR_SCENE->Remove(obj);
 }

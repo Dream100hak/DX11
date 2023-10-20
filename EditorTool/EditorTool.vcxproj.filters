@@ -1,0 +1,166 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Main">
+      <UniqueIdentifier>{a03f3678-13f0-42b3-b377-8022b469c0ef}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{c9d5571a-f8b3-4f28-afb1-70ed2c58ad63}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders\Common">
+      <UniqueIdentifier>{7b1582b7-a3f2-4e73-8014-8c02deea710b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="EditorTools">
+      <UniqueIdentifier>{9996f4d4-0076-4fd6-904d-2b122030ca01}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Utils">
+      <UniqueIdentifier>{d303939b-6cec-4341-94f0-8cbe00bac0ae}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="EditorWindow">
+      <UniqueIdentifier>{6e352df7-37ac-4a6b-b2d8-3f1a946d9629}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MenuBar">
+      <UniqueIdentifier>{069158d8-2562-423f-a313-f18848569b4c}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h">
+      <Filter>Main</Filter>
+    </ClInclude>
+    <ClInclude Include="Main.h">
+      <Filter>Main</Filter>
+    </ClInclude>
+    <ClInclude Include="CameraScript.h" />
+    <ClInclude Include="SceneDemo.h">
+      <Filter>EditorTools</Filter>
+    </ClInclude>
+    <ClInclude Include="EditorTool.h">
+      <Filter>EditorTools</Filter>
+    </ClInclude>
+    <ClInclude Include="Inspector.h">
+      <Filter>EditorWindow</Filter>
+    </ClInclude>
+    <ClInclude Include="Hiearchy.h">
+      <Filter>EditorWindow</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="pch.cpp">
+      <Filter>Main</Filter>
+    </ClCompile>
+    <ClCompile Include="Main.cpp">
+      <Filter>Main</Filter>
+    </ClCompile>
+    <ClCompile Include="CameraScript.cpp" />
+    <ClCompile Include="SceneDemo.cpp">
+      <Filter>EditorTools</Filter>
+    </ClCompile>
+    <ClCompile Include="EditorTool.cpp">
+      <Filter>EditorTools</Filter>
+    </ClCompile>
+    <ClCompile Include="Inspector.cpp">
+      <Filter>EditorWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="Hiearchy.cpp">
+      <Filter>EditorWindow</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="..\Shaders\15. ModelDemo.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\16. AnimationDemo.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\17. TweenDemo.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\18. SkyDemo.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\19. InstancingDemo.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\20. MeshInstancingDemo.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\21. ModelInstancingDemo.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\22. AnimInstancingDemo.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\23. RenderDemo.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\24. RawBufferDemo.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\25. GroupDemo.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\26. TextureBufferDemo.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\27. StructuredBufferDemo.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\28. BillBoardDemo.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\29. SnowDemo.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\01. Triangle.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\02. Quad.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\03. ConstBuffer.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\04. Texture.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\05. Sampler.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\06. Terrain.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\07. Normal.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\08. GlobalTest.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\09. Lighting_Ambient.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\10. Lighting_Diffuse.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\11. Lighting_Specular.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\12. Lighting_Emissive.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\13. Lighting.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\14. NormalMapping.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\00. Render.fx">
+      <Filter>Shaders\Common</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\00. Global.fx">
+      <Filter>Shaders\Common</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\00. Light.fx">
+      <Filter>Shaders\Common</Filter>
+    </FxCompile>
+  </ItemGroup>
+</Project>

@@ -10,6 +10,9 @@
 #include "Material.h"
 #include "ShortcutManager.h"
 #include "EditorToolManager.h"
+#include <boost/describe.hpp>
+#include <boost/mp11.hpp>
+
 
 void EditorTool::Init()
 {
@@ -148,7 +151,7 @@ void EditorTool::AppMainMenuBar()
 		}
 		if (ImGui::BeginMenu("GameObject"))
 		{
-			if (ImGui::MenuItem("Create Empty", "CTRL+B")) { GUI->CreateEmptyGameObject(); }
+			if (ImGui::MenuItem("Create Empty", "CTRL+B")) { TOOL->SetSelectedObjH(GUI->CreateEmptyGameObject());  }
 			if (ImGui::MenuItem("Create Empty Child", "CTRL+Z")) {}
 			if (ImGui::MenuItem("Create Empty Parent", "CTRL+Z")) {}
 			
@@ -268,12 +271,16 @@ void EditorTool::HierachyEditorWindow()
 	ImGui::SetNextWindowPos(ImVec2(800, 51)); 
 	ImGui::SetNextWindowSize(ImVec2(373, 1010)); 
 
+	ImGuiIO& io =  ImGui::GetIO();
+	if(io.NavActive == 0)
+		TOOL->SetSelectedObjH(-1);
+
 	ImGui::Begin("Hiearchy", nullptr);
 
 	ImGui::BeginChild("left pane", ImVec2(360, 0), true);
 
-	if (ImGui::IsWindowFocused() == false)
-		TOOL->SetSelectedObjH(-1);
+//	if (ImGui::IsWindowFocused() == false)
+	//	TOOL->SetSelectedObjH(-1);
 	
 	const auto gameObjects = CUR_SCENE->GetCreatedObjects();
 	ImGuiStyle& style = ImGui::GetStyle();
@@ -313,7 +320,6 @@ void EditorTool::ProjectEditorWindow()
 	ImGui::SetNextWindowSize(ImVec2(373, 1010)); 
 	ImGui::Begin("Project");
 
-
 	ImGui::End();
 }
 
@@ -324,6 +330,110 @@ void EditorTool::InspectorEditorWindow()
 	ImGui::SetNextWindowSize(ImVec2(373, 1010)); 
 
 	ImGui::Begin("Inspector");
+
+
+	if (SELECTED_H > -1)
+	{
+		shared_ptr<GameObject> go =  CUR_SCENE->GetCreatedObject(SELECTED_H);
+
+		wstring objectName = go->GetObjectName();
+		string objName = string(objectName.begin() , objectName.end());
+
+		char modifiedName[256]; // 이 크기를 적절하게 조정하세요.
+
+		strncpy_s(modifiedName, objName.c_str(), sizeof(modifiedName));
+
+		ImGuiStyle& style = ImGui::GetStyle();
+		style.Colors[ImGuiCol_FrameBg] = ImVec4(0.2f, 0.2f, 0.2f, 0.2f);
+		style.Colors[ImGuiCol_ScrollbarBg] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+
+		ImGui::InputText(" ", modifiedName, sizeof(modifiedName));
+		{
+			go->SetObjectName(wstring(modifiedName, modifiedName + strlen(modifiedName)));
+		}
+
+		ImGui::SameLine();
+
+		int selectedLayer = static_cast<int>(go->GetLayerIndex());
+		if (ImGui::Combo("Layer", &selectedLayer, "Default\0UI\0Wall\0Invisible\0"))
+		{
+			go->SetLayerIndex(selectedLayer);
+		}
+
+		for (int i = 0; i < (int)ComponentType::End - 1; i++)
+		{
+			ComponentType componentType = static_cast<ComponentType>(i);
+			shared_ptr<Component> comp =  go->GetFixedComponent(componentType);
+
+			if(comp == nullptr)
+				continue;
+
+			string s = GUI->EnumToString(componentType);
+
+			if(ImGui::TreeNodeEx(s.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+			{
+				//TODO : 리플렉션으로 수치 띄워야함 
+				if (s == "Transform")
+				{
+					Vec3 pos = go->GetTransform()->GetLocalPosition();
+					Vec3 rot = go->GetTransform()->GetLocalRotation();
+					Vec3 scale = go->GetTransform()->GetLocalScale();
+
+					float uiPos[3] = {pos.x , pos.y , pos.z};
+					float uiRot[3] = { rot.x , rot.y ,rot.z};
+					float uiScale[3] = { scale.x , scale.y ,scale.z};
+
+					ImGui::SliderFloat3("Position" , uiPos, -10 ,10);
+					ImGui::SliderFloat3("Rotation" , uiRot , -360, 360);
+					ImGui::SliderFloat3("Scale" , uiScale,-10, 10);
+				}
+
+				ImGui::TreePop();
+			}
+		}
+
+		const auto& monoBehaviors = go->GetMonoBehaviours();
+		for (auto& behaviors : monoBehaviors)
+		{
+			wstring rawName = behaviors->GetBehaviorName();
+			string name = string(rawName.begin(), rawName.end());
+
+			if (ImGui::TreeNodeEx(name.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+			{
+				ImGui::TreePop();
+			}
+		}
+	}
+
+	if (ImGui::Button("Add Component", ImVec2(-1, 0)))
+	{
+		ImVec2 buttonPos = ImGui::GetCursorScreenPos();
+		ImGui::OpenPopup("Add Component Menu");
+		buttonPos.y += ImGui::GetTextLineHeightWithSpacing() * 0.4f;
+		ImGui::SetNextWindowPos(buttonPos);
+	}
+
+
+	if (ImGui::BeginPopup("Add Component Menu"))
+	{
+		if (ImGui::BeginMenu("FixedComponent"))
+		{
+			if (ImGui::MenuItem("Transform"))
+			{ }
+				
+			if (ImGui::MenuItem("MeshRenderer"))
+			{ }
+
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::MenuItem("new Script"))
+		{
+
+		}
+
+		ImGui::EndPopup(); 
+	}
 
 	ImGui::End();
 }

@@ -32,7 +32,7 @@ void Button::Create(Vec2 screenPos, Vec2 size, shared_ptr<class Material> materi
 	go->GetOrAddTransform()->SetPosition(position);
 	go->GetOrAddTransform()->SetScale(Vec3(size.x, size.y, 1));
 
-	go->SetLayerIndex(Layer_UI);
+	go->SetLayerIndex(UI);
 
 	if (go->GetMeshRenderer() == nullptr)
 		go->AddComponent(make_shared<MeshRenderer>());

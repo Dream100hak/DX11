@@ -8,14 +8,12 @@ void ImGuiManager::Init()
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; 
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;     
 
-	// Setup Dear ImGui style
 	ImGui::StyleColorsDark();
 	//ImGui::StyleColorsLight();
 
-	// Setup Platform/Renderer backends
 	ImGui_ImplWin32_Init(GAME->GetGameDesc().hWnd);
 	ImGui_ImplDX11_Init(DEVICE.Get(), DC.Get());
 }
@@ -34,7 +32,7 @@ void ImGuiManager::Render()
 	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 }
 
-void ImGuiManager::CreateEmptyGameObject()
+int32 ImGuiManager::CreateEmptyGameObject()
 {
 	shared_ptr<GameObject> obj = make_shared<GameObject>();
 
@@ -42,6 +40,8 @@ void ImGuiManager::CreateEmptyGameObject()
 	obj->SetObjectName(name);
 	obj->GetOrAddTransform()->SetPosition(Vec3{ 0.f, 0.f, 0.f });
 	CUR_SCENE->Add(obj);
+
+	return obj->GetId();
 }
 
 void ImGuiManager::RemoveGameObject(int32 id)

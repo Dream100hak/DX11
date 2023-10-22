@@ -28,7 +28,7 @@ void ShortcutManager::Menu()
 void ShortcutManager::CreateEmpty()
 {
 	if(INPUT->GetButton(KEY_TYPE::CTRL) && INPUT->GetButton(KEY_TYPE::SHIFT) && INPUT->GetButtonDown(KEY_TYPE::B))
-		GUI->CreateEmptyGameObject();
+		TOOL->SetSelectedObjH(GUI->CreateEmptyGameObject());
 }
 
 void ShortcutManager::DeleteObject()
@@ -41,7 +41,5 @@ void ShortcutManager::DeleteObject()
 			TOOL->SetSelectedObjH(-1);
 			GUI->RemoveGameObject(id);
 		}
-	
-	}
-		
+	}		
 }

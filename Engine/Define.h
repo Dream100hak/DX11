@@ -28,6 +28,8 @@ public:										\
 
 enum LayerMask
 {
-	Layer_Default = 0,
-	Layer_UI = 1,
+	Default = 0,
+	UI = 1,
+	Wall = 2,
+	Invisible = 3
 };

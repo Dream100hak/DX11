@@ -27,7 +27,32 @@ public:
 	void Update();
 	void LateUpdate();
 	void FixedUpdate();
+	
+	template<typename T>
+	shared_ptr<T> GetComponent()
+	{
+		for (int i = 0; i < FIXED_COMPONENT_COUNT; i++)
+		{
+			shared_ptr<Component> component = _components[i];
+			if (component)
+			{
+				shared_ptr<T> castedComponent = dynamic_pointer_cast<T>(component);
+				if (castedComponent)
+					return castedComponent;
+				
+			}
+		}
+		for (const auto& script : _scripts)
+		{
+			shared_ptr<T> castedScript = dynamic_pointer_cast<T>(script);
+			
+			if (castedScript)
+				return castedScript;
+			
+		}
 
+		return nullptr;
+	}
 	shared_ptr<Component> GetFixedComponent(ComponentType type);
 	shared_ptr<Transform> GetTransform();
 	shared_ptr<Camera> GetCamera();
@@ -40,6 +65,9 @@ public:
 	shared_ptr<Button> GetButton();
 	shared_ptr<Billboard> GetBillboard();
 	shared_ptr<SnowBillboard> GetSnowBillboard();
+
+	const vector<shared_ptr<MonoBehaviour>>& GetMonoBehaviours() { return _scripts; }
+
 
 	shared_ptr<Transform> GetOrAddTransform();
 	void AddComponent(shared_ptr<Component> component);

@@ -3,7 +3,7 @@
 
 MonoBehaviour::MonoBehaviour() : Super(ComponentType::Script)
 {
-	
+
 }
 
 MonoBehaviour::~MonoBehaviour()

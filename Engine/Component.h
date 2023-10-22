@@ -1,7 +1,9 @@
 #pragma once
 
+
 class GameObject;
 class Transform;
+
 
 enum class ComponentType : uint8
 {
@@ -22,6 +24,9 @@ enum class ComponentType : uint8
 	End,
 };
 
+
+BOOST_DESCRIBE_ENUM(ComponentType , Transform , MeshRenderer , ModelRenderer, Camera, Animator, Light , Collider , Terrain, Button, BillBoard, SnowBillBoard)
+
 enum
 {
 	FIXED_COMPONENT_COUNT = static_cast<uint8>(ComponentType::End) - 1
@@ -33,11 +38,19 @@ public:
 	Component(ComponentType type);
 	virtual ~Component();
 
+	virtual void OnInspectorGUI()
+	{
+		
+	}
+
+public:
+
 	virtual void Awake() { }
 	virtual void Start() { }
 	virtual void Update() { }
 	virtual void LateUpdate() { }
 	virtual void FixedUpdate() { }
+
 
 public:
 	ComponentType GetType() { return _type; }

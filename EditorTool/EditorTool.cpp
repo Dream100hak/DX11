@@ -8,14 +8,13 @@
 #include "CameraScript.h"
 #include "MeshRenderer.h"
 #include "Material.h"
-#include "Shortcut.h"
-
-int32 EditorTool::_selectedObj = -1;
-bool EditorTool::_hiearchyWindow = false;
+#include "ShortcutManager.h"
+#include "EditorToolManager.h"
 
 void EditorTool::Init()
 {
 	GET_SINGLE(ShortcutManager)->Init();
+	GET_SINGLE(EditorToolManager)->Init();
 
 	_shader = make_shared<Shader>(L"23. RenderDemo.fx");
 
@@ -102,6 +101,8 @@ void EditorTool::Init()
 void EditorTool::Update()
 {
 	GET_SINGLE(ShortcutManager)->Update();
+	GET_SINGLE(EditorToolManager)->Update();
+
 	ToolTest();
 }
 
@@ -151,8 +152,6 @@ void EditorTool::AppMainMenuBar()
 			if (ImGui::MenuItem("Create Empty Child", "CTRL+Z")) {}
 			if (ImGui::MenuItem("Create Empty Parent", "CTRL+Z")) {}
 			
-			ImGui::Separator();
-			if (ImGui::MenuItem("Delete Object", "DELETE")) { GUI->RemoveGameObject(_selectedObj) ; }
 			ImGui::Separator();
 			if (ImGui::MenuItem("2D Object", "CTRL+Z")) {}
 			if (ImGui::MenuItem("3D Object", "CTRL+Z")) {}
@@ -269,12 +268,12 @@ void EditorTool::HierachyEditorWindow()
 	ImGui::SetNextWindowPos(ImVec2(800, 51)); 
 	ImGui::SetNextWindowSize(ImVec2(373, 1010)); 
 
-	ImGui::Begin("Hiearchy", &_hiearchyWindow);
+	ImGui::Begin("Hiearchy", nullptr);
 
 	ImGui::BeginChild("left pane", ImVec2(360, 0), true);
 
 	if (ImGui::IsWindowFocused() == false)
-		_selectedObj = -1;
+		TOOL->SetSelectedObjH(-1);
 	
 	const auto gameObjects = CUR_SCENE->GetCreatedObjects();
 	ImGuiStyle& style = ImGui::GetStyle();
@@ -287,16 +286,16 @@ void EditorTool::HierachyEditorWindow()
 			continue;
 		string name(wstr.begin(), wstr.end());
 
-		bool isSelected = (_selectedObj == object.first);
+		bool isSelected = (SELECTED_H == object.first);
 
 		if (isSelected)
 			ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.25f, 0.58f, 1.0f, 1.f)); // Blue background
 		else
 			ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.2f, 0.2f, 0.2f, 0.2f)); // Default background
 
-		if (ImGui::Selectable(name.c_str(), _selectedObj == object.first, ImGuiSelectableFlags_SpanAllColumns))
+		if (ImGui::Selectable(name.c_str(), (SELECTED_H == object.first, ImGuiSelectableFlags_SpanAllColumns)))
 		{
-			_selectedObj = object.first;
+			TOOL->SetSelectedObjH(object.first);
 			//TODO : ¿ŒΩ∫∆Â≈Õ
 		}
 

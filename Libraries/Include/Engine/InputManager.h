@@ -10,6 +10,8 @@ enum class KEY_TYPE
 	CTRL = VK_CONTROL,
 	SHIFT = VK_SHIFT,
 
+	DELETEX = VK_DELETE,
+
 	W = 'W',
 	A = 'A',
 	S = 'S',

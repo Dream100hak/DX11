@@ -1,5 +1,6 @@
 #include "pch.h"
-#include "Shortcut.h"
+#include "ShortcutManager.h"
+#include "EditorToolManager.h"
 
 void ShortcutManager::Init()
 {
@@ -11,6 +12,7 @@ void ShortcutManager::Update()
 	File();
 	Menu();
 	CreateEmpty();
+	DeleteObject();
 }
 
 void ShortcutManager::File()
@@ -31,6 +33,15 @@ void ShortcutManager::CreateEmpty()
 
 void ShortcutManager::DeleteObject()
 {
-	//if (INPUT->GetButton(KEY_TYPE::CTRL) && INPUT->GetButton(KEY_TYPE::SHIFT) && INPUT->GetButtonDown(KEY_TYPE::B))
-		//GUI->RemoveGameObject(EditorTool::_selectedObj);
+	if (INPUT->GetButtonDown(KEY_TYPE::DELETEX))
+	{
+		int32 id = SELECTED_H;
+		if (id != -1)
+		{
+			TOOL->SetSelectedObjH(-1);
+			GUI->RemoveGameObject(id);
+		}
+	
+	}
+		
 }

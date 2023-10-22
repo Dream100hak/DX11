@@ -20,17 +20,20 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CameraScript.h" />
+    <ClInclude Include="Define.h" />
     <ClInclude Include="EditorTool.h" />
+    <ClInclude Include="EditorToolManager.h" />
     <ClInclude Include="Hiearchy.h" />
     <ClInclude Include="Inspector.h" />
     <ClInclude Include="Main.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="SceneDemo.h" />
-    <ClInclude Include="Shortcut.h" />
+    <ClInclude Include="ShortcutManager.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CameraScript.cpp" />
     <ClCompile Include="EditorTool.cpp" />
+    <ClCompile Include="EditorToolManager.cpp" />
     <ClCompile Include="Hiearchy.cpp" />
     <ClCompile Include="Inspector.cpp" />
     <ClCompile Include="Main.cpp">
@@ -40,7 +43,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="SceneDemo.cpp" />
-    <ClCompile Include="Shortcut.cpp" />
+    <ClCompile Include="ShortcutManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\Shaders\00. Global.fx">

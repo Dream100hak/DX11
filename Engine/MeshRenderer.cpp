@@ -3,7 +3,7 @@
 #include "Camera.h"
 #include "Game.h"
 #include "Mesh.h"
-#include "Shader.h"
+#include "ShaderBuffer.h"
 #include "Material.h"
 #include "Light.h"
 

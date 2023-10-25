@@ -186,7 +186,7 @@
     <FxCompile Include="..\Shaders\00. Light.fx">
       <Filter>Shaders\Common</Filter>
     </FxCompile>
-    <FxCompile Include="..\Shaders\00. Standard.fx">
+    <FxCompile Include="..\Shaders\Standard.fx">
       <Filter>Shaders\Contents</Filter>
     </FxCompile>
   </ItemGroup>

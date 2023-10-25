@@ -56,3 +56,24 @@ std::string Utils::ToString(wstring value)
 {
 	return string(value.begin(), value.end());
 }
+
+std::wstring Utils::GetResourcesName(wstring value, wstring exten)
+{
+	wstring resourceName = value;
+	size_t idx = value.find(exten);
+	if (idx != std::wstring::npos) 
+		resourceName.erase(idx, exten.length());
+	
+	return resourceName;
+}
+
+std::string Utils::GetResourcesName(string value, string exten)
+{
+	string resourceName = value;
+	size_t idx = value.find(exten);
+	if (idx != std::string::npos)
+		resourceName.erase(idx, exten.length());
+
+	return resourceName;
+}
+

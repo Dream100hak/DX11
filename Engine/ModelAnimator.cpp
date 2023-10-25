@@ -7,7 +7,7 @@
 #include "Camera.h"
 #include "Light.h"
 
-ModelAnimator::ModelAnimator(shared_ptr<Shader> shader)
+ModelAnimator::ModelAnimator(shared_ptr<ShaderBuffer> shader)
 	: Super(ComponentType::Animator), _shader(shader)
 {
 	// TEST

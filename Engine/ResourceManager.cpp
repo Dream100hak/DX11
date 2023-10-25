@@ -1,7 +1,6 @@
 #include "pch.h"
 #include "ResourceManager.h"
 #include "Texture.h"
-#include "Shader.h"
 #include "Mesh.h"
 #include "Material.h"
 #include <filesystem>
@@ -51,19 +50,20 @@ void ResourceManager::CreateDefaultMesh()
 
 void ResourceManager::CreateDefaultShader()
 {
-	shared_ptr<Shader> shader = make_shared<Shader>(L"00. Standard.fx");
-	Add(L"StandardShader" , shader);
+	shared_ptr<Shader> shader = make_shared<Shader>(L"Standard.fx");
+	Add(L"Standard" , shader);
 }
 
 void ResourceManager::CreateDefaultMaterial()
 {
-	auto shader = Get<Shader>(L"StandardShader");
+	//auto shader = Get<Shader>(L"Standard");
+	//auto shaderBuffer = make_shared<ShaderBuffer>(shader);
 
-	shared_ptr<Material> material = make_shared<Material>();
-	material->SetShader(shader);
-	MaterialDesc& desc = material->GetMaterialDesc();
-	desc.ambient = Vec4(1.f);
-	desc.diffuse = Vec4(1.f);
-	desc.specular = Vec4(1.f);
-	RESOURCES->Add(L"DefaultMaterial", material);
+	//shared_ptr<Material> material = make_shared<Material>();
+	//material->SetShader(shaderBuffer);
+	//MaterialDesc& desc = material->GetMaterialDesc();
+	//desc.ambient = Vec4(1.f);
+	//desc.diffuse = Vec4(1.f);
+	//desc.specular = Vec4(1.f);
+	//RESOURCES->Add(L"DefaultMaterial", material);
 }

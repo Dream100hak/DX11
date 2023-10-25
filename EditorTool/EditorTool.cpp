@@ -26,7 +26,7 @@ void EditorTool::Init()
 	GET_SINGLE(ShortcutManager)->Init();
 	GET_SINGLE(EditorToolManager)->Init();
 
-	_shader = make_shared<Shader>(L"23. RenderDemo.fx");
+	_shader = make_shared<ShaderBuffer>(L"23. RenderDemo.fx");
 
 	// Camera
 	{
@@ -54,7 +54,7 @@ void EditorTool::Init()
 		CUR_SCENE->Add(light);
 	}
 	{
-		auto shader = make_shared<Shader>(L"18. SkyDemo.fx");
+		auto shader = make_shared<ShaderBuffer>(L"18. SkyDemo.fx");
 
 		// Material
 		{

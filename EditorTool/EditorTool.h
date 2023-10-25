@@ -24,6 +24,6 @@ public:
 	bool _showWindow = true;
 
 private:
-	shared_ptr<Shader> _shader;
+	shared_ptr<ShaderBuffer> _shader;
 
 };

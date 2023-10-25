@@ -16,12 +16,12 @@ class ModelAnimator : public Component
 	using Super = Component;
 
 public:
-	ModelAnimator(shared_ptr<Shader> shader);
+	ModelAnimator(shared_ptr<ShaderBuffer> shader);
 	~ModelAnimator();
 
 	void SetModel(shared_ptr<Model> model);
 	void SetPass(uint8 pass) { _pass = pass; }
-	shared_ptr<Shader> GetShader() { return _shader; }
+	shared_ptr<ShaderBuffer> GetShader() { return _shader; }
 
 	virtual void Update() override;
 
@@ -43,7 +43,7 @@ private:
 	TweenDesc _tweenDesc;
 
 private:
-	shared_ptr<Shader>	_shader;
+	shared_ptr<ShaderBuffer>	_shader;
 	uint8				_pass = 0;
 	shared_ptr<Model>	_model;
 };

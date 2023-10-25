@@ -61,6 +61,18 @@
     <ClInclude Include="Define.h">
       <Filter>Utils</Filter>
     </ClInclude>
+    <ClInclude Include="EditorWindow.h">
+      <Filter>EditorWindow</Filter>
+    </ClInclude>
+    <ClInclude Include="MainMenuBar.h">
+      <Filter>EditorWindow</Filter>
+    </ClInclude>
+    <ClInclude Include="GameEditorWindow.h">
+      <Filter>EditorWindow</Filter>
+    </ClInclude>
+    <ClInclude Include="Project.h">
+      <Filter>EditorWindow</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -87,6 +99,18 @@
     </ClCompile>
     <ClCompile Include="EditorToolManager.cpp">
       <Filter>Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="EditorWindow.cpp">
+      <Filter>EditorWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="MainMenuBar.cpp">
+      <Filter>EditorWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="GameEditorWindow.cpp">
+      <Filter>EditorWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="Project.cpp">
+      <Filter>EditorWindow</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

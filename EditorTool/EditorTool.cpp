@@ -16,6 +16,12 @@
 #include "SkyBox.h"
 #include "Utils.h"
 
+#include "MainMenuBar.h"
+#include "GameEditorWindow.h"
+#include "Hiearchy.h"
+#include "Inspector.h"
+#include "Project.h"
+
 #include "Material.h"
 #include "ShortcutManager.h"
 #include "EditorToolManager.h"
@@ -28,6 +34,26 @@ void EditorTool::Init()
 {
 	GET_SINGLE(ShortcutManager)->Init();
 	GET_SINGLE(EditorToolManager)->Init();
+
+	auto menuBar = make_shared<MainMenuBar>();
+	auto gameWnd = make_shared<GameEditorWindow>();
+	auto hiearchy = make_shared<Hiearchy>();
+	auto inspector = make_shared<Inspector>();
+	auto project = make_shared<Project>();
+
+	_editorWindows.push_back(menuBar);
+	_editorWindows.push_back(gameWnd);
+	_editorWindows.push_back(hiearchy);
+	_editorWindows.push_back(inspector);
+	_editorWindows.push_back(project);
+
+	for (auto wnd : _editorWindows)
+	{
+		if(wnd == nullptr)
+			continue;
+
+		wnd->Init();
+	}
 
 	auto shader = RESOURCES->Get<Shader>(L"Standard");
 
@@ -98,7 +124,15 @@ void EditorTool::Update()
 	GET_SINGLE(ShortcutManager)->Update();
 	GET_SINGLE(EditorToolManager)->Update();
 
-	ToolTest();
+	ImGui::ShowDemoWindow(&_showWindow);
+
+	for (auto wnd : _editorWindows)
+	{
+		if (wnd == nullptr)
+			continue;
+
+		wnd->Update();
+	}
 }
 
 void EditorTool::Render()
@@ -106,446 +140,5 @@ void EditorTool::Render()
 
 }
 
-void EditorTool::ToolTest()
-{
 
-	ImGui::ShowDemoWindow(&_showWindow);
-	AppMainMenuBar();
-	AppPlayMenu();
-	SceneEditorWindow();
-	GameEditorWindow();
-	HierachyEditorWindow();
-	ProjectEditorWindow();
-	InspectorEditorWindow();
-
-}
-
-void EditorTool::AppMainMenuBar()
-{
-	ImVec2 menuBarSize = ImGui::GetWindowSize();
-
-	if (ImGui::BeginMainMenuBar())
-	{
-		if (ImGui::BeginMenu("File"))
-		{
-			MenuFileList();
-			ImGui::EndMenu();
-		}
-		if (ImGui::BeginMenu("Edit"))
-		{
-			if (ImGui::MenuItem("Undo", "CTRL+Z")) {}
-			if (ImGui::MenuItem("Redo", "CTRL+Y", false, false)) {}  // Disabled item
-			ImGui::Separator();
-			if (ImGui::MenuItem("Cut", "CTRL+X")) {}
-			if (ImGui::MenuItem("Copy", "CTRL+C")) {}
-			if (ImGui::MenuItem("Paste", "CTRL+V")) {}
-			ImGui::EndMenu();
-		}
-		if (ImGui::BeginMenu("GameObject"))
-		{
-			if (ImGui::MenuItem("Create Empty", "CTRL+B")) { TOOL->SetSelectedObjH(GUI->CreateEmptyGameObject()); }
-			if (ImGui::MenuItem("Create Empty Child", "CTRL+Z")) {}
-			if (ImGui::MenuItem("Create Empty Parent", "CTRL+Z")) {}
-
-			ImGui::Separator();
-			if (ImGui::MenuItem("2D Object", "CTRL+Z")) {}
-			if (ImGui::MenuItem("3D Object", "CTRL+Z")) {}
-			ImGui::EndMenu();
-		}
-		if (ImGui::BeginMenu("Component"))
-		{
-			if (ImGui::MenuItem("Mesh", "CTRL+Z")) {}
-			if (ImGui::MenuItem("Sound", "CTRL+Z")) {}
-			if (ImGui::MenuItem("Light", "CTRL+Z")) {}
-			if (ImGui::MenuItem("Camera", "CTRL+Z")) {}
-
-			ImGui::EndMenu();
-		}
-
-		ImGui::EndMainMenuBar();
-	}
-}
-
-void EditorTool::AppPlayMenu()
-{
-	ImGui::SetNextWindowPos(ImVec2(800, 21));
-	ImGui::SetNextWindowSize(ImVec2(1920 - 800, 30));
-	ImGui::Begin("PlayMenu", NULL, ImGuiCol_FrameBg);
-
-	ImGui::SetCursorPos(ImVec2((1920 - 800) * 0.5f, ImGui::GetCursorPosY()));
-	if (ImGui::Button("Play", ImVec2(50, 0)))
-	{
-
-	}
-
-	ImGui::SameLine();
-	if (ImGui::Button("Stop", ImVec2(50, 0)))
-	{
-
-	}
-	ImGui::End();
-}
-
-void EditorTool::MenuFileList()
-{
-	if (ImGui::MenuItem("New")) {}
-	if (ImGui::MenuItem("Open", "Ctrl+O")) {}
-	if (ImGui::MenuItem("Save", "Ctrl+S")) {}
-	if (ImGui::MenuItem("Save As..")) {}
-
-	ImGui::Separator();
-	if (ImGui::BeginMenu("Options"))
-	{
-		static bool enabled = true;
-		ImGui::MenuItem("Enabled", "", &enabled);
-		ImGui::BeginChild("child", ImVec2(0, 60), true);
-		for (int i = 0; i < 10; i++)
-			ImGui::Text("Scrolling Text %d", i);
-		ImGui::EndChild();
-		static float f = 0.5f;
-		static int n = 0;
-		ImGui::SliderFloat("Value", &f, 0.0f, 1.0f);
-		ImGui::InputFloat("Input", &f, 0.1f);
-		ImGui::Combo("Combo", &n, "Yes\0No\0Maybe\0\0");
-		ImGui::EndMenu();
-	}
-
-	if (ImGui::BeginMenu("Colors"))
-	{
-		float sz = ImGui::GetTextLineHeight();
-		for (int i = 0; i < ImGuiCol_COUNT; i++)
-		{
-			const char* name = ImGui::GetStyleColorName((ImGuiCol)i);
-			ImVec2 p = ImGui::GetCursorScreenPos();
-			ImGui::GetWindowDrawList()->AddRectFilled(p, ImVec2(p.x + sz, p.y + sz), ImGui::GetColorU32((ImGuiCol)i));
-			ImGui::Dummy(ImVec2(sz, sz));
-			ImGui::SameLine();
-			ImGui::MenuItem(name);
-		}
-		ImGui::EndMenu();
-	}
-
-	if (ImGui::BeginMenu("Options")) // <-- Append!
-	{
-		static bool b = true;
-		ImGui::Checkbox("SomeOption", &b);
-		ImGui::EndMenu();
-	}
-
-	if (ImGui::BeginMenu("Disabled", false)) // Disabled
-	{
-		IM_ASSERT(0);
-	}
-	if (ImGui::MenuItem("Checked", NULL, true)) {}
-	ImGui::Separator();
-	if (ImGui::MenuItem("Quit", "Alt+F4")) {}
-
-}
-
-void EditorTool::SceneEditorWindow()
-{
-
-}
-
-void EditorTool::GameEditorWindow()
-{
-	GameWindowDesc gameDesc;
-
-	ImGui::SetNextWindowPos(gameDesc.pos); // 왼쪽 상단에 위치
-	ImGui::SetNextWindowSize(gameDesc.size); // 크기 설정
-	ImGui::Begin("Game");
-	// 게임 윈도우 내용 추가
-	ImGui::End();
-}
-
-void EditorTool::HierachyEditorWindow()
-{
-	ImGui::SetNextWindowPos(ImVec2(800, 51));
-	ImGui::SetNextWindowSize(ImVec2(373, 1010));
-
-	ImGuiIO& io = ImGui::GetIO();
-	if (io.NavActive == 0)
-		TOOL->SetSelectedObjH(-1);
-
-	ImGui::Begin("Hiearchy", nullptr);
-
-	ImGui::BeginChild("left pane", ImVec2(360, 0), true);
-
-	//	if (ImGui::IsWindowFocused() == false)
-		//	TOOL->SetSelectedObjH(-1);
-
-	const auto gameObjects = CUR_SCENE->GetCreatedObjects();
-	ImGuiStyle& style = ImGui::GetStyle();
-	style.Colors[ImGuiCol_Header] = ImVec4(0.2f, 0.2f, 0.2f, 0.2f);
-
-	for (auto& object : gameObjects)
-	{
-		wstring wstr = object.second->GetObjectName();
-		if (wstr.empty())
-			continue;
-		string name(wstr.begin(), wstr.end());
-
-		bool isSelected = (SELECTED_H == object.first);
-
-		if (isSelected)
-			ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.25f, 0.58f, 1.0f, 1.f)); // Blue background
-		else
-			ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.2f, 0.2f, 0.2f, 0.2f)); // Default background
-
-		if (ImGui::Selectable(name.c_str(), (SELECTED_H == object.first, ImGuiSelectableFlags_SpanAllColumns)))
-		{
-			TOOL->SetSelectedObjH(object.first);
-			//TODO : 인스펙터
-		}
-
-		ImGui::PopStyleColor();
-	}
-
-	ImGui::EndChild();
-
-	ImGui::End();
-}
-static std::wstring rootDirectory = L"E:\\Github\\DX11\\Project";
-static std::wstring selectedDirectory = L"";  // 선택한 폴더의 경로
-
-void EditorTool::ProjectEditorWindow()
-{
-	ImGui::SetNextWindowPos(ImVec2(800 + 373, 51));
-	ImGui::SetNextWindowSize(ImVec2(373, 1010));
-	ImGui::Begin("Project");
-
-	if (ImGui::BeginTable("FolderTable", 2, ImGuiTableFlags_BordersOuter | ImGuiTableFlags_Resizable))
-	{
-		// 폴더 계층 구조를 표시합니다.
-		ListFolderHierarchy(rootDirectory, 0);
-
-		// 오른쪽 창에서 선택한 폴더 내의 파일 및 폴더를 표시합니다.
-		if (!selectedDirectory.empty())
-		{
-			DisplayContentsOfSelectedFolder(selectedDirectory);
-		}
-
-		ImGui::EndTable();
-	}
-
-	ImGui::End();
-}
-
-
-void EditorTool::ListFolderHierarchy(const std::wstring& directory, int indentation)
-{
-	std::wstring searchPath = directory + L"\\*.*";
-	WIN32_FIND_DATA findFileData;
-	HANDLE hFind = FindFirstFile(searchPath.c_str(), &findFileData);
-	if (hFind == INVALID_HANDLE_VALUE)
-	{
-		ImGui::Text("Error listing files.");
-		return;
-	}
-
-	do
-	{
-		if ((findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
-			wcscmp(findFileData.cFileName, L".") != 0 && wcscmp(findFileData.cFileName, L"..") != 0)
-		{
-			const std::wstring fileName = findFileData.cFileName;
-			std::string folderName = Utils::ConvertWCharToChar(fileName.c_str());
-
-			// 테이블의 새 행을 생성합니다.
-			ImGui::TableNextRow();
-
-			// 첫 번째 컬럼(폴더 이름)을 설정합니다.
-			ImGui::TableSetColumnIndex(0);
-			ImGui::PushID(folderName.c_str());
-			ImGui::AlignTextToFramePadding();
-
-			bool node_open = ImGui::TreeNodeEx(folderName.c_str(), ImGuiTreeNodeFlags_SpanFullWidth);
-			if (node_open)
-			{
-
-				//// 폴더가 클릭되면 selectedDirectory를 업데이트 합니다.
-				if (ImGui::IsItemClicked())
-				{
-					selectedDirectory = directory + L"\\" + fileName;
-				}
-
-				ListFolderHierarchy(directory + L"\\" + fileName, indentation + 1);
-				ImGui::TreePop();
-			}
-			ImGui::PopID();
-		}
-	} while (FindNextFile(hFind, &findFileData) != 0);
-
-	FindClose(hFind);
-}
-
-void EditorTool::DisplayContentsOfSelectedFolder(const std::wstring& directory)
-{
-	std::wstring searchPath = directory + L"\\*.*";
-	WIN32_FIND_DATA findFileData;
-	HANDLE hFind = FindFirstFile(searchPath.c_str(), &findFileData);
-	if (hFind == INVALID_HANDLE_VALUE)
-	{
-		ImGui::Text("Error listing files.");
-		return;
-	}
-
-	do
-	{
-		const std::wstring fileName = findFileData.cFileName;
-		if (fileName == L"." || fileName == L"..")  // 이 부분을 추가
-			continue;
-		
-		std::string itemName = Utils::ConvertWCharToChar(fileName.c_str());
-
-		ImGui::TableNextRow();
-		ImGui::TableSetColumnIndex(1);  // 오른쪽 창에 표시
-
-		if (ImGui::Selectable(itemName.c_str()))
-		{
-			// 이곳에서 해당 항목이 클릭되었을 때 수행할 작업을 처리하십시오.
-			// 예를 들어, 파일을 열거나 다른 작업을 수행할 수 있습니다.
-		}
-
-	} while (FindNextFile(hFind, &findFileData) != 0);
-
-	FindClose(hFind);
-}
-
-void EditorTool::InspectorEditorWindow()
-{
-
-	ImGui::SetNextWindowPos(ImVec2(800 + 373 + 373, 51));
-	ImGui::SetNextWindowSize(ImVec2(373, 1010));
-
-	ImGui::Begin("Inspector");
-
-
-	if (SELECTED_H > -1)
-	{
-		shared_ptr<GameObject> go = CUR_SCENE->GetCreatedObject(SELECTED_H);
-
-		wstring objectName = go->GetObjectName();
-		string objName = string(objectName.begin(), objectName.end());
-
-		char modifiedName[256];
-		strncpy_s(modifiedName, objName.c_str(), sizeof(modifiedName));
-
-		ImGuiStyle& style = ImGui::GetStyle();
-		style.Colors[ImGuiCol_FrameBg] = ImVec4(0.2f, 0.2f, 0.2f, 0.2f);
-		style.Colors[ImGuiCol_ScrollbarBg] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-
-		ImGui::InputText(" ", modifiedName, sizeof(modifiedName));
-		{
-			go->SetObjectName(wstring(modifiedName, modifiedName + strlen(modifiedName)));
-		}
-
-		ImGui::SameLine();
-
-		int selectedLayer = static_cast<int>(go->GetLayerIndex());
-		if (ImGui::Combo("Layer", &selectedLayer, "Default\0UI\0Wall\0Invisible\0"))
-		{
-			go->SetLayerIndex(selectedLayer);
-		}
-
-		for (int i = 0; i < (int)ComponentType::End - 1; i++)
-		{
-			ComponentType componentType = static_cast<ComponentType>(i);
-			shared_ptr<Component> comp = go->GetFixedComponent(componentType);
-
-			if (comp == nullptr)
-				continue;
-
-			string s = GUI->EnumToString(componentType);
-
-			if (ImGui::TreeNodeEx(s.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
-			{
-				comp->OnInspectorGUI();
-	
-				ImGui::TreePop();
-			}
-		}
-
-		const auto& monoBehaviors = go->GetMonoBehaviours();
-		for (auto& behaviors : monoBehaviors)
-		{
-			wstring rawName = behaviors->GetBehaviorName();
-			string name = string(rawName.begin(), rawName.end());
-
-			if (ImGui::TreeNodeEx(name.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
-			{
-				ImGui::TreePop();
-			}
-		}
-
-
-		if (ImGui::Button("Add Component", ImVec2(-1, 0)))
-		{
-			ImVec2 buttonPos = ImGui::GetCursorScreenPos();
-			ImGui::OpenPopup("Add Component Menu");
-			buttonPos.y += ImGui::GetTextLineHeightWithSpacing() * 0.4f;
-			ImGui::SetNextWindowPos(buttonPos);
-		}
-
-		if (ImGui::BeginPopup("Add Component Menu"))
-		{
-			if (ImGui::BeginMenu("FixedComponent"))
-			{
-				for (int i = 0; i < (int)ComponentType::End - 1; i++)
-				{
-					ComponentType componentType = static_cast<ComponentType>(i);
-					string fixedCompName = GUI->EnumToString(componentType);
-
-					if (ImGui::MenuItem(fixedCompName.c_str()))
-					{
-						if(go->GetFixedComponent(componentType))
-							continue;
-
-						
-						switch (componentType)
-						{
-						case ComponentType::Transform: go->AddComponent(make_shared<Transform>());
-							break;
-						case ComponentType::MeshRenderer: go->AddComponent(make_shared<MeshRenderer>());
-							break;
-					//	case ComponentType::ModelRenderer: go->AddComponent(make_shared<ModelRenderer>());
-					//		break;
-						case ComponentType::Camera: go->AddComponent(make_shared<Camera>());
-							break;
-					//	case ComponentType::Animator: go->AddComponent(make_shared<ModelAnimator>());
-					//		break;
-						case ComponentType::Light: go->AddComponent(make_shared<Light>());
-							break;
-						case ComponentType::Collider: go->AddComponent(make_shared<OBBBoxCollider>());
-							break;
-						case ComponentType::Terrain: go->AddComponent(make_shared<Terrain>());
-							break;
-						case ComponentType::Button: go->AddComponent(make_shared<Button>());
-							break;
-						case ComponentType::BillBoard: go->AddComponent(make_shared<Billboard>());
-							break;
-						//case ComponentType::SnowBillBoard: go->AddComponent(make_shared<SnowBillboard>());
-						//	break;
-
-						}
-					//	go->AddComponent( GUI->CreateComponentByType(componentType) ) ;
-						//shared_ptr<type_id(*this)> comp = make_shared<Component>(); // 이걸 어떻게 ComponentType에 맞게 바꾸냐고
-					//	go->AddComponent("여기다가 componentType에 맞게 추가");
-					}
-				}
-
-				ImGui::EndMenu();
-			}
-
-			if (ImGui::MenuItem("new Script"))
-			{
-
-			}
-
-			ImGui::EndPopup();
-		}
-
-	}
-	ImGui::End();
-}
 

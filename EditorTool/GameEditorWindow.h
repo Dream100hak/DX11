@@ -1,14 +1,14 @@
 #pragma once
 #include "EditorWindow.h"
 
-class Inspector : public EditorWindow
+class GameEditorWindow : public EditorWindow
 {
 public:
-	Inspector();
-	~Inspector();
+	GameEditorWindow();
+	~GameEditorWindow();
 
 	virtual void Init() override;
 	virtual void Update() override;
 
-	void ShowInspector();
+	void ShowGameWindow();
 };

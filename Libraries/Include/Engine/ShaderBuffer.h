@@ -5,8 +5,10 @@
 #include "Shader.h"
 
 
-class ShaderBuffer
+class ShaderBuffer : public ResourceBase
 {
+	using Super = ResourceBase;
+
 public:
 	friend struct Pass;
 

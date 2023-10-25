@@ -13,6 +13,7 @@
 #include "SnowBillboard.h"
 #include "Button.h"
 #include "OBBBoxCollider.h"
+#include "SkyBox.h"
 
 #include "Material.h"
 #include "ShortcutManager.h"
@@ -26,7 +27,7 @@ void EditorTool::Init()
 	GET_SINGLE(ShortcutManager)->Init();
 	GET_SINGLE(EditorToolManager)->Init();
 
-	_shader = make_shared<ShaderBuffer>(L"23. RenderDemo.fx");
+	auto shader = RESOURCES->Get<Shader>(L"Standard");
 
 	// Camera
 	{
@@ -54,37 +55,16 @@ void EditorTool::Init()
 		CUR_SCENE->Add(light);
 	}
 	{
-		auto shader = make_shared<ShaderBuffer>(L"18. SkyDemo.fx");
-
-		// Material
-		{
-			shared_ptr<Material> material = make_shared<Material>();
-			material->SetShader(shader);
-			auto texture = RESOURCES->Load<Texture>(L"Sky", L"..\\Resources\\Textures\\sky01.jpg");
-			material->SetDiffuseMap(texture);
-			MaterialDesc& desc = material->GetMaterialDesc();
-			desc.ambient = Vec4(1.f);
-			desc.diffuse = Vec4(1.f);
-			desc.specular = Vec4(1.f);
-			RESOURCES->Add(L"Sky", material);
-		}
-		{
-			// Object
-			auto obj = make_shared<GameObject>();
-			obj->SetObjectName(L"SkyBox");
-			obj->GetOrAddTransform();
-			obj->AddComponent(make_shared<MeshRenderer>());
-			{
-				auto mesh = RESOURCES->Get<Mesh>(L"Sphere");
-				obj->GetMeshRenderer()->SetMesh(mesh);
-			}
-			{
-				auto material = RESOURCES->Get<Material>(L"Sky");
-				obj->GetMeshRenderer()->SetMaterial(material);
-			}
-
-			CUR_SCENE->Add(obj);
-		}
+		
+		// Object
+		auto obj = make_shared<GameObject>();
+		obj->SetObjectName(L"SkyBox");
+		obj->GetOrAddTransform();
+		obj->AddComponent(make_shared<SkyBox>());
+		obj->GetSkyBox()->Init();
+		
+		CUR_SCENE->Add(obj);
+	
 	}
 	// Model
 	{
@@ -101,7 +81,7 @@ void EditorTool::Init()
 			obj->GetOrAddTransform()->SetPosition(Vec3(rand() % 100, 0, rand() % 100));
 			obj->GetOrAddTransform()->SetScale(Vec3(0.01f));
 
-			obj->AddComponent(make_shared<ModelRenderer>(_shader));
+			obj->AddComponent(make_shared<ModelRenderer>(shader));
 			{
 				obj->GetModelRenderer()->SetModel(m2);
 				obj->GetModelRenderer()->SetPass(1);
@@ -430,7 +410,7 @@ void EditorTool::InspectorEditorWindow()
 						case ComponentType::MeshRenderer: go->AddComponent(make_shared<MeshRenderer>());
 							break;
 					//	case ComponentType::ModelRenderer: go->AddComponent(make_shared<ModelRenderer>());
-						//	break;
+					//		break;
 						case ComponentType::Camera: go->AddComponent(make_shared<Camera>());
 							break;
 					//	case ComponentType::Animator: go->AddComponent(make_shared<ModelAnimator>());

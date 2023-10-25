@@ -78,7 +78,7 @@ using namespace Microsoft::WRL;
 #include "VertexBuffer.h"
 #include "IndexBuffer.h"
 #include "ConstantBuffer.h"
-#include "ShaderBuffer.h"
+#include "Shader.h"
 #include "IExecute.h"
 
 #include "GameObject.h"

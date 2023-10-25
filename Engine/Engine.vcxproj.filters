@@ -205,11 +205,11 @@
     <ClInclude Include="GameObject.h">
       <Filter>04. Object</Filter>
     </ClInclude>
-    <ClInclude Include="ShaderBuffer.h">
+    <ClInclude Include="Shader.h">
       <Filter>01. Graphics\Shader</Filter>
     </ClInclude>
-    <ClInclude Include="Shader.h">
-      <Filter>00. Engine\Resource</Filter>
+    <ClInclude Include="SkyBox.h">
+      <Filter>05. Component</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -318,7 +318,7 @@
     <ClCompile Include="Pass.cpp">
       <Filter>01. Graphics\Shader</Filter>
     </ClCompile>
-    <ClCompile Include="ShaderBuffer.cpp">
+    <ClCompile Include="Shader.cpp">
       <Filter>01. Graphics\Shader</Filter>
     </ClCompile>
     <ClCompile Include="Technique.cpp">
@@ -408,8 +408,8 @@
     <ClCompile Include="GameObject.cpp">
       <Filter>04. Object</Filter>
     </ClCompile>
-    <ClCompile Include="Shader.cpp">
-      <Filter>00. Engine\Resource</Filter>
+    <ClCompile Include="SkyBox.cpp">
+      <Filter>05. Component</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

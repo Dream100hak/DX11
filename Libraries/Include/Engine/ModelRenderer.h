@@ -2,7 +2,7 @@
 #include "Component.h"
 
 class Model;
-class ShaderBuffer;
+class Shader;
 class Material;
 
 class ModelRenderer : public Component
@@ -10,7 +10,7 @@ class ModelRenderer : public Component
 	using Super = Component;
 
 public:
-	ModelRenderer(shared_ptr<ShaderBuffer> shader);
+	ModelRenderer(shared_ptr<Shader> shader);
 	virtual ~ModelRenderer();
 
 	void SetModel(shared_ptr<Model> model);
@@ -20,7 +20,7 @@ public:
 	InstanceID GetInstanceID();
 
 private:
-	shared_ptr<ShaderBuffer>	_shader;
+	shared_ptr<Shader>	_shader;
 	uint8				_pass = 0;
 	shared_ptr<Model>	_model;
 };

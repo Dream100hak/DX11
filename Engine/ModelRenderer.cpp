@@ -6,7 +6,7 @@
 #include "Camera.h"
 #include "Light.h"
 
-ModelRenderer::ModelRenderer(shared_ptr<ShaderBuffer> shader)
+ModelRenderer::ModelRenderer(shared_ptr<Shader> shader)
 	: Super(ComponentType::ModelRenderer), _shader(shader)
 {
 

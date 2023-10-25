@@ -9,7 +9,7 @@ public:
 	void Render() override;
 
 private:
-	shared_ptr<ShaderBuffer> _shader;
+	shared_ptr<Shader> _shader;
 
 private:
 };

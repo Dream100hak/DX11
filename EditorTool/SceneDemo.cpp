@@ -18,7 +18,7 @@
 
 void SceneDemo::Init()
 {
-	_shader = make_shared<ShaderBuffer>(L"23. RenderDemo.fx");
+	_shader = make_shared<Shader>(L"23. RenderDemo.fx");
 
 	// Camera
 	{

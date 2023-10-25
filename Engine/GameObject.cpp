@@ -12,6 +12,7 @@
 #include "Button.h"
 #include "Billboard.h"
 #include "SnowBillboard.h"
+#include "SkyBox.h"
 #include <chrono>
 
 
@@ -173,6 +174,12 @@ std::shared_ptr<SnowBillboard> GameObject::GetSnowBillboard()
 {
 	shared_ptr<Component> component = GetFixedComponent(ComponentType::SnowBillBoard);
 	return static_pointer_cast<SnowBillboard>(component);
+}
+
+std::shared_ptr<SkyBox> GameObject::GetSkyBox()
+{
+	shared_ptr<Component> component = GetFixedComponent(ComponentType::SkyBox);
+	return static_pointer_cast<SkyBox>(component);
 }
 
 std::shared_ptr<Transform> GameObject::GetOrAddTransform()

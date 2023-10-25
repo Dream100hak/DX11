@@ -23,7 +23,4 @@ public:
 
 	bool _showWindow = true;
 
-private:
-	shared_ptr<ShaderBuffer> _shader;
-
 };

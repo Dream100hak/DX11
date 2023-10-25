@@ -8,6 +8,8 @@
 void ResourceManager::Init()
 {
 	CreateDefaultMesh();
+	CreateDefaultShader();
+	CreateDefaultMaterial();
 }
 
 std::shared_ptr<Texture> ResourceManager::GetOrAddTexture(const wstring& key, const wstring& path)
@@ -56,14 +58,12 @@ void ResourceManager::CreateDefaultShader()
 
 void ResourceManager::CreateDefaultMaterial()
 {
-	//auto shader = Get<Shader>(L"Standard");
-	//auto shaderBuffer = make_shared<ShaderBuffer>(shader);
-
-	//shared_ptr<Material> material = make_shared<Material>();
-	//material->SetShader(shaderBuffer);
-	//MaterialDesc& desc = material->GetMaterialDesc();
-	//desc.ambient = Vec4(1.f);
-	//desc.diffuse = Vec4(1.f);
-	//desc.specular = Vec4(1.f);
-	//RESOURCES->Add(L"DefaultMaterial", material);
+	auto shader = Get<Shader>(L"Standard");
+	shared_ptr<Material> material = make_shared<Material>();
+	material->SetShader(shader);
+	MaterialDesc& desc = material->GetMaterialDesc();
+	desc.ambient = Vec4(1.f);
+	desc.diffuse = Vec4(1.f);
+	desc.specular = Vec4(1.f);
+	RESOURCES->Add(L"DefaultMaterial", material);
 }

@@ -18,13 +18,14 @@ enum class ComponentType : uint8
 	Button,
 	BillBoard,
 	SnowBillBoard,
+	SkyBox,
 	// ...
 	Script,
 
 	End,
 };
 
-BOOST_DESCRIBE_ENUM(ComponentType , Transform , MeshRenderer , ModelRenderer, Camera, Animator, Light , Collider , Terrain, Button, BillBoard, SnowBillBoard)
+BOOST_DESCRIBE_ENUM(ComponentType , Transform , MeshRenderer , ModelRenderer, Camera, Animator, Light , Collider , Terrain, Button, BillBoard, SnowBillBoard , SkyBox)
 
 enum
 {

@@ -2,7 +2,7 @@
 #include "Component.h"
 
 class Mesh;
-class ShaderBuffer;
+class Shader;
 class Material;
 
 #define MAX_MESH_INSTANCE 500

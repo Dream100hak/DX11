@@ -20,6 +20,8 @@ public:
 	void HierachyEditorWindow();
 	void ProjectEditorWindow();
 	void InspectorEditorWindow();
+	void ListFolderHierarchy(const std::wstring& directory, int indentation);
+	void DisplayContentsOfSelectedFolder(const std::wstring& directory);
 
 	bool _showWindow = true;
 

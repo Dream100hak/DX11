@@ -77,3 +77,17 @@ std::string Utils::GetResourcesName(string value, string exten)
 	return resourceName;
 }
 
+string Utils::ConvertWCharToChar(const wchar_t* wstr)
+{
+	int bufferSize = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, nullptr, 0, nullptr, nullptr);
+	if (bufferSize == 0)
+	{
+		// 변환 실패
+		return "";
+	}
+
+	std::string result(bufferSize, 0);
+	WideCharToMultiByte(CP_UTF8, 0, wstr, -1, &result[0], bufferSize, nullptr, nullptr);
+
+	return result;
+}

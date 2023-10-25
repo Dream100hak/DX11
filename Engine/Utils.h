@@ -14,5 +14,7 @@ public:
 
 	static wstring GetResourcesName(wstring value , wstring exten);  // 확장자 뺀 이름만 
 	static string  GetResourcesName(string value, string exten);  // 확장자 뺀 이름만 
+
+	static string ConvertWCharToChar(const wchar_t* wideString);
 };
 

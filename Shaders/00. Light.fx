@@ -14,7 +14,7 @@ struct LightDesc
 	float4 specular;
 	float4 emissive;
 	float3 direction;
-	float padding;
+    float intensity;
 };
 
 struct MaterialDesc
@@ -68,7 +68,7 @@ float4 ComputeLight(float3 normal, float2 uv, float3 worldPosition)
 	{
 		float4 color = DiffuseMap.Sample(LinearSampler, uv);
 		float value = dot(-GlobalLight.direction, normalize(normal));
-		diffuseColor = color * value * GlobalLight.diffuse * Material.diffuse;
+		diffuseColor = color * value * GlobalLight.diffuse * Material.diffuse ;
 	}
 
 	// Specular
@@ -101,7 +101,7 @@ float4 ComputeLight(float3 normal, float2 uv, float3 worldPosition)
 		emissiveColor = GlobalLight.emissive * Material.emissive * emissive;
 	}
 
-	return ambientColor + diffuseColor + specularColor + emissiveColor;
+    return (ambientColor + diffuseColor + specularColor + emissiveColor) * GlobalLight.intensity;
 }
 
 void ComputeNormalMapping(inout float3 normal, float3 tangent, float2 uv)

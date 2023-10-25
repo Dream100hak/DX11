@@ -19,7 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="CameraScript.h" />
+    <ClInclude Include="SceneCamera.h" />
     <ClInclude Include="Define.h" />
     <ClInclude Include="EditorTool.h" />
     <ClInclude Include="EditorToolManager.h" />
@@ -31,7 +31,7 @@
     <ClInclude Include="ShortcutManager.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="CameraScript.cpp" />
+    <ClCompile Include="SceneCamera.cpp" />
     <ClCompile Include="EditorTool.cpp" />
     <ClCompile Include="EditorToolManager.cpp" />
     <ClCompile Include="Hiearchy.cpp" />
@@ -46,6 +46,12 @@
     <ClCompile Include="ShortcutManager.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <FxCompile Include="..\Shaders\00. Standard.fx">
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+      </EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+    </FxCompile>
     <FxCompile Include="..\Shaders\00. Global.fx">
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
       </EntryPointName>

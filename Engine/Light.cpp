@@ -13,5 +13,5 @@ Light::~Light()
 
 void Light::Update()
 {
-	//RENDER->PushLightData(_desc);
+
 }

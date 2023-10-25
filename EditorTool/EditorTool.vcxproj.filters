@@ -28,6 +28,9 @@
     <Filter Include="GameObject">
       <UniqueIdentifier>{af55a9da-d2fc-4c63-808e-fde191dd89e6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shaders\Contents">
+      <UniqueIdentifier>{2d1ecde8-e453-48bc-acd7-0b8e97c6c24b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -36,7 +39,7 @@
     <ClInclude Include="Main.h">
       <Filter>Main</Filter>
     </ClInclude>
-    <ClInclude Include="CameraScript.h" />
+    <ClInclude Include="SceneCamera.h" />
     <ClInclude Include="SceneDemo.h">
       <Filter>EditorTools</Filter>
     </ClInclude>
@@ -66,7 +69,7 @@
     <ClCompile Include="Main.cpp">
       <Filter>Main</Filter>
     </ClCompile>
-    <ClCompile Include="CameraScript.cpp" />
+    <ClCompile Include="SceneCamera.cpp" />
     <ClCompile Include="SceneDemo.cpp">
       <Filter>EditorTools</Filter>
     </ClCompile>
@@ -182,6 +185,9 @@
     </FxCompile>
     <FxCompile Include="..\Shaders\00. Light.fx">
       <Filter>Shaders\Common</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\00. Standard.fx">
+      <Filter>Shaders\Contents</Filter>
     </FxCompile>
   </ItemGroup>
 </Project>

@@ -1,8 +1,19 @@
 #pragma once
 #include <boost/describe.hpp>
 #include <boost/mp11.hpp>
+#include "Component.h"
 
-
+class Transform;
+class Camera;
+class MeshRenderer;
+class ModelRenderer;
+class ModelAnimator;
+class Light;
+class BaseCollider;
+class Terrain;
+class Button;
+class Billboard;
+class SnowBillboard;
 
 class ImGuiManager
 {

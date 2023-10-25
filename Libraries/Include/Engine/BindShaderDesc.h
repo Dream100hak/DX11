@@ -25,8 +25,43 @@ struct LightDesc
 	Color emissive = Color(1.f, 1.f, 1.f, 1.f);
 
 	Vec3 direction;
-	float padding0;
+	float intensity = 1.f;
 };
+struct PointLightDesc
+{
+
+	Color ambient = Color(1.f, 1.f, 1.f, 1.f);
+	Color diffuse = Color(1.f, 1.f, 1.f, 1.f);
+	Color specular = Color(1.f, 1.f, 1.f, 1.f);
+
+	Vec3 position;
+	float range;
+
+	// Packed into 4D vector: (A0, A1, A2, Pad)
+	Vec3 att;
+	float padding0; // Pad the last float so we can set an array of lights if we wanted.
+};
+
+struct SpotLightDesc
+{
+
+	Color ambient = Color(1.f, 1.f, 1.f, 1.f);
+	Color diffuse = Color(1.f, 1.f, 1.f, 1.f);
+	Color specular = Color(1.f, 1.f, 1.f, 1.f);
+
+	// Packed into 4D vector: (Position, Range)
+	Vec3 Position;
+	float Range;
+
+	// Packed into 4D vector: (Direction, Spot)
+	Vec3 Direction;
+	float Spot;
+
+	// Packed into 4D vector: (Att, Pad)
+	Vec3 Att;
+	float Pad; // Pad the last float so we can set an array of lights if we wanted.
+};
+
 
 struct MaterialDesc
 {

@@ -1,13 +1,13 @@
 #include "pch.h"
-#include "CameraScript.h"
+#include "SceneCamera.h"
 #include "Transform.h"
 
-void CameraScript::Start()
+void SceneCamera::Start()
 {
 
 }
 
-void CameraScript::Update()
+void SceneCamera::Update()
 {
 	float dt = TIME->GetDeltaTime();
 

@@ -3,7 +3,7 @@
 #include "GeometryHelper.h"
 #include "Camera.h"
 #include "GameObject.h"
-#include "CameraScript.h"
+#include "SceneCamera.h"
 #include "MeshRenderer.h"
 #include "Mesh.h"
 #include "Material.h"
@@ -25,7 +25,7 @@ void SceneDemo::Init()
 		auto camera = make_shared<GameObject>();
 		camera->GetOrAddTransform()->SetPosition(Vec3{ 0.f, 0.f, -5.f });
 		camera->AddComponent(make_shared<Camera>());
-		camera->AddComponent(make_shared<CameraScript>());
+		camera->AddComponent(make_shared<SceneCamera>());
 		CUR_SCENE->Add(camera);
 	}
 

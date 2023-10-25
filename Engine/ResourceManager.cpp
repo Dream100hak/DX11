@@ -3,6 +3,7 @@
 #include "Texture.h"
 #include "Shader.h"
 #include "Mesh.h"
+#include "Material.h"
 #include <filesystem>
 
 void ResourceManager::Init()
@@ -46,4 +47,23 @@ void ResourceManager::CreateDefaultMesh()
 		mesh->CreateSphere();
 		Add(L"Sphere", mesh);
 	}
+}
+
+void ResourceManager::CreateDefaultShader()
+{
+	shared_ptr<Shader> shader = make_shared<Shader>(L"00. Standard.fx");
+	Add(L"StandardShader" , shader);
+}
+
+void ResourceManager::CreateDefaultMaterial()
+{
+	auto shader = Get<Shader>(L"StandardShader");
+
+	shared_ptr<Material> material = make_shared<Material>();
+	material->SetShader(shader);
+	MaterialDesc& desc = material->GetMaterialDesc();
+	desc.ambient = Vec4(1.f);
+	desc.diffuse = Vec4(1.f);
+	desc.specular = Vec4(1.f);
+	RESOURCES->Add(L"DefaultMaterial", material);
 }

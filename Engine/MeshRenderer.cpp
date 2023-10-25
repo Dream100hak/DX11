@@ -34,7 +34,6 @@ void MeshRenderer::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
 	if (lightObj)
 		shader->PushLightData(lightObj->GetLight()->GetLightDesc());
 
-	// Light
 	_material->Update();
 
 	// IA
@@ -42,7 +41,6 @@ void MeshRenderer::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
 	_mesh->GetIndexBuffer()->PushData();
 
 	buffer->PushData();
-
 	shader->DrawIndexedInstanced(0, _pass, _mesh->GetIndexBuffer()->GetCount(), buffer->GetCount());
 }
 

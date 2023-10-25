@@ -1,5 +1,6 @@
 #pragma once
 #include "Component.h"
+#include "imgui.h"
 
 class Transform : public Component
 {
@@ -10,6 +11,41 @@ public:
 
 	virtual void Awake() override;
 	virtual void Update() override;
+
+	virtual void OnInspectorGUI() override
+	{
+		Super::OnInspectorGUI();
+
+		float uiPos[3] = { _localPosition.x , _localPosition.y , _localPosition.z };
+		float uiRot[3] = { _localRotation.x , _localRotation.y ,_localRotation.z };
+		float uiScale[3] = { _localScale.x , _localScale.y ,_localScale.z };
+
+		ImGui::Text("Pos		");
+		ImGui::SameLine(0.f, -2.f);
+
+		if (ImGui::DragFloat3("##pos", uiPos))
+		{
+			SetLocalPosition(Vec3(uiPos));
+
+		}
+		ImGui::Text("Rot		");
+		ImGui::SameLine();
+
+		if (ImGui::DragFloat3("##rot", uiRot , 1.f , -360.f , 360.f))
+		{
+			SetLocalRotation(Vec3(uiRot));
+		}
+
+		ImGui::Text("Scale	  ");
+		ImGui::SameLine();
+
+		if (ImGui::DragFloat3("##scale", uiScale))
+		{
+			SetLocalScale(Vec3(uiScale));
+		}
+
+		UpdateTransform();
+	}
 
 	void UpdateTransform();
 

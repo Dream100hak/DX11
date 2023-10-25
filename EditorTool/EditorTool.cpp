@@ -5,8 +5,15 @@
 #include "Light.h"
 #include "Model.h"
 #include "ModelRenderer.h"
-#include "CameraScript.h"
+#include "SceneCamera.h"
 #include "MeshRenderer.h"
+#include "ModelAnimator.h"
+#include "Terrain.h"
+#include "Billboard.h"
+#include "SnowBillboard.h"
+#include "Button.h"
+#include "OBBBoxCollider.h"
+
 #include "Material.h"
 #include "ShortcutManager.h"
 #include "EditorToolManager.h"
@@ -24,22 +31,25 @@ void EditorTool::Init()
 	// Camera
 	{
 		shared_ptr<GameObject> camera = make_shared<GameObject>();
-		camera->SetObjectName(L"Main Camera");
+		camera->SetObjectName(L"Scene Camera");
 		camera->GetOrAddTransform()->SetPosition(Vec3{ 0.f, 0.f, -5.f });
 		camera->AddComponent(make_shared<Camera>());
-		camera->AddComponent(make_shared<CameraScript>());
+		camera->AddComponent(make_shared<SceneCamera>());
 		CUR_SCENE->Add(camera);
 	}
+	
 	// Light
 	{
 		auto light = make_shared<GameObject>();
 		light->SetObjectName(L"Direction Light");
+		light->GetOrAddTransform()->SetPosition(Vec3(0.f));
+		light->GetOrAddTransform()->SetRotation(Vec3(0.5f, 0.3f, 1.f));
 		light->AddComponent(make_shared<Light>());
 		LightDesc lightDesc;
-		lightDesc.ambient = Vec4(0.4f);
-		lightDesc.diffuse = Vec4(1.f);
-		lightDesc.specular = Vec4(0.1f);
-		lightDesc.direction = Vec3(1.f, 0.f, 1.f);
+		lightDesc.ambient = Vec4(1.f);
+		lightDesc.diffuse = Vec4(1.f, 1.f , 1.f, 1.f);
+		lightDesc.specular = Vec4(0.5f);
+		lightDesc.direction = light->GetTransform()->GetRotation();
 		light->GetLight()->SetLightDesc(lightDesc);
 		CUR_SCENE->Add(light);
 	}
@@ -82,7 +92,7 @@ void EditorTool::Init()
 		m2->ReadModel(L"Tower/Tower");
 		m2->ReadMaterial(L"Tower/Tower");
 
-		for (int i = 0 ; i < 20; i++)
+		for (int i = 0; i < 20; i++)
 		{
 			auto obj = make_shared<GameObject>();
 			wstring name = L"Tower" + to_wstring(i);
@@ -151,10 +161,10 @@ void EditorTool::AppMainMenuBar()
 		}
 		if (ImGui::BeginMenu("GameObject"))
 		{
-			if (ImGui::MenuItem("Create Empty", "CTRL+B")) { TOOL->SetSelectedObjH(GUI->CreateEmptyGameObject());  }
+			if (ImGui::MenuItem("Create Empty", "CTRL+B")) { TOOL->SetSelectedObjH(GUI->CreateEmptyGameObject()); }
 			if (ImGui::MenuItem("Create Empty Child", "CTRL+Z")) {}
 			if (ImGui::MenuItem("Create Empty Parent", "CTRL+Z")) {}
-			
+
 			ImGui::Separator();
 			if (ImGui::MenuItem("2D Object", "CTRL+Z")) {}
 			if (ImGui::MenuItem("3D Object", "CTRL+Z")) {}
@@ -177,7 +187,7 @@ void EditorTool::AppMainMenuBar()
 void EditorTool::AppPlayMenu()
 {
 	ImGui::SetNextWindowPos(ImVec2(800, 21));
-	ImGui::SetNextWindowSize(ImVec2(1920-800, 30));
+	ImGui::SetNextWindowSize(ImVec2(1920 - 800, 30));
 	ImGui::Begin("PlayMenu", NULL, ImGuiCol_FrameBg);
 
 	ImGui::SetCursorPos(ImVec2((1920 - 800) * 0.5f, ImGui::GetCursorPosY()));
@@ -189,7 +199,7 @@ void EditorTool::AppPlayMenu()
 	ImGui::SameLine();
 	if (ImGui::Button("Stop", ImVec2(50, 0)))
 	{
-	
+
 	}
 	ImGui::End();
 }
@@ -252,7 +262,7 @@ void EditorTool::MenuFileList()
 
 void EditorTool::SceneEditorWindow()
 {
-	
+
 }
 
 void EditorTool::GameEditorWindow()
@@ -268,20 +278,20 @@ void EditorTool::GameEditorWindow()
 
 void EditorTool::HierachyEditorWindow()
 {
-	ImGui::SetNextWindowPos(ImVec2(800, 51)); 
-	ImGui::SetNextWindowSize(ImVec2(373, 1010)); 
+	ImGui::SetNextWindowPos(ImVec2(800, 51));
+	ImGui::SetNextWindowSize(ImVec2(373, 1010));
 
-	ImGuiIO& io =  ImGui::GetIO();
-	if(io.NavActive == 0)
+	ImGuiIO& io = ImGui::GetIO();
+	if (io.NavActive == 0)
 		TOOL->SetSelectedObjH(-1);
 
 	ImGui::Begin("Hiearchy", nullptr);
 
 	ImGui::BeginChild("left pane", ImVec2(360, 0), true);
 
-//	if (ImGui::IsWindowFocused() == false)
-	//	TOOL->SetSelectedObjH(-1);
-	
+	//	if (ImGui::IsWindowFocused() == false)
+		//	TOOL->SetSelectedObjH(-1);
+
 	const auto gameObjects = CUR_SCENE->GetCreatedObjects();
 	ImGuiStyle& style = ImGui::GetStyle();
 	style.Colors[ImGuiCol_Header] = ImVec4(0.2f, 0.2f, 0.2f, 0.2f);
@@ -316,8 +326,8 @@ void EditorTool::HierachyEditorWindow()
 
 void EditorTool::ProjectEditorWindow()
 {
-	ImGui::SetNextWindowPos(ImVec2(800 + 373, 51)); 
-	ImGui::SetNextWindowSize(ImVec2(373, 1010)); 
+	ImGui::SetNextWindowPos(ImVec2(800 + 373, 51));
+	ImGui::SetNextWindowSize(ImVec2(373, 1010));
 	ImGui::Begin("Project");
 
 	ImGui::End();
@@ -326,21 +336,20 @@ void EditorTool::ProjectEditorWindow()
 void EditorTool::InspectorEditorWindow()
 {
 
-	ImGui::SetNextWindowPos(ImVec2(800 + 373 + 373, 51)); 
-	ImGui::SetNextWindowSize(ImVec2(373, 1010)); 
+	ImGui::SetNextWindowPos(ImVec2(800 + 373 + 373, 51));
+	ImGui::SetNextWindowSize(ImVec2(373, 1010));
 
 	ImGui::Begin("Inspector");
 
 
 	if (SELECTED_H > -1)
 	{
-		shared_ptr<GameObject> go =  CUR_SCENE->GetCreatedObject(SELECTED_H);
+		shared_ptr<GameObject> go = CUR_SCENE->GetCreatedObject(SELECTED_H);
 
 		wstring objectName = go->GetObjectName();
-		string objName = string(objectName.begin() , objectName.end());
+		string objName = string(objectName.begin(), objectName.end());
 
-		char modifiedName[256]; // 이 크기를 적절하게 조정하세요.
-
+		char modifiedName[256];
 		strncpy_s(modifiedName, objName.c_str(), sizeof(modifiedName));
 
 		ImGuiStyle& style = ImGui::GetStyle();
@@ -363,31 +372,17 @@ void EditorTool::InspectorEditorWindow()
 		for (int i = 0; i < (int)ComponentType::End - 1; i++)
 		{
 			ComponentType componentType = static_cast<ComponentType>(i);
-			shared_ptr<Component> comp =  go->GetFixedComponent(componentType);
+			shared_ptr<Component> comp = go->GetFixedComponent(componentType);
 
-			if(comp == nullptr)
+			if (comp == nullptr)
 				continue;
 
 			string s = GUI->EnumToString(componentType);
 
-			if(ImGui::TreeNodeEx(s.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+			if (ImGui::TreeNodeEx(s.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
 			{
-				//TODO : 리플렉션으로 수치 띄워야함 
-				if (s == "Transform")
-				{
-					Vec3 pos = go->GetTransform()->GetLocalPosition();
-					Vec3 rot = go->GetTransform()->GetLocalRotation();
-					Vec3 scale = go->GetTransform()->GetLocalScale();
-
-					float uiPos[3] = {pos.x , pos.y , pos.z};
-					float uiRot[3] = { rot.x , rot.y ,rot.z};
-					float uiScale[3] = { scale.x , scale.y ,scale.z};
-
-					ImGui::SliderFloat3("Position" , uiPos, -10 ,10);
-					ImGui::SliderFloat3("Rotation" , uiRot , -360, 360);
-					ImGui::SliderFloat3("Scale" , uiScale,-10, 10);
-				}
-
+				comp->OnInspectorGUI();
+	
 				ImGui::TreePop();
 			}
 		}
@@ -403,38 +398,75 @@ void EditorTool::InspectorEditorWindow()
 				ImGui::TreePop();
 			}
 		}
-	}
-
-	if (ImGui::Button("Add Component", ImVec2(-1, 0)))
-	{
-		ImVec2 buttonPos = ImGui::GetCursorScreenPos();
-		ImGui::OpenPopup("Add Component Menu");
-		buttonPos.y += ImGui::GetTextLineHeightWithSpacing() * 0.4f;
-		ImGui::SetNextWindowPos(buttonPos);
-	}
 
 
-	if (ImGui::BeginPopup("Add Component Menu"))
-	{
-		if (ImGui::BeginMenu("FixedComponent"))
+		if (ImGui::Button("Add Component", ImVec2(-1, 0)))
 		{
-			if (ImGui::MenuItem("Transform"))
-			{ }
-				
-			if (ImGui::MenuItem("MeshRenderer"))
-			{ }
-
-			ImGui::EndMenu();
+			ImVec2 buttonPos = ImGui::GetCursorScreenPos();
+			ImGui::OpenPopup("Add Component Menu");
+			buttonPos.y += ImGui::GetTextLineHeightWithSpacing() * 0.4f;
+			ImGui::SetNextWindowPos(buttonPos);
 		}
 
-		if (ImGui::MenuItem("new Script"))
+		if (ImGui::BeginPopup("Add Component Menu"))
 		{
+			if (ImGui::BeginMenu("FixedComponent"))
+			{
+				for (int i = 0; i < (int)ComponentType::End - 1; i++)
+				{
+					ComponentType componentType = static_cast<ComponentType>(i);
+					string fixedCompName = GUI->EnumToString(componentType);
 
+					if (ImGui::MenuItem(fixedCompName.c_str()))
+					{
+						if(go->GetFixedComponent(componentType))
+							continue;
+
+						
+						switch (componentType)
+						{
+						case ComponentType::Transform: go->AddComponent(make_shared<Transform>());
+							break;
+						case ComponentType::MeshRenderer: go->AddComponent(make_shared<MeshRenderer>());
+							break;
+					//	case ComponentType::ModelRenderer: go->AddComponent(make_shared<ModelRenderer>());
+						//	break;
+						case ComponentType::Camera: go->AddComponent(make_shared<Camera>());
+							break;
+					//	case ComponentType::Animator: go->AddComponent(make_shared<ModelAnimator>());
+					//		break;
+						case ComponentType::Light: go->AddComponent(make_shared<Light>());
+							break;
+						case ComponentType::Collider: go->AddComponent(make_shared<OBBBoxCollider>());
+							break;
+						case ComponentType::Terrain: go->AddComponent(make_shared<Terrain>());
+							break;
+						case ComponentType::Button: go->AddComponent(make_shared<Button>());
+							break;
+						case ComponentType::BillBoard: go->AddComponent(make_shared<Billboard>());
+							break;
+						//case ComponentType::SnowBillBoard: go->AddComponent(make_shared<SnowBillboard>());
+						//	break;
+
+						}
+					//	go->AddComponent( GUI->CreateComponentByType(componentType) ) ;
+						//shared_ptr<type_id(*this)> comp = make_shared<Component>(); // 이걸 어떻게 ComponentType에 맞게 바꾸냐고
+					//	go->AddComponent("여기다가 componentType에 맞게 추가");
+					}
+				}
+
+				ImGui::EndMenu();
+			}
+
+			if (ImGui::MenuItem("new Script"))
+			{
+
+			}
+
+			ImGui::EndPopup();
 		}
 
-		ImGui::EndPopup(); 
 	}
-
 	ImGui::End();
 }
 

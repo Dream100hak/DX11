@@ -4,7 +4,7 @@
 
 Project::Project()
 {
-
+	
 }
 
 Project::~Project()
@@ -14,16 +14,71 @@ Project::~Project()
 
 void Project::Init()
 {
-
+	_rootDirectory = GetDirectoryAbove(GetExecutablePath()) + L"\\Project";
+	RefreshCasheFileList(_rootDirectory);
 }
 
 void Project::Update()
 {
 	ShowProject();
+	
 }
 
-static std::wstring rootDirectory = L"E:\\Github\\DX11\\Project";
-static std::wstring selectedDirectory = L"";  // 선택한 폴더의 경로
+void Project::RefreshCasheFileList(const wstring& directory)
+{
+	wstring searchPath = directory + L"\\*.*";
+	WIN32_FIND_DATA findFileData;
+	HANDLE hFind = FindFirstFile(searchPath.c_str(), &findFileData);
+	if (hFind == INVALID_HANDLE_VALUE)
+		return;
+
+	do
+	{
+		const std::wstring fileName = findFileData.cFileName;
+		if (fileName == L"." || fileName == L"..")
+			continue;
+
+		wstring fullPath = directory + L"\\" + fileName;
+
+		MetaData meta = {};
+		meta.name = fileName;
+		meta.path = directory;
+		meta.type = GetMetaType(fileName);
+
+		_cashesFileList.insert({ fullPath, meta });
+
+		if (meta.type == MetaType::Folder)
+			RefreshCasheFileList(fullPath);
+
+	} while (FindNextFile(hFind, &findFileData) != 0);
+
+	FindClose(hFind);
+}
+
+
+
+
+MetaType Project::GetMetaType(const wstring& name)
+{
+	size_t idx = name.find('.');
+	if(idx == string::npos)
+		return MetaType::Folder;
+
+
+	wstring ext = name.substr(idx + 1);
+	
+	if(ext == L"txt" || ext == L"TXT")
+		return MetaType::Text;
+	
+	else if (ext == L"meta" || ext == L"META")
+		return MetaType::Meta;
+
+	else if (ext == L"wav" || ext == L"mp3" )
+		return MetaType::Sound;
+
+	else
+		return MetaType::UnKnown;
+}
 
 void Project::ShowProject()
 {
@@ -31,99 +86,63 @@ void Project::ShowProject()
 	ImGui::SetNextWindowSize(ImVec2(373, 1010));
 	ImGui::Begin("Project");
 
-	if (ImGui::BeginTable("FolderTable", 2, ImGuiTableFlags_BordersOuter | ImGuiTableFlags_Resizable))
+	if (ImGui::BeginTable("FolderTable", 1 , ImGuiTableFlags_BordersOuter | ImGuiTableFlags_Resizable))
 	{
 		// 폴더 계층 구조를 표시합니다.
-		ListFolderHierarchy(rootDirectory, 0);
-
-		// 오른쪽 창에서 선택한 폴더 내의 파일 및 폴더를 표시합니다.
-		if (!selectedDirectory.empty())
-		{
-			DisplayContentsOfSelectedFolder(selectedDirectory);
-		}
+		ListFolderHierarchy(_rootDirectory);
 
 		ImGui::EndTable();
 	}
 
+	DisplayContentsOfSelectedFolder(_selectedDirectory);
+
 	ImGui::End();
 }
 
-void Project::ListFolderHierarchy(const std::wstring& directory, int indentation)
+void Project::ListFolderHierarchy(const wstring& directory)
 {
-	std::wstring searchPath = directory + L"\\*.*";
-	WIN32_FIND_DATA findFileData;
-	HANDLE hFind = FindFirstFile(searchPath.c_str(), &findFileData);
-	if (hFind == INVALID_HANDLE_VALUE)
+
+	for (auto& [path, meta] : _cashesFileList)
 	{
-		ImGui::Text("Error listing files.");
-		return;
-	}
-
-	do
-	{
-		if ((findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
-			wcscmp(findFileData.cFileName, L".") != 0 && wcscmp(findFileData.cFileName, L"..") != 0)
-		{
-			const std::wstring fileName = findFileData.cFileName;
-			std::string folderName = Utils::ConvertWCharToChar(fileName.c_str());
-
-			// 테이블의 새 행을 생성합니다.
-			ImGui::TableNextRow();
-
-			// 첫 번째 컬럼(폴더 이름)을 설정합니다.
-			ImGui::TableSetColumnIndex(0);
-			ImGui::PushID(folderName.c_str());
-			ImGui::AlignTextToFramePadding();
-
-			bool node_open = ImGui::TreeNodeEx(folderName.c_str(), ImGuiTreeNodeFlags_SpanFullWidth);
-			if (node_open)
-			{
-
-				//// 폴더가 클릭되면 selectedDirectory를 업데이트 합니다.
-				if (ImGui::IsItemClicked())
-				{
-					selectedDirectory = directory + L"\\" + fileName;
-				}
-
-				ListFolderHierarchy(directory + L"\\" + fileName, indentation + 1);
-				ImGui::TreePop();
-			}
-			ImGui::PopID();
-		}
-	} while (FindNextFile(hFind, &findFileData) != 0);
-
-	FindClose(hFind);
-}
-
-void Project::DisplayContentsOfSelectedFolder(const std::wstring& directory)
-{
-	std::wstring searchPath = directory + L"\\*.*";
-	WIN32_FIND_DATA findFileData;
-	HANDLE hFind = FindFirstFile(searchPath.c_str(), &findFileData);
-	if (hFind == INVALID_HANDLE_VALUE)
-	{
-		ImGui::Text("Error listing files.");
-		return;
-	}
-
-	do
-	{
-		const std::wstring fileName = findFileData.cFileName;
-		if (fileName == L"." || fileName == L"..")  // 이 부분을 추가
+		if (meta.type != Folder || meta.path != directory)
 			continue;
 
-		std::string itemName = Utils::ConvertWCharToChar(fileName.c_str());
-
 		ImGui::TableNextRow();
-		ImGui::TableSetColumnIndex(1);  // 오른쪽 창에 표시
+		ImGui::TableSetColumnIndex(0);
+		ImGui::PushID(path.c_str());
+		ImGui::AlignTextToFramePadding();
 
-		if (ImGui::Selectable(itemName.c_str()))
+		std::string fileName = Utils::ToString(meta.name);
+
+		if(ImGui::TreeNodeEx(fileName.c_str(), ImGuiTreeNodeFlags_SpanFullWidth))
 		{
-			// 이곳에서 해당 항목이 클릭되었을 때 수행할 작업을 처리하십시오.
-			// 예를 들어, 파일을 열거나 다른 작업을 수행할 수 있습니다.
+			//DisplayContentsOfSelectedFolder( path );
+			ListFolderHierarchy(path);
+			ImGui::TreePop();
 		}
 
-	} while (FindNextFile(hFind, &findFileData) != 0);
-
-	FindClose(hFind);
+		ImGui::PopID();
+	}
 }
+void Project::DisplayContentsOfSelectedFolder(const std::wstring& directory)
+{
+	if (ImGui::BeginChild("FileList", ImVec2(0, -ImGui::GetFrameHeightWithSpacing())))  // 스크롤 가능한 영역 시작
+	{
+		for (auto& [path, meta] : _cashesFileList)
+		{
+			// 현재 디렉토리와 일치하는 항목만 확인
+			if (meta.path != directory)
+				continue;
+
+			std::string itemName = Utils::ToString(meta.name);
+
+			if (ImGui::Selectable(itemName.c_str()))
+			{
+				// 파일 또는 폴더가 선택될 때의 동작을 여기에 추가
+			}
+		}
+	}
+	ImGui::EndChild();  // 스크롤 가능한 영역 끝
+}
+
+

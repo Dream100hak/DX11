@@ -28,10 +28,10 @@
 #include <boost/describe.hpp>
 #include <boost/mp11.hpp>
 
-
-
 void EditorTool::Init()
 {
+	//TODO : Camera / Terrain  or Project Editor 
+	
 	GET_SINGLE(ShortcutManager)->Init();
 	GET_SINGLE(EditorToolManager)->Init();
 
@@ -84,7 +84,7 @@ void EditorTool::Init()
 	}
 	{
 		
-		// Object
+		// Sky
 		auto obj = make_shared<GameObject>();
 		obj->SetObjectName(L"SkyBox");
 		obj->GetOrAddTransform();
@@ -93,6 +93,20 @@ void EditorTool::Init()
 		
 		CUR_SCENE->Add(obj);
 	
+	}
+	{
+
+		// Sky
+		auto obj = make_shared<GameObject>();
+		obj->SetObjectName(L"Terrain");
+		obj->GetOrAddTransform();
+		obj->AddComponent(make_shared<Terrain>());
+
+		auto mat = RESOURCES->Get<Material>(L"DefaultMaterial");
+		obj->GetTerrain()->Create(10,10 , mat);
+
+		CUR_SCENE->Add(obj);
+
 	}
 	// Model
 	{

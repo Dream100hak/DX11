@@ -9,6 +9,8 @@ void InputManager::Init(HWND hwnd)
 
 void InputManager::Update()
 {
+	_prevMousePos = _mousePos;
+
 	HWND hwnd = ::GetActiveWindow();
 	if (_hwnd != hwnd)
 	{
@@ -49,4 +51,5 @@ void InputManager::Update()
 
 	::GetCursorPos(&_mousePos);
 	::ScreenToClient(_hwnd, &_mousePos);
+
 }

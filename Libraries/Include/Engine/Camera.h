@@ -33,6 +33,8 @@ public:
 	float GetWidth() { return _width; }
 	float GetHeight() { return _height; }
 
+	float GetFov() { return _fov; }
+
 private:
 	ProjectionType _type = ProjectionType::Perspective;
 	Matrix _matView = Matrix::Identity;

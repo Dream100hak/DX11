@@ -63,8 +63,13 @@ void EditorTool::Init()
 		camera->SetObjectName(L"Scene Camera");
 		camera->GetOrAddTransform()->SetPosition(Vec3{ 0.f, 0.f, -5.f });
 		camera->AddComponent(make_shared<Camera>());
-		camera->AddComponent(make_shared<SceneCamera>());
+		
+		_sceneCam = make_shared<SceneCamera>();
+	
+		camera->AddComponent(_sceneCam);
 		CUR_SCENE->Add(camera);
+
+
 	}
 	
 	// Light
@@ -154,5 +159,8 @@ void EditorTool::Render()
 
 }
 
-
+void EditorTool::OnMouseWheel(int32 scrollAmount)
+{
+	_sceneCam->MoveCam(scrollAmount);
+}
 

@@ -117,3 +117,24 @@ void Transform::SetPosition(const Vec3& worldPosition)
 		SetLocalPosition(worldPosition);
 	}
 }
+void Transform::Pitch(float angle)
+{
+	Vec3 rot = _localRotation;
+	rot.x += angle;
+	SetLocalRotation(rot);
+}
+
+void Transform::Yaw(float angle)
+{
+
+	Vec3 rot = _localRotation;
+	rot.y += angle;
+	SetLocalRotation(rot);
+}
+
+void Transform::Roll(float angle)
+{
+	Vec3 rot = _localRotation;
+	rot.z += angle;
+	SetLocalRotation(rot);
+}

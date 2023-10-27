@@ -19,6 +19,7 @@ class Game
 public:
 	
 	WPARAM Run(GameDesc& desc);
+	LRESULT CALLBACK WndProc(HWND handle, UINT message, WPARAM wParam, LPARAM lParam);
 
 	GameDesc& GetGameDesc() { return _desc; }
 
@@ -28,8 +29,6 @@ private:
 
 	void Update();
 	void ShowFps();
-
-	static LRESULT CALLBACK WndProc(HWND handle, UINT message, WPARAM wParam, LPARAM lParam);
 
 private:
 	GameDesc _desc;

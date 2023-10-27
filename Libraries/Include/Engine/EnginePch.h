@@ -22,6 +22,7 @@ using namespace std;
 
 // WIN
 #include <windows.h>
+#include <windowsx.h>
 #include <assert.h>
 #include <optional>
 

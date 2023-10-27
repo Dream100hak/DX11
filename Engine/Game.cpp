@@ -2,10 +2,22 @@
 #include "Game.h"
 #include "IExecute.h"
 
+
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+
+LRESULT CALLBACK
+MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+	// Forward hwnd on because we can get messages (e.g., WM_CREATE)
+	// before CreateWindow returns, and thus before mhMainWnd is valid.
+	return GAME->WndProc(hwnd, msg, wParam, lParam);
+}
+
 
 WPARAM Game::Run(GameDesc& desc)
 {
+
 	_desc = desc;
 	assert(_desc.app != nullptr);
 
@@ -50,7 +62,7 @@ ATOM Game::MyRegisterClass()
 	wcex.cbSize = sizeof(WNDCLASSEX);
 
 	wcex.style = CS_HREDRAW | CS_VREDRAW;
-	wcex.lpfnWndProc = WndProc;
+	wcex.lpfnWndProc = MainWndProc;
 	wcex.cbClsExtra = 0;
 	wcex.cbWndExtra = 0;
 	wcex.hInstance = _desc.hInstance;
@@ -86,10 +98,35 @@ LRESULT CALLBACK Game::WndProc(HWND handle, UINT message, WPARAM wParam, LPARAM 
 	if (ImGui_ImplWin32_WndProcHandler(handle, message, wParam, lParam))
 		return true;
 
+	int32 wheelDelta = 0;
+	int32 scrollAmount = 0;
+
 	switch (message)
 	{
 	case WM_SIZE:
 		break;
+	//case WM_LBUTTONDOWN:
+	//case WM_MBUTTONDOWN:
+	//case WM_RBUTTONDOWN:
+	//	_desc.app->OnMouseDown(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+	//	break;
+	//case WM_LBUTTONUP:
+	//case WM_MBUTTONUP:
+	//case WM_RBUTTONUP:
+	//	_desc.app->OnMouseUp(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+	//	break;
+
+	//case WM_MOUSEMOVE:
+	//	_desc.app->OnMouseMove(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+	//	break;
+	case WM_MOUSEWHEEL:
+
+		wheelDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+		scrollAmount = wheelDelta / 120;
+
+		_desc.app->OnMouseWheel(scrollAmount);
+		break;
+
 	case WM_CLOSE:
 	case WM_DESTROY:
 		PostQuitMessage(0);
@@ -97,6 +134,8 @@ LRESULT CALLBACK Game::WndProc(HWND handle, UINT message, WPARAM wParam, LPARAM 
 	default:
 		return ::DefWindowProc(handle, message, wParam, lParam);
 	}
+
+
 }
 
 void Game::Update()

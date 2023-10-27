@@ -16,11 +16,6 @@
 #include "SkyBox.h"
 #include "Utils.h"
 
-#include "MainMenuBar.h"
-#include "GameEditorWindow.h"
-#include "Hiearchy.h"
-#include "Inspector.h"
-#include "Project.h"
 
 #include "Material.h"
 #include "ShortcutManager.h"
@@ -34,26 +29,6 @@ void EditorTool::Init()
 	
 	GET_SINGLE(ShortcutManager)->Init();
 	GET_SINGLE(EditorToolManager)->Init();
-
-	auto menuBar = make_shared<MainMenuBar>();
-	auto gameWnd = make_shared<GameEditorWindow>();
-	auto hiearchy = make_shared<Hiearchy>();
-	auto inspector = make_shared<Inspector>();
-	auto project = make_shared<Project>();
-
-	_editorWindows.push_back(menuBar);
-	_editorWindows.push_back(gameWnd);
-	_editorWindows.push_back(hiearchy);
-	_editorWindows.push_back(inspector);
-	_editorWindows.push_back(project);
-
-	for (auto wnd : _editorWindows)
-	{
-		if(wnd == nullptr)
-			continue;
-
-		wnd->Init();
-	}
 
 	auto shader = RESOURCES->Get<Shader>(L"Standard");
 
@@ -144,14 +119,6 @@ void EditorTool::Update()
 	GET_SINGLE(EditorToolManager)->Update();
 
 	ImGui::ShowDemoWindow(&_showWindow);
-
-	for (auto wnd : _editorWindows)
-	{
-		if (wnd == nullptr)
-			continue;
-
-		wnd->Update();
-	}
 }
 
 void EditorTool::Render()

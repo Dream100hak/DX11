@@ -73,6 +73,9 @@
     <ClInclude Include="Project.h">
       <Filter>EditorWindow</Filter>
     </ClInclude>
+    <ClInclude Include="LogWindow.h">
+      <Filter>EditorWindow</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -110,6 +113,9 @@
       <Filter>EditorWindow</Filter>
     </ClCompile>
     <ClCompile Include="Project.cpp">
+      <Filter>EditorWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="LogWindow.cpp">
       <Filter>EditorWindow</Filter>
     </ClCompile>
   </ItemGroup>

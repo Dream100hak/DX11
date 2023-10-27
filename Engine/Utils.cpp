@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Utils.h"
 
+
 bool Utils::StartsWith(string str, string comp)
 {
 	wstring::size_type index = str.find(comp);

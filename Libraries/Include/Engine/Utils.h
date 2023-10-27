@@ -1,4 +1,5 @@
 #pragma once
+#include <boost/type_index.hpp>
 
 class Utils
 {
@@ -16,5 +17,23 @@ public:
 	static string  GetResourcesName(string value, string exten);  // 확장자 뺀 이름만 
 
 	static string ConvertWCharToChar(const wchar_t* wideString);
+
+	template<typename T> 
+	static string GetPtrName(shared_ptr<T> t)
+	{
+		if(t == nullptr)
+			return "";
+
+		string name = boost::typeindex::type_id_runtime(*t.get()).pretty_name();
+		name = name.substr(name.find(' ') + 1);
+		return name;
+	}
+	template<typename T>
+	static string GetClassNameEX()
+	{
+		string name = std::type_index(typeid(T)).name();
+		name = name.substr(name.find(' ') + 1);
+		return name;
+	}
 };
 

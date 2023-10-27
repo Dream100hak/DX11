@@ -26,7 +26,7 @@ void Hiearchy::Update()
 void Hiearchy::ShowHiearchy()
 {
 	ImGui::SetNextWindowPos(ImVec2(800, 51));
-	ImGui::SetNextWindowSize(ImVec2(373, 1010));
+	ImGui::SetNextWindowSize(ImVec2(373, 500));
 
 	ImGuiIO& io = ImGui::GetIO();
 	if (io.NavActive == 0)

@@ -58,10 +58,7 @@ void SceneCamera::MoveCam(int32 scrollAmount)
 	Vec3 camPos = GetTransform()->GetPosition();
 	Vec3 camLookDir = GetTransform()->GetLook();
 
-	// 이동 거리 계산 (양수 값은 앞으로, 음수 값은 뒤로 이동)
 	float moveDistance = 0.6f * static_cast<float>(scrollAmount);
-
-	// 카메라 위치 조절
 	camPos += camLookDir * moveDistance;
 
 	GetTransform()->SetPosition(camPos);

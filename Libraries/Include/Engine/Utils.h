@@ -1,5 +1,8 @@
 #pragma once
 #include <boost/type_index.hpp>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
 
 class Utils
 {
@@ -34,6 +37,19 @@ public:
 		string name = std::type_index(typeid(T)).name();
 		name = name.substr(name.find(' ') + 1);
 		return name;
+	}
+
+	static string ConvertTimeToHHMMSS(int64_t time)
+	{
+		time_t timestamp = static_cast<time_t>(time / 1000);
+
+		struct tm timeInfo;
+		localtime_s(&timeInfo, &timestamp);
+
+		std::stringstream ss;
+		ss << std::put_time(&timeInfo, "%T"); 
+
+		return ss.str();
 	}
 };
 

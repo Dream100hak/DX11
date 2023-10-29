@@ -35,9 +35,6 @@ void EditorToolManager::Init()
 
 		wnd.second->Init();
 	}
-
-
-	//	AddLog("[%05d] [%s] Hello, current time is %.1f, here's a word: '%s'\n",
 }
 
 static int counter = 100;
@@ -52,19 +49,17 @@ void EditorToolManager::Update()
 		wnd.second->Update();
 	}
 
-
-
 	if (counter % 10 == 0)
 	{
 		counter--;
 		for (int n = 0; n < 3; n++)
 		{
-			const char* category = "info";
-			const char* word = "Succedded";
-			GetLog()->AddLog("[%05d] [%s] Hello, current time is %.1f, here's a word: '%s'\n",
-				ImGui::GetFrameCount(), category, ImGui::GetTime(), word);
+			GetLog()->AddLog("Picked UI ", LogFilter::Info);
+			GetLog()->AddLog("Picked UI ", LogFilter::Warn);
+			GetLog()->AddLog("Picked UI ", LogFilter::Error);
 		}
 	}
+	
 	
 }
 

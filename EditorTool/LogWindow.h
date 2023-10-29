@@ -1,10 +1,20 @@
 #include "EditorWindow.h"
+#include <boost/type_index.hpp>
 
-enum LoggerType : uint8
+enum LogFilter : uint8
 {
-	Info,
-	Warn,
-	Error,
+	Info = 1,
+	Warn = 2,
+	Error = 4,
+};
+
+BOOST_DESCRIBE_ENUM(LogFilter, Info, Warn, Error);
+
+struct LogMessage 
+{
+	LogFilter type;
+	string msg;
+	string time;
 };
 
 class LogWindow : public EditorWindow
@@ -17,22 +27,19 @@ public:
 	virtual void Update() override;
 
 	void Clear();
-	void AddLog(const char* fmt, ...) IM_FMTARGS(2) ;
+	//void AddLog(const char* fmt, ...) IM_FMTARGS(2) ;
+	void AddLog(string msg, LogFilter filter);
 	void Draw(const char* title, bool* p_open = NULL);
 
 	void ShowLog();
 
 private:
 
-	ImGuiTextBuffer     _buf;
 	ImGuiTextFilter     _filter;
-	ImVector<int>       _lineOffsets; // Index to lines offset. We maintain this with AddLog() calls.
-	bool                _autoScroll;  // Keep scrolling if already at the bottom.
+	bool                _autoScroll;  
 
-	//LogType _type = None;
-
-
+	vector<LogMessage> _messages;
 	bool _logOpen = false;
-
+	int32 _msgFilter = (int)(LogFilter::Info | LogFilter::Warn | LogFilter::Error);
 
 };

@@ -10,6 +10,9 @@ public:
 
 	void OnMouseWheel(int32 scrollAmount) override;
 
+	void DrawGrid(float gridSize);
+	void ComputeFrustumPlanes(Vec4* frustum, Matrix clip);
+
 private:
 
 	bool _showWindow = true;

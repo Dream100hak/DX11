@@ -29,8 +29,8 @@ void Hiearchy::ShowHiearchy()
 	ImGui::SetNextWindowSize(ImVec2(373, 500));
 
 	ImGuiIO& io = ImGui::GetIO();
-	if (io.NavActive == 0)
-		TOOL->SetSelectedObjH(-1);
+	//if (io.NavActive == 0)
+	//	TOOL->SetSelectedObjH(-1);
 
 	ImGui::Begin("Hiearchy", nullptr);
 

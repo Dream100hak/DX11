@@ -811,7 +811,6 @@ void GeometryHelper::CreateOBB(shared_ptr<Geometry<VertexColorData>> geometry, C
 	Vec3 corners[8];
 	obb.GetCorners(corners);
 
-	// 큐브를 구성하는 선의 인덱스 조합
 	int lineIndices[12][2] =
 	{
 	   {0, 1}, {1, 2}, {2, 3}, {3, 0},
@@ -837,6 +836,47 @@ void GeometryHelper::CreateOBB(shared_ptr<Geometry<VertexColorData>> geometry, C
 		12, 13, 14, 15, 16, 17,
 		18, 19, 20, 21, 22, 23
 	};
+
+	geometry->SetIndices(idx);
+}
+
+void GeometryHelper::CreateSceneGrid(shared_ptr<Geometry<VertexColorData>> geometry, Color color, const Vec4& plane)
+{
+	int32 _gridCount = 150;
+	float _gridSize = 2.f;
+
+	Vec3 planeNormal = Vec3(plane.x, plane.y, plane.z);
+
+	Vec3 center = Vec3(0, 0, 0);
+
+	vector<VertexColorData> vtx;
+
+	for (int i = -_gridCount / 2; i <= _gridCount / 2; i++)
+	{
+		for (int j = -_gridCount / 2; j <= _gridCount / 2; j++)
+		{
+			Vec3 pos = Vec3(i * _gridSize, 0, j * _gridSize);
+			vtx.push_back(VertexColorData{pos ,color });
+		}
+	}
+
+	geometry->SetVertices(vtx);
+
+	// 인덱스 데이터 계산
+	std::vector<uint32_t> idx;
+	for (int i = 0; i < _gridCount; i++)
+	{
+		for (int j = 0; j < _gridCount; j++)
+		{
+			int baseIndex = i * (_gridCount + 1) + j;
+
+			idx.push_back(baseIndex);
+			idx.push_back(baseIndex + 1);
+
+			idx.push_back(baseIndex);
+			idx.push_back(baseIndex + (_gridCount + 1));
+		}
+	}
 
 	geometry->SetIndices(idx);
 }

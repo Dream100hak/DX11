@@ -53,17 +53,12 @@ void OBBBoxCollider::Update()
 	_boundingBox.Center = GetTransform()->GetLocalPosition() + _offset;
 
 	Matrix world;
-
-	// 스케일 변환 행렬 생성 (OBB의 Extents를 기준으로)
 	Matrix matScale = Matrix::CreateScale(_boundingBox.Extents);
-
-	// 게임 오브젝트의 월드 위치를 기준으로 OBB의 Center를 이동시키는 변환 행렬 생성
 	Matrix matTranslation = Matrix::CreateTranslation(_boundingBox.Center);
 
 	world = matScale * matTranslation;
 
 	shader->PushTransformData(TransformDesc{ world });
-
 	shader->PushGlobalData(Camera::S_MatView, Camera::S_MatProjection);
 
 	GetVertexBuffer()->PushData();

@@ -25,9 +25,6 @@
     <Filter Include="Components">
       <UniqueIdentifier>{d427a921-5a52-46e1-96b8-e9a6786881c0}</UniqueIdentifier>
     </Filter>
-    <Filter Include="GameObject">
-      <UniqueIdentifier>{af55a9da-d2fc-4c63-808e-fde191dd89e6}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Shaders\Contents">
       <UniqueIdentifier>{2d1ecde8-e453-48bc-acd7-0b8e97c6c24b}</UniqueIdentifier>
     </Filter>
@@ -76,6 +73,7 @@
     <ClInclude Include="LogWindow.h">
       <Filter>EditorWindow</Filter>
     </ClInclude>
+    <ClInclude Include="SceneGrid.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -118,6 +116,7 @@
     <ClCompile Include="LogWindow.cpp">
       <Filter>EditorWindow</Filter>
     </ClCompile>
+    <ClCompile Include="SceneGrid.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\Shaders\15. ModelDemo.fx">
@@ -220,6 +219,9 @@
       <Filter>Shaders\Contents</Filter>
     </FxCompile>
     <FxCompile Include="..\Shaders\Collider.fx">
+      <Filter>Shaders\Contents</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\SceneGrid.fx">
       <Filter>Shaders\Contents</Filter>
     </FxCompile>
   </ItemGroup>

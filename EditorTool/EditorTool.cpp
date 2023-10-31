@@ -15,6 +15,7 @@
 #include "OBBBoxCollider.h"
 #include "SkyBox.h"
 #include "Utils.h"
+#include "SceneGrid.h"
 
 #include "LogWindow.h"
 
@@ -41,6 +42,14 @@ void EditorTool::Init()
 	
 		camera->AddComponent(_sceneCam);
 		CUR_SCENE->Add(camera);
+	}
+
+	{
+		shared_ptr<GameObject> grid = make_shared<GameObject>();
+		grid->SetObjectName(L"Scene Grid");
+		grid->GetOrAddTransform()->SetPosition(Vec3{ 0.f, 0.f, 0.f });
+		grid->AddComponent(make_shared<SceneGrid>());
+		CUR_SCENE->Add(grid);
 	}
 	
 	{
@@ -104,7 +113,6 @@ void EditorTool::Init()
 
 			auto collider = make_shared<OBBBoxCollider>();
 			collider->GetBoundingBox().Extents = Vec3(1.f);
-			//collider->GetBoundingBox().Center = obj->GetTransform()->GetLocalPosition();
 			obj->AddComponent(collider);
 
 			CUR_SCENE->Add(obj);
@@ -126,6 +134,8 @@ void EditorTool::Update()
 		if (obj != nullptr)
 		{
 			wstring name = obj->GetObjectName();
+			int64 id = obj->GetId();
+			TOOL->SetSelectedObjH(id);
 			ADDLOG("Pick Object : " + Utils::ToString(name), LogFilter::Info);
 		}
 	
@@ -144,3 +154,7 @@ void EditorTool::OnMouseWheel(int32 scrollAmount)
 	_sceneCam->MoveCam(scrollAmount);
 }
 
+void EditorTool::DrawGrid(float gridSize)
+{
+	
+}

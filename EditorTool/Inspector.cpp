@@ -41,8 +41,8 @@ void Inspector::Update()
 
 void Inspector::ShowInspector()
 {
-	ImGui::SetNextWindowPos(ImVec2(800 + 373 + 373, 51));
-	ImGui::SetNextWindowSize(ImVec2(373, 1010));
+	ImGui::SetNextWindowPos(ImVec2(800 + 373 + 373, 51) , ImGuiCond_Appearing);
+	ImGui::SetNextWindowSize(ImVec2(373, 1010) , ImGuiCond_Appearing);
 
 	ImGui::Begin("Inspector");
 

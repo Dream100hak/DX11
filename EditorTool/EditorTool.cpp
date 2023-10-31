@@ -16,6 +16,7 @@
 #include "SkyBox.h"
 #include "Utils.h"
 
+#include "LogWindow.h"
 
 #include "Material.h"
 #include "ShortcutManager.h"
@@ -25,29 +26,23 @@
 
 void EditorTool::Init()
 {
-	//TODO : Camera / Terrain  or Project Editor 
-	
+
 	GET_SINGLE(ShortcutManager)->Init();
 	GET_SINGLE(EditorToolManager)->Init();
 
 	auto shader = RESOURCES->Get<Shader>(L"Standard");
 
-	// Camera
 	{
 		shared_ptr<GameObject> camera = make_shared<GameObject>();
 		camera->SetObjectName(L"Scene Camera");
 		camera->GetOrAddTransform()->SetPosition(Vec3{ 0.f, 0.f, -5.f });
 		camera->AddComponent(make_shared<Camera>());
-		
 		_sceneCam = make_shared<SceneCamera>();
 	
 		camera->AddComponent(_sceneCam);
 		CUR_SCENE->Add(camera);
-
-
 	}
 	
-	// Light
 	{
 		auto light = make_shared<GameObject>();
 		light->SetObjectName(L"Direction Light");
@@ -69,14 +64,12 @@ void EditorTool::Init()
 		obj->SetObjectName(L"SkyBox");
 		obj->GetOrAddTransform();
 		obj->AddComponent(make_shared<SkyBox>());
-		obj->GetSkyBox()->Init();
-		
+		obj->GetSkyBox()->Init();		
 		CUR_SCENE->Add(obj);
-	
+		
 	}
 	{
 
-		// Sky
 		auto obj = make_shared<GameObject>();
 		obj->SetObjectName(L"Terrain");
 		obj->GetOrAddTransform();
@@ -108,6 +101,12 @@ void EditorTool::Init()
 				obj->GetModelRenderer()->SetModel(m2);
 				obj->GetModelRenderer()->SetPass(1);
 			}
+
+			auto collider = make_shared<OBBBoxCollider>();
+			collider->GetBoundingBox().Extents = Vec3(1.f);
+			//collider->GetBoundingBox().Center = obj->GetTransform()->GetLocalPosition();
+			obj->AddComponent(collider);
+
 			CUR_SCENE->Add(obj);
 		}
 	}
@@ -118,12 +117,26 @@ void EditorTool::Update()
 	GET_SINGLE(ShortcutManager)->Update();
 	GET_SINGLE(EditorToolManager)->Update();
 
+	if (INPUT->GetButtonDown(KEY_TYPE::LBUTTON))
+	{
+		int32 x = INPUT->GetMousePos().x;
+		int32 y = INPUT->GetMousePos().y;
+		shared_ptr<GameObject> obj = CUR_SCENE->Pick(x,y);
+
+		if (obj != nullptr)
+		{
+			wstring name = obj->GetObjectName();
+			ADDLOG("Pick Object : " + Utils::ToString(name), LogFilter::Info);
+		}
+	
+	}
+
 	ImGui::ShowDemoWindow(&_showWindow);
 }
 
 void EditorTool::Render()
 {
-
+	
 }
 
 void EditorTool::OnMouseWheel(int32 scrollAmount)

@@ -61,6 +61,9 @@ void Scene::Add(shared_ptr<GameObject> object)
 		_lights.insert(object);
 	
 	_createdObjects[object->GetId()] = object;
+
+	object->Awake();
+	object->Start();
 }
 
 void Scene::Remove(shared_ptr<GameObject> object)

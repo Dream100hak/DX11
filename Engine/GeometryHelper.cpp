@@ -105,6 +105,75 @@ void GeometryHelper::CreateCube(shared_ptr<Geometry<VertexTextureData>> geometry
 	geometry->SetIndices(idx);
 }
 
+
+void GeometryHelper::CreateCube(shared_ptr<Geometry<VertexColorData>> geometry, Color color)
+{
+	float w2 = 0.5f;
+	float h2 = 0.5f;
+	float d2 = 0.5f;
+
+	vector<VertexColorData> vtx(24);
+
+	// 앞면
+	vtx[0] = VertexColorData{ Vec3(-w2, -h2, -d2) };
+	vtx[1] = VertexColorData{ Vec3(-w2, +h2, -d2) };
+	vtx[2] = VertexColorData{ Vec3(+w2, +h2, -d2) };
+	vtx[3] = VertexColorData{ Vec3(+w2, -h2, -d2) };
+	// 뒷면
+	vtx[4] = VertexColorData{ Vec3(-w2, -h2, +d2)};
+	vtx[5] = VertexColorData{ Vec3(+w2, -h2, +d2) };
+	vtx[6] = VertexColorData{ Vec3(+w2, +h2, +d2) };
+	vtx[7] = VertexColorData{ Vec3(-w2, +h2, +d2) };
+	// 윗면
+	vtx[8] = VertexColorData{ Vec3(-w2, +h2, -d2)  };
+	vtx[9] = VertexColorData{ Vec3(-w2, +h2, +d2)  };
+	vtx[10] = VertexColorData{ Vec3(+w2, +h2, +d2) };
+	vtx[11] = VertexColorData{ Vec3(+w2, +h2, -d2) };
+	// 아랫면
+	vtx[12] = VertexColorData{ Vec3(-w2, -h2, -d2) };
+	vtx[13] = VertexColorData{ Vec3(+w2, -h2, -d2) };
+	vtx[14] = VertexColorData{ Vec3(+w2, -h2, +d2) };
+	vtx[15] = VertexColorData{ Vec3(-w2, -h2, +d2) };
+	// 왼쪽면
+	vtx[16] = VertexColorData{ Vec3(-w2, -h2, +d2) };
+	vtx[17] = VertexColorData{ Vec3(-w2, +h2, +d2) };
+	vtx[18] = VertexColorData{ Vec3(-w2, +h2, -d2) };
+	vtx[19] = VertexColorData{ Vec3(-w2, -h2, -d2) };
+	// 오른쪽면
+	vtx[20] = VertexColorData{ Vec3(+w2, -h2, -d2) };
+	vtx[21] = VertexColorData{ Vec3(+w2, +h2, -d2) };
+	vtx[22] = VertexColorData{ Vec3(+w2, +h2, +d2) };
+	vtx[23] = VertexColorData{ Vec3(+w2, -h2, +d2) };
+
+	for(int i = 0 ; i < 24; i++)
+		vtx[i].color = color;
+
+	geometry->SetVertices(vtx);
+
+	vector<uint32> idx(36);
+
+	// 앞면
+	idx[0] = 0; idx[1] = 1; idx[2] = 2;
+	idx[3] = 0; idx[4] = 2; idx[5] = 3;
+	// 뒷면
+	idx[6] = 4; idx[7] = 5; idx[8] = 6;
+	idx[9] = 4; idx[10] = 6; idx[11] = 7;
+	// 윗면
+	idx[12] = 8; idx[13] = 9; idx[14] = 10;
+	idx[15] = 8; idx[16] = 10; idx[17] = 11;
+	// 아랫면
+	idx[18] = 12; idx[19] = 13; idx[20] = 14;
+	idx[21] = 12; idx[22] = 14; idx[23] = 15;
+	// 왼쪽면
+	idx[24] = 16; idx[25] = 17; idx[26] = 18;
+	idx[27] = 16; idx[28] = 18; idx[29] = 19;
+	// 오른쪽면
+	idx[30] = 20; idx[31] = 21; idx[32] = 22;
+	idx[33] = 20; idx[34] = 22; idx[35] = 23;
+
+	geometry->SetIndices(idx);
+}
+
 void GeometryHelper::CreateSphere(shared_ptr<Geometry<VertexTextureData>> geometry)
 {
 	float radius = 0.5f; // 구의 반지름
@@ -202,6 +271,8 @@ void GeometryHelper::CreateSphere(shared_ptr<Geometry<VertexTextureData>> geomet
 
 	geometry->SetIndices(idx);
 }
+
+
 
 void GeometryHelper::CreateGrid(shared_ptr<Geometry<VertexTextureData>> geometry, int32 sizeX, int32 sizeZ)
 {
@@ -727,6 +798,45 @@ void GeometryHelper::CreateSphere(shared_ptr<Geometry<VertexTextureNormalTangent
 		idx.push_back(lastRingStartIndex + i);
 		idx.push_back(lastRingStartIndex + i + 1);
 	}
+
+	geometry->SetIndices(idx);
+}
+
+void GeometryHelper::CreateOBB(shared_ptr<Geometry<VertexColorData>> geometry, Color color , const BoundingOrientedBox& obb)
+{
+	vector<VertexColorData> vtx;
+	vtx.resize(24);
+
+	// OBB의 꼭지점 가져오기
+	Vec3 corners[8];
+	obb.GetCorners(corners);
+
+	// 큐브를 구성하는 선의 인덱스 조합
+	int lineIndices[12][2] =
+	{
+	   {0, 1}, {1, 2}, {2, 3}, {3, 0},
+	   {4, 5}, {5, 6}, {6, 7}, {7, 4},
+	   {0, 4}, {1, 5}, {2, 6}, {3, 7}
+	};
+
+	for (int32 i = 0; i < 12; ++i)
+	{
+		vtx[i * 2].position = corners[lineIndices[i][0]];
+		vtx[i * 2 + 1].position = corners[lineIndices[i][1]];
+
+		vtx[i * 2].color = color;
+		vtx[i * 2 + 1].color = color;
+	}
+
+	geometry->SetVertices(vtx);
+
+	// 지오메트리의 인덱스 설정 (12 선 * 2 인덱스 = 24)
+	vector<uint32> idx = {
+		0, 1, 2, 3, 4, 5,
+		6, 7, 8, 9, 10, 11,
+		12, 13, 14, 15, 16, 17,
+		18, 19, 20, 21, 22, 23
+	};
 
 	geometry->SetIndices(idx);
 }

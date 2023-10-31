@@ -221,6 +221,11 @@ void Shader::DrawIndexedInstanced(UINT technique, UINT pass, UINT indexCountPerI
 	_techniques[technique].passes[pass].DrawIndexedInstanced(indexCountPerInstance, instanceCount, startIndexLocation, baseVertexLocation, startInstanceLocation);
 }
 
+void Shader::DrawLineIndexed(UINT technique, UINT pass, UINT indexCount, UINT startIndexLocation /*= 0*/, INT baseVertexLocation /*= 0*/)
+{
+	_techniques[technique].passes[pass].DrawLineIndexed(indexCount, startIndexLocation, baseVertexLocation);
+}
+
 void Shader::Dispatch(UINT technique, UINT pass, UINT x, UINT y, UINT z)
 {
 	_techniques[technique].passes[pass].Dispatch(x, y, z);
@@ -316,6 +321,7 @@ void Shader::PushGlobalData(const Matrix& view, const Matrix& projection)
 	_globalDesc.VInv = view.Invert();
 	_globalBuffer->CopyData(_globalDesc);
 	_globalEffectBuffer->SetConstantBuffer(_globalBuffer->GetComPtr().Get());
+
 }
 
 void Shader::PushTransformData(const TransformDesc& desc)

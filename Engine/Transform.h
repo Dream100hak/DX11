@@ -20,7 +20,9 @@ public:
 		float uiRot[3] = { _localRotation.x , _localRotation.y ,_localRotation.z };
 		float uiScale[3] = { _localScale.x , _localScale.y ,_localScale.z };
 
-		ImGui::Text("Pos		");
+		ImVec4 color = ImVec4(0.85f, 0.94f, 0.f, 1.f);
+
+		ImGui::TextColored(color ,"Pos		");
 		ImGui::SameLine(0.f, -2.f);
 
 		if (ImGui::DragFloat3("##pos", uiPos))
@@ -28,7 +30,7 @@ public:
 			SetLocalPosition(Vec3(uiPos));
 
 		}
-		ImGui::Text("Rot		");
+		ImGui::TextColored(color ,"Rot		");
 		ImGui::SameLine();
 
 		if (ImGui::DragFloat3("##rot", uiRot , 1.f , -360.f , 360.f))
@@ -36,7 +38,7 @@ public:
 			SetLocalRotation(Vec3(uiRot));
 		}
 
-		ImGui::Text("Scale	  ");
+		ImGui::TextColored(color, "Scale	  ");
 		ImGui::SameLine();
 
 		if (ImGui::DragFloat3("##scale", uiScale))

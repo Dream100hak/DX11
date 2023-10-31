@@ -6,6 +6,7 @@ class GeometryHelper
 {
 public:
 	static void CreateQuad(shared_ptr<Geometry<VertexColorData>> geometry, Color color);
+	static void CreateCube(shared_ptr<Geometry<VertexColorData>> geometry , Color color);
 
 	static void CreateQuad(shared_ptr<Geometry<VertexTextureData>> geometry);
 	static void CreateCube(shared_ptr<Geometry<VertexTextureData>> geometry);
@@ -21,5 +22,9 @@ public:
 	static void CreateCube(shared_ptr<Geometry<VertexTextureNormalTangentData>> geometry);
 	static void CreateGrid(shared_ptr<Geometry<VertexTextureNormalTangentData>> geometry, int32 sizeX, int32 sizeZ);
 	static void CreateSphere(shared_ptr<Geometry<VertexTextureNormalTangentData>> geometry);
+
+
+	static void CreateOBB(shared_ptr<Geometry<VertexColorData>> geometry , Color color , const BoundingOrientedBox& obb);
 };
 
+                                           

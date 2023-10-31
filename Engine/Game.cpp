@@ -33,7 +33,7 @@ WPARAM Game::Run(GameDesc& desc)
 	INPUT->Init(_desc.hWnd);
 	GUI->Init();
 	RESOURCES->Init();
-
+	
 	_desc.app->Init();
 
 	MSG msg = { 0 };

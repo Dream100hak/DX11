@@ -5,15 +5,18 @@ void Pass::Draw(UINT vertexCount, UINT startVertexLocation)
 {
 	BeginDraw();
 	{
+		DC->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		DC->Draw(vertexCount, startVertexLocation);
 	}
 	EndDraw();
 }
 
+
 void Pass::DrawIndexed(UINT indexCount, UINT startIndexLocation, INT baseVertexLocation)
 {
 	BeginDraw();
 	{
+		DC->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		DC->DrawIndexed(indexCount, startIndexLocation, baseVertexLocation);
 	}
 	EndDraw();
@@ -23,6 +26,7 @@ void Pass::DrawInstanced(UINT vertexCountPerInstance, UINT instanceCount, UINT s
 {
 	BeginDraw();
 	{
+		DC->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		DC->DrawInstanced(vertexCountPerInstance, instanceCount, startVertexLocation, startInstanceLocation);
 	}
 	EndDraw();
@@ -32,7 +36,18 @@ void Pass::DrawIndexedInstanced(UINT indexCountPerInstance, UINT instanceCount, 
 {
 	BeginDraw();
 	{
+		DC->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		DC->DrawIndexedInstanced(indexCountPerInstance, instanceCount, startIndexLocation, baseVertexLocation, startIndexLocation);
+	}
+	EndDraw();
+}
+
+void Pass::DrawLineIndexed(UINT indexCount, UINT startIndexLocation /*= 0*/, INT baseVertexLocation /*= 0*/)
+{
+	BeginDraw();
+	{
+		DC->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
+		DC->DrawIndexed(indexCount, startIndexLocation, baseVertexLocation);
 	}
 	EndDraw();
 }

@@ -27,7 +27,6 @@ public:
 	virtual void Update() override;
 
 	void Clear();
-	//void AddLog(const char* fmt, ...) IM_FMTARGS(2) ;
 	void AddLog(string msg, LogFilter filter);
 	void Draw(const char* title, bool* p_open = NULL);
 

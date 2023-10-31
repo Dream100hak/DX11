@@ -2,7 +2,7 @@
 
 VertexOutput VS(VertexTextureNormal input)
 {
-	VertexOutput output;
+    VertexOutput output;
 	output.position = mul(input.position, W);
 	output.position = mul(output.position, VP);
 	output.uv = input.uv;

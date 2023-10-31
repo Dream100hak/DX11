@@ -219,5 +219,8 @@
     <FxCompile Include="..\Shaders\Standard.fx">
       <Filter>Shaders\Contents</Filter>
     </FxCompile>
+    <FxCompile Include="..\Shaders\Collider.fx">
+      <Filter>Shaders\Contents</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

@@ -75,9 +75,9 @@ void LogWindow::Draw(const char* title, bool* p_open /*= NULL*/)
 	float rightSideX = ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x;
 
 	ImGui::SameLine(rightSideX);
-	if(ImGui::ColorButton("ErrorBtn", ImVec4(1.f, 0.f, 0.f, 1.f)))
-		filter |= (int32)LogFilter::Error;
-
+	if (ImGui::ColorButton("ErrorBtn", ImVec4(1.f, 0.f, 0.f, 1.f)))
+			filter |= (int32)LogFilter::Error;
+		
 	rightSideX -= ImGui::GetStyle().ItemSpacing.x + ImGui::GetStyle().ItemInnerSpacing.x + ImGui::GetStyle().FramePadding.x * 3;
 	ImGui::SameLine(rightSideX);
 	if(ImGui::ColorButton("WarningBtn", ImVec4(0.85f, 0.92f, 0.f, 1.f)))
@@ -87,6 +87,7 @@ void LogWindow::Draw(const char* title, bool* p_open /*= NULL*/)
 	ImGui::SameLine(rightSideX);
 	if(ImGui::ColorButton("InfoBtn", ImVec4(0.4f, 0.9f, 0.f, 1.f)))
 		filter |= (int32)LogFilter::Info;
+
 
 	ImGui::Separator();
 
@@ -100,6 +101,9 @@ void LogWindow::Draw(const char* title, bool* p_open /*= NULL*/)
 	
 		for (auto logMsg : _messages)
 		{
+			if((logMsg.type & _msgFilter) == false)
+				continue;
+
 			ImVec4 color(ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
 
 			if (logMsg.type & LogFilter::Info)

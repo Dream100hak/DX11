@@ -3,7 +3,7 @@
 
 enum class ColliderType
 {
-	Sphere,
+	Sphere,         
 	AABB,
 	OBB,
 };
@@ -19,6 +19,16 @@ public:
 
 	ColliderType GetColliderType() { return _colliderType; }
 
+	shared_ptr<VertexBuffer> GetVertexBuffer() { return _vertexBuffer; }
+	shared_ptr<IndexBuffer> GetIndexBuffer() { return _indexBuffer; }
+
+	void CreateBuffers();
+
 protected:
 	ColliderType _colliderType;
+	shared_ptr<Geometry<VertexColorData>> _geometry;
+	shared_ptr<VertexBuffer> _vertexBuffer;
+	shared_ptr<IndexBuffer> _indexBuffer;
+
+
 };

@@ -2,6 +2,7 @@
 #include "MainMenuBar.h"
 #include "ShortcutManager.h"
 #include "EditorToolManager.h"
+#include "LogWindow.h"
 
 MainMenuBar::MainMenuBar()
 {
@@ -47,7 +48,7 @@ void MainMenuBar::ShowMainMenuBar()
 		}
 		if (ImGui::BeginMenu("GameObject"))
 		{
-			if (ImGui::MenuItem("Create Empty", "CTRL+B")) { TOOL->SetSelectedObjH(GUI->CreateEmptyGameObject()); }
+			if (ImGui::MenuItem("Create Empty", "CTRL+B")) { TOOL->SetSelectedObjH(GUI->CreateEmptyGameObject());  ADDLOG("Create GameObject", LogFilter::Info); }
 			if (ImGui::MenuItem("Create Empty Child", "CTRL+Z")) {}
 			if (ImGui::MenuItem("Create Empty Parent", "CTRL+Z")) {}
 

@@ -37,8 +37,6 @@ void EditorToolManager::Init()
 	}
 }
 
-static int counter = 100;
-
 void EditorToolManager::Update()
 {
 	for (auto wnd : _editorWindows)
@@ -48,19 +46,6 @@ void EditorToolManager::Update()
 
 		wnd.second->Update();
 	}
-
-	if (counter % 10 == 0)
-	{
-		counter--;
-		for (int n = 0; n < 3; n++)
-		{
-			GetLog()->AddLog("Picked UI ", LogFilter::Info);
-			GetLog()->AddLog("Picked UI ", LogFilter::Warn);
-			GetLog()->AddLog("Picked UI ", LogFilter::Error);
-		}
-	}
-	
-	
 }
 
 std::shared_ptr<LogWindow> EditorToolManager::GetLog()

@@ -68,6 +68,13 @@ struct VertexTextureNormalTangentBlend
 // VertexOutput //
 //////////////////
 
+struct VertexColorOutput
+{
+    float4 position : SV_POSITION;
+    float4 color : COLOR;
+
+};
+
 struct VertexOutput
 {
     float4 position : SV_POSITION;
@@ -212,6 +219,13 @@ pass name											\
     SetPixelShader(CompileShader(ps_5_0, ps()));	\
 }
 
+#define PASS_LINE_VP(name, vs, gs , ps)		        \
+pass name											\
+{													\
+    SetVertexShader(CompileShader(vs_5_0, vs()));	\
+    SetGeometryShader(CompileShader(gs_5_0, GS())); \
+    SetPixelShader(CompileShader(ps_5_0, ps()));	\
+}
 //////////////
 // Function //
 //////////////

@@ -29,11 +29,11 @@ void InstancingBuffer::PushData()
 
 	D3D11_MAPPED_SUBRESOURCE subResource;
 
-	DC->Map(_instanceBuffer->GetComPtr().Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &subResource);
+	DCT->Map(_instanceBuffer->GetComPtr().Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &subResource);
 	{
 		::memcpy(subResource.pData, _data.data(), sizeof(InstancingData) * dataCount);
 	}
-	DC->Unmap(_instanceBuffer->GetComPtr().Get(), 0);
+	DCT->Unmap(_instanceBuffer->GetComPtr().Get(), 0);
 
 	_instanceBuffer->PushData();
 }

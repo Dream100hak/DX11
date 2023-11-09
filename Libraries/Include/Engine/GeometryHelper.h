@@ -26,7 +26,7 @@ public:
 
 	static void CreateOBB(shared_ptr<Geometry<VertexColorData>> geometry , Color color , const BoundingOrientedBox& obb);
 	
-	static void CreateSceneGrid(shared_ptr<Geometry<VertexColorData>> geometry, Color color , const Vec4& plane);
+	static void CreateSceneGrid(shared_ptr<Geometry<VertexColorData>> geometry, Color color );
 };
 
                                            

@@ -15,14 +15,18 @@ void ImGuiManager::Init()
 	//ImGui::StyleColorsLight();
 
 	ImGui_ImplWin32_Init(GAME->GetGameDesc().hWnd);
-	ImGui_ImplDX11_Init(DEVICE.Get(), DC.Get());
+	ImGui_ImplDX11_Init(DEVICE.Get(), DCT.Get());
+
 }
 
 void ImGuiManager::Update()
 {
+	
+
 	ImGui_ImplDX11_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();	
+
 }
 
 void ImGuiManager::Render()
@@ -30,6 +34,7 @@ void ImGuiManager::Render()
 	// Rendering
 	ImGui::Render();
 	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+
 }
 
 int32 ImGuiManager::CreateEmptyGameObject()
@@ -39,6 +44,7 @@ int32 ImGuiManager::CreateEmptyGameObject()
 	wstring name = L"GameObject " + to_wstring(obj->GetId());
 	obj->SetObjectName(name);
 	obj->GetOrAddTransform()->SetPosition(Vec3{ 0.f, 0.f, 0.f });
+	obj->GetOrAddTransform()->SetLocalScale(Vec3{ 0.01f, 0.01f, 0.01f });
 	CUR_SCENE->Add(obj);
 
 	return obj->GetId();

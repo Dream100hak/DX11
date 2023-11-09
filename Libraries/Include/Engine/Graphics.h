@@ -19,9 +19,19 @@ private:
 	void CreateRenderTargetView();
 	void CreateDepthStencilView();
 
+	void BindStandardRender();
+	void BindShadowRender(); 
+
+
 public:
 	void SetViewport(float width, float height, float x = 0, float y = 0, float minDepth = 0, float maxDepth = 1);
 	Viewport& GetViewport() { return _vp; }
+
+	bool IsMouseInViewport(int32 x , int32 y)
+	{
+		return (x >= _vp.GetPosX() && x <= _vp.GetPosX() + _vp.GetWidth() &&
+			y >= _vp.GetPosY() && y <= _vp.GetPosY() + _vp.GetHeight());
+	}
 
 private:
 	HWND _hwnd = {};
@@ -38,7 +48,8 @@ private:
 	ComPtr<ID3D11Texture2D> _depthStencilTexture;
 	ComPtr<ID3D11DepthStencilView> _depthStencilView;
 
-	// Misc
-	//D3D11_VIEWPORT _viewport = { 0 };
+	//±Ì¿Ã∏  ¿˙¿ÂøÎ
+	ComPtr<ID3D11DepthStencilView> _depthMapDSV;
+
 	Viewport _vp;
 };

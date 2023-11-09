@@ -2,6 +2,7 @@
 #include "GeometryHelper.h"
 #include "VertexData.h"
 
+
 void GeometryHelper::CreateQuad(shared_ptr<Geometry<VertexColorData>> geometry, Color color)
 {
 	vector<VertexColorData> vtx;
@@ -840,14 +841,24 @@ void GeometryHelper::CreateOBB(shared_ptr<Geometry<VertexColorData>> geometry, C
 	geometry->SetIndices(idx);
 }
 
-void GeometryHelper::CreateSceneGrid(shared_ptr<Geometry<VertexColorData>> geometry, Color color, const Vec4& plane)
+Vec4 Multiply(const Matrix& mat, const Vec4& vec)
 {
+	Vec4 result;
+
+	result.x = mat.m[0][0] * vec.x + mat.m[0][1] * vec.y + mat.m[0][2] * vec.z + mat.m[0][3] * vec.w;
+	result.y = mat.m[1][0] * vec.x + mat.m[1][1] * vec.y + mat.m[1][2] * vec.z + mat.m[1][3] * vec.w;
+	result.z = mat.m[2][0] * vec.x + mat.m[2][1] * vec.y + mat.m[2][2] * vec.z + mat.m[2][3] * vec.w;
+	result.w = mat.m[3][0] * vec.x + mat.m[3][1] * vec.y + mat.m[3][2] * vec.z + mat.m[3][3] * vec.w;
+
+	return result;
+}
+
+
+void GeometryHelper::CreateSceneGrid(shared_ptr<Geometry<VertexColorData>> geometry, Color color)
+{
+
 	int32 _gridCount = 150;
 	float _gridSize = 2.f;
-
-	Vec3 planeNormal = Vec3(plane.x, plane.y, plane.z);
-
-	Vec3 center = Vec3(0, 0, 0);
 
 	vector<VertexColorData> vtx;
 
@@ -856,7 +867,7 @@ void GeometryHelper::CreateSceneGrid(shared_ptr<Geometry<VertexColorData>> geome
 		for (int j = -_gridCount / 2; j <= _gridCount / 2; j++)
 		{
 			Vec3 pos = Vec3(i * _gridSize, 0, j * _gridSize);
-			vtx.push_back(VertexColorData{pos ,color });
+			vtx.push_back(VertexColorData{ pos ,color });
 		}
 	}
 

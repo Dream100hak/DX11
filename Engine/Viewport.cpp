@@ -18,7 +18,7 @@ Viewport::~Viewport()
 
 void Viewport::RSSetViewport()
 {
-	DC->RSSetViewports(1, &_vp);
+	DCT->RSSetViewports(1, &_vp);
 }
 
 void Viewport::Set(float width, float height, float x, float y, float minDepth, float maxDepth)

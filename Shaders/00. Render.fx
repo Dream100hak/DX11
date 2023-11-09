@@ -7,6 +7,7 @@
 #define MAX_MODEL_KEYFRAMES 500
 #define MAX_MODEL_INSTANCE 500
 
+
 // ************** MeshRender ****************
 
 struct VertexMesh
@@ -28,6 +29,7 @@ MeshOutput VS_Mesh(VertexMesh input)
 	output.worldPosition = output.position;
 	output.position = mul(output.position, VP);
 	output.uv = input.uv;
+   // output.uv = mul(float4(input.uv, 0.0f, 1.0f), TexTransform).xy;
 	output.normal = input.normal;
 
 	return output;
@@ -64,6 +66,7 @@ MeshOutput VS_Model(VertexModel input)
 	output.worldPosition = output.position;
 	output.position = mul(output.position, VP);
 	output.uv = input.uv;
+    //output.uv = mul(float4(input.uv, 0.0f, 1.0f), TexTransform).xy;
 	output.normal = input.normal;
 
 	return output;
@@ -179,6 +182,7 @@ MeshOutput VS_Animation(VertexModel input)
 	output.worldPosition = output.position;
 	output.position = mul(output.position, VP);
 	output.uv = input.uv;
+    //output.uv = mul(float4(input.uv, 0.0f, 1.0f), TexTransform).xy;
 	output.normal = mul(input.normal, (float3x3)input.world);
 	output.tangent = mul(input.tangent, (float3x3)input.world);
 

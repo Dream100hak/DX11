@@ -16,7 +16,7 @@ public:										\
 #define GAME		GET_SINGLE(Game)		
 #define GRAPHICS	GET_SINGLE(Graphics)
 #define DEVICE		GRAPHICS->GetDevice()
-#define DC			GRAPHICS->GetDeviceContext()
+#define DCT			GRAPHICS->GetDeviceContext()
 #define INPUT		GET_SINGLE(InputManager)
 #define TIME		GET_SINGLE(TimeManager)
 #define DT			TIME->GetDeltaTime()

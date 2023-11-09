@@ -8,9 +8,6 @@ void Graphics::Init(HWND hwnd)
 	CreateDeviceAndSwapChain();
 	CreateRenderTargetView();
 	CreateDepthStencilView();
-	//SetViewport(GAME->GetGameDesc().width, GAME->GetGameDesc().height);
-	SceneWindowDesc sceneWndDesc;
-	SetViewport(sceneWndDesc.size.x, sceneWndDesc.size.y);
 }
 
 void Graphics::RenderBegin()
@@ -18,6 +15,7 @@ void Graphics::RenderBegin()
 	_deviceContext->OMSetRenderTargets(1, _renderTargetView.GetAddressOf(), _depthStencilView.Get());
 	_deviceContext->ClearRenderTargetView(_renderTargetView.Get(), (float*)(&GAME->GetGameDesc().clearColor));
 	_deviceContext->ClearDepthStencilView(_depthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1, 0);
+	
 	_vp.RSSetViewport();
 }
 
@@ -83,9 +81,6 @@ void Graphics::CreateDepthStencilView()
 	{
 		D3D11_TEXTURE2D_DESC desc = { 0 };
 		ZeroMemory(&desc, sizeof(desc));
-		SceneWindowDesc sceneWndDesc;
-		//desc.Width = sceneWndDesc.size.x;
-		//desc.Height = sceneWndDesc.size.y;
 		desc.Width = static_cast<uint32>(GAME->GetGameDesc().width);
 		desc.Height = static_cast<uint32>(GAME->GetGameDesc().height);
 		desc.MipLevels = 1;
@@ -112,7 +107,6 @@ void Graphics::CreateDepthStencilView()
 		HRESULT hr = DEVICE->CreateDepthStencilView(_depthStencilTexture.Get(), &desc, _depthStencilView.GetAddressOf());
 		CHECK(hr);
 	}
-
 }
 
 void Graphics::SetViewport(float width, float height, float x /*= 0*/, float y /*= 0*/, float minDepth /*= 0*/, float maxDepth /*= 1*/)

@@ -42,7 +42,7 @@ void TextureBuffer::CreateInput(ComPtr<ID3D11Texture2D> src)
 
 	CHECK(DEVICE->CreateTexture2D(&desc, NULL, _input.GetAddressOf()));
 
-	DC->CopyResource(_input.Get(), src.Get());
+	DCT->CopyResource(_input.Get(), src.Get());
 }
 
 void TextureBuffer::CreateSRV()

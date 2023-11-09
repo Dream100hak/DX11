@@ -4,22 +4,18 @@
 
 Shader::Shader(wstring file) : Super(ResourceType::Shader), _file(file)
 {
+	wstring finalPath = _path + _file;
+	Load(finalPath);
 
-	if (_load == false)
+	_initialStateBlock = make_shared<StateBlock>();
 	{
-		wstring finalPath = _path + _file;
-		Load(finalPath);
-
-		_initialStateBlock = make_shared<StateBlock>();
-		{
-			DC->RSGetState(_initialStateBlock->RSRasterizerState.GetAddressOf());
-			DC->OMGetBlendState(_initialStateBlock->OMBlendState.GetAddressOf(), _initialStateBlock->OMBlendFactor, &_initialStateBlock->OMSampleMask);
-			DC->OMGetDepthStencilState(_initialStateBlock->OMDepthStencilState.GetAddressOf(), &_initialStateBlock->OMStencilRef);
-		}
-
-		CreateEffect();
-		_load = true;
+		DCT->RSGetState(_initialStateBlock->RSRasterizerState.GetAddressOf());
+		DCT->OMGetBlendState(_initialStateBlock->OMBlendState.GetAddressOf(), _initialStateBlock->OMBlendFactor, &_initialStateBlock->OMSampleMask);
+		DCT->OMGetDepthStencilState(_initialStateBlock->OMDepthStencilState.GetAddressOf(), &_initialStateBlock->OMStencilRef);
 	}
+
+	CreateEffect();
+
 }
 
 Shader::~Shader()
@@ -319,6 +315,7 @@ void Shader::PushGlobalData(const Matrix& view, const Matrix& projection)
 	_globalDesc.P = projection;
 	_globalDesc.VP = view * projection;
 	_globalDesc.VInv = view.Invert();
+	_globalDesc.shadowTransform = Matrix::CreateScale(Vec3::One);
 	_globalBuffer->CopyData(_globalDesc);
 	_globalEffectBuffer->SetConstantBuffer(_globalBuffer->GetComPtr().Get());
 
@@ -420,4 +417,19 @@ void Shader::PushSnowData(const SnowBillboardDesc& desc)
 	_snowDesc = desc;
 	_snowBuffer->CopyData(_snowDesc);
 	_snowEffectBuffer->SetConstantBuffer(_snowBuffer->GetComPtr().Get());
+}
+
+void Shader::PushShadowMapData(Vec3 cameraPos, const ShadowMapDesc& desc)
+{
+	if (_shadowMapEffectBuffer == nullptr)
+	{
+		_shadowMapBuffer = make_shared<ConstantBuffer<ShadowMapDesc>>();
+		_shadowMapBuffer->Create();
+		_shadowMapEffectBuffer = GetConstantBuffer("ShadowMapBuffer");
+	}
+
+	_shadowMapDesc.eyePosW = cameraPos;
+	_shadowMapDesc = desc;
+	_shadowMapBuffer->CopyData(_shadowMapDesc);
+	_shadowMapEffectBuffer->SetConstantBuffer(_shadowMapBuffer->GetComPtr().Get());
 }

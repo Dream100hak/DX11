@@ -107,21 +107,21 @@ void StructuredBuffer::CreateResult()
 void StructuredBuffer::CopyToInput(void* data)
 {
 	D3D11_MAPPED_SUBRESOURCE subResource;
-	DC->Map(_input.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &subResource);
+	DCT->Map(_input.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &subResource);
 	{
 		memcpy(subResource.pData, data, GetInputByteWidth());
 	}
-	DC->Unmap(_input.Get(), 0);
+	DCT->Unmap(_input.Get(), 0);
 }
 
 void StructuredBuffer::CopyFromOutput(void* data)
 {
-	DC->CopyResource(_result.Get(), _output.Get());
+	DCT->CopyResource(_result.Get(), _output.Get());
 
 	D3D11_MAPPED_SUBRESOURCE subResource;
-	DC->Map(_result.Get(), 0, D3D11_MAP_READ, 0, &subResource);
+	DCT->Map(_result.Get(), 0, D3D11_MAP_READ, 0, &subResource);
 	{
 		memcpy(data, subResource.pData, GetOutputByteWidth());
 	}
-	DC->Unmap(_result.Get(), 0);
+	DCT->Unmap(_result.Get(), 0);
 }

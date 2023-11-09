@@ -24,24 +24,24 @@ void RawBuffer::CreateBuffer()
 void RawBuffer::CopyToInput(void* data)
 {
 	D3D11_MAPPED_SUBRESOURCE subResource;
-	DC->Map(_input.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &subResource);
+	DCT->Map(_input.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &subResource);
 	{
 		memcpy(subResource.pData, data, _inputByte);
 	}
-	DC->Unmap(_input.Get(), 0);
+	DCT->Unmap(_input.Get(), 0);
 }
 
 void RawBuffer::CopyFromOutput(void* data)
 {
 	// 출력 데이터 -> result에 복사
-	DC->CopyResource(_result.Get(), _output.Get());
+	DCT->CopyResource(_result.Get(), _output.Get());
 
 	D3D11_MAPPED_SUBRESOURCE subResource;
-	DC->Map(_result.Get(), 0, D3D11_MAP_READ, 0, &subResource);
+	DCT->Map(_result.Get(), 0, D3D11_MAP_READ, 0, &subResource);
 	{
 		memcpy(data, subResource.pData, _outputByte);
 	}
-	DC->Unmap(_result.Get(), 0);
+	DCT->Unmap(_result.Get(), 0);
 }
 
 void RawBuffer::CreateInput()

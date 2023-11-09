@@ -14,7 +14,7 @@ public:
 
 	void PushData()
 	{
-		DC->IASetIndexBuffer(_indexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
+		DCT->IASetIndexBuffer(_indexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
 	}
 
 private:

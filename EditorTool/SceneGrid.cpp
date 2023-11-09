@@ -5,14 +5,14 @@
 
 void SceneGrid::Start()
 {
-	_shader = make_shared<Shader>(L"SceneGrid.fx");
+	_shader = make_shared<Shader>(L"01. SceneGrid.fx");
 
 	_frustum = make_shared<Frustum>();
 	_frustum->FinalUpdate();
 
 	_geometry = make_shared<Geometry<VertexColorData>>();
 
-	GeometryHelper::CreateSceneGrid(_geometry , Color(0.4f,0.4f,0.4f,0.4f) , _frustum->GetPlane(PLANE_DOWN));
+	GeometryHelper::CreateSceneGrid(_geometry , Color(0.4f,0.4f,0.4f,0.4f));
 	
 	_vertexBuffer = make_shared<VertexBuffer>();
 	_vertexBuffer->Create(_geometry->GetVertices());

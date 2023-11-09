@@ -74,6 +74,12 @@
       <Filter>EditorWindow</Filter>
     </ClInclude>
     <ClInclude Include="SceneGrid.h" />
+    <ClInclude Include="AsConverter.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="AsType.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -117,6 +123,12 @@
       <Filter>EditorWindow</Filter>
     </ClCompile>
     <ClCompile Include="SceneGrid.cpp" />
+    <ClCompile Include="AsConverter.cpp">
+      <Filter>Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="AsType.cpp">
+      <Filter>Utils</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\Shaders\15. ModelDemo.fx">
@@ -126,9 +138,6 @@
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="..\Shaders\17. TweenDemo.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\18. SkyDemo.fx">
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="..\Shaders\19. InstancingDemo.fx">
@@ -215,13 +224,22 @@
     <FxCompile Include="..\Shaders\00. Light.fx">
       <Filter>Shaders\Common</Filter>
     </FxCompile>
-    <FxCompile Include="..\Shaders\Standard.fx">
+    <FxCompile Include="..\Shaders\01. Standard.fx">
       <Filter>Shaders\Contents</Filter>
     </FxCompile>
-    <FxCompile Include="..\Shaders\Collider.fx">
+    <FxCompile Include="..\Shaders\01. Collider.fx">
       <Filter>Shaders\Contents</Filter>
     </FxCompile>
-    <FxCompile Include="..\Shaders\SceneGrid.fx">
+    <FxCompile Include="..\Shaders\01. SceneGrid.fx">
+      <Filter>Shaders\Contents</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\01. CubeMap.fx">
+      <Filter>Shaders\Contents</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\01. Sky.fx">
+      <Filter>Shaders\Contents</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\01. ShadowMap.fx">
       <Filter>Shaders\Contents</Filter>
     </FxCompile>
   </ItemGroup>

@@ -26,9 +26,9 @@ public:
 		D3D11_MAPPED_SUBRESOURCE subResource;
 		ZeroMemory(&subResource, sizeof(subResource));
 
-		DC->Map(_constantBuffer.Get(), 0 , D3D11_MAP_WRITE_DISCARD, 0 , &subResource );
+		DCT->Map(_constantBuffer.Get(), 0 , D3D11_MAP_WRITE_DISCARD, 0 , &subResource );
 		::memcpy(subResource.pData, &data, sizeof(data));
-		DC->Unmap(_constantBuffer.Get(), 0);
+		DCT->Unmap(_constantBuffer.Get(), 0);
 	}
 
 private:

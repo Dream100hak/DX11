@@ -8,6 +8,8 @@ public:
 	Texture();
 	~Texture();
 
+	shared_ptr<Texture> Clone();
+
 	ComPtr<ID3D11ShaderResourceView> GetComPtr() { return _shaderResourveView; }
 
 	virtual void Load(const wstring& path) override;

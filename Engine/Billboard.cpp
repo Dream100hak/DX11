@@ -40,11 +40,11 @@ void Billboard::Update()
 		_prevCount = _drawCount;
 
 		D3D11_MAPPED_SUBRESOURCE subResource;
-		DC->Map(_vertexBuffer->GetComPtr().Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &subResource);
+		DCT->Map(_vertexBuffer->GetComPtr().Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &subResource);
 		{
 			memcpy(subResource.pData, _vertices.data(), sizeof(VertexBillboard) * _vertices.size());
 		}
-		DC->Unmap(_vertexBuffer->GetComPtr().Get(), 0);
+		DCT->Unmap(_vertexBuffer->GetComPtr().Get(), 0);
 	}
 
 	auto shader = _material->GetShader();

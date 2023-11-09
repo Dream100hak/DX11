@@ -23,7 +23,7 @@ void OBBBoxCollider::Start()
 	if (material == nullptr)
 	{
 		material = make_shared<Material>();
-		auto shader = make_shared<Shader>(L"Collider.fx");
+		auto shader = make_shared<Shader>(L"01. Collider.fx");
 		material->SetShader(shader);
 		MaterialDesc& desc = material->GetMaterialDesc();
 		desc.diffuse = Vec4(0.f, 1.f, 0.f, 1.f);

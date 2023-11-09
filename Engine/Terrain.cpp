@@ -2,6 +2,7 @@
 #include "Terrain.h"
 #include "MeshRenderer.h"
 #include "Camera.h"
+#include "Material.h"
 
 Terrain::Terrain() : Super(ComponentType::Terrain)
 {
@@ -27,6 +28,9 @@ void Terrain::Create(int32 sizeX, int32 sizeZ, shared_ptr<Material> material)
 
 	_mesh = make_shared<Mesh>();
 	_mesh->CreateGrid(sizeX, sizeZ);
+
+	auto texture = RESOURCES->Load<Texture>(L"Veigar", L"..\\Resources\\Textures\\Wood.jpg");
+	material->SetDiffuseMap(texture);
 
 	go->GetMeshRenderer()->SetMesh(_mesh);
 	go->GetMeshRenderer()->SetPass(0);

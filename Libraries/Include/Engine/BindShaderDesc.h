@@ -9,6 +9,7 @@ struct GlobalDesc
 	Matrix P = Matrix::Identity;
 	Matrix VP = Matrix::Identity;
 	Matrix VInv = Matrix::Identity;
+	Matrix shadowTransform = Matrix::Identity;
 };
 
 struct TransformDesc
@@ -69,6 +70,8 @@ struct MaterialDesc
 	Color diffuse = Color(1.f, 1.f, 1.f, 1.f);
 	Color specular = Color(0.f, 0.f, 0.f, 1.f);
 	Color emissive = Color(0.f, 0.f, 0.f, 1.f);
+	//int  useDiffuseMap = 0;
+	//Vec3 pad = Vec3::Zero; 
 };
 
 // Bone
@@ -136,4 +139,15 @@ struct SnowBillboardDesc
 
 	Vec3 extent = Vec3(0, 0, 0);
 	float time;
+};
+
+struct ShadowMapDesc
+{
+	Vec3 eyePosW = Vec3::Zero;
+
+	float heightScale = 0.07f;
+	float maxTessDistance = 1.f;
+	float minTessDistance = 25.f;
+	float minTessFactor = 1.f;
+	float maxTessFactor = 5.f;
 };

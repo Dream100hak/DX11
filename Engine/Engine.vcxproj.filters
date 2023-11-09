@@ -199,9 +199,6 @@
     <ClInclude Include="MeshRenderer.h">
       <Filter>05. Component</Filter>
     </ClInclude>
-    <ClInclude Include="WindowDesc.h">
-      <Filter>98. Utils\EditorWindow</Filter>
-    </ClInclude>
     <ClInclude Include="GameObject.h">
       <Filter>04. Object</Filter>
     </ClInclude>
@@ -210,6 +207,9 @@
     </ClInclude>
     <ClInclude Include="SkyBox.h">
       <Filter>05. Component</Filter>
+    </ClInclude>
+    <ClInclude Include="ShadowMap.h">
+      <Filter>00. Engine\Resource</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -411,6 +411,9 @@
     <ClCompile Include="SkyBox.cpp">
       <Filter>05. Component</Filter>
     </ClCompile>
+    <ClCompile Include="ShadowMap.cpp">
+      <Filter>00. Engine\Resource</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="98. Utils">
@@ -463,9 +466,6 @@
     </Filter>
     <Filter Include="07. UI &amp; Effect">
       <UniqueIdentifier>{faad9faa-c3b3-48c8-8ef5-35c75acbd085}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="98. Utils\EditorWindow">
-      <UniqueIdentifier>{e6762b7c-8536-489e-8b4b-5288eb37f1d9}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

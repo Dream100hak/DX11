@@ -72,6 +72,9 @@ public:
 	void PushTweenData(const InstancedTweenDesc& desc);
 	void PushSnowData(const SnowBillboardDesc& desc);
 
+	void PushShadowMapData(Vec3 cameraPos, const ShadowMapDesc& desc);
+
+
 private:
 	GlobalDesc _globalDesc;
 	shared_ptr<ConstantBuffer<GlobalDesc>> _globalBuffer;
@@ -104,4 +107,8 @@ private:
 	SnowBillboardDesc _snowDesc;
 	shared_ptr<ConstantBuffer<SnowBillboardDesc>> _snowBuffer;
 	ComPtr<ID3DX11EffectConstantBuffer> _snowEffectBuffer;
+
+	ShadowMapDesc _shadowMapDesc;
+	shared_ptr<ConstantBuffer<ShadowMapDesc>> _shadowMapBuffer;
+	ComPtr<ID3DX11EffectConstantBuffer> _shadowMapEffectBuffer;
 };

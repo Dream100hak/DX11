@@ -11,6 +11,7 @@ cbuffer GlobalBuffer
     matrix P;
     matrix VP;
     matrix VInv;
+    matrix ShadowTransform;
 };
 
 cbuffer TransformBuffer
@@ -35,8 +36,8 @@ struct VertexTexture
 
 struct VertexColor
 {
-    float4 Position : POSITION;
-    float4 Color : COLOR;
+    float4 position : POSITION;
+    float4 color : COLOR;
 };
 
 struct VertexTextureNormal
@@ -112,6 +113,11 @@ SamplerState PointSampler
 /////////////////////
 // RasterizerState //
 /////////////////////
+
+RasterizerState NoCull
+{
+    CullMode = None;
+};
 
 RasterizerState FillModeWireFrame
 {

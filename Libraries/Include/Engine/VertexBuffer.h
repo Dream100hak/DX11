@@ -56,7 +56,7 @@ public:
 
 	void PushData()
 	{
-		DC->IASetVertexBuffers(_slot, 1, _vertexBuffer.GetAddressOf(), &_stride, &_offset);
+		DCT->IASetVertexBuffers(_slot, 1, _vertexBuffer.GetAddressOf(), &_stride, &_offset);
 	}
 
 private:

@@ -12,6 +12,8 @@ public:
 
 	float GetWidth() { return _vp.Width; }
 	float GetHeight() { return _vp.Height; }
+	float GetPosX() { return _vp.TopLeftX; }
+	float GetPosY() { return _vp.TopLeftY; }
 
 	Vec3 Project(const Vec3& pos, const Matrix& W, const Matrix& V, const Matrix& P);
 	Vec3 Unproject(const Vec3& pos, const Matrix& W, const Matrix& V, const Matrix& P);

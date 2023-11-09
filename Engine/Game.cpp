@@ -14,12 +14,12 @@ MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	return GAME->WndProc(hwnd, msg, wParam, lParam);
 }
 
-
-WPARAM Game::Run(GameDesc& desc)
+WPARAM Game::Run(GameDesc& gameDesc , SceneDesc& sceneDesc)
 {
 
-	_desc = desc;
-	assert(_desc.app != nullptr);
+	_gameDesc = gameDesc;
+	assert(_gameDesc.app != nullptr);
+	_sceneDesc = sceneDesc;
 
 	// 1) 윈도우 창 정보 등록
 	MyRegisterClass();
@@ -28,13 +28,13 @@ WPARAM Game::Run(GameDesc& desc)
 	if (!InitInstance(SW_SHOWNORMAL))
 		return FALSE;
 
-	GRAPHICS->Init(_desc.hWnd);
+	GRAPHICS->Init(_gameDesc.hWnd);
 	TIME->Init();
-	INPUT->Init(_desc.hWnd);
+	INPUT->Init(_gameDesc.hWnd);
 	GUI->Init();
 	RESOURCES->Init();
 	
-	_desc.app->Init();
+	_gameDesc.app->Init();
 
 	MSG msg = { 0 };
 
@@ -65,12 +65,12 @@ ATOM Game::MyRegisterClass()
 	wcex.lpfnWndProc = MainWndProc;
 	wcex.cbClsExtra = 0;
 	wcex.cbWndExtra = 0;
-	wcex.hInstance = _desc.hInstance;
+	wcex.hInstance = _gameDesc.hInstance;
 	wcex.hIcon = ::LoadIcon(NULL, IDI_WINLOGO);
 	wcex.hCursor = ::LoadCursor(nullptr, IDC_ARROW);
 	wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
 	wcex.lpszMenuName = NULL;
-	wcex.lpszClassName = _desc.appName.c_str();
+	wcex.lpszClassName = _gameDesc.appName.c_str();
 	wcex.hIconSm = wcex.hIcon;
 
 	return RegisterClassExW(&wcex);
@@ -78,17 +78,17 @@ ATOM Game::MyRegisterClass()
 
 BOOL Game::InitInstance(int cmdShow)
 {
-	RECT windowRect = { 0, 0, _desc.width, _desc.height };
+	RECT windowRect = { 0, 0, _gameDesc.width, _gameDesc.height };
 	::AdjustWindowRect(&windowRect, WS_POPUP, false);
 
-	_desc.hWnd = CreateWindowW(_desc.appName.c_str(), _desc.appName.c_str(), WS_POPUP,
-		CW_USEDEFAULT, 0, windowRect.right - windowRect.left, windowRect.bottom - windowRect.top, nullptr, nullptr, _desc.hInstance, nullptr);
+	_gameDesc.hWnd = CreateWindowW(_gameDesc.appName.c_str(), _gameDesc.appName.c_str(), WS_POPUP,
+		CW_USEDEFAULT, 0, windowRect.right - windowRect.left, windowRect.bottom - windowRect.top, nullptr, nullptr, _gameDesc.hInstance, nullptr);
 
-	if (!_desc.hWnd)
+	if (!_gameDesc.hWnd)
 		return FALSE;
 
-	::ShowWindow(_desc.hWnd, cmdShow);
-	::UpdateWindow(_desc.hWnd);
+	::ShowWindow(_gameDesc.hWnd, cmdShow);
+	::UpdateWindow(_gameDesc.hWnd);
 
 	return TRUE;
 }
@@ -105,26 +105,12 @@ LRESULT CALLBACK Game::WndProc(HWND handle, UINT message, WPARAM wParam, LPARAM 
 	{
 	case WM_SIZE:
 		break;
-	//case WM_LBUTTONDOWN:
-	//case WM_MBUTTONDOWN:
-	//case WM_RBUTTONDOWN:
-	//	_desc.app->OnMouseDown(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
-	//	break;
-	//case WM_LBUTTONUP:
-	//case WM_MBUTTONUP:
-	//case WM_RBUTTONUP:
-	//	_desc.app->OnMouseUp(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
-	//	break;
-
-	//case WM_MOUSEMOVE:
-	//	_desc.app->OnMouseMove(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
-	//	break;
 	case WM_MOUSEWHEEL:
 
 		wheelDelta = GET_WHEEL_DELTA_WPARAM(wParam);
 		scrollAmount = wheelDelta / 120;
 
-		_desc.app->OnMouseWheel(scrollAmount);
+		_gameDesc.app->OnMouseWheel(scrollAmount);
 		break;
 
 	case WM_CLOSE:
@@ -134,8 +120,6 @@ LRESULT CALLBACK Game::WndProc(HWND handle, UINT message, WPARAM wParam, LPARAM 
 	default:
 		return ::DefWindowProc(handle, message, wParam, lParam);
 	}
-
-
 }
 
 void Game::Update()
@@ -144,13 +128,44 @@ void Game::Update()
 	INPUT->Update();
 	ShowFps();
 
+	GRAPHICS->SetViewport(_sceneDesc.width , _sceneDesc.height , _sceneDesc.x , _sceneDesc.y);
 	GRAPHICS->RenderBegin();
 
 	SCENE->Update();
-
 	GUI->Update();
-	_desc.app->Update();
-	_desc.app->Render();
+
+	ImGui::SetNextWindowPos(ImVec2(_sceneDesc.x, _sceneDesc.y), ImGuiCond_Appearing);
+	ImGui::SetNextWindowSize(ImVec2(_sceneDesc.width, _sceneDesc.height), ImGuiCond_Appearing);
+	
+	ImGui::Begin("Scene", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground);
+	
+	float w = (float)ImGui::GetWindowWidth();
+	float h = (float)ImGui::GetWindowHeight();
+	float x = ImGui::GetWindowPos().x;
+	float y = ImGui::GetWindowPos().y;
+
+	ImDrawList* drawList = ImGui::GetWindowDrawList();
+	_sceneDesc.drawList = drawList;
+	_sceneDesc.x = x;
+	_sceneDesc.y = y;
+
+	if (ImGui::IsWindowCollapsed())
+	{
+		_sceneDesc.width = 0;
+		_sceneDesc.height = 0;
+	}
+	else
+	{
+		_sceneDesc.width = w;
+		_sceneDesc.height = h;
+	}
+
+
+	_gameDesc.app->Update();
+	_gameDesc.app->Render();
+	
+	ImGui::End();
+
 	GUI->Render();
 
 	GRAPHICS->RenderEnd();
@@ -163,7 +178,7 @@ void Game::ShowFps()
 	WCHAR text[100] = L"";
 	::wsprintf(text, L"FPS : %d", fps);
 
-	::SetWindowText(_desc.hWnd, text);
+	::SetWindowText(_gameDesc.hWnd, text);
 
 }
 

@@ -52,7 +52,7 @@ void ResourceManager::CreateDefaultMesh()
 
 void ResourceManager::CreateDefaultShader()
 {
-	shared_ptr<Shader> shader = make_shared<Shader>(L"Standard.fx");
+	shared_ptr<Shader> shader = make_shared<Shader>(L"01. Standard.fx");
 	Add(L"Standard" , shader);
 }
 

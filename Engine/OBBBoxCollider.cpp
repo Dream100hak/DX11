@@ -59,7 +59,10 @@ void OBBBoxCollider::Update()
 	world = matScale * matTranslation;
 
 	shader->PushTransformData(TransformDesc{ world });
-	shader->PushGlobalData(Camera::S_MatView, Camera::S_MatProjection);
+
+	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
+	// GlobalData
+	shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
 
 	GetVertexBuffer()->PushData();
 	GetIndexBuffer()->PushData();

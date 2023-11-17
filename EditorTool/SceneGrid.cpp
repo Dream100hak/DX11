@@ -35,8 +35,10 @@ void SceneGrid::DrawGrid()
 
 	 Matrix world = GetTransform()->GetWorldMatrix();
 
+	 auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
+
 	_shader->PushTransformData(TransformDesc{ world });
-	_shader->PushGlobalData(Camera::S_MatView, Camera::S_MatProjection);
+	_shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
 
 	_vertexBuffer->PushData();
 	_indexBuffer->PushData();

@@ -19,6 +19,8 @@ public:
 	virtual ~Light();
 
 	virtual void Update();
+	void UpdateMatrix();
+
 
 	virtual void OnInspectorGUI() override
 	{
@@ -66,6 +68,14 @@ private:
 	LightType _type = Directional;
 
 	float _intensity = 1.f;  
+
+	BoundingSphere _sceneBounds;
+
+public:
+	static Matrix S_MatView;
+	static Matrix S_MatProjection;
+	static Matrix S_Shadow;
+	
 
 };
 

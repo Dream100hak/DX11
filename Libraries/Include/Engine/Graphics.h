@@ -1,6 +1,9 @@
 #pragma once
 #include "Viewport.h"
 
+class Texture;
+class ShadowMap;
+
 class Graphics
 {
 	DECLARE_SINGLE(Graphics);
@@ -8,20 +11,19 @@ class Graphics
 public:
 	void Init(HWND hwnd);
 
+	void PreRenderBegin();
 	void RenderBegin();
 	void RenderEnd();
 
 	ComPtr<ID3D11Device> GetDevice() { return _device; }
 	ComPtr<ID3D11DeviceContext> GetDeviceContext() { return _deviceContext; }
 
+	shared_ptr<ShadowMap> GetShadowMap() { return _smap; }
+
 private:
 	void CreateDeviceAndSwapChain();
 	void CreateRenderTargetView();
 	void CreateDepthStencilView();
-
-	void BindStandardRender();
-	void BindShadowRender(); 
-
 
 public:
 	void SetViewport(float width, float height, float x = 0, float y = 0, float minDepth = 0, float maxDepth = 1);
@@ -48,8 +50,8 @@ private:
 	ComPtr<ID3D11Texture2D> _depthStencilTexture;
 	ComPtr<ID3D11DepthStencilView> _depthStencilView;
 
-	//±Ì¿Ã∏  ¿˙¿ÂøÎ
-	ComPtr<ID3D11DepthStencilView> _depthMapDSV;
+	shared_ptr<ShadowMap> _smap = nullptr; 
 
 	Viewport _vp;
+
 };

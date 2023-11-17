@@ -131,30 +131,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="..\Shaders\15. ModelDemo.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\16. AnimationDemo.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\17. TweenDemo.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\19. InstancingDemo.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\20. MeshInstancingDemo.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\21. ModelInstancingDemo.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\22. AnimInstancingDemo.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\23. RenderDemo.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
     <FxCompile Include="..\Shaders\24. RawBufferDemo.fx">
       <Filter>Shaders</Filter>
     </FxCompile>
@@ -171,48 +147,6 @@
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="..\Shaders\29. SnowDemo.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\01. Triangle.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\02. Quad.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\03. ConstBuffer.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\04. Texture.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\05. Sampler.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\06. Terrain.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\07. Normal.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\08. GlobalTest.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\09. Lighting_Ambient.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\10. Lighting_Diffuse.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\11. Lighting_Specular.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\12. Lighting_Emissive.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\13. Lighting.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\14. NormalMapping.fx">
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="..\Shaders\00. Render.fx">
@@ -240,6 +174,9 @@
       <Filter>Shaders\Contents</Filter>
     </FxCompile>
     <FxCompile Include="..\Shaders\01. ShadowMap.fx">
+      <Filter>Shaders\Contents</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\01. DebugTexture.fx">
       <Filter>Shaders\Contents</Filter>
     </FxCompile>
   </ItemGroup>

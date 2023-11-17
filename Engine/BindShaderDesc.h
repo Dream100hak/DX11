@@ -9,12 +9,14 @@ struct GlobalDesc
 	Matrix P = Matrix::Identity;
 	Matrix VP = Matrix::Identity;
 	Matrix VInv = Matrix::Identity;
-	Matrix shadowTransform = Matrix::Identity;
+	Matrix Shadow = Matrix::Identity;
+	Vec4   GameSize = Vec4::Zero;
 };
 
 struct TransformDesc
 {
 	Matrix W = Matrix::Identity;
+
 };
 
 // Light
@@ -141,13 +143,3 @@ struct SnowBillboardDesc
 	float time;
 };
 
-struct ShadowMapDesc
-{
-	Vec3 eyePosW = Vec3::Zero;
-
-	float heightScale = 0.07f;
-	float maxTessDistance = 1.f;
-	float minTessDistance = 25.f;
-	float minTessFactor = 1.f;
-	float maxTessFactor = 5.f;
-};

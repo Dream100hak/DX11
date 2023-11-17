@@ -46,9 +46,6 @@ private:
 	float _width = 0.f;
 	float _height = 0.f;
 
-public:
-	static Matrix S_MatView;
-	static Matrix S_MatProjection;
 
 public:
 	void SortGameObject();

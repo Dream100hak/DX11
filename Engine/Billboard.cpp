@@ -53,8 +53,9 @@ void Billboard::Update()
 	auto world = GetTransform()->GetWorldMatrix();
 	shader->PushTransformData(TransformDesc{ world });
 
+	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
 	// GlobalData
-	shader->PushGlobalData(Camera::S_MatView, Camera::S_MatProjection);
+	shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
 
 	// Light
 	_material->Update();

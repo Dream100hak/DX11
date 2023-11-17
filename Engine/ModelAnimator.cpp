@@ -91,7 +91,7 @@ void ModelAnimator::UpdateTweenData()
 	}
 }
 
-void ModelAnimator::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
+void ModelAnimator::PreRenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
 {
 	if (_model == nullptr)
 		return;
@@ -99,8 +99,27 @@ void ModelAnimator::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
 		CreateTexture();
 
 	// GlobalData
-	_shader->PushGlobalData(Camera::S_MatView, Camera::S_MatProjection);
+	_shader->PushGlobalData(Light::S_MatView, Light::S_MatProjection);
 
+	PushData(buffer);
+}
+
+void ModelAnimator::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
+{
+	if (_model == nullptr)
+		return;
+	if (_texture == nullptr)
+		CreateTexture();
+
+	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
+	// GlobalData
+	_shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
+
+	PushData(buffer);
+}
+
+void ModelAnimator::PushData(shared_ptr<class InstancingBuffer>& buffer)
+{
 	// Light
 	auto lightObj = SCENE->GetCurrentScene()->GetLight();
 	if (lightObj)

@@ -84,8 +84,9 @@ void SnowBillboard::Update()
 	auto world = GetTransform()->GetWorldMatrix();
 	shader->PushTransformData(TransformDesc{ world });
 
+	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
 	// GlobalData
-	shader->PushGlobalData(Camera::S_MatView, Camera::S_MatProjection);
+	shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
 
 	// SnowData
 	shader->PushSnowData(_desc);

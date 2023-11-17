@@ -5,6 +5,7 @@
 #include "Model.h"
 #include "Camera.h"
 #include "Light.h"
+#include "ShadowMap.h"
 
 ModelRenderer::ModelRenderer(shared_ptr<Shader> shader)
 	: Super(ComponentType::ModelRenderer), _shader(shader)
@@ -20,12 +21,34 @@ ModelRenderer::~ModelRenderer()
 void ModelRenderer::SetModel(shared_ptr<Model> model)
 {
 	_model = model;
+	ChangeShader(_shader);
+}
+
+void ModelRenderer::ChangeShader(shared_ptr<Shader> shader)
+{
+	_shader = shader;
 
 	const auto& materials = _model->GetMaterials();
 	for (auto& material : materials)
 	{
-		material->SetShader(_shader);
+		material->SetShader(shader);
+		auto shadowMap = GRAPHICS->GetShadowMap();
+		material->SetShadowMap(static_pointer_cast<Texture>(shadowMap));
 	}
+}
+
+void ModelRenderer::PreRenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
+{
+	if (_model == nullptr)
+		return;
+
+	auto shader = RESOURCES->Get<Shader>(L"Shadow");
+	ChangeShader(shader);
+
+	_shader->PushGlobalData(Light::S_MatView, Light::S_MatProjection);
+
+	PushData(buffer);
+	
 }
 
 void ModelRenderer::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
@@ -33,13 +56,23 @@ void ModelRenderer::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
 	if (_model == nullptr)
 		return;
 
-	// GlobalData
-	_shader->PushGlobalData(Camera::S_MatView, Camera::S_MatProjection);
+	auto shader = RESOURCES->Get<Shader>(L"Standard");
+	ChangeShader(shader);
 
+	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
+	// GlobalData
+	_shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
+
+	PushData(buffer);
+}
+
+void ModelRenderer::PushData(shared_ptr<class InstancingBuffer>& buffer)
+{
 	// Light
 	auto lightObj = SCENE->GetCurrentScene()->GetLight();
 	if (lightObj)
 		_shader->PushLightData(lightObj->GetLight()->GetLightDesc());
+
 
 	// Bones
 	BoneDesc boneDesc;
@@ -55,15 +88,16 @@ void ModelRenderer::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
 	const auto& meshes = _model->GetMeshes();
 	for (auto& mesh : meshes)
 	{
-		if (mesh->material)
+		if (mesh->material)	
 			mesh->material->Update();
-
+		
 		// BoneIndex
 		_shader->GetScalar("BoneIndex")->SetInt(mesh->boneIndex);
 
 		// IA
 		mesh->vertexBuffer->PushData();
 		mesh->indexBuffer->PushData();
+
 
 		buffer->PushData();
 

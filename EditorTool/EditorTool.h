@@ -101,6 +101,7 @@ private:
 
 	bool _showWindow = true;
 	shared_ptr<class SceneCamera> _sceneCam;
+	shared_ptr<class Button> _btn; 
 
 	Matrix _view;
 	Matrix _projection;
@@ -112,6 +113,8 @@ private:
 	Matrix _mvp;
 	Matrix _mvpLocal; // MVP with full model matrix whereas mMVP's model matrix might only be translation in case of World space edition
 	Matrix _vp;
+
+	
 
 private:
 	float _quadMin = 0.5f;

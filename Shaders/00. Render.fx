@@ -29,9 +29,11 @@ MeshOutput VS_Mesh(VertexMesh input)
 	output.worldPosition = output.position;
 	output.position = mul(output.position, VP);
 	output.uv = input.uv;
-   // output.uv = mul(float4(input.uv, 0.0f, 1.0f), TexTransform).xy;
 	output.normal = input.normal;
 
+	// Generate projective tex-coords to project shadow map onto scene.
+    output.shadow = mul(float4(output.worldPosition.xyz, 1.0f), Shadow);
+	
 	return output;
 }
 
@@ -66,9 +68,13 @@ MeshOutput VS_Model(VertexModel input)
 	output.worldPosition = output.position;
 	output.position = mul(output.position, VP);
 	output.uv = input.uv;
-    //output.uv = mul(float4(input.uv, 0.0f, 1.0f), TexTransform).xy;
-	output.normal = input.normal;
 
+	output.normal = input.normal;
+		
+	// Generate projective tex-coords to project shadow map onto scene.
+    output.shadow = mul(float4(output.worldPosition.xyz, 1.0f), Shadow);
+	
+	
 	return output;
 }
 
@@ -182,10 +188,12 @@ MeshOutput VS_Animation(VertexModel input)
 	output.worldPosition = output.position;
 	output.position = mul(output.position, VP);
 	output.uv = input.uv;
-    //output.uv = mul(float4(input.uv, 0.0f, 1.0f), TexTransform).xy;
 	output.normal = mul(input.normal, (float3x3)input.world);
 	output.tangent = mul(input.tangent, (float3x3)input.world);
 
+	// Generate projective tex-coords to project shadow map onto scene.
+    output.shadow = mul(float4(output.worldPosition.xyz, 1.0f), Shadow);
+	
 	return output;
 }
 

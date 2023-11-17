@@ -9,12 +9,39 @@
 
 MeshRenderer::MeshRenderer() : Super(ComponentType::MeshRenderer)
 {
-
+	
 }
 
 MeshRenderer::~MeshRenderer()
 {
 
+}
+
+void MeshRenderer::PreRenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
+{
+	if (_mesh == nullptr || _material == nullptr)
+		return;
+
+	auto shader = RESOURCES->Get<Shader>(L"Shadow");
+
+	if (shader == nullptr)
+		return;
+
+	// GlobalData
+	shader->PushGlobalData(Light::S_MatView , Light::S_MatProjection);
+	
+	// Light
+	auto lightObj = SCENE->GetCurrentScene()->GetLight();
+	if (lightObj)
+		shader->PushLightData(lightObj->GetLight()->GetLightDesc());
+
+	_material->Update();
+	// IA
+	_mesh->GetVertexBuffer()->PushData();
+	_mesh->GetIndexBuffer()->PushData();
+
+	buffer->PushData();
+	shader->DrawIndexedInstanced(0, _pass, _mesh->GetIndexBuffer()->GetCount(), buffer->GetCount());
 }
 
 void MeshRenderer::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
@@ -23,26 +50,31 @@ void MeshRenderer::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
 		return;
 
 	auto shader = _material->GetShader();
+
 	if (shader == nullptr)
 		return;
 
+	_material->SetShader(shader);
+
+	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
 	// GlobalData
-	shader->PushGlobalData(Camera::S_MatView, Camera::S_MatProjection);
 	
+	shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
 	// Light
 	auto lightObj = SCENE->GetCurrentScene()->GetLight();
 	if (lightObj)
 		shader->PushLightData(lightObj->GetLight()->GetLightDesc());
 
 	_material->Update();
-
 	// IA
 	_mesh->GetVertexBuffer()->PushData();
 	_mesh->GetIndexBuffer()->PushData();
 
 	buffer->PushData();
 	shader->DrawIndexedInstanced(0, _pass, _mesh->GetIndexBuffer()->GetCount(), buffer->GetCount());
+	
 }
+
 
 InstanceID MeshRenderer::GetInstanceID()
 {

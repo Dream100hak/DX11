@@ -27,13 +27,13 @@ WPARAM Game::Run(GameDesc& gameDesc , SceneDesc& sceneDesc)
 	// 2) 윈도우 창 생성
 	if (!InitInstance(SW_SHOWNORMAL))
 		return FALSE;
-
+	
 	GRAPHICS->Init(_gameDesc.hWnd);
 	TIME->Init();
 	INPUT->Init(_gameDesc.hWnd);
 	GUI->Init();
 	RESOURCES->Init();
-	
+
 	_gameDesc.app->Init();
 
 	MSG msg = { 0 };
@@ -128,7 +128,10 @@ void Game::Update()
 	INPUT->Update();
 	ShowFps();
 
+	//TODO : 여기다가 그림자 렌더링 과정
+
 	GRAPHICS->SetViewport(_sceneDesc.width , _sceneDesc.height , _sceneDesc.x , _sceneDesc.y);
+	GRAPHICS->PreRenderBegin();
 	GRAPHICS->RenderBegin();
 
 	SCENE->Update();

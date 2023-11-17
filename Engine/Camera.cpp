@@ -2,9 +2,6 @@
 #include "Camera.h"
 #include "Scene.h"
 
-Matrix Camera::S_MatView = Matrix::Identity;
-Matrix Camera::S_MatProjection = Matrix::Identity;
-
 void Camera::SortGameObject()
 {
 	shared_ptr<Scene> scene = CUR_SCENE;
@@ -28,17 +25,13 @@ void Camera::SortGameObject()
 
 void Camera::Render_Forward()
 {
-	S_MatView = _matView;
-	S_MatProjection = _matProjection;
-
+	//GET_SINGLE(InstancingManager)->PreRender(_vecForward);
 	GET_SINGLE(InstancingManager)->Render(_vecForward);
 }
 
 Camera::Camera() : Super(ComponentType::Camera)
 {
 	SceneWindowDesc sceneDesc;
-	//_width = static_cast<float>(GAME->GetGameDesc().width);
-	//_height = static_cast<float>(GAME->GetGameDesc().height);
 	_width = static_cast<float>(sceneDesc.size.x);
 	_height = static_cast<float>(sceneDesc.size.y);
 }

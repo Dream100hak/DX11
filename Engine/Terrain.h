@@ -14,6 +14,8 @@ public:
 	int32 GetSizeX() { return _sizeX; }
 	int32 GetSizeZ() { return _sizeZ; }
 
+	shared_ptr<Mesh> GetMesh() { return _mesh; }
+
 	bool Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& distance);
 
 private:

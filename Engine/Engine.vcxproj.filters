@@ -209,7 +209,7 @@
       <Filter>05. Component</Filter>
     </ClInclude>
     <ClInclude Include="ShadowMap.h">
-      <Filter>00. Engine\Resource</Filter>
+      <Filter>01. Graphics</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -412,7 +412,7 @@
       <Filter>05. Component</Filter>
     </ClCompile>
     <ClCompile Include="ShadowMap.cpp">
-      <Filter>00. Engine\Resource</Filter>
+      <Filter>01. Graphics</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

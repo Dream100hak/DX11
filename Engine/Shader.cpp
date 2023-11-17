@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Shader.h"
 #include "Utils.h"
+#include "Light.h"
 
 Shader::Shader(wstring file) : Super(ResourceType::Shader), _file(file)
 {
@@ -315,7 +316,9 @@ void Shader::PushGlobalData(const Matrix& view, const Matrix& projection)
 	_globalDesc.P = projection;
 	_globalDesc.VP = view * projection;
 	_globalDesc.VInv = view.Invert();
-	_globalDesc.shadowTransform = Matrix::CreateScale(Vec3::One);
+	_globalDesc.Shadow = Light::S_Shadow;
+	_globalDesc.GameSize = Vec4(GAME->GetSceneDesc().width, GAME->GetGameDesc().height , 0 ,0);
+
 	_globalBuffer->CopyData(_globalDesc);
 	_globalEffectBuffer->SetConstantBuffer(_globalBuffer->GetComPtr().Get());
 
@@ -331,6 +334,7 @@ void Shader::PushTransformData(const TransformDesc& desc)
 	}
 
 	_transformDesc = desc;
+
 	_transformBuffer->CopyData(_transformDesc);
 	_transformEffectBuffer->SetConstantBuffer(_transformBuffer->GetComPtr().Get());
 }
@@ -417,19 +421,4 @@ void Shader::PushSnowData(const SnowBillboardDesc& desc)
 	_snowDesc = desc;
 	_snowBuffer->CopyData(_snowDesc);
 	_snowEffectBuffer->SetConstantBuffer(_snowBuffer->GetComPtr().Get());
-}
-
-void Shader::PushShadowMapData(Vec3 cameraPos, const ShadowMapDesc& desc)
-{
-	if (_shadowMapEffectBuffer == nullptr)
-	{
-		_shadowMapBuffer = make_shared<ConstantBuffer<ShadowMapDesc>>();
-		_shadowMapBuffer->Create();
-		_shadowMapEffectBuffer = GetConstantBuffer("ShadowMapBuffer");
-	}
-
-	_shadowMapDesc.eyePosW = cameraPos;
-	_shadowMapDesc = desc;
-	_shadowMapBuffer->CopyData(_shadowMapDesc);
-	_shadowMapEffectBuffer->SetConstantBuffer(_shadowMapBuffer->GetComPtr().Get());
 }

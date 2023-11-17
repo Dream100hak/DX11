@@ -10,6 +10,8 @@ void ResourceManager::Init()
 	CreateDefaultMesh();
 	CreateDefaultShader();
 	CreateDefaultMaterial();
+
+	CreateShadowMapShader();
 }
 
 std::shared_ptr<Texture> ResourceManager::GetOrAddTexture(const wstring& key, const wstring& path)
@@ -62,8 +64,11 @@ void ResourceManager::CreateDefaultMaterial()
 	shared_ptr<Material> material = make_shared<Material>();
 	material->SetShader(shader);
 	MaterialDesc& desc = material->GetMaterialDesc();
-	desc.ambient = Vec4(1.f);
-	desc.diffuse = Vec4(1.f);
-	desc.specular = Vec4(1.f);
 	RESOURCES->Add(L"DefaultMaterial", material);
+}
+
+void ResourceManager::CreateShadowMapShader()
+{
+	shared_ptr<Shader> shader = make_shared<Shader>(L"01. ShadowMap.fx");
+	RESOURCES->Add(L"Shadow", shader);
 }

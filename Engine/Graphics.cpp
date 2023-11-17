@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "Graphics.h"
+#include "ShadowMap.h"
 
 void Graphics::Init(HWND hwnd)
 {
@@ -10,12 +11,28 @@ void Graphics::Init(HWND hwnd)
 	CreateDepthStencilView();
 }
 
+void Graphics::PreRenderBegin()
+{
+	if(_smap == nullptr)
+		_smap = make_shared<ShadowMap>(GAME->GetSceneDesc().width, GAME->GetSceneDesc().height);
+		//_smap = make_shared<ShadowMap>(2048,2048);
+
+
+	_smap->BindDsvAndSetNullRenderTarget();
+	_smap->Draw();
+
+	_vp.RSSetViewport();
+}
+
 void Graphics::RenderBegin()
 {
+
+	_deviceContext->RSSetState(0);
+
 	_deviceContext->OMSetRenderTargets(1, _renderTargetView.GetAddressOf(), _depthStencilView.Get());
 	_deviceContext->ClearRenderTargetView(_renderTargetView.Get(), (float*)(&GAME->GetGameDesc().clearColor));
 	_deviceContext->ClearDepthStencilView(_depthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1, 0);
-	
+
 	_vp.RSSetViewport();
 }
 
@@ -113,3 +130,5 @@ void Graphics::SetViewport(float width, float height, float x /*= 0*/, float y /
 {
 	_vp.Set(width, height, x, y, minDepth, maxDepth);
 }
+
+

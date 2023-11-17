@@ -28,12 +28,28 @@ RasterizerState Depth
 	// Example: DepthBias = 100000 ==> Actual DepthBias = 100000/2^24 = .006
 
 	// You need to experiment with these values for your scene.
-    DepthBias = 100000;
+    DepthBias = 700000;
     DepthBiasClamp = 0.0f;
     SlopeScaledDepthBias = 1.0f;
 };
 
 technique11 T0
 {
-	PASS_RS_VP(P0, Depth, VS_Mesh, PS)
+    pass P0
+    {
+        SetVertexShader(CompileShader(vs_5_0, VS_Mesh()));
+        SetGeometryShader(NULL);
+        SetPixelShader(NULL);
+
+        SetRasterizerState(Depth);
+    }
+
+    pass P1
+    {
+        SetVertexShader(CompileShader(vs_5_0, VS_Model()));
+        SetGeometryShader(NULL);
+        SetPixelShader(NULL);
+
+        SetRasterizerState(Depth);
+    }
 };

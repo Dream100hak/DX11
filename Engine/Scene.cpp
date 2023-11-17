@@ -69,11 +69,8 @@ void Scene::Add(shared_ptr<GameObject> object)
 void Scene::Remove(shared_ptr<GameObject> object)
 {
 	_objects.erase(object);
-
 	_cameras.erase(object);
-
 	_lights.erase(object);
-
 	_createdObjects.erase(object->GetId());
 }
 

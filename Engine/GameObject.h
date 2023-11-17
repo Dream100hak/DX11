@@ -14,7 +14,6 @@ class Billboard;
 class SnowBillboard;
 class SkyBox;
 
-
 class GameObject : public enable_shared_from_this<GameObject>
 {
 public:

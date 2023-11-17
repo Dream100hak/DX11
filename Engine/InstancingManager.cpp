@@ -8,6 +8,15 @@
 #include "Transform.h"
 #include "Camera.h"
 
+void InstancingManager::PreRender()
+{
+	ClearData();
+
+	PreRenderMeshRenderer();
+	PreRenderModelRenderer();
+	PreRenderAnimRenderer();
+}
+
 void InstancingManager::Render(vector<shared_ptr<GameObject>>& gameObjects)
 {
 	ClearData();
@@ -15,6 +24,124 @@ void InstancingManager::Render(vector<shared_ptr<GameObject>>& gameObjects)
 	RenderMeshRenderer(gameObjects);
 	RenderModelRenderer(gameObjects);
 	RenderAnimRenderer(gameObjects);
+
+}
+
+void InstancingManager::PreRenderMeshRenderer()
+{
+	map<InstanceID, vector<shared_ptr<GameObject>>> cache;
+
+	auto gameObjects = SCENE->GetCurrentScene()->GetObjects();
+
+	for (auto& gameObject : gameObjects)
+	{
+		if (gameObject->GetMeshRenderer() == nullptr)
+			continue;
+
+		const InstanceID instanceId = gameObject->GetMeshRenderer()->GetInstanceID();
+		cache[instanceId].push_back(gameObject);
+	}
+
+	for (auto& pair : cache)
+	{
+		const vector<shared_ptr<GameObject>>& vec = pair.second;
+		{
+			const InstanceID instanceId = pair.first;
+
+			for (int32 i = 0; i < vec.size(); i++)
+			{
+				const shared_ptr<GameObject>& gameObject = vec[i];
+				InstancingData data;
+				data.world = gameObject->GetTransform()->GetWorldMatrix();
+
+				AddData(instanceId, data);
+			}
+
+			shared_ptr<InstancingBuffer>& buffer = _buffers[instanceId];
+			vec[0]->GetMeshRenderer()->PreRenderInstancing(buffer);
+		}
+	}
+}
+
+void InstancingManager::PreRenderModelRenderer()
+{
+	map<InstanceID, vector<shared_ptr<GameObject>>> cache;
+
+	auto gameObjects = SCENE->GetCurrentScene()->GetObjects();
+
+	for (auto& gameObject : gameObjects)
+	{
+		if (gameObject->GetModelRenderer() == nullptr)
+			continue;
+
+		const InstanceID instanceId = gameObject->GetModelRenderer()->GetInstanceID();
+		cache[instanceId].push_back(gameObject);
+	}
+
+	for (auto& pair : cache)
+	{
+		const vector<shared_ptr<GameObject>>& vec = pair.second;
+		{
+			const InstanceID instanceId = pair.first;
+
+			for (int32 i = 0; i < vec.size(); i++)
+			{
+				const shared_ptr<GameObject>& gameObject = vec[i];
+				InstancingData data;
+				data.world = gameObject->GetTransform()->GetWorldMatrix();
+
+				AddData(instanceId, data);
+			}
+
+			shared_ptr<InstancingBuffer>& buffer = _buffers[instanceId];
+			vec[0]->GetModelRenderer()->PreRenderInstancing(buffer);
+		}
+	}
+}
+
+void InstancingManager::PreRenderAnimRenderer()
+{
+	map<InstanceID, vector<shared_ptr<GameObject>>> cache;
+
+	auto gameObjects = SCENE->GetCurrentScene()->GetObjects();
+
+	for (auto& gameObject : gameObjects)
+	{
+		if (gameObject->GetModelAnimator() == nullptr)
+			continue;
+
+		const InstanceID instanceId = gameObject->GetModelAnimator()->GetInstanceID();
+		cache[instanceId].push_back(gameObject);
+	}
+
+	for (auto& pair : cache)
+	{
+		shared_ptr<InstancedTweenDesc> tweenDesc = make_shared<InstancedTweenDesc>();
+
+		const vector<shared_ptr<GameObject>>& vec = pair.second;
+
+		{
+			const InstanceID instanceId = pair.first;
+
+			for (int32 i = 0; i < vec.size(); i++)
+			{
+				const shared_ptr<GameObject>& gameObject = vec[i];
+				InstancingData data;
+				data.world = gameObject->GetTransform()->GetWorldMatrix();
+
+				AddData(instanceId, data);
+
+				// INSTANCING
+				gameObject->GetModelAnimator()->UpdateTweenData();
+				tweenDesc->tweens[i] = gameObject->GetModelAnimator()->GetTweenDesc();
+			}
+
+			vec[0]->GetModelAnimator()->GetShader()->PushTweenData(*tweenDesc.get());
+
+			shared_ptr<InstancingBuffer>& buffer = _buffers[instanceId];
+			vec[0]->GetModelAnimator()->PreRenderInstancing(buffer);
+		}
+	}
 }
 
 void InstancingManager::RenderMeshRenderer(vector<shared_ptr<GameObject>>& gameObjects)
@@ -33,12 +160,6 @@ void InstancingManager::RenderMeshRenderer(vector<shared_ptr<GameObject>>& gameO
 	for (auto& pair : cache)
 	{
 		const vector<shared_ptr<GameObject>>& vec = pair.second;
-
-		//if (vec.size() == 1)
-		//{
-		//	vec[0]->GetMeshRenderer()->RenderSingle();
-		//}
-		//else
 		{
 			const InstanceID instanceId = pair.first;
 

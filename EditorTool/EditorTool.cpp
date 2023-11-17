@@ -1,4 +1,5 @@
 #include "pch.h"
+#include "ShadowMap.h"
 #include "EditorTool.h"
 #include "GameObject.h"
 #include "Camera.h"
@@ -18,7 +19,6 @@
 #include "SceneGrid.h"
 
 #include "LogWindow.h"
-
 #include "MathUtils.h"
 
 #include "Material.h"
@@ -33,12 +33,21 @@ void EditorTool::Init()
 {
 	
 	shared_ptr<AsConverter> converter = make_shared<AsConverter>();
+
 	//converter->ReadAssetFile(L"Hyejin/Hyejin_S002_LOD1.fbx");
 	//converter->ExportMaterialData(L"Hyejin/Hyejin");
-	//converter->ExportModelData(L"Hyejin/Hyejin");
+//	converter->ExportModelData(L"Hyejin/Hyejin");
+
+	converter->ReadAssetFile(L"Juno/NPC_Inn_Vari01_Mesh.fbx");
+	converter->ReadAssetFile(L"Juno/NPC_Inn_Facial_Mesh.fbx");
+	converter->ExportMaterialData(L"Juno/Juno");
+	converter->ExportModelData(L"Juno/Juno");
 
 	GET_SINGLE(ShortcutManager)->Init();
 	GET_SINGLE(EditorToolManager)->Init();
+
+	_sceneCam = make_shared<SceneCamera>();
+
 
 	auto shader = RESOURCES->Get<Shader>(L"Standard");
 
@@ -47,9 +56,28 @@ void EditorTool::Init()
 		camera->SetObjectName(L"Scene Camera");
 		camera->GetOrAddTransform()->SetPosition(Vec3{ -15.f, 14.f, -5.f });
 		camera->AddComponent(make_shared<Camera>());
-		_sceneCam = make_shared<SceneCamera>();
 	
+		camera->GetCamera()->SetCullingMaskLayerOnOff(LayerMask::UI, true);
 		camera->AddComponent(_sceneCam);
+
+		CUR_SCENE->Add(camera);
+	}
+
+
+	// UI_Camera
+	{
+		auto camera = make_shared<GameObject>();
+		camera->SetObjectName(L"UI Camera");
+		camera->GetOrAddTransform()->SetPosition(Vec3{ 0.f, 0.f, -10.f });
+		camera->AddComponent(make_shared<Camera>());
+		camera->GetCamera()->SetProjectionType(ProjectionType::Orthographic);
+		camera->GetCamera()->SetNear(1.f);
+		camera->GetCamera()->SetFar(100);
+	
+		camera->GetCamera()->SetCullingMaskAll();
+		camera->GetCamera()->SetCullingMaskLayerOnOff(LayerMask::UI, false);
+
+
 		CUR_SCENE->Add(camera);
 	}
 
@@ -64,13 +92,13 @@ void EditorTool::Init()
 	{
 		auto light = make_shared<GameObject>();
 		light->SetObjectName(L"Direction Light");
-		light->GetOrAddTransform()->SetPosition(Vec3(0.f));
-		light->GetOrAddTransform()->SetRotation(Vec3(1.f, 1.f, 1.f));
+		light->GetOrAddTransform()->SetRotation(Vec3(-0.57735f, -0.57735f, 0.57735f));
 		light->AddComponent(make_shared<Light>());
 		LightDesc lightDesc;
-		lightDesc.ambient = Vec4(1.f);
-		lightDesc.diffuse = Vec4(1.f, 1.f , 1.f, 1.f);
-		lightDesc.specular = Vec4(0.5f);
+
+		lightDesc.ambient = Vec4(0.2f, 0.2f, 0.2f, 1.0f);
+		lightDesc.diffuse = Vec4(0.7f, 0.7f, 0.6f, 1.0f);
+		lightDesc.specular = Vec4(0.8f, 0.8f, 0.7f, 1.0f);
 		lightDesc.direction = light->GetTransform()->GetRotation();
 		light->GetLight()->SetLightDesc(lightDesc);
 		CUR_SCENE->Add(light);
@@ -92,51 +120,116 @@ void EditorTool::Init()
 		auto obj = make_shared<GameObject>();
 		obj->SetObjectName(L"Terrain");
 		obj->GetOrAddTransform();
+		obj->GetOrAddTransform()->SetPosition(Vec3(-75.f, 0.f, -75.f));
 		obj->AddComponent(make_shared<Terrain>());
 
 		auto mat = RESOURCES->Get<Material>(L"DefaultMaterial");
-
 		obj->GetTerrain()->Create(200, 200, mat->Clone());
-
 		CUR_SCENE->Add(obj);
 
 	}
+
+
 	// Model
 	{
 
 		shared_ptr<class Model> m2 = make_shared<Model>();
-	//	m2->ReadModel(L"Kachujin/Kachujin");
-	//	m2->ReadMaterial(L"Kachujin/Kachujin");
-	
+
 		m2->ReadModel(L"Hyejin/Hyejin");
 		m2->ReadMaterial(L"Hyejin/Hyejin");
 
-		for (int i = 0; i < 20; i++)
+		for (int i = 0; i < 10; i++)
 		{
 			auto obj = make_shared<GameObject>();
 			wstring name = L"Model_" + to_wstring(i);
 			obj->SetObjectName(name);
 
 			obj->GetOrAddTransform()->SetPosition(Vec3(rand() % 100, 0, rand() % 100));
-			obj->GetOrAddTransform()->SetScale(Vec3(0.05f));
+			obj->GetOrAddTransform()->SetScale(Vec3(0.1f));
 
 			obj->AddComponent(make_shared<ModelRenderer>(shader));
-			{
-				obj->GetModelRenderer()->SetModel(m2);
-				obj->GetModelRenderer()->SetPass(1);
-			}
+			obj->GetModelRenderer()->SetModel(m2);
+			obj->GetModelRenderer()->SetPass(1);
+			
+			auto collider = make_shared<OBBBoxCollider>();
+			collider->GetBoundingBox().Extents = Vec3(1.f);
+			obj->AddComponent(collider);
 
-			//obj->AddComponent(make_shared<ModelAnimator>(shader));
+			CUR_SCENE->Add(obj);
+		}
+	}
+	{
+
+		shared_ptr<class Model> m2 = make_shared<Model>();
+			m2->ReadModel(L"Kachujin/Kachujin");
+			m2->ReadMaterial(L"Kachujin/Kachujin");
+
+		for (int i = 10; i < 20; i++)
+		{
+			auto obj = make_shared<GameObject>();
+			wstring name = L"Model_" + to_wstring(i);
+			obj->SetObjectName(name);
+
+			obj->GetOrAddTransform()->SetPosition(Vec3(rand() % 100, 0, rand() % 100));
+			obj->GetOrAddTransform()->SetScale(Vec3(0.1f));
+
+			obj->AddComponent(make_shared<ModelRenderer>(shader));
+			obj->GetModelRenderer()->SetModel(m2);
+			obj->GetModelRenderer()->SetPass(1);
 
 			auto collider = make_shared<OBBBoxCollider>();
 			collider->GetBoundingBox().Extents = Vec3(1.f);
 			obj->AddComponent(collider);
 
 			CUR_SCENE->Add(obj);
-
 		}
 	}
+	// Model
+	{
+		shared_ptr<class Model> m2 = make_shared<Model>();
 
+		m2->ReadModel(L"Tower/Tower");
+		m2->ReadMaterial(L"Tower/Tower");
+		auto obj = make_shared<GameObject>();
+		wstring name = L"Tower";
+		obj->SetObjectName(name);
+
+		obj->GetOrAddTransform()->SetPosition(Vec3(30.f,0.f,70.f));
+		obj->GetOrAddTransform()->SetScale(Vec3(0.06f));
+
+		obj->AddComponent(make_shared<ModelRenderer>(shader));
+		obj->GetModelRenderer()->SetModel(m2);
+		obj->GetModelRenderer()->SetPass(1);
+
+		auto collider = make_shared<OBBBoxCollider>();
+		collider->GetBoundingBox().Extents = Vec3(1.f);
+		obj->AddComponent(collider);
+
+		CUR_SCENE->Add(obj);
+	}
+
+	{
+		shared_ptr<class Model> m2 = make_shared<Model>();
+
+		m2->ReadModel(L"Juno/Juno");
+		m2->ReadMaterial(L"Juno/Juno");
+		auto obj = make_shared<GameObject>();
+		wstring name = L"Juno";
+		obj->SetObjectName(name);
+
+		obj->GetOrAddTransform()->SetPosition(Vec3(30.f, 0.f, 70.f));
+		obj->GetOrAddTransform()->SetScale(Vec3(0.06f));
+
+		obj->AddComponent(make_shared<ModelRenderer>(shader));
+		obj->GetModelRenderer()->SetModel(m2);
+		obj->GetModelRenderer()->SetPass(1);
+
+		auto collider = make_shared<OBBBoxCollider>();
+		collider->GetBoundingBox().Extents = Vec3(1.f);
+		obj->AddComponent(collider);
+
+		CUR_SCENE->Add(obj);
+	}
 }
 
 void EditorTool::Update()
@@ -159,6 +252,8 @@ void EditorTool::Update()
 				int64 id = obj->GetId();
 				TOOL->SetSelectedObjH(id);
 				ADDLOG("Pick Object : " + Utils::ToString(name), LogFilter::Info);
+
+				//ADDLOG("Shadow : "  , LogFilter::Info);
 			}
 		}
 	}
@@ -166,6 +261,14 @@ void EditorTool::Update()
 	ImGui::ShowDemoWindow(&_showWindow);
 	Manipulate(OPERATION::TRANSLATE);
 
+
+	auto shadowMap = GRAPHICS->GetShadowMap();
+	auto shadowTex = static_pointer_cast<Texture>(shadowMap);
+
+	ImGui::Begin("DirectX11 Texture Test");
+	ImGui::Image((void*)shadowMap->GetComPtr().Get(), ImVec2(400, 400));
+	ImGui::End();
+	
 }
 
 void EditorTool::Render()
@@ -227,18 +330,19 @@ void EditorTool::ComputeContext(shared_ptr<Transform> obj)
 		return;
 
 	GAME->GetSceneDesc().bMouseOver = GUI->IsHoveringWindow();
+	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
 
 	_model = obj->GetWorldMatrix();
 	_modelLocal = obj->GetLocalMatrix();
-	_view = Camera::S_MatView;
-	_projection = Camera::S_MatProjection;
+	_view = cam->GetViewMatrix();
+	_projection = cam->GetProjectionMatrix();
 	_modelInverse = _model.Invert();
 	_modelSource = obj->GetWorldMatrix();
 	_modelSourceInverse = _modelSource.Invert();
 
-	_vp = Camera::S_MatView * Camera::S_MatProjection;
-	_mvp = obj->GetWorldMatrix() * Camera::S_MatView * Camera::S_MatProjection;
-	_mvpLocal = obj->GetLocalMatrix() * Camera::S_MatView, Camera::S_MatProjection;
+	_vp = _view  * _projection;
+	_mvp = obj->GetWorldMatrix() * _view * _projection;
+	_mvpLocal = obj->GetLocalMatrix() * _view, _projection;
 
 	Matrix viewInverse = XMMatrixInverse(nullptr, _vp);
 	XMVECTOR cameraRight = XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f);
@@ -416,7 +520,9 @@ float EditorTool::GetSegmentLengthClipSpace(const Vec3& start, const Vec3& end)
 	Vec3 startVec = XMLoadFloat3(&start);
 	Vec3 endVec = XMLoadFloat3(&end);
 
-	startOfSegment = Vec3::Transform(startVec, tr->GetWorldMatrix() * Camera::S_MatView * Camera::S_MatProjection);
+	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
+
+	startOfSegment = Vec3::Transform(startVec, tr->GetWorldMatrix() * cam->GetViewMatrix() * cam->GetProjectionMatrix());
 
 	// Check for axis aligned with camera direction
 	if (fabsf(XMVectorGetW(startOfSegment)) > FLT_EPSILON)
@@ -425,7 +531,7 @@ float EditorTool::GetSegmentLengthClipSpace(const Vec3& start, const Vec3& end)
 	}
 
 	Vec4 endOfSegment;
-	endOfSegment = XMVector4Transform(endVec, tr->GetWorldMatrix() * Camera::S_MatView * Camera::S_MatProjection);
+	endOfSegment = XMVector4Transform(endVec, tr->GetWorldMatrix() * cam->GetViewMatrix() * cam->GetProjectionMatrix());
 
 	// Check for axis aligned with camera direction
 	if (fabsf(XMVectorGetW(endOfSegment)) > FLT_EPSILON)
@@ -461,7 +567,7 @@ void EditorTool::DrawHatchedAxis(const Vec3& axis)
 	shared_ptr<Transform> tr = selectedGo->GetTransform();
 
 	float screenFactor = GAME->GetSceneDesc().screenFactor;
-	Matrix mvp=  tr->GetWorldMatrix() * Camera::S_MatView* Camera::S_MatProjection;
+	Matrix mvp=  tr->GetWorldMatrix() * _view * _projection;
 	
 	for (int j = 1; j < 10; j++)
 	{

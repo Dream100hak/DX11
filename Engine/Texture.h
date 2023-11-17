@@ -6,7 +6,7 @@ class Texture : public ResourceBase
 	using Super = ResourceBase;
 public:
 	Texture();
-	~Texture();
+	virtual ~Texture();
 
 	shared_ptr<Texture> Clone();
 
@@ -21,7 +21,7 @@ public:
 
 	const DirectX::ScratchImage& GetInfo() { return _img; }
 
-private:
+protected :
 	ComPtr<ID3D11ShaderResourceView> _shaderResourveView;
 	Vec2 _size = { 0.f, 0.f };
 	DirectX::ScratchImage _img = {};

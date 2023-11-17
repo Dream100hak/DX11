@@ -11,7 +11,8 @@ cbuffer GlobalBuffer
     matrix P;
     matrix VP;
     matrix VInv;
-    matrix ShadowTransform;
+    matrix Shadow;
+    float4 GameSize;
 };
 
 cbuffer TransformBuffer
@@ -73,7 +74,6 @@ struct VertexColorOutput
 {
     float4 position : SV_POSITION;
     float4 color : COLOR;
-
 };
 
 struct VertexOutput
@@ -81,6 +81,7 @@ struct VertexOutput
     float4 position : SV_POSITION;
     float2 uv : TEXCOORD;
     float3 normal : NORMAL;
+    float4 shadow : TEXCOORD1;
 };
 
 struct MeshOutput
@@ -90,6 +91,7 @@ struct MeshOutput
     float2 uv : TEXCOORD;
     float3 normal : NORMAL;
     float3 tangent : TANGENT;
+    float4 shadow : TEXCOORD1;
 };
 
 //////////////////
@@ -109,7 +111,16 @@ SamplerState PointSampler
     AddressU = Wrap;
     AddressV = Wrap;
 };
+SamplerComparisonState ShadowSampler
+{
+    Filter = COMPARISON_MIN_MAG_LINEAR_MIP_POINT;
+    AddressU = BORDER;
+    AddressV = BORDER;
+    AddressW = BORDER;
+    BorderColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
 
+    ComparisonFunc = LESS;
+};
 /////////////////////
 // RasterizerState //
 /////////////////////
@@ -201,12 +212,18 @@ BlendState AdditiveBlendAlphaToCoverageEnable
 ///////////
 // Macro //
 ///////////
-
 #define PASS_VP(name, vs, ps)						\
 pass name											\
 {													\
 	SetVertexShader(CompileShader(vs_5_0, vs()));	\
 	SetPixelShader(CompileShader(ps_5_0, ps()));	\
+}
+
+#define PASS_VP_TEXTURE(name, vs, ps)						\
+pass name											\
+{													\
+	SetVertexShader(CompileShader(vs_5_0, vs()));	\
+	SetPixelShader(CompileShader(ps_5_0, ps(1,true,true)));	\
 }
 
 #define PASS_RS_VP(name, rs, vs, ps)				\

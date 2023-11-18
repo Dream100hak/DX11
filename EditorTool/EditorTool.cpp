@@ -38,10 +38,6 @@ void EditorTool::Init()
 	//converter->ExportMaterialData(L"Hyejin/Hyejin");
 //	converter->ExportModelData(L"Hyejin/Hyejin");
 
-	converter->ReadAssetFile(L"Juno/NPC_Inn_Vari01_Mesh.fbx");
-	converter->ReadAssetFile(L"Juno/NPC_Inn_Facial_Mesh.fbx");
-	converter->ExportMaterialData(L"Juno/Juno");
-	converter->ExportModelData(L"Juno/Juno");
 
 	GET_SINGLE(ShortcutManager)->Init();
 	GET_SINGLE(EditorToolManager)->Init();
@@ -54,7 +50,7 @@ void EditorTool::Init()
 	{
 		shared_ptr<GameObject> camera = make_shared<GameObject>();
 		camera->SetObjectName(L"Scene Camera");
-		camera->GetOrAddTransform()->SetPosition(Vec3{ -15.f, 14.f, -5.f });
+		camera->GetOrAddTransform()->SetPosition(Vec3{ -15.f, 14.f, -15.f });
 		camera->AddComponent(make_shared<Camera>());
 	
 		camera->GetCamera()->SetCullingMaskLayerOnOff(LayerMask::UI, true);
@@ -134,37 +130,10 @@ void EditorTool::Init()
 	{
 
 		shared_ptr<class Model> m2 = make_shared<Model>();
+		m2->ReadModel(L"Kachujin/Kachujin");
+		m2->ReadMaterial(L"Kachujin/Kachujin");
 
-		m2->ReadModel(L"Hyejin/Hyejin");
-		m2->ReadMaterial(L"Hyejin/Hyejin");
-
-		for (int i = 0; i < 10; i++)
-		{
-			auto obj = make_shared<GameObject>();
-			wstring name = L"Model_" + to_wstring(i);
-			obj->SetObjectName(name);
-
-			obj->GetOrAddTransform()->SetPosition(Vec3(rand() % 100, 0, rand() % 100));
-			obj->GetOrAddTransform()->SetScale(Vec3(0.1f));
-
-			obj->AddComponent(make_shared<ModelRenderer>(shader));
-			obj->GetModelRenderer()->SetModel(m2);
-			obj->GetModelRenderer()->SetPass(1);
-			
-			auto collider = make_shared<OBBBoxCollider>();
-			collider->GetBoundingBox().Extents = Vec3(1.f);
-			obj->AddComponent(collider);
-
-			CUR_SCENE->Add(obj);
-		}
-	}
-	{
-
-		shared_ptr<class Model> m2 = make_shared<Model>();
-			m2->ReadModel(L"Kachujin/Kachujin");
-			m2->ReadMaterial(L"Kachujin/Kachujin");
-
-		for (int i = 10; i < 20; i++)
+		for (int i = 0; i < 20; i++)
 		{
 			auto obj = make_shared<GameObject>();
 			wstring name = L"Model_" + to_wstring(i);
@@ -184,6 +153,7 @@ void EditorTool::Init()
 			CUR_SCENE->Add(obj);
 		}
 	}
+
 	// Model
 	{
 		shared_ptr<class Model> m2 = make_shared<Model>();
@@ -208,28 +178,6 @@ void EditorTool::Init()
 		CUR_SCENE->Add(obj);
 	}
 
-	{
-		shared_ptr<class Model> m2 = make_shared<Model>();
-
-		m2->ReadModel(L"Juno/Juno");
-		m2->ReadMaterial(L"Juno/Juno");
-		auto obj = make_shared<GameObject>();
-		wstring name = L"Juno";
-		obj->SetObjectName(name);
-
-		obj->GetOrAddTransform()->SetPosition(Vec3(30.f, 0.f, 70.f));
-		obj->GetOrAddTransform()->SetScale(Vec3(0.06f));
-
-		obj->AddComponent(make_shared<ModelRenderer>(shader));
-		obj->GetModelRenderer()->SetModel(m2);
-		obj->GetModelRenderer()->SetPass(1);
-
-		auto collider = make_shared<OBBBoxCollider>();
-		collider->GetBoundingBox().Extents = Vec3(1.f);
-		obj->AddComponent(collider);
-
-		CUR_SCENE->Add(obj);
-	}
 }
 
 void EditorTool::Update()

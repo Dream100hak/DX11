@@ -152,7 +152,7 @@ float CalcShadowFactor(SamplerComparisonState samShadow,
 
 	// Texel size.
     const float dx = SMAP_DX;
-   // const float dx = GameSize.x;
+  //  const float dx = GameSize.x;
    // const float dy = GameSize.y;
 
 	//return shadowMap.SampleCmpLevelZero(samShadow, shadowPosH.xy, depth).r;

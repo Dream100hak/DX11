@@ -13,15 +13,16 @@ void Graphics::Init(HWND hwnd)
 
 void Graphics::PreRenderBegin()
 {
+
 	if(_smap == nullptr)
-		_smap = make_shared<ShadowMap>(GAME->GetSceneDesc().width, GAME->GetSceneDesc().height);
-		//_smap = make_shared<ShadowMap>(2048,2048);
+		//_smap = make_shared<ShadowMap>(GAME->GetSceneDesc().width, GAME->GetSceneDesc().height);
+		_smap = make_shared<ShadowMap>(2048,2048);
 
 
 	_smap->BindDsvAndSetNullRenderTarget();
 	_smap->Draw();
 
-	_vp.RSSetViewport();
+
 }
 
 void Graphics::RenderBegin()

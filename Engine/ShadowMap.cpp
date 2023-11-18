@@ -6,6 +6,8 @@
 
 ShadowMap::ShadowMap(uint32 width, uint32 height) : _width(width) , _height(height)
 {
+	_vp.Set(width, height , GAME->GetSceneDesc().x , GAME->GetSceneDesc().y);
+
 	D3D11_TEXTURE2D_DESC texDesc;
 	texDesc.Width = _width;
 	texDesc.Height = _height;
@@ -52,6 +54,8 @@ ShadowMap::~ShadowMap()
 
 void ShadowMap::BindDsvAndSetNullRenderTarget()
 {
+	_vp.RSSetViewport();
+
 	ID3D11RenderTargetView* renderTargets[1] = { 0 };
 	DCT->OMSetRenderTargets(1, renderTargets, _depthMapDSV.Get());
 	DCT->ClearDepthStencilView(_depthMapDSV.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);

@@ -5,7 +5,7 @@
 
 float4 PS(MeshOutput input) : SV_TARGET
 {
-    float4 c = DiffuseMap.Sample(LinearSampler, input.uv);
+    float4 c = DiffuseMap.Sample(LinearSampler, input.uv).r;
     return float4(c.rrr, 1);
 }
 

@@ -8,7 +8,7 @@ Matrix Light::S_Shadow = Matrix::Identity;
 Light::Light() : Component(ComponentType::Light)
 {
 	_sceneBounds.Center = Vec3::Zero;
-	_sceneBounds.Radius = sqrtf(20000.f);
+	_sceneBounds.Radius = sqrtf(100.f + 100.f * 150.f + 150.f);
 }
 
 Light::~Light()

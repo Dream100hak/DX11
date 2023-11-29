@@ -152,18 +152,12 @@ float CalcShadowFactor(SamplerComparisonState samShadow,
 
 	// Texel size.
     const float dx = SMAP_DX;
-  //  const float dx = GameSize.x;
-   // const float dy = GameSize.y;
 
 	//return shadowMap.SampleCmpLevelZero(samShadow, shadowPosH.xy, depth).r;
 
     float percentLit = 0.0f;
     const float2 offsets[9] =
     {
-  //      float2(-dx, -dy), float2(0.0f, -dy), float2(dx, -dy),
-		//float2(-dx, 0.0f), float2(0.0f, 0.0f), float2(dx, 0.0f),
-		//float2(-dx, +dy), float2(0.0f, +dy), float2(dx, +dy)
-
         float2(-dx, -dx), float2(0.0f, -dx), float2(dx, -dx),
 		float2(-dx, 0.0f), float2(0.0f, 0.0f), float2(dx, 0.0f),
 		float2(-dx, +dx), float2(0.0f, +dx), float2(dx, +dx)
@@ -204,38 +198,5 @@ float4 ComputeLight(float3 normal, float2 uv, float3 worldPosition)
     // Clamp to [0, 1] range to avoid overflow in LDR
     return saturate(color);
 }
-
-
-float4 ComputeLightShadow(float3 normal, float2 uv, float3 worldPosition, float4 shadowMat)
-{
-    float3 shadow = float3(1.0f, 1.0f, 1.0f);
-    shadow[0] = CalcShadowFactor(ShadowSampler, ShadowMap, shadowMat);
-    
-    float4 ambientColor = GlobalLight.ambient * Material.ambient * GlobalLight.intensity;
- 
-    // Diffuse calculation
-    float ndotl = dot(-GlobalLight.direction, normalize(normal));
-    float4 diffuse = DiffuseMap.Sample(LinearSampler, uv);
-    float4 diffuseColor = diffuse * ndotl * GlobalLight.diffuse * Material.diffuse * GlobalLight.intensity;
-    diffuseColor += shadow[0];
-    
-    // Specular calculation
-    float3 R = normalize(reflect(-GlobalLight.direction, normal));
-    float3 V = normalize(CameraPosition() - worldPosition);
-    float specAngle = max(dot(R, V), 0.0f);
-    float4 specularColor = pow(specAngle, 3) * GlobalLight.specular * Material.specular * GlobalLight.intensity;
-    diffuseColor += shadow[0];
-    
-    // Emissive component does not usually depend on light intensity
-    float4 emissiveColor = Material.emissive;
-
-    // Combine all components
-    float4 color = ambientColor + diffuseColor + specularColor + emissiveColor;
-
-    // Clamp to [0, 1] range to avoid overflow in LDR
-    return saturate(color);
-}
-
-
 #endif
 

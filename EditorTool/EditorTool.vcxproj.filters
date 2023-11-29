@@ -80,6 +80,9 @@
     <ClInclude Include="AsType.h">
       <Filter>Utils</Filter>
     </ClInclude>
+    <ClInclude Include="SceneWindow.h">
+      <Filter>EditorWindow</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -128,6 +131,9 @@
     </ClCompile>
     <ClCompile Include="AsType.cpp">
       <Filter>Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="SceneWindow.cpp">
+      <Filter>EditorWindow</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -66,6 +66,7 @@ public:
 		screenPos.y = (1.0f - (trans.y + 1.0f) * 0.5f) * size.y + position.y;
 
 		return screenPos;
+
 	}
 
 	bool IsHoveringWindow()

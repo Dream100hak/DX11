@@ -16,36 +16,20 @@ public:
 	{
 		Super::OnInspectorGUI();
 
-		float uiPos[3] = { _localPosition.x , _localPosition.y , _localPosition.z };
-		float uiRot[3] = { _localRotation.x , _localRotation.y ,_localRotation.z };
-		float uiScale[3] = { _localScale.x , _localScale.y ,_localScale.z };
-
 		ImVec4 color = ImVec4(0.85f, 0.94f, 0.f, 1.f);
 
 		ImGui::TextColored(color ,"Pos		");
 		ImGui::SameLine(0.f, -2.f);
 
-		if (ImGui::DragFloat3("##pos", uiPos))
-		{
-			SetLocalPosition(Vec3(uiPos));
-
-		}
+		ImGui::DragFloat3("##pos", (float*)&_localPosition, 0.01f);
 		ImGui::TextColored(color ,"Rot		");
 		ImGui::SameLine();
 
-		if (ImGui::DragFloat3("##rot", uiRot , 1.f , -360.f , 360.f))
-		{
-			SetLocalRotation(Vec3(uiRot));
-		}
-
+		ImGui::DragFloat3("##rot", (float*)&_localRotation , 0.01f , -360.f , 360.f);
 		ImGui::TextColored(color, "Scale	  ");
 		ImGui::SameLine();
 
-		if (ImGui::DragFloat3("##scale", uiScale))
-		{
-			SetLocalScale(Vec3(uiScale));
-		}
-
+		ImGui::DragFloat3("##scale", (float*)&_localScale, 0.01f);
 		UpdateTransform();
 	}
 
@@ -60,6 +44,30 @@ public:
 	void SetLocalRotation(const Vec3& localRotation) { _localRotation = localRotation; UpdateTransform(); }
 	Vec3 GetLocalPosition() { return _localPosition; }
 	void SetLocalPosition(const Vec3& localPosition) { _localPosition = localPosition; UpdateTransform(); }
+
+	void SetWorldMatrix(const Matrix& matWorld)
+	{
+		// 월드 행렬 설정
+		_matWorld = matWorld;
+
+		// 부모 트랜스폼이 있는 경우
+		if (HasParent())
+		{
+			Matrix worldToLocal = _parent->GetWorldMatrix().Invert();
+			_matLocal = matWorld * worldToLocal;
+		}
+		else
+		{
+			_matLocal = matWorld;
+		}
+
+		// Decompose the matrix to update local scale, rotation, and position
+		Quaternion quat;
+		_matLocal.Decompose(_localScale, quat, _localPosition);
+		_localRotation = ToEulerAngles(quat);
+
+		//UpdateTransform();
+	}
 
 	// World
 	Vec3 GetScale() { return _scale; }

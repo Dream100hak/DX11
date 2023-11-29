@@ -25,6 +25,7 @@ public:										\
 #define GUI			GET_SINGLE(ImGuiManager)
 #define SCENE		GET_SINGLE(SceneManager)
 #define CUR_SCENE	SCENE->GetCurrentScene()
+#define MAIN_CAM	SCENE->GetCurrentScene()->GetMainCamera()->GetCamera()
 
 enum LayerMask
 {

@@ -15,19 +15,14 @@ void Graphics::PreRenderBegin()
 {
 
 	if(_smap == nullptr)
-		//_smap = make_shared<ShadowMap>(GAME->GetSceneDesc().width, GAME->GetSceneDesc().height);
 		_smap = make_shared<ShadowMap>(2048,2048);
-
 
 	_smap->BindDsvAndSetNullRenderTarget();
 	_smap->Draw();
-
-
 }
 
 void Graphics::RenderBegin()
 {
-
 	_deviceContext->RSSetState(0);
 
 	_deviceContext->OMSetRenderTargets(1, _renderTargetView.GetAddressOf(), _depthStencilView.Get());

@@ -128,8 +128,6 @@ void Game::Update()
 	INPUT->Update();
 	ShowFps();
 
-	//TODO : 여기다가 그림자 렌더링 과정
-
 	GRAPHICS->SetViewport(_sceneDesc.width , _sceneDesc.height , _sceneDesc.x , _sceneDesc.y);
 	GRAPHICS->PreRenderBegin();
 	GRAPHICS->RenderBegin();
@@ -142,10 +140,14 @@ void Game::Update()
 	
 	ImGui::Begin("Scene", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground);
 	
+	
+	string s = ImGui::GetCurrentWindow()->Name;
+	
 	float w = (float)ImGui::GetWindowWidth();
 	float h = (float)ImGui::GetWindowHeight();
-	float x = ImGui::GetWindowPos().x;
-	float y = ImGui::GetWindowPos().y;
+
+	float x = (float)ImGui::GetWindowPos().x;
+	float y = (float)ImGui::GetWindowPos().y;
 
 	ImDrawList* drawList = ImGui::GetWindowDrawList();
 	_sceneDesc.drawList = drawList;
@@ -163,14 +165,12 @@ void Game::Update()
 		_sceneDesc.height = h;
 	}
 
-
 	_gameDesc.app->Update();
 	_gameDesc.app->Render();
 	
 	ImGui::End();
 
 	GUI->Render();
-
 	GRAPHICS->RenderEnd();
 }
 

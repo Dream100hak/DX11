@@ -14,6 +14,26 @@ public:
 	Camera();
 	virtual ~Camera();
 
+	void OnInspectorGUI() override
+	{
+		Super::OnInspectorGUI();
+
+		ImVec4 color = ImVec4(0.85f, 0.94f, 0.f, 1.f);
+
+		ImGui::DragFloat("##pov", (float*)&_fov, 0.01f);
+		ImGui::TextColored(color, "Fov		");
+	//	ImGui::SameLine();
+		
+	/*	ImGui::DragFloat("##near", (float*)&_near, 0.01f);
+		ImGui::TextColored(color, "Near		");
+		ImGui::SameLine();
+
+		ImGui::DragFloat("##far", (float*)&_far, 0.01f);
+		ImGui::TextColored(color, "Far		");*/
+
+	}
+
+
 	virtual void Update() override;
 
 	void SetProjectionType(ProjectionType type) { _type = type; }

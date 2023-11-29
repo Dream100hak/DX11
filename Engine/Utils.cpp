@@ -57,6 +57,34 @@ std::string Utils::ToString(wstring value)
 {
 	return string(value.begin(), value.end());
 }
+std::string Utils::ToString(Vec2 value)
+{
+	string tmp = "";
+	tmp += to_string(value.x);
+	tmp += " : ";
+	tmp += to_string(value.y);
+	return tmp;
+}
+
+std::string Utils::ToString(Vec3 value)
+{
+	string tmp = ToString(Vec2(value.x , value.y))  + " : ";
+	tmp += to_string(value.z);
+	return tmp; 
+}
+
+std::string Utils::ToString(Vec4 value)
+{
+	string tmp = ToString(Vec3(value.x, value.y, value.z)) + " : ";
+	tmp += to_string(value.w);
+	return tmp;
+}
+
+std::string Utils::ToString(float value)
+{
+	string tmp = to_string(value);
+	return tmp;
+}
 
 std::wstring Utils::GetResourcesName(wstring value, wstring exten)
 {

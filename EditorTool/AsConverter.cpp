@@ -8,7 +8,6 @@
 AsConverter::AsConverter()
 {
 	_importer = make_shared<Assimp::Importer>();
-
 }
 
 AsConverter::~AsConverter()
@@ -178,6 +177,9 @@ void AsConverter::ReadSkinData()
 	{
 		aiMesh* srcMesh = _scene->mMeshes[i];
 		if (srcMesh->HasBones() == false)
+			continue;
+
+		if(i >= _meshes.size())
 			continue;
 
 		shared_ptr<asMesh> mesh = _meshes[i];

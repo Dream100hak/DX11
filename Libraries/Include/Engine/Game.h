@@ -92,67 +92,14 @@ enum OPERATION
 
 struct SceneDesc
 {
-	SceneDesc()
-	{
-
-	}
 
 	ImDrawList* drawList;
 	Style style;
 
-	OPERATION currentOp;
-
-	float  radiusSquareCenter;
-	ImVec2 screenSquareCenter;
-	ImVec2 screenSquareMin;
-	ImVec2 screenSquareMax;
-
-	float screenFactor = 500.f;
-	Vec4 relativeOrigin;
-	Vec4 rayOrigin;
-	Vec4 rayVector;
-
-	// translation
-	Vec4 translationPlan;
-	Vec4 translationPlanOrigin;
-	Vec4 matrixOrigin;
-	Vec4 translationLastDelta;
-
-	bool bMouseOver;
-	bool reversed;
-
-
-	bool belowAxisLimit[3];
-	bool belowPlaneLimit[3];
-	float axisFactor[3];
-
-	float axisLimit = 0.0025f;
-	float planeLimit = 0.02f;
-
 	float x = 0.f;
-	float y = 0.f;
-	float width = 0.f;
-	float height = 0.f;
-	float xMax = 0.f;
-	float yMax = 0.f;
-	float displayRatio = 1.f;
-
-
-	bool allowAxisFlip = true;
-	float gizmoSizeClipSpace = 0.1f;
-
-	bool isFocused = false; 
-
-	void SetRect(float X, float Y, float width, float height)
-	{
-		x = X;
-		y = Y;
-		width = width;
-		height = height;
-		xMax = x + width;
-		yMax = y + xMax;
-		displayRatio = width / height;
-	}
+	float y = 21.f;
+	float width = 800.f;
+	float height = 530.f;
 };
 
 

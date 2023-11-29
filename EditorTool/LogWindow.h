@@ -27,7 +27,7 @@ public:
 	virtual void Update() override;
 
 	void Clear();
-	void AddLog(string msg, LogFilter filter);
+	void AddLog(string msg, LogFilter filter = LogFilter::Info);
 	void Draw(const char* title, bool* p_open = NULL);
 
 	void ShowLog();

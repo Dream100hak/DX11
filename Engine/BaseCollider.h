@@ -23,8 +23,11 @@ public:
 	shared_ptr<IndexBuffer> GetIndexBuffer() { return _indexBuffer; }
 
 	void CreateBuffers();
+	void SetOffset(Vec3 offset) { _offset = offset; }
 
 protected:
+
+	Vec3 _offset = { 0.f , 0.f, 0.f };
 	ColliderType _colliderType;
 	shared_ptr<Geometry<VertexColorData>> _geometry;
 	shared_ptr<VertexBuffer> _vertexBuffer;

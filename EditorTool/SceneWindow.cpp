@@ -56,8 +56,15 @@ void SceneWindow::ShowSceneWindow()
 				if (obj != nullptr)
 				{
 					if (obj->GetUIPickable())
+					{
+						if (_tr != nullptr)
+						{
+							_tr->GetGameObject()->SetUIPicked(false);
+						}
 						_tr = obj->GetTransform();
-
+						obj->SetUIPicked(true);
+					}
+				
 					wstring name = obj->GetObjectName();
 					int64 id = obj->GetId();
 					TOOL->SetSelectedObjH(id);
@@ -143,30 +150,27 @@ void SceneWindow::EditTransform()
 
 }
 
-bool SceneWindow::Manipulate(OPERATION operation, Mode mode, const float* snap, const float* localBounds, const float* boundsSnap)
+void SceneWindow::Manipulate(OPERATION operation, Mode mode, const float* snap, const float* localBounds, const float* boundsSnap)
 {
 	ComputeContext((operation & SCALE) ? Local : mode);
 
 	int type = MT_NONE;
-	bool manipulated = false;
 
-	manipulated = HandleTranslation(operation, type, mode, nullptr);
-	manipulated = HandleScale(operation, type, mode, nullptr);
+	HandleTranslation(operation, type, mode, nullptr);
+	HandleScale(operation, type, mode, nullptr);
 
 	DrawTranslationGizmo(operation, type);
 	DrawScaleGizmo(operation , type);
 
-	return manipulated;
 }
 
-bool SceneWindow::HandleTranslation(OPERATION op, int& type, Mode mode, const float* snap)
+void SceneWindow::HandleTranslation(OPERATION op, int& type, Mode mode, const float* snap)
 {
 	if (!Intersects(op, TRANSLATE) || type != MT_NONE)
-		return false;
+		return;
 	
 	const ImGuiIO& io = ImGui::GetIO();
 	const bool applyRotationLocaly = mode == Local || type == MT_MOVE_SCREEN;
-	bool modified = false;
 
 	// move
 	if (_bUsing && IsTranslateType(_currentOperation))
@@ -190,11 +194,6 @@ bool SceneWindow::HandleTranslation(OPERATION op, int& type, Mode mode, const fl
 			delta = axisValue * lengthOnAxis;
 		}
 
-		if (delta != _translationLastDelta)
-			modified = true;		
-
-		_translationLastDelta = delta;
-
 		XMMATRIX deltaMatrixTranslation = XMMatrixTranslation(delta.x, delta.y, delta.z);
 	
 		XMMATRIX res = XMLoadFloat4x4(&_modelSource) * deltaMatrixTranslation;
@@ -203,9 +202,8 @@ bool SceneWindow::HandleTranslation(OPERATION op, int& type, Mode mode, const fl
 		_tr->SetPosition(Vec3(newMatrix._41, newMatrix._42 , newMatrix._43));
 
 		if (!io.MouseDown[0])
-		{
 			_bUsing = false; 
-		}
+		
 
 		type = _currentOperation;
 	}
@@ -224,7 +222,7 @@ bool SceneWindow::HandleTranslation(OPERATION op, int& type, Mode mode, const fl
 
 			Vec3 movePlanNormal[] = { _model.Translation().Right, _model.Up(), _model.Backward(),
 							  _model.Translation().Right, _model.Translation().Up, _model.Translation().Backward,
-							  -_cameraDir };
+							  -MAIN_CAM->GetTransform()->GetLook() };
 
 			Vec3 cameraToModelNormalized = _model.Translation() - MAIN_CAM->GetTransform()->GetLocalPosition();
 			cameraToModelNormalized.Normalize();
@@ -245,16 +243,14 @@ bool SceneWindow::HandleTranslation(OPERATION op, int& type, Mode mode, const fl
 			_relativeOrigin = (_translationPlanOrigin - _model.Translation()) * (1.f / _screenFactor);
 		}
 	}
-	return modified;
 }
 
-bool SceneWindow::HandleScale(OPERATION op, int& type, Mode mode, const float* snap)
+void SceneWindow::HandleScale(OPERATION op, int& type, Mode mode, const float* snap)
 {
 	if ((!Intersects(op, SCALE) && !Intersects(op, SCALEU)) || type != MT_NONE || !GUI->IsHoveringWindow())
-		return false;
+		return;
 	
 	ImGuiIO& io = ImGui::GetIO();
-	bool modified = false;
 
 	if (!_bUsing)
 	{
@@ -267,14 +263,13 @@ bool SceneWindow::HandleScale(OPERATION op, int& type, Mode mode, const float* s
 		{
 			_bUsing = true;
 			_currentOperation = type;
-			Vec3 movePlanNormal[] = { _model.Translation().Up, _model.Translation().Backward, _model.Translation().Right,_model.Translation().Backward, _model.Translation().Up, _model.Translation().Right, -_cameraDir };
+			Vec3 movePlanNormal[] = { _model.Translation().Up, _model.Translation().Backward, _model.Translation().Right,_model.Translation().Backward, _model.Translation().Up, _model.Translation().Right, -MAIN_CAM->GetTransform()->GetLook() };
 			// pickup plan
 
 			_translationPlan = BuildPlan(_model.Translation(), movePlanNormal[type - MT_SCALE_X]);
 			float len = IntersectRayPlane(_rayOrigin, _rayDir, _translationPlan);
 			_translationPlanOrigin = _rayOrigin + _rayDir * len;
 			_matrixOrigin = _model.Translation();
-			_scale = Vec3(1.f, 1.f,1.f); 
 			_relativeOrigin = (_translationPlanOrigin - _model.Translation()) * (1.f / _screenFactor);
 			_scaleValueOrigin = Vec3(_modelSource.Right().Length(), _modelSource.Up().Length(), _modelSource.Backward().Length());
 			_saveMousePosX = io.MousePos.x;
@@ -312,20 +307,12 @@ bool SceneWindow::HandleScale(OPERATION op, int& type, Mode mode, const float* s
 			_tr->SetLocalScale(newScale);
 		}
 
-		if (newScale != _scaleLastDelta)
-			modified = true;
-		
-		_scaleLastDelta = newScale;
-
 		if (!io.MouseDown[0])
-		{
 			_bUsing = false;
-			_scale = Vec3(1.f, 1.f, 1.f);
-		}
+		
 
 		type = _currentOperation;
 	}
-	return modified;
 }
 
 void SceneWindow::ComputeContext( Mode mode)
@@ -334,9 +321,6 @@ void SceneWindow::ComputeContext( Mode mode)
 		return;
 
 	ImGuiIO& io = ImGui::GetIO();
-
-	Matrix V = MAIN_CAM->GetViewMatrix();
-	Matrix P = MAIN_CAM->GetProjectionMatrix();
 
 	_view = MAIN_CAM->GetViewMatrix();
 	_projection = MAIN_CAM->GetProjectionMatrix();
@@ -363,10 +347,6 @@ void SceneWindow::ComputeContext( Mode mode)
 	Matrix viewInverse = _view;
 	viewInverse.Invert();
 
-	_cameraDir = viewInverse.Backward();
-	_cameraEye = viewInverse.Translation();
-	_cameraRight = viewInverse.Right();
-	_cameraUp = viewInverse.Up();
 	// projection reverse
 	Vec3 rightViewInverse = MAIN_CAM->GetTransform()->GetRight();
 
@@ -851,7 +831,7 @@ void SceneWindow::DrawScaleGizmo(OPERATION op, int32 type)
 
 	if (_bUsing)
 	{
-		scaleDisplay = _scale;
+		scaleDisplay = Vec4(1,1,1,1);
 	}
 
 	for (int i = 0; i < 3; i++)

@@ -46,7 +46,6 @@ public:
 
 private:
 
-	Vec3 _offset = {0.f , 0.f, 0.f}; 
 	BoundingOrientedBox _boundingBox;
 	shared_ptr<class Material> _material; 
 	uint8 _pass = 0;

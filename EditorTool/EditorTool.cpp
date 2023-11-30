@@ -201,9 +201,11 @@ void EditorTool::Init()
 			obj->GetModelRenderer()->SetModel(m2);
 			obj->GetModelRenderer()->SetPass(1);
 
-			//auto collider = make_shared<OBBBoxCollider>();
-			//collider->GetBoundingBox().Extents = Vec3(1.f);
-			//obj->AddComponent(collider);
+			auto collider = make_shared<OBBBoxCollider>();
+			collider->SetOffset(Vec3(0.f, 8.f, 0.f));
+			collider->GetBoundingBox().Extents = Vec3(1.5f, 2.8f, 1.5f);
+			
+			obj->AddComponent(collider);
 
 			CUR_SCENE->Add(obj);
 		}

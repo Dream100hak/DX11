@@ -33,6 +33,7 @@ private:
 	void CreateDefaultMaterial();
 
 	void CreateShadowMapShader();
+	void CreateOutlineShader();
 
 private:
 	wstring _resourcePath;

@@ -185,5 +185,8 @@
     <FxCompile Include="..\Shaders\01. DebugTexture.fx">
       <Filter>Shaders\Contents</Filter>
     </FxCompile>
+    <FxCompile Include="..\Shaders\01. Outline.fx">
+      <Filter>Shaders\Contents</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

@@ -12,6 +12,7 @@ void ResourceManager::Init()
 	CreateDefaultMaterial();
 
 	CreateShadowMapShader();
+	CreateOutlineShader();
 }
 
 std::shared_ptr<Texture> ResourceManager::GetOrAddTexture(const wstring& key, const wstring& path)
@@ -71,4 +72,10 @@ void ResourceManager::CreateShadowMapShader()
 {
 	shared_ptr<Shader> shader = make_shared<Shader>(L"01. ShadowMap.fx");
 	RESOURCES->Add(L"Shadow", shader);
+}
+
+void ResourceManager::CreateOutlineShader()
+{
+	shared_ptr<Shader> shader = make_shared<Shader>(L"01. Outline.fx");
+	RESOURCES->Add(L"Outline", shader);
 }

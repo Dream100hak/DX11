@@ -1,29 +1,6 @@
 #pragma once
 #include "EditorWindow.h"
 
-
-
-enum MOVETYPE
-{
-	MT_NONE,
-	MT_MOVE_X,
-	MT_MOVE_Y,
-	MT_MOVE_Z,
-	MT_MOVE_YZ,
-	MT_MOVE_ZX,
-	MT_MOVE_XY,
-	MT_MOVE_SCREEN,
-	MT_ROTATE_X,
-	MT_ROTATE_Y,
-	MT_ROTATE_Z,
-	MT_ROTATE_SCREEN,
-	MT_SCALE_X,
-	MT_SCALE_Y,
-	MT_SCALE_Z,
-	MT_SCALE_XYZ
-};
-
-
 inline OPERATION operator|(OPERATION lhs, OPERATION rhs)
 {
 	return static_cast<OPERATION>(static_cast<int>(lhs) | static_cast<int>(rhs));
@@ -59,10 +36,10 @@ public:
 	Plane BuildPlan(const Vec3& pointOrigin, Vec3& normalOrigin);
 
 	void EditTransform();
-	bool Manipulate(OPERATION operation, Mode mode, const float* snap, const float* localBounds, const float* boundsSnap);
+	void Manipulate(OPERATION operation, Mode mode, const float* snap, const float* localBounds, const float* boundsSnap);
 	
-	bool HandleTranslation(OPERATION op, int& type, Mode mode, const float* snap);
-	bool HandleScale(OPERATION op, int& type, Mode mode, const float* snap);
+	void HandleTranslation(OPERATION op, int& type, Mode mode, const float* snap);
+	void HandleScale(OPERATION op, int& type, Mode mode, const float* snap);
 
 	int32 GetMoveType(OPERATION op, Vec3& gizmoHitProportion);
 	int32 GetScaleType(OPERATION op);
@@ -122,7 +99,6 @@ public:
 
 private:
 
-	
 	Matrix _view;
 	Matrix _projection;
 
@@ -143,20 +119,12 @@ private:
 
 	Plane _translationPlan;
 	Vec4 _translationPlanOrigin;
-	Vec3 _translationLastDelta;
 
 	Vec3 _matrixOrigin;
 	Vec3 _relativeOrigin;
 
-	Vec4 _scale;
 	Vec3 _scaleValueOrigin;
-	Vec3 _scaleLastDelta;
 	float _saveMousePosX;
-
-	Vec3 _cameraDir;
-	Vec3 _cameraEye;
-	Vec3 _cameraRight;
-	Vec3 _cameraUp;
 
 	shared_ptr<Transform> _tr;	
 	int32 _currentOperation = -1;

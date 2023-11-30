@@ -93,6 +93,9 @@ public:
 	void SetUIPickable(bool on) { _pickable = on; }
 	bool GetUIPickable() { return _pickable ; }
 
+	void SetUIPicked(bool on) { _picked = on; }
+	bool GetUIPicked() { return _picked; }
+
 protected:
 	array<shared_ptr<Component>, FIXED_COMPONENT_COUNT> _components;
 	vector<shared_ptr<MonoBehaviour>> _scripts;
@@ -119,6 +122,7 @@ private:
 	uint64 _id = 0; 
 
 	bool _pickable = true;
+	bool _picked = false;
 
 };
 

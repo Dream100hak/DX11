@@ -57,14 +57,36 @@ void ModelRenderer::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
 	if (_model == nullptr)
 		return;
 
-	auto shader = RESOURCES->Get<Shader>(L"Standard");
-	ChangeShader(shader);
+	auto go = _gameObject.lock();
 
-	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
-	// GlobalData
-	_shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
+	if(go->GetUIPicked())
+	{
+		auto shader = RESOURCES->Get<Shader>(L"Outline");
+		ChangeShader(shader);
 
-	PushData(buffer);
+		DCT->OMSetDepthStencilState(GRAPHICS->GetDSStateOutline().Get(), 1);
+
+		auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
+		// GlobalData
+		_shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
+
+		PushData(buffer);
+	}
+
+	{
+		auto shader = RESOURCES->Get<Shader>(L"Standard");
+		ChangeShader(shader);
+
+		auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
+		DCT->OMSetDepthStencilState(nullptr, 1);
+	
+		// GlobalData
+		_shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
+
+		PushData(buffer);
+	}
+
+
 }
 
 void ModelRenderer::PushData(shared_ptr<class InstancingBuffer>& buffer)

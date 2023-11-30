@@ -111,6 +111,29 @@ void Graphics::CreateDepthStencilView()
 	}
 
 	{
+		D3D11_DEPTH_STENCIL_DESC depthStencilDesc;
+		ZeroMemory(&depthStencilDesc, sizeof(depthStencilDesc));
+
+		depthStencilDesc.DepthEnable = TRUE; // 깊이 테스트 활성화
+		depthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL; 
+		depthStencilDesc.DepthFunc = D3D11_COMPARISON_LESS; 
+		HRESULT hr = DEVICE->CreateDepthStencilState(&depthStencilDesc, _dsStateStandard.GetAddressOf());
+		CHECK(hr);
+	}
+
+	{
+		D3D11_DEPTH_STENCIL_DESC depthStencilDesc;
+		ZeroMemory(&depthStencilDesc, sizeof(depthStencilDesc));
+
+		depthStencilDesc.DepthEnable = TRUE; // 깊이 테스트 활성화
+		depthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO; 
+		depthStencilDesc.DepthFunc = D3D11_COMPARISON_LESS; 
+
+		HRESULT hr = DEVICE->CreateDepthStencilState(&depthStencilDesc, _dsStateOutline.GetAddressOf());
+		CHECK(hr);
+	}
+
+	{
 		D3D11_DEPTH_STENCIL_VIEW_DESC desc;
 		ZeroMemory(&desc, sizeof(desc));
 		desc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
@@ -120,6 +143,7 @@ void Graphics::CreateDepthStencilView()
 		HRESULT hr = DEVICE->CreateDepthStencilView(_depthStencilTexture.Get(), &desc, _depthStencilView.GetAddressOf());
 		CHECK(hr);
 	}
+
 }
 
 void Graphics::SetViewport(float width, float height, float x /*= 0*/, float y /*= 0*/, float minDepth /*= 0*/, float maxDepth /*= 1*/)

@@ -20,6 +20,9 @@ public:
 
 	shared_ptr<ShadowMap> GetShadowMap() { return _smap; }
 
+	ComPtr <ID3D11DepthStencilState> GetDSStateStandard() { return _dsStateStandard; }
+	ComPtr <ID3D11DepthStencilState> GetDSStateOutline() { return _dsStateOutline; }
+
 private:
 	void CreateDeviceAndSwapChain();
 	void CreateRenderTargetView();
@@ -49,6 +52,9 @@ private:
 	// DSV
 	ComPtr<ID3D11Texture2D> _depthStencilTexture;
 	ComPtr<ID3D11DepthStencilView> _depthStencilView;
+
+	ComPtr<ID3D11DepthStencilState> _dsStateStandard;
+	ComPtr<ID3D11DepthStencilState> _dsStateOutline;
 
 	shared_ptr<ShadowMap> _smap = nullptr; 
 

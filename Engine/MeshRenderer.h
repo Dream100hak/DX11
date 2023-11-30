@@ -24,6 +24,7 @@ public:
 
 	InstanceID GetInstanceID();
 	shared_ptr<Material>& GetMaterial() { return _material;}
+	shared_ptr<Mesh>& GetMesh() { return _mesh; }
 
 private:
 	shared_ptr<Mesh> _mesh;

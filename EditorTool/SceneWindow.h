@@ -49,18 +49,28 @@ public:
 	void ShowSceneWindow();
 
 	bool Intersects(OPERATION lhs, OPERATION rhs) { return (lhs & rhs) != 0; }
-	bool IsTranslateType(int type) { return type >= MT_MOVE_X && type <= MT_MOVE_SCREEN;  }
+
+	bool IsTranslateType(int32 type) { return type >= MT_MOVE_X && type <= MT_MOVE_SCREEN;  }
+	bool IsScaleType(int32 type) { return type >= MT_SCALE_X && type <= MT_SCALE_XYZ; }
+
 	float IntersectRayPlane(const XMVECTOR& rOrigin, const XMVECTOR& rVector, const Vec4& plane);
 	float GetSegmentLengthClipSpace(const Vec3& start, const Vec3& end, const bool localCoordinates = false);
 	
 	Plane BuildPlan(const Vec3& pointOrigin, Vec3& normalOrigin);
 
 	void EditTransform();
-	bool Manipulate(float* matrix, float* deltaMatrix, OPERATION operation, Mode mode, const float* snap, const float* localBounds, const float* boundsSnap);
-	bool HandleTranslation(float* matrix, float* deltaMatrix, OPERATION op, int& type, Mode mode, const float* snap);
-	void DrawTranslationGizmo(OPERATION op, int32 type);
+	bool Manipulate(OPERATION operation, Mode mode, const float* snap, const float* localBounds, const float* boundsSnap);
 	
-	void ComputeContext(float* matrix, Mode mode);
+	bool HandleTranslation(OPERATION op, int& type, Mode mode, const float* snap);
+	bool HandleScale(OPERATION op, int& type, Mode mode, const float* snap);
+
+	int32 GetMoveType(OPERATION op, Vec3& gizmoHitProportion);
+	int32 GetScaleType(OPERATION op);
+
+	void DrawTranslationGizmo(OPERATION op, int32 type);
+	void DrawScaleGizmo(OPERATION op, int32 type);
+
+	void ComputeContext(Mode mode);
 	void ComputeColors(ImU32* colors, int type, OPERATION operation)
 	{
 		ImU32 selectionColor = GUI->GetColorU32(SELECTION);
@@ -98,7 +108,6 @@ public:
 	}
 	void ComputeCameraRay(Vec4& rayOrigin, Vec4& rayDir);
 
-	int32 GetMoveType(OPERATION op,  Vec3& gizmoHitProportion);
 	bool Contains(OPERATION lhs, OPERATION rhs) { return (lhs & rhs) == rhs; }
 	void DrawHatchedAxis(const Vec3& axis);
 
@@ -139,6 +148,11 @@ private:
 	Vec3 _matrixOrigin;
 	Vec3 _relativeOrigin;
 
+	Vec4 _scale;
+	Vec3 _scaleValueOrigin;
+	Vec3 _scaleLastDelta;
+	float _saveMousePosX;
+
 	Vec3 _cameraDir;
 	Vec3 _cameraEye;
 	Vec3 _cameraRight;
@@ -150,7 +164,10 @@ private:
 
 	const OPERATION TRANSLATE_PLANS[3] = { TRANSLATE_Y | TRANSLATE_Z, TRANSLATE_X | TRANSLATE_Z, TRANSLATE_X | TRANSLATE_Y };
 	static const int s_translationInfoIndex[];
+
 	static const char* s_translationInfoMask[];
+	static const char* s_scaleInfoMask[];
+
 private:
 	float _screenFactor = 500.f;
 	ImVec2 _screenSquareCenter ;
@@ -175,7 +192,6 @@ private:
 	float _planeLimit = 0.02f;
 
 	bool _bUsing = false;
-	bool _reversed = false;
 
 };
 

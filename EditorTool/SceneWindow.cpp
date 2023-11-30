@@ -5,15 +5,15 @@
 #include "ShortcutManager.h"
 #include "EditorToolManager.h"
 #include "Utils.h"
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+#include "MathUtils.h"
 
 const char* SceneWindow::s_translationInfoMask[] = { "X : %5.3f", "Y : %5.3f", "Z : %5.3f",
    "Y : %5.3f Z : %5.3f", "X : %5.3f Z : %5.3f", "X : %5.3f Y : %5.3f",
    "X : %5.3f Y : %5.3f Z : %5.3f" };
+
+const char* SceneWindow::s_scaleInfoMask[] = { "X : %5.2f", "Y : %5.2f", "Z : %5.2f", "XYZ : %5.2f" };
 const int SceneWindow::s_translationInfoIndex[] = { 0,0,0, 1,0,0, 2,0,0, 1,2,0, 0,2,0, 0,1,0, 0,1,2 };
+
 
 SceneWindow::SceneWindow()
 {
@@ -37,17 +37,40 @@ void SceneWindow::Update()
 
 void SceneWindow::ShowSceneWindow()
 {
+
+	const ImGuiIO& io = ImGui::GetIO();
+
 	EditTransform();
+
+	if (_bUsing == false)
+	{
+		if (io.MouseClicked[0])
+		{
+			int32 x = INPUT->GetMousePos().x;
+			int32 y = INPUT->GetMousePos().y;
+
+			if (GRAPHICS->IsMouseInViewport(x, y))
+			{
+				shared_ptr<GameObject> obj = CUR_SCENE->MeshPick(x, y);
+
+				if (obj != nullptr)
+				{
+					if (obj->GetUIPickable())
+						_tr = obj->GetTransform();
+
+					wstring name = obj->GetObjectName();
+					int64 id = obj->GetId();
+					TOOL->SetSelectedObjH(id);
+
+					ADDLOG("Pick Object : " + Utils::ToString(name), LogFilter::Info);
+				}
+			}
+		}
+	}
 }
 
 void SceneWindow::EditTransform()
 {
-	shared_ptr<GameObject> selectedGo = CUR_SCENE->GetCreatedObject(TOOL->GetSelectedIdH());
-	if (selectedGo == nullptr)
-		return;
-
-	_tr = selectedGo->GetTransform();
-
 	static SceneWindow::Mode currentGizmoMode(SceneWindow::Local);
 	static bool useSnap = false;
 	static float snap[3] = { 1.f, 1.f, 1.f };
@@ -70,86 +93,77 @@ void SceneWindow::EditTransform()
 	ImGui::SameLine();
 	if (ImGui::RadioButton("Scale", _currentGizmoOperation == SCALE))
 		_currentGizmoOperation = SCALE;
-	if (ImGui::RadioButton("Universal", _currentGizmoOperation == UNIVERSAL))
-		_currentGizmoOperation = UNIVERSAL;
+	//if (ImGui::RadioButton("Universal", _currentGizmoOperation == UNIVERSAL))
+	//	_currentGizmoOperation = UNIVERSAL;
 
-	float matrixTranslation[3] = { _tr->GetLocalPosition().x , _tr->GetLocalPosition().y , _tr->GetLocalPosition().z };
-	float matrixRotation[3] = { _tr->GetLocalRotation().x , _tr->GetLocalRotation().y , _tr->GetLocalRotation().z };
-	float matrixScale[3] = { _tr->GetLocalScale().x , _tr->GetLocalScale().y , _tr->GetLocalScale().z };
+	//float matrixTranslation[3] = { _tr->GetLocalPosition().x , _tr->GetLocalPosition().y , _tr->GetLocalPosition().z };
+	//float matrixRotation[3] = { _tr->GetLocalRotation().x , _tr->GetLocalRotation().y , _tr->GetLocalRotation().z };
+	//float matrixScale[3] = { _tr->GetLocalScale().x , _tr->GetLocalScale().y , _tr->GetLocalScale().z };
 
-	ImGui::InputFloat3("Tr", matrixTranslation);
-	ImGui::InputFloat3("Rt", matrixRotation);
-	ImGui::InputFloat3("Sc", matrixScale);
+	//ImGui::InputFloat3("Tr", matrixTranslation);
+	//ImGui::InputFloat3("Rt", matrixRotation);
+	//ImGui::InputFloat3("Sc", matrixScale);
 
 
-	if (_currentGizmoOperation != SCALE)
-	{
-		if (ImGui::RadioButton("Local", currentGizmoMode == Local))
-			currentGizmoMode = Local;
-		ImGui::SameLine();
-		if (ImGui::RadioButton("World", currentGizmoMode == World))
-			currentGizmoMode = World;
-	}
-	if (ImGui::IsKeyPressed(ImGuiKey_S))
-		useSnap = !useSnap;
-	ImGui::Checkbox("##UseSnap", &useSnap);
-	ImGui::SameLine();
+	//if (_currentGizmoOperation != SCALE)
+	//{
+	//	if (ImGui::RadioButton("Local", currentGizmoMode == Local))
+	//		currentGizmoMode = Local;
+	//	ImGui::SameLine();
+	//	if (ImGui::RadioButton("World", currentGizmoMode == World))
+	//		currentGizmoMode = World;
+	//}
+	//if (ImGui::IsKeyPressed(ImGuiKey_S))
+	//	useSnap = !useSnap;
+	//ImGui::Checkbox("##UseSnap", &useSnap);
+	//ImGui::SameLine();
 
-	switch (_currentGizmoOperation)
-	{
-	case TRANSLATE:
-		ImGui::InputFloat3("Snap", &snap[0]);
-		break;
-	case ROTATE:
-		ImGui::InputFloat("Angle Snap", &snap[0]);
-		break;
-	case SCALE:
-		ImGui::InputFloat("Scale Snap", &snap[0]);
-		break;
-	}
-	ImGui::Checkbox("Bound Sizing", &boundSizing);
-	if (boundSizing)
-	{
+	//switch (_currentGizmoOperation)
+	//{
+	//case TRANSLATE:
+	//	ImGui::InputFloat3("Snap", &snap[0]);
+	//	break;
+	//case ROTATE:
+	//	ImGui::InputFloat("Angle Snap", &snap[0]);
+	//	break;
+	//case SCALE:
+	//	ImGui::InputFloat("Scale Snap", &snap[0]);
+	//	break;
+	//}
+	//ImGui::Checkbox("Bound Sizing", &boundSizing);
+	//if (boundSizing)
+	//{
 
-		ImGui::Checkbox("##BoundSizing", &boundSizingSnap);
-		ImGui::SameLine();
-		ImGui::InputFloat3("Snap", boundsSnap);
-	}
+	//	ImGui::Checkbox("##BoundSizing", &boundSizingSnap);
+	//	ImGui::SameLine();
+	//	ImGui::InputFloat3("Snap", boundsSnap);
+	//}
 
-	XMFLOAT4X4 float4x4;
-	XMStoreFloat4x4(&float4x4, _tr->GetWorldMatrix());
-	float* matrixPointer = &(float4x4.m[0][0]);
-	
-	Manipulate(matrixPointer , nullptr,  _currentGizmoOperation, currentGizmoMode, useSnap ? &snap[0] : NULL, boundSizing ? bounds : NULL, boundSizingSnap ? boundsSnap : NULL);
+	Manipulate( _currentGizmoOperation, currentGizmoMode, useSnap ? &snap[0] : NULL, boundSizing ? bounds : NULL, boundSizingSnap ? boundsSnap : NULL);
 
 }
 
-bool SceneWindow::Manipulate(float* matrix, float* deltaMatrix, OPERATION operation, Mode mode, const float* snap, const float* localBounds, const float* boundsSnap)
+bool SceneWindow::Manipulate(OPERATION operation, Mode mode, const float* snap, const float* localBounds, const float* boundsSnap)
 {
-	ComputeContext(matrix, (operation & SCALE) ? Local : mode);
-
-	// set delta to identity
-	if (deltaMatrix)
-	{
-		XMMATRIX identityMatrix = XMMatrixIdentity(); // 단위 행렬 생성
-		XMStoreFloat4x4(reinterpret_cast<XMFLOAT4X4*>(deltaMatrix), identityMatrix); // XMFLOAT4X4 형식으로 변환하여 저장
-	}
+	ComputeContext((operation & SCALE) ? Local : mode);
 
 	int type = MT_NONE;
 	bool manipulated = false;
 
-	 manipulated = HandleTranslation(matrix , deltaMatrix,  operation, type, mode, nullptr);
+	manipulated = HandleTranslation(operation, type, mode, nullptr);
+	manipulated = HandleScale(operation, type, mode, nullptr);
+
 	DrawTranslationGizmo(operation, type);
+	DrawScaleGizmo(operation , type);
 
 	return manipulated;
 }
 
-bool SceneWindow::HandleTranslation(float* matrix, float* deltaMatrix, OPERATION op, int& type, Mode mode, const float* snap)
+bool SceneWindow::HandleTranslation(OPERATION op, int& type, Mode mode, const float* snap)
 {
 	if (!Intersects(op, TRANSLATE) || type != MT_NONE)
-	{
 		return false;
-	}
+	
 	const ImGuiIO& io = ImGui::GetIO();
 	const bool applyRotationLocaly = mode == Local || type == MT_MOVE_SCREEN;
 	bool modified = false;
@@ -175,10 +189,6 @@ bool SceneWindow::HandleTranslation(float* matrix, float* deltaMatrix, OPERATION
 			const float lengthOnAxis = axisValue.Dot(delta);
 			delta = axisValue * lengthOnAxis;
 		}
-		// snap
-		if (snap)
-		{
-		}
 
 		if (delta != _translationLastDelta)
 			modified = true;		
@@ -186,23 +196,21 @@ bool SceneWindow::HandleTranslation(float* matrix, float* deltaMatrix, OPERATION
 		_translationLastDelta = delta;
 
 		XMMATRIX deltaMatrixTranslation = XMMatrixTranslation(delta.x, delta.y, delta.z);
-
-		if (deltaMatrix)
-			XMStoreFloat4x4(reinterpret_cast<XMFLOAT4X4*>(deltaMatrix), deltaMatrixTranslation);
-		
+	
 		XMMATRIX res = XMLoadFloat4x4(&_modelSource) * deltaMatrixTranslation;
 		XMFLOAT4X4 newMatrix;
 		XMStoreFloat4x4(&newMatrix, res);
-		_tr->SetWorldMatrix(newMatrix);
+		_tr->SetPosition(Vec3(newMatrix._41, newMatrix._42 , newMatrix._43));
 
 		if (!io.MouseDown[0])
-			_bUsing = false;
-		
+		{
+			_bUsing = false; 
+		}
+
 		type = _currentOperation;
 	}
 	else
 	{
-		// find new possible way to move
 		Vec3 gizmoHitProportion = Vec3::Zero;
 		type = GetMoveType(op, gizmoHitProportion);
 		if (type != MT_NONE)
@@ -217,7 +225,6 @@ bool SceneWindow::HandleTranslation(float* matrix, float* deltaMatrix, OPERATION
 			Vec3 movePlanNormal[] = { _model.Translation().Right, _model.Up(), _model.Backward(),
 							  _model.Translation().Right, _model.Translation().Up, _model.Translation().Backward,
 							  -_cameraDir };
-
 
 			Vec3 cameraToModelNormalized = _model.Translation() - MAIN_CAM->GetTransform()->GetLocalPosition();
 			cameraToModelNormalized.Normalize();
@@ -235,13 +242,93 @@ bool SceneWindow::HandleTranslation(float* matrix, float* deltaMatrix, OPERATION
 			_translationPlanOrigin = _rayOrigin + _rayDir * len;
 			_matrixOrigin = _model.Translation();
 		
-		_relativeOrigin = (_translationPlanOrigin - _model.Translation()) * (1.f / _screenFactor);
+			_relativeOrigin = (_translationPlanOrigin - _model.Translation()) * (1.f / _screenFactor);
 		}
 	}
 	return modified;
 }
 
-void SceneWindow::ComputeContext(float* matrix, Mode mode)
+bool SceneWindow::HandleScale(OPERATION op, int& type, Mode mode, const float* snap)
+{
+	if ((!Intersects(op, SCALE) && !Intersects(op, SCALEU)) || type != MT_NONE || !GUI->IsHoveringWindow())
+		return false;
+	
+	ImGuiIO& io = ImGui::GetIO();
+	bool modified = false;
+
+	if (!_bUsing)
+	{
+		type = GetScaleType(op);
+		if (type != MT_NONE)
+		{
+			ImGui::SetNextFrameWantCaptureMouse(true);
+		}
+		if (GUI->CanActivate() && type != MT_NONE)
+		{
+			_bUsing = true;
+			_currentOperation = type;
+			Vec3 movePlanNormal[] = { _model.Translation().Up, _model.Translation().Backward, _model.Translation().Right,_model.Translation().Backward, _model.Translation().Up, _model.Translation().Right, -_cameraDir };
+			// pickup plan
+
+			_translationPlan = BuildPlan(_model.Translation(), movePlanNormal[type - MT_SCALE_X]);
+			float len = IntersectRayPlane(_rayOrigin, _rayDir, _translationPlan);
+			_translationPlanOrigin = _rayOrigin + _rayDir * len;
+			_matrixOrigin = _model.Translation();
+			_scale = Vec3(1.f, 1.f,1.f); 
+			_relativeOrigin = (_translationPlanOrigin - _model.Translation()) * (1.f / _screenFactor);
+			_scaleValueOrigin = Vec3(_modelSource.Right().Length(), _modelSource.Up().Length(), _modelSource.Backward().Length());
+			_saveMousePosX = io.MousePos.x;
+		}
+	}
+	// scale
+	if (_bUsing && IsScaleType(_currentOperation))
+	{
+
+		ImGui::SetNextFrameWantCaptureMouse(true);
+
+		const float len = IntersectRayPlane(_rayOrigin, _rayDir, _translationPlan);
+		Vec4 newPos = _rayOrigin + _rayDir * len;
+		Vec4 newOrigin = newPos - _relativeOrigin * _screenFactor;
+		Vec3 delta = newOrigin - _modelLocal.Translation();
+		Vec3 newScale = _scaleValueOrigin;
+		// 1 axis constraint
+		if (_currentOperation >= MT_SCALE_X && _currentOperation <= MT_SCALE_Z)
+		{
+			int axisIndex = _currentOperation - MT_SCALE_X;
+			const Vec3& axisValue = *(Vec3*)&_modelLocal.m[axisIndex];
+			float lengthOnAxis = Dot3(axisValue, delta);
+			delta = axisValue * lengthOnAxis;
+
+			Vec3 baseVector = _translationPlanOrigin - _modelLocal.Translation();
+			float ratio = Dot3(axisValue, baseVector + delta) / Dot3(axisValue, baseVector);
+		
+			((float*)&newScale)[axisIndex] = max(ratio * ((float*)&_scaleValueOrigin)[axisIndex], 0.001f);
+			_tr->SetLocalScale(newScale);
+		}
+		else
+		{
+			float scaleDelta = (io.MousePos.x - _saveMousePosX) * 0.01f;
+			newScale = _scaleValueOrigin * max(1.f + scaleDelta, 0.001f);
+			_tr->SetLocalScale(newScale);
+		}
+
+		if (newScale != _scaleLastDelta)
+			modified = true;
+		
+		_scaleLastDelta = newScale;
+
+		if (!io.MouseDown[0])
+		{
+			_bUsing = false;
+			_scale = Vec3(1.f, 1.f, 1.f);
+		}
+
+		type = _currentOperation;
+	}
+	return modified;
+}
+
+void SceneWindow::ComputeContext( Mode mode)
 {
 	if (_tr == nullptr)
 		return;
@@ -260,7 +347,7 @@ void SceneWindow::ComputeContext(float* matrix, Mode mode)
 	if (mode == Local)
 		_model = _modelLocal;
 	else
-		_model.Translation(((Matrix*)matrix)->Translation());
+		_model = _tr->GetWorldMatrix();
 	
 	_modelSource = _tr->GetWorldMatrix();
 	_modelScaleOrigin = Vec3(_modelSource.Right().Length(), _modelSource.Up().Length(), _modelSource.Backward().Length());
@@ -277,7 +364,6 @@ void SceneWindow::ComputeContext(float* matrix, Mode mode)
 	viewInverse.Invert();
 
 	_cameraDir = viewInverse.Backward();
-	ImGui::InputFloat3("CAM DIR : " , (float*)&_cameraDir);
 	_cameraEye = viewInverse.Translation();
 	_cameraRight = viewInverse.Right();
 	_cameraUp = viewInverse.Up();
@@ -325,10 +411,8 @@ Plane SceneWindow::BuildPlan(const Vec3& pointOrigin, Vec3& normalOrigin)
 void SceneWindow::DrawHatchedAxis(const Vec3& axis)
 {
 	if (GAME->GetSceneDesc().style.HatchedAxisLineThickness <= 0.0f)
-	{
 		return;
-	}
-
+	
 	for (int j = 1; j < 10; j++)
 	{
 		ImVec2 baseSSpace2 = GUI->WorldToScreenPos(axis * 0.05f * (float)(j * 2) * _screenFactor, _mvp);
@@ -362,7 +446,6 @@ ImVec2 SceneWindow::PointOnSegment(const ImVec2& point, const ImVec2& vertPos1, 
 void SceneWindow::ComputeCameraRay(Vec4& rayOrigin, Vec4& rayDir)
 {
 
- //1번째 레이
 	ImGuiIO& io = ImGui::GetIO();
 	ImVec2 position = ImVec2(GAME->GetSceneDesc().x, GAME->GetSceneDesc().y);
 	ImVec2 size = ImVec2(GAME->GetSceneDesc().width, GAME->GetSceneDesc().height);
@@ -370,8 +453,8 @@ void SceneWindow::ComputeCameraRay(Vec4& rayOrigin, Vec4& rayDir)
 	float mox = ((io.MousePos.x - position.x) / size.x) * 2.f - 1.f;
 	float moy = (1.f - ((io.MousePos.y - position.y) / size.y)) * 2.f - 1.f;
 
-	float zNear = _reversed ? (1.f - FLT_EPSILON) : 0.f;
-	float zFar = _reversed ? 0.f : (1.f - FLT_EPSILON);
+	float zNear = 0.f;
+	float zFar = 1.f - FLT_EPSILON;
 
 	Vec4 nearPoint = Vec4(mox, moy, zNear, 1.f);
 	Vec4 farPoint = Vec4(mox, moy, zFar, 1.f);
@@ -390,9 +473,10 @@ int32 SceneWindow::GetMoveType(OPERATION op, Vec3& gizmoHitProportion)
 	if (!Intersects(op, TRANSLATE) || _bUsing ||   !GUI->IsHoveringWindow())
 		return MT_NONE;
 	
-	ImGuiIO& io = ImGui::GetIO();
+
 	int type = MT_NONE;
 
+	ImGuiIO& io = ImGui::GetIO();
 	int32 mouse[2] = { io.MousePos.x , io.MousePos.y};
 
 	ImGui::InputInt2("Mouse Pos : " , mouse );
@@ -439,7 +523,6 @@ int32 SceneWindow::GetMoveType(OPERATION op, Vec3& gizmoHitProportion)
 		float dx = Dot3(dirPlaneX , (posOnPlan - _model.Translation()) * (1.f / _screenFactor));
 		float dy = Dot3(dirPlaneY , (posOnPlan - _model.Translation()) * (1.f / _screenFactor));
 
-
 		if (belowPlaneLimit && dx >= _quadUV[0] && dx <= _quadUV[4] && dy >= _quadUV[1] && dy <= _quadUV[3] && Contains(op, TRANSLATE_PLANS[i]))
 		{
 			type = MT_MOVE_YZ + i;
@@ -450,12 +533,99 @@ int32 SceneWindow::GetMoveType(OPERATION op, Vec3& gizmoHitProportion)
 	}
 	return type;
 }
- void SceneWindow::ComputeTripodAxisAndVisibility(const int axisIndex, Vec3& dirAxis, Vec3& dirPlaneX, Vec3& dirPlaneY, bool& belowAxisLimit, bool& belowPlaneLimit, const bool localCoordinates)
+
+int32 SceneWindow::GetScaleType(OPERATION op)
+{
+	if (_bUsing)
+	{
+		return MT_NONE;
+	}
+	ImGuiIO& io = ImGui::GetIO();
+	int type = MT_NONE;
+
+	// screen
+	if (io.MousePos.x >= _screenSquareMin.x && io.MousePos.x <= _screenSquareMax.x &&
+		io.MousePos.y >= _screenSquareMin.y && io.MousePos.y <= _screenSquareMax.y &&
+		Contains(op, SCALE))
+	{
+		type = MT_SCALE_XYZ;
+	}
+
+	// compute
+	for (int i = 0; i < 3 && type == MT_NONE; i++)
+	{
+		if (!Intersects(op, static_cast<OPERATION>(SCALE_X << i)))
+		{
+			continue;
+		}
+		Vec3 dirPlaneX, dirPlaneY, dirAxis;
+		bool belowAxisLimit, belowPlaneLimit;
+		ComputeTripodAxisAndVisibility(i, dirAxis, dirPlaneX, dirPlaneY, belowAxisLimit, belowPlaneLimit, true);
+		dirAxis = Vec3::TransformNormal(dirAxis, _modelLocal);
+		dirPlaneX = Vec3::TransformNormal(dirPlaneX, _modelLocal);
+		dirPlaneY = Vec3::TransformNormal(dirPlaneY, _modelLocal);
+
+		const float len = IntersectRayPlane(_rayOrigin, _rayDir, BuildPlan(_modelLocal.Translation(), dirAxis));
+		XMVECTOR posOnPlan = _rayOrigin + _rayDir * len;
+
+		const float startOffset = Contains(op, static_cast<OPERATION>(TRANSLATE_X << i)) ? 1.0f : 0.1f;
+		const float endOffset = Contains(op, static_cast<OPERATION>(TRANSLATE_X << i)) ? 1.4f : 1.0f;
+		const ImVec2 posOnPlanScreen = GUI->WorldToScreenPos(posOnPlan, _vp);
+		const ImVec2 axisStartOnScreen = GUI->WorldToScreenPos(_modelLocal.Translation() + dirAxis * _screenFactor * startOffset, _vp);
+		const ImVec2 axisEndOnScreen = GUI->WorldToScreenPos(_modelLocal.Translation() + dirAxis * _screenFactor * endOffset, _vp);
+
+		ImVec2 closestPointOnAxis = PointOnSegment(ImVec2(posOnPlanScreen), ImVec2(axisStartOnScreen), ImVec2(axisEndOnScreen));
+		Vec2  closestPoint = Vec2(closestPointOnAxis.x - posOnPlanScreen.x, closestPointOnAxis.y - posOnPlanScreen.y);
+
+		if (closestPoint.Length() < 12.f) // pixel size
+		{
+			type = MT_SCALE_X + i;
+		}
+	}
+
+	// universal
+
+	Vec4 deltaScreen = { io.MousePos.x - _screenSquareCenter.x, io.MousePos.y - _screenSquareCenter.y, 0.f, 0.f };
+	float dist = deltaScreen.Length();
+	if (Contains(op, SCALEU) && dist >= 17.0f && dist < 23.0f)
+	{
+		type = MT_SCALE_XYZ;
+	}
+
+	for (int i = 0; i < 3 && type == MT_NONE; i++)
+	{
+		if (!Intersects(op, static_cast<OPERATION>(SCALE_XU << i)))
+		{
+			continue;
+		}
+
+		Vec3 dirPlaneX, dirPlaneY, dirAxis;
+		bool belowAxisLimit, belowPlaneLimit;
+		ComputeTripodAxisAndVisibility(i, dirAxis, dirPlaneX, dirPlaneY, belowAxisLimit, belowPlaneLimit, true);
+
+		// draw axis
+		if (belowAxisLimit)
+		{
+			bool hasTranslateOnAxis = Contains(op, static_cast<OPERATION>(TRANSLATE_X << i));
+			float markerScale = hasTranslateOnAxis ? 1.4f : 1.0f;
+			ImVec2 worldDirSSpace = GUI->WorldToScreenPos((dirAxis * markerScale) * _screenFactor, _modelLocal * _vp);
+
+			float distance = sqrtf(ImLengthSqr(worldDirSSpace - io.MousePos));
+			if (distance < 12.f)
+			{
+				type = MT_SCALE_X + i;
+			}
+		}
+	}
+	return type;
+}
+
+void SceneWindow::ComputeTripodAxisAndVisibility(const int axisIndex, Vec3& dirAxis, Vec3& dirPlaneX, Vec3& dirPlaneY, bool& belowAxisLimit, bool& belowPlaneLimit, const bool localCoordinates)
  {
-	 Vec3 directionUnary[3] = { Vec3::Left, Vec3::Up, Vec3::Backward };
-	 dirAxis = directionUnary[axisIndex];
-	 dirPlaneX = directionUnary[(axisIndex + 1) % 3];
-	 dirPlaneY = directionUnary[(axisIndex + 2) % 3];
+	 Vec3 directions[3] = { Vec3::Left, Vec3::Up, Vec3::Backward };
+	 dirAxis = directions[axisIndex];
+	 dirPlaneX = directions[(axisIndex + 1) % 3];
+	 dirPlaneY = directions[(axisIndex + 2) % 3];
 
 	 if (_bUsing)
 	 {
@@ -532,7 +702,7 @@ int32 SceneWindow::GetMoveType(OPERATION op, Vec3& gizmoHitProportion)
 float SceneWindow::GetSegmentLengthClipSpace(const Vec3& start, const Vec3& end, const bool localCoordinates )
 {
 	Vec4 start4 = Vec4(start.x, start.y , start.z , 1.f);
-	const Matrix& mvp = localCoordinates ? _tr->GetLocalMatrix() : _mvp;
+	const Matrix& mvp = localCoordinates ? _modelLocal : _mvp;
 
 	Vec4 startOfSegment = Vec4::Transform(start4, mvp);
 
@@ -585,7 +755,7 @@ void SceneWindow::DrawTranslationGizmo(OPERATION op, int32 type)
 	float angle = acos(dotProduct);
 
 	// 기즈모 가시성 결정
-	if (angle >= M_PI / 2) // 90도 이상이면 return
+	if (angle >= MathUtils::PI / 2) // 90도 이상이면 return
 		return;
 
 	for (int i = 0; i < 3; ++i)
@@ -613,12 +783,10 @@ void SceneWindow::DrawTranslationGizmo(OPERATION op, int32 type)
 				ImVec2 ortogonalDir(dir.y, -dir.x); // Perpendicular vector
 				ImVec2 a(worldDirSSpace + dir);
 				GAME->GetSceneDesc().drawList->AddTriangleFilled(worldDirSSpace - dir, a + ortogonalDir, a - ortogonalDir, colors[i + 1]);
-				// Arrow head end
 
-				if (_axisFactor[i] < 0.f)
-				{
+				if (_axisFactor[i] < 0.f)				
 					DrawHatchedAxis(dirAxis);
-				}
+				
 			}
 		}
 		// draw plane
@@ -665,7 +833,84 @@ void SceneWindow::DrawTranslationGizmo(OPERATION op, int32 type)
 
 		GAME->GetSceneDesc().drawList->AddText(ImVec2(destinationPosOnScreen.x + 15, destinationPosOnScreen.y + 15), GUI->GetColorU32(TEXT_SHADOW), tmps);
 		GAME->GetSceneDesc().drawList->AddText(ImVec2(destinationPosOnScreen.x + 14, destinationPosOnScreen.y + 14), GUI->GetColorU32(TEXT), tmps);
+	}
+}
 
+void SceneWindow::DrawScaleGizmo(OPERATION op, int32 type)
+{
+
+	if (!Intersects(op, SCALE))
+		return;
+	
+	// colors
+	ImU32 colors[7];
+	ComputeColors(colors, type, SCALE);
+
+	// draw
+	Vec4 scaleDisplay = { 1.f, 1.f, 1.f, 1.f };
+
+	if (_bUsing)
+	{
+		scaleDisplay = _scale;
 	}
 
+	for (int i = 0; i < 3; i++)
+	{
+		if (!Intersects(op, static_cast<OPERATION>(SCALE_X << i)))
+		{
+			continue;
+		}
+		const bool usingAxis = (_bUsing && type == MT_SCALE_X + i);
+		if (!_bUsing || usingAxis)
+		{
+			Vec3 dirPlaneX, dirPlaneY, dirAxis;
+			bool belowAxisLimit, belowPlaneLimit;
+			ComputeTripodAxisAndVisibility(i, dirAxis, dirPlaneX, dirPlaneY, belowAxisLimit, belowPlaneLimit, true);
+			belowAxisLimit = true;
+			// draw axis
+			if (belowAxisLimit)
+			{
+				bool hasTranslateOnAxis = Contains(op, static_cast<OPERATION>(TRANSLATE_X << i));
+				float markerScale = hasTranslateOnAxis ? 1.4f : 1.0f;
+				ImVec2 baseSSpace = GUI->WorldToScreenPos(dirAxis * 0.1f * _screenFactor, _mvp);
+				ImVec2 worldDirSSpaceNoScale = GUI->WorldToScreenPos(dirAxis * markerScale * _screenFactor, _mvp);
+				ImVec2 worldDirSSpace = GUI->WorldToScreenPos((dirAxis * markerScale * ((float*)&scaleDisplay)[i]) *_screenFactor, _mvp);
+
+				if (_bUsing )
+				{
+					ImU32 scaleLineColor = GUI->GetColorU32(SCALE_LINE);
+					GAME->GetSceneDesc().drawList->AddLine(baseSSpace, worldDirSSpaceNoScale, scaleLineColor, GAME->GetSceneDesc().style.ScaleLineThickness);
+					GAME->GetSceneDesc().drawList->AddCircleFilled(worldDirSSpaceNoScale, GAME->GetSceneDesc().style.ScaleLineCircleSize, scaleLineColor);
+				}
+
+				if (!hasTranslateOnAxis || _bUsing)
+				{
+					GAME->GetSceneDesc().drawList->AddLine(baseSSpace, worldDirSSpace, colors[i + 1], GAME->GetSceneDesc().style.ScaleLineThickness);
+				}
+				GAME->GetSceneDesc().drawList->AddCircleFilled(worldDirSSpace, GAME->GetSceneDesc().style.ScaleLineCircleSize, colors[i + 1]);
+
+				if (_axisFactor[i] < 0.f)
+				{
+					DrawHatchedAxis(dirAxis * ((float*)&scaleDisplay)[i]);
+				}
+			}
+		}
+	}
+
+	// draw screen cirle
+	GAME->GetSceneDesc().drawList->AddCircleFilled(_screenSquareCenter, GAME->GetSceneDesc().style.CenterCircleSize, colors[0], 32);
+
+	if (_bUsing && IsScaleType(type))
+	{
+
+		ImVec2 destinationPosOnScreen = GUI->WorldToScreenPos(_model.Translation(),_vp);
+		char tmps[512];
+		int componentInfoIndex = (type - MT_SCALE_X) * 3;
+
+		float& f1 = ((float*)&scaleDisplay.x)[s_translationInfoIndex[componentInfoIndex]];
+
+		ImFormatString(tmps, sizeof(tmps), s_scaleInfoMask[type - MT_SCALE_X], f1);
+		GAME->GetSceneDesc().drawList->AddText(ImVec2(destinationPosOnScreen.x + 15, destinationPosOnScreen.y + 15), GUI->GetColorU32(TEXT_SHADOW), tmps);
+		GAME->GetSceneDesc().drawList->AddText(ImVec2(destinationPosOnScreen.x + 14, destinationPosOnScreen.y + 14), GUI->GetColorU32(TEXT), tmps);
+	}
 }

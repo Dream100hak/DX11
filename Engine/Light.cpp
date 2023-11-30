@@ -16,6 +16,15 @@ Light::~Light()
 
 }
 
+void Light::Start()
+{
+	if (_type == Directional)
+	{
+		auto go = GetGameObject();
+		go->SetUIPickable(false);
+	}
+}
+
 void Light::Update()
 {
 	if (_type == Directional)

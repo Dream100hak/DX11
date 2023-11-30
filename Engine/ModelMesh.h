@@ -14,6 +14,9 @@ struct ModelBone
 struct ModelMesh
 {
 	void CreateBuffers();
+	void CalculateMeshBox();
+	const BoundingBox& GetMeshBox() { return _meshBox; }
+	shared_ptr<Geometry<ModelVertexType>> GetGeometry() { return geometry; }
 
 	wstring name;
 
@@ -29,5 +32,7 @@ struct ModelMesh
 	// Bones
 	int32 boneIndex;
 	shared_ptr<ModelBone> bone; // Cache;
+
+	BoundingBox _meshBox;
 };
 

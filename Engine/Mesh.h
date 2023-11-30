@@ -20,6 +20,9 @@ public:
 
 	shared_ptr<Geometry<VertexTextureNormalTangentData>> GetGeometry() { return _geometry; }
 
+	void CalculateMeshBox();
+	const BoundingBox& GetMeshBox() {return _meshBox; }
+
 private:
 	void CreateBuffers();
 
@@ -28,5 +31,7 @@ private:
 	shared_ptr<Geometry<VertexTextureNormalTangentData>> _geometry;
 	shared_ptr<VertexBuffer> _vertexBuffer;
 	shared_ptr<IndexBuffer> _indexBuffer;
+
+	BoundingBox _meshBox;
 };
 

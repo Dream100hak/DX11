@@ -8,11 +8,6 @@ float4 PS(MeshOutput input,
             uniform bool alphaClip) : SV_TARGET
 {
 
-    //float4 light = ComputeLight(input.normal, input.uv, input.worldPosition);
-    //float color = DiffuseMap.Sample(LinearSampler, input.uv);
-    
-    //return color * light;
-   
      // Interpolating normal can unnormalize it, so normalize it.
     input.normal = normalize(input.normal);
 

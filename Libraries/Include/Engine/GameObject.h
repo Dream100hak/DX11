@@ -90,6 +90,9 @@ public:
 		return _createdTime < b._createdTime;
 	}
 
+	void SetUIPickable(bool on) { _pickable = on; }
+	bool GetUIPickable() { return _pickable ; }
+
 protected:
 	array<shared_ptr<Component>, FIXED_COMPONENT_COUNT> _components;
 	vector<shared_ptr<MonoBehaviour>> _scripts;
@@ -114,6 +117,8 @@ private:
 	int64 _createdTime = -1;
 	static uint64 _nextId;
 	uint64 _id = 0; 
+
+	bool _pickable = true;
 
 };
 

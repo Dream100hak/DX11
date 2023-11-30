@@ -6,7 +6,8 @@
 
 void SceneCamera::Start()
 {
-
+	auto go = GetGameObject();
+	go->SetUIPickable(false);
 }
 
 void SceneCamera::Update()

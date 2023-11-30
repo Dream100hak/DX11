@@ -25,6 +25,10 @@ public:
 
 	InstanceID GetInstanceID();
 
+	shared_ptr<Model>& GetModel() {return _model;}
+
+	bool Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& distance);
+
 private:
 	shared_ptr<Shader>	_shader;
 	uint8				_pass = 0;

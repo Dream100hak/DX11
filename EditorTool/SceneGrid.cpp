@@ -18,6 +18,9 @@ void SceneGrid::Start()
 	_vertexBuffer->Create(_geometry->GetVertices());
 	_indexBuffer = make_shared<IndexBuffer>();
 	_indexBuffer->Create(_geometry->GetIndices());
+
+	auto go = GetGameObject();
+	go->SetUIPickable(false);
 }
 
 void SceneGrid::Update()

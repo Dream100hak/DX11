@@ -36,13 +36,11 @@ void OBBBoxCollider::Start()
 	_geometry = make_shared<Geometry<VertexColorData>>();
 	GeometryHelper::CreateOBB(_geometry , material->GetMaterialDesc().diffuse , _boundingBox );
 	CreateBuffers();
-	
 }
 
 
 void OBBBoxCollider::Update()
 {
-
 	if (_material == nullptr || _geometry == nullptr)
 		return;
 

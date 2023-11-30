@@ -7,6 +7,7 @@
 #include "Material.h"
 #include "ModelMesh.h"
 #include "ModelAnimation.h"
+#include "MathUtils.h"
 
 Model::Model()
 {
@@ -325,4 +326,31 @@ void Model::BindCacheInfo()
 			}
 		}
 	}
+
+	if (_calcOnce == false)
+	{
+		CalculateModelBox();
+	}
+	
+}
+
+void Model::CalculateModelBox()
+{
+	_calcOnce = true;
+
+	Vec3 vMin = Vec3(MathUtils::INF, MathUtils::INF, MathUtils::INF);
+	Vec3 vMax = Vec3(-MathUtils::INF, -MathUtils::INF, -MathUtils::INF);
+
+	for (const auto& mesh : _meshes) {
+		const BoundingBox& meshBox = mesh->GetMeshBox();
+	
+		Vec3 meshMin = Vec3(meshBox.Center) - Vec3(meshBox.Extents);
+		Vec3 meshMax = Vec3(meshBox.Center) + Vec3(meshBox.Extents);
+
+		vMin = ::XMVectorMin(vMin, meshMin);
+		vMax = ::XMVectorMax(vMax, meshMax);
+	}
+
+	_modelBox.Center = 0.5f * (vMin + vMax);
+	_modelBox.Extents = 0.5f * (vMax - vMin);
 }

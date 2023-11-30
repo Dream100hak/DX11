@@ -6,6 +6,13 @@
 #include "Terrain.h"
 #include "Button.h"
 
+#include "Model.h"
+#include "ModelMesh.h"
+#include "MeshRenderer.h"
+#include "ModelRenderer.h"
+
+#include "MathUtils.h"
+
 void Scene::Start()
 {
 	unordered_set<shared_ptr<GameObject>> objects = _objects;
@@ -176,6 +183,76 @@ std::shared_ptr<class GameObject> Scene::Pick(int32 screenX, int32 screenY)
 			continue;
 
 		Vec3 pickPos;
+		float distance = 0.f;
+		if (gameObject->GetTerrain()->Pick(screenX, screenY, OUT pickPos, OUT distance) == false)
+			continue;
+
+		if (distance < minDistance)
+		{
+			minDistance = distance;
+			picked = gameObject;
+		}
+	}
+
+	return picked;
+}
+std::shared_ptr<class GameObject> Scene::MeshPick(int32 screenX, int32 screenY)
+{
+	shared_ptr<Camera> camera = GetMainCamera()->GetCamera();
+
+	float width = GRAPHICS->GetViewport().GetWidth();
+	float height = GRAPHICS->GetViewport().GetHeight();
+
+	Matrix projectionMatrix = camera->GetProjectionMatrix();
+
+	float viewX = (+2.0f * screenX / width - 1.0f) / projectionMatrix(0, 0);
+	float viewY = (-2.0f * screenY / height + 1.0f) / projectionMatrix(1, 1);
+
+	Matrix viewMatrix = camera->GetViewMatrix();
+	Matrix viewMatrixInv = viewMatrix.Invert();
+
+	const auto& gameObjects = GetObjects();
+
+	float minDistance = MathUtils::INF;
+
+	shared_ptr<GameObject> picked;
+
+	for (auto& gameObject : gameObjects)
+	{
+		if (camera->IsCulled(gameObject->GetLayerIndex()))
+			continue;
+
+		if (gameObject->GetModelRenderer() == nullptr)
+			continue;
+
+		Vec4 rayOrigin = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+		Vec4 rayDir = Vec4(viewX, viewY, 1.0f, 0.0f);
+
+		Vec3 worldRayOrigin = XMVector3TransformCoord(rayOrigin, viewMatrixInv);
+		Vec3 worldRayDir = XMVector3TransformNormal(rayDir, viewMatrixInv);
+		worldRayDir.Normalize();
+
+		Ray ray = Ray(worldRayOrigin, worldRayDir);
+
+		Vec3 pickPos;
+		float distance = 0.f;
+		if (gameObject->GetModelRenderer()->Pick(screenX, screenY, OUT pickPos, OUT distance) == false)
+			continue;
+
+		if (distance < minDistance)
+		{
+			minDistance = distance;
+			picked = gameObject;
+		}		
+	}
+
+	for (auto& gameObject : gameObjects)
+	{
+		if (gameObject->GetTerrain() == nullptr)
+			continue;
+
+		Vec3 pickPos;
+
 		float distance = 0.f;
 		if (gameObject->GetTerrain()->Pick(screenX, screenY, OUT pickPos, OUT distance) == false)
 			continue;

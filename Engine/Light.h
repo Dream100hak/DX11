@@ -18,6 +18,7 @@ public:
 	Light();
 	virtual ~Light();
 
+	virtual void Start();
 	virtual void Update();
 	void UpdateMatrix();
 

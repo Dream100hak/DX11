@@ -38,7 +38,6 @@ void EditorTool::Init()
 	 converter->ExportMaterialData(L"Hyejin/Hyejin");
      converter->ExportModelData(L"Hyejin/Hyejin");*/
 
-
 	GET_SINGLE(ShortcutManager)->Init();
 	GET_SINGLE(EditorToolManager)->Init();
 
@@ -107,17 +106,15 @@ void EditorTool::Init()
 	}
 
 	{
+		auto obj = make_shared<GameObject>();
+		obj->SetObjectName(L"Terrain");
+		obj->GetOrAddTransform();
+		obj->GetOrAddTransform()->SetPosition(Vec3(-75.f, 0.f, -75.f));
+		obj->AddComponent(make_shared<Terrain>());
 
-		//auto obj = make_shared<GameObject>();
-		//obj->SetObjectName(L"Terrain");
-		//obj->GetOrAddTransform();
-		//obj->GetOrAddTransform()->SetPosition(Vec3(-75.f, 0.f, -75.f));
-		//obj->AddComponent(make_shared<Terrain>());
-
-		//auto mat = RESOURCES->Get<Material>(L"DefaultMaterial");
-		//obj->GetTerrain()->Create(200, 200, mat->Clone());
-		//CUR_SCENE->Add(obj);
-
+		auto mat = RESOURCES->Get<Material>(L"DefaultMaterial");
+		obj->GetTerrain()->Create(200, 200, mat->Clone());
+		CUR_SCENE->Add(obj);
 	}
 
 
@@ -204,9 +201,9 @@ void EditorTool::Init()
 			obj->GetModelRenderer()->SetModel(m2);
 			obj->GetModelRenderer()->SetPass(1);
 
-			auto collider = make_shared<OBBBoxCollider>();
-			collider->GetBoundingBox().Extents = Vec3(1.f);
-			obj->AddComponent(collider);
+			//auto collider = make_shared<OBBBoxCollider>();
+			//collider->GetBoundingBox().Extents = Vec3(1.f);
+			//obj->AddComponent(collider);
 
 			CUR_SCENE->Add(obj);
 		}
@@ -242,25 +239,6 @@ void EditorTool::Update()
 	GET_SINGLE(ShortcutManager)->Update();
 	GET_SINGLE(EditorToolManager)->Update();
 
-	if (INPUT->GetButtonDown(KEY_TYPE::LBUTTON))
-	{
-		int32 x = INPUT->GetMousePos().x;
-		int32 y = INPUT->GetMousePos().y;
-
-		if (GRAPHICS->IsMouseInViewport(x, y))
-		{
-			shared_ptr<GameObject> obj = CUR_SCENE->Pick(x, y);
-
-			if (obj != nullptr)
-			{
-				wstring name = obj->GetObjectName();
-				int64 id = obj->GetId();
-				TOOL->SetSelectedObjH(id);
-				ADDLOG("Pick Object : " + Utils::ToString(name), LogFilter::Info);
-			}
-		}
-	}
-
 	ImGui::ShowDemoWindow(&_showWindow);
 
 	auto shadowMap = GRAPHICS->GetShadowMap();
@@ -269,7 +247,6 @@ void EditorTool::Update()
 	ImGui::Begin("ShadowMap");
 	ImGui::Image((void*)shadowMap->GetComPtr().Get(), ImVec2(400, 400));
 	ImGui::End();
-	
 }
 
 void EditorTool::Render()

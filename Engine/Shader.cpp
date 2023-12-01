@@ -162,12 +162,17 @@ ComPtr<ID3D11InputLayout> Shader::CreateInputLayout(ComPtr<ID3DBlob> fxBlob, D3D
 			elementDesc.Format = DXGI_FORMAT_R32G32B32_FLOAT;
 		}
 
-		if (Utils::StartsWith(name, "INST") == true)
+		if (Utils::StartsWith(name, "INST") == true || name == "PICKED")
 		{
 			elementDesc.InputSlot = 1;
 			elementDesc.AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;
 			elementDesc.InputSlotClass = D3D11_INPUT_PER_INSTANCE_DATA;
 			elementDesc.InstanceDataStepRate = 1;
+		}
+
+		if (name == "PICKED")
+		{
+			elementDesc.Format = DXGI_FORMAT_R32_UINT;
 		}
 
 		if (Utils::StartsWith(name, "SV_") == false)
@@ -317,7 +322,6 @@ void Shader::PushGlobalData(const Matrix& view, const Matrix& projection)
 	_globalDesc.VP = view * projection;
 	_globalDesc.VInv = view.Invert();
 	_globalDesc.Shadow = Light::S_Shadow;
-	_globalDesc.GameSize = Vec4(GAME->GetSceneDesc().width, GAME->GetGameDesc().height , 0 ,0);
 
 	_globalBuffer->CopyData(_globalDesc);
 	_globalEffectBuffer->SetConstantBuffer(_globalBuffer->GetComPtr().Get());

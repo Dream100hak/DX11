@@ -7,7 +7,6 @@
 #define MAX_MODEL_KEYFRAMES 500
 #define MAX_MODEL_INSTANCE 500
 
-
 // ************** MeshRender ****************
 
 struct VertexMesh
@@ -19,6 +18,7 @@ struct VertexMesh
 	// INSTANCING;
 	uint instanceID : SV_INSTANCEID;
 	matrix world : INST;
+	
 };
 
 MeshOutput VS_Mesh(VertexMesh input)
@@ -41,15 +41,16 @@ MeshOutput VS_Mesh(VertexMesh input)
 
 struct VertexModel
 {
-	float4 position : POSITION;
-	float2 uv : TEXCOORD;
-	float3 normal : NORMAL;
-	float3 tangent : TANGENT;
-	float4 blendIndices : BLEND_INDICES;
-	float4 blendWeights : BLEND_WEIGHTS;
+    float4 position : POSITION;
+    float2 uv : TEXCOORD;
+    float3 normal : NORMAL;
+    float3 tangent : TANGENT;
+    float4 blendIndices : BLEND_INDICES;
+    float4 blendWeights : BLEND_WEIGHTS;
 	// INSTANCING;
-	uint instanceID : SV_INSTANCEID;
-	matrix world : INST;
+    uint instanceID : SV_INSTANCEID;
+    matrix world : INST;
+    uint isPicked : PICKED;
 };
 
 cbuffer BoneBuffer

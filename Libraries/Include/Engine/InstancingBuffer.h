@@ -5,6 +5,8 @@ class VertexBuffer;
 struct InstancingData
 {
 	Matrix world;
+	uint32 isPicked; // 4바이트
+	float padding[3]; // 패딩 추가 (Matrix가 64바이트이므로 총 64바이트를 맞추기 위해 추가)
 };
 
 #define MAX_MESH_INSTANCE 500

@@ -57,10 +57,8 @@ void SceneWindow::ShowSceneWindow()
 				{
 					if (obj->GetUIPickable())
 					{
-						if (_tr != nullptr)
-						{
-							_tr->GetGameObject()->SetUIPicked(false);
-						}
+						CUR_SCENE->UnPickAll();
+
 						_tr = obj->GetTransform();
 						obj->SetUIPicked(true);
 					}

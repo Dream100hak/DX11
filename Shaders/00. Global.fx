@@ -12,7 +12,6 @@ cbuffer GlobalBuffer
     matrix VP;
     matrix VInv;
     matrix Shadow;
-    float4 GameSize;
 };
 
 cbuffer TransformBuffer

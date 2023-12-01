@@ -21,7 +21,7 @@ MeshOutput VS_ModelOutline(VertexModel input)
 {
     MeshOutput output;
     
-    input.position.xyz += input.normal * 0.01f; // 0.1f는 아웃라인의 두께를 조절하는 값입니다.
+    input.position.xyz += input.normal * 0.05f; // 0.1f는 아웃라인의 두께를 조절하는 값입니다.
 
     output.position = mul(input.position, BoneTransforms[BoneIndex]); // Model Global
     output.position = mul(output.position, input.world); // W
@@ -50,9 +50,6 @@ MeshOutput VS_AnimationOutline(VertexModel input)
     output.normal = mul(input.normal, (float3x3) input.world);
     output.tangent = mul(input.tangent, (float3x3) input.world);
 
-	// Generate projective tex-coords to project shadow map onto scene.
-    //output.shadow = mul(float4(output.worldPosition.xyz, 1.0f), Shadow);
-	
     return output;
 }
 

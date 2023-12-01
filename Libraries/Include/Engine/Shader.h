@@ -105,5 +105,4 @@ private:
 	shared_ptr<ConstantBuffer<SnowBillboardDesc>> _snowBuffer;
 	ComPtr<ID3DX11EffectConstantBuffer> _snowEffectBuffer;
 
-	
 };

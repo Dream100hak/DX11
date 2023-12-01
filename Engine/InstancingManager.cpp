@@ -53,7 +53,7 @@ void InstancingManager::PreRenderMeshRenderer()
 				const shared_ptr<GameObject>& gameObject = vec[i];
 				InstancingData data;
 				data.world = gameObject->GetTransform()->GetWorldMatrix();
-
+				data.isPicked = gameObject->GetUIPicked() ? 1 : 0;
 				AddData(instanceId, data);
 			}
 
@@ -89,7 +89,7 @@ void InstancingManager::PreRenderModelRenderer()
 				const shared_ptr<GameObject>& gameObject = vec[i];
 				InstancingData data;
 				data.world = gameObject->GetTransform()->GetWorldMatrix();
-
+				data.isPicked = gameObject->GetUIPicked() ? 1 : 0;
 				AddData(instanceId, data);
 			}
 
@@ -128,7 +128,7 @@ void InstancingManager::PreRenderAnimRenderer()
 				const shared_ptr<GameObject>& gameObject = vec[i];
 				InstancingData data;
 				data.world = gameObject->GetTransform()->GetWorldMatrix();
-
+				data.isPicked = gameObject->GetUIPicked() ? 1 : 0;
 				AddData(instanceId, data);
 
 				// INSTANCING
@@ -168,7 +168,7 @@ void InstancingManager::RenderMeshRenderer(vector<shared_ptr<GameObject>>& gameO
 				const shared_ptr<GameObject>& gameObject = vec[i];
 				InstancingData data;
 				data.world = gameObject->GetTransform()->GetWorldMatrix();
-
+				data.isPicked = gameObject->GetUIPicked() ? 1 : 0;
 				AddData(instanceId, data);
 			}
 
@@ -203,12 +203,13 @@ void InstancingManager::RenderModelRenderer(vector<shared_ptr<GameObject>>& game
 				const shared_ptr<GameObject>& gameObject = vec[i];
 				InstancingData data;
 				data.world = gameObject->GetTransform()->GetWorldMatrix();
-
+				data.isPicked = gameObject->GetUIPicked() ? 1 : 0;
 				AddData(instanceId, data);
 			}
 
 			shared_ptr<InstancingBuffer>& buffer = _buffers[instanceId];
 			vec[0]->GetModelRenderer()->RenderInstancing(buffer);
+		
 		}
 	}
 }
@@ -240,7 +241,7 @@ void InstancingManager::RenderAnimRenderer(vector<shared_ptr<GameObject>>& gameO
 				const shared_ptr<GameObject>& gameObject = vec[i];
 				InstancingData data;
 				data.world = gameObject->GetTransform()->GetWorldMatrix();
-
+				data.isPicked = gameObject->GetUIPicked() ? 1 : 0;
 				AddData(instanceId, data);
 
 				// INSTANCING

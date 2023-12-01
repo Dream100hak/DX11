@@ -19,6 +19,7 @@ ModelRenderer::~ModelRenderer()
 
 }
 
+
 void ModelRenderer::SetModel(shared_ptr<Model> model)
 {
 	_model = model;
@@ -48,7 +49,7 @@ void ModelRenderer::PreRenderInstancing(shared_ptr<class InstancingBuffer>& buff
 
 	_shader->PushGlobalData(Light::S_MatView, Light::S_MatProjection);
 
-	PushData(buffer);
+	PushData(0 ,buffer);
 	
 }
 
@@ -57,20 +58,17 @@ void ModelRenderer::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
 	if (_model == nullptr)
 		return;
 
-	auto go = _gameObject.lock();
-
-	if(go->GetUIPicked())
 	{
-		auto shader = RESOURCES->Get<Shader>(L"Outline");
+		auto shader = RESOURCES->Get<Shader>(L"Standard");
 		ChangeShader(shader);
 
+		auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
 		DCT->OMSetDepthStencilState(GRAPHICS->GetDSStateOutline().Get(), 1);
 
-		auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
 		// GlobalData
 		_shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
 
-		PushData(buffer);
+		PushData(1, buffer);
 	}
 
 	{
@@ -83,13 +81,12 @@ void ModelRenderer::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
 		// GlobalData
 		_shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
 
-		PushData(buffer);
+		PushData(0 , buffer);
 	}
-
-
 }
 
-void ModelRenderer::PushData(shared_ptr<class InstancingBuffer>& buffer)
+
+void ModelRenderer::PushData(uint8 technique,  shared_ptr<class InstancingBuffer>& buffer)
 {
 	// Light
 	auto lightObj = SCENE->GetCurrentScene()->GetLight();
@@ -123,7 +120,59 @@ void ModelRenderer::PushData(shared_ptr<class InstancingBuffer>& buffer)
 
 		buffer->PushData();
 
-		_shader->DrawIndexedInstanced(0, _pass, mesh->indexBuffer->GetCount(), buffer->GetCount());
+		_shader->DrawIndexedInstanced(technique, _pass, mesh->indexBuffer->GetCount(), buffer->GetCount());
+	}
+}
+
+
+
+void ModelRenderer::RenderOutline()
+{
+
+	auto go = _gameObject.lock();
+
+	if (go->GetUIPicked())
+	{
+		auto shader = RESOURCES->Get<Shader>(L"Outline");
+		ChangeShader(shader);
+
+		DCT->OMSetDepthStencilState(GRAPHICS->GetDSStateOutline().Get(), 1);
+
+		auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
+		// GlobalData
+		_shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
+
+		// Light
+		auto lightObj = SCENE->GetCurrentScene()->GetLight();
+		if (lightObj)
+			_shader->PushLightData(lightObj->GetLight()->GetLightDesc());
+
+		// Bones
+		BoneDesc boneDesc;
+
+		const uint32 boneCount = _model->GetBoneCount();
+		for (uint32 i = 0; i < boneCount; i++)
+		{
+			shared_ptr<ModelBone> bone = _model->GetBoneByIndex(i);
+			boneDesc.transforms[i] = bone->transform;
+		}
+		_shader->PushBoneData(boneDesc);
+
+		const auto& meshes = _model->GetMeshes();
+		for (auto& mesh : meshes)
+		{
+			if (mesh->material)
+				mesh->material->Update();
+
+			// BoneIndex
+			_shader->GetScalar("BoneIndex")->SetInt(mesh->boneIndex);
+
+			// IA
+			mesh->vertexBuffer->PushData();
+			mesh->indexBuffer->PushData();
+
+			_shader->DrawIndexed(0, _pass, mesh->indexBuffer->GetCount());
+		}
 	}
 }
 

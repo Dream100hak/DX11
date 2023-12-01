@@ -21,7 +21,10 @@ public:
 	void PreRenderInstancing(shared_ptr<class InstancingBuffer>& buffer);
 	void RenderInstancing(shared_ptr<class InstancingBuffer>& buffer);
 
-	void PushData(shared_ptr<class InstancingBuffer>& buffer);
+	void RenderOutline();
+
+	void PushData(uint8 technique, shared_ptr<class InstancingBuffer>& buffer);
+
 
 	InstanceID GetInstanceID();
 

@@ -267,6 +267,16 @@ std::shared_ptr<class GameObject> Scene::MeshPick(int32 screenX, int32 screenY)
 	return picked;
 }
 
+void Scene::UnPickAll()
+{
+	const auto& gameObjects = GetObjects();
+
+	for (auto& gameObject : gameObjects)
+	{
+		gameObject->SetUIPicked(false);
+	}
+}
+
 void Scene::CheckCollision()
 {
 	vector<shared_ptr<BaseCollider>> colliders;

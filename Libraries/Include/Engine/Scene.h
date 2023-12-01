@@ -29,6 +29,8 @@ public:
 	shared_ptr<class GameObject> Pick(int32 screenX, int32 screenY);
 	shared_ptr<class GameObject> MeshPick(int32 screenX, int32 screenY);
 
+	void UnPickAll();
+
 	void CheckCollision();
 
 private:

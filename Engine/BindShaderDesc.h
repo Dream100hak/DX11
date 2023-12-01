@@ -10,7 +10,7 @@ struct GlobalDesc
 	Matrix VP = Matrix::Identity;
 	Matrix VInv = Matrix::Identity;
 	Matrix Shadow = Matrix::Identity;
-	Vec4   GameSize = Vec4::Zero;
+
 };
 
 struct TransformDesc

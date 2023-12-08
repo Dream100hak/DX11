@@ -173,7 +173,6 @@ bool ModelRenderer::Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& dis
 	vector<shared_ptr<ModelMesh>>& meshes = _model->GetMeshes();
 	vector<shared_ptr<ModelBone>>& bones = _model->GetBones();
 
-
 	//메시가 하나 일 경우
 	TransformBoundingBox();
 	float dist = 0.f;

@@ -96,12 +96,22 @@ public:
 	void SetUIPicked(bool on) { _picked = on; }
 	bool GetUIPicked() { return _picked; }
 
+	void SetIgnoredTransformEdit(bool on) { _isIgnoredTransformEdit = on;}
+	bool IsIgnoredTransformEdit() { return _isIgnoredTransformEdit; }
+
+	void SetEnableOutline(bool on) { _isOutlined = on; }
+	bool GetEnableOutline() { return _isOutlined ; }
+
+
 protected:
 	array<shared_ptr<Component>, FIXED_COMPONENT_COUNT> _components;
 	vector<shared_ptr<MonoBehaviour>> _scripts;
 
+	//EDIT Tool 
 	uint8 _layerIndex = 0;
 	wstring _name = L"";
+	bool _isIgnoredTransformEdit = false;
+
 public:
 
 	std::string GetGUID() const {
@@ -123,6 +133,8 @@ private:
 
 	bool _pickable = true;
 	bool _picked = false;
+
+	bool _isOutlined = true; // 아웃라인 가능 여부
 
 };
 

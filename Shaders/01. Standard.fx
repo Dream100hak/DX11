@@ -93,7 +93,8 @@ float4 PS_Default(MeshOutput input,
     toEye /= distToEye;
 
     // Default to multiplicative identity.
-    float4 texColor = float4(1, 1, 1, 1);
+    //float4 texColor = float4(1, 1, 1, 1);
+    float4 texColor = Material.diffuse;
     if (useTexture)
     {
         // Sample texture.
@@ -160,4 +161,10 @@ technique11 T1
 	PASS_VP(P0, VS_MeshOutline, PS_Outline)
 	PASS_VP(P1, VS_ModelOutline, PS_Outline)
 	PASS_VP(P2, VS_AnimationOutline, PS_Outline)
+};
+technique11 T2
+{
+	PASS_VP_COLOR(P0, VS_Mesh, PS_Default)
+	PASS_VP_COLOR(P1, VS_Model, PS_Default)
+	PASS_VP_COLOR(P2, VS_Animation, PS_Default)
 };

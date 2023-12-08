@@ -16,9 +16,11 @@ SkyBox::~SkyBox()
 
 void SkyBox::Init(SkyType type)
 {
+	GetGameObject()->SetEnableOutline(false);
+	GetGameObject()->SetIgnoredTransformEdit(true);
+
 	if (type == SkyType::SkyBox)
 	{
-
 		auto shader = make_shared<Shader>(L"01. Sky.fx");
 
 		shared_ptr<Material> material = make_shared<Material>();

@@ -5,11 +5,12 @@
 class SceneGrid : public MonoBehaviour
 {
 public: 
+	SceneGrid();
+
 	virtual void Start() override;
 	virtual void Update() override;
 
 	void DrawGrid();
-
 
 private:
 	

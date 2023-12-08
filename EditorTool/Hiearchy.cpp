@@ -2,6 +2,7 @@
 #include "Hiearchy.h"
 #include "ShortcutManager.h"
 #include "EditorToolManager.h"
+#include "LogWindow.h"
 
 Hiearchy::Hiearchy()
 {
@@ -36,9 +37,6 @@ void Hiearchy::ShowHiearchy()
 
 	ImGui::BeginChild("left pane", ImVec2(360, 0), true);
 
-	//	if (ImGui::IsWindowFocused() == false)
-		//	TOOL->SetSelectedObjH(-1);
-
 	const auto gameObjects = CUR_SCENE->GetCreatedObjects();
 	ImGuiStyle& style = ImGui::GetStyle();
 	style.Colors[ImGuiCol_Header] = ImVec4(0.2f, 0.2f, 0.2f, 0.2f);
@@ -67,6 +65,33 @@ void Hiearchy::ShowHiearchy()
 		}
 
 		ImGui::PopStyleColor();
+	}
+
+	if (ImGui::BeginPopupContextWindow())
+	{
+		if (ImGui::MenuItem("Add GameObject"))
+		{
+			// "Add GameObject" 클릭 시 처리할 로직
+		}
+
+		if (ImGui::MenuItem("Create Cube"))
+		{
+			TOOL->SetSelectedObjH(GUI->CreateMesh(CreatedObjType::CUBE));
+			ADDLOG("Create Cube", LogFilter::Info);
+		}
+		if (ImGui::MenuItem("Create Quad"))
+		{
+			TOOL->SetSelectedObjH(GUI->CreateMesh(CreatedObjType::QUAD));
+			ADDLOG("Create Quad", LogFilter::Info);
+		}	
+		if (ImGui::MenuItem("Create Sphere"))
+		{
+			TOOL->SetSelectedObjH(GUI->CreateMesh(CreatedObjType::SPHERE));
+			ADDLOG("Create Sphere", LogFilter::Info);
+		}
+
+
+		ImGui::EndPopup();
 	}
 
 	ImGui::EndChild();

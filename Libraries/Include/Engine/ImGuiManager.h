@@ -3,7 +3,6 @@
 #include <boost/mp11.hpp>
 #include "Component.h"
 
-
 class Transform;
 class Camera;
 class MeshRenderer;
@@ -16,6 +15,20 @@ class Button;
 class Billboard;
 class SnowBillboard;
 
+
+enum CreatedObjType
+{
+	GAMEOBJ,
+	QUAD,
+	CUBE,
+	SPHERE,
+	GRID,
+	MODEL,
+	TERRAIN,
+};
+
+BOOST_DESCRIBE_ENUM(CreatedObjType, GAMEOBJ, QUAD, CUBE, SPHERE, GRID, MODEL, TERRAIN)
+
 class ImGuiManager
 {
 	DECLARE_SINGLE(ImGuiManager);
@@ -27,6 +40,10 @@ public:
 
 	int32 CreateEmptyGameObject();
 	void RemoveGameObject(int32 id);
+
+	wstring FindEmptyName(CreatedObjType type);
+
+	int32 CreateMesh(CreatedObjType type);
 
 	template<class E>
 	std::string EnumToString(E e)

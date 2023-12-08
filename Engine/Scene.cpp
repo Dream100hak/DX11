@@ -67,7 +67,8 @@ void Scene::Add(shared_ptr<GameObject> object)
 	if (object->GetLight() != nullptr)
 		_lights.insert(object);
 	
-	_createdObjects[object->GetId()] = object;
+	_createdObjectsById[object->GetId()] = object;
+	_createdObjectsByName[object->GetObjectName()] = object;
 
 	object->Awake();
 	object->Start();
@@ -78,7 +79,8 @@ void Scene::Remove(shared_ptr<GameObject> object)
 	_objects.erase(object);
 	_cameras.erase(object);
 	_lights.erase(object);
-	_createdObjects.erase(object->GetId());
+	_createdObjectsById.erase(object->GetId());
+	_createdObjectsByName.erase(object->GetObjectName());
 }
 
 std::shared_ptr<GameObject> Scene::GetMainCamera()
@@ -217,6 +219,39 @@ std::shared_ptr<class GameObject> Scene::MeshPick(int32 screenX, int32 screenY)
 
 	shared_ptr<GameObject> picked;
 
+	for (auto& gameObject : gameObjects)
+	{
+		if (camera->IsCulled(gameObject->GetLayerIndex()))
+			continue;
+
+		if (gameObject->GetMeshRenderer() == nullptr)
+			continue;
+
+		if(gameObject->GetSkyBox() != nullptr)
+			continue;
+
+		Vec4 rayOrigin = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+		Vec4 rayDir = Vec4(viewX, viewY, 1.0f, 0.0f);
+
+		Vec3 worldRayOrigin = XMVector3TransformCoord(rayOrigin, viewMatrixInv);
+		Vec3 worldRayDir = XMVector3TransformNormal(rayDir, viewMatrixInv);
+		worldRayDir.Normalize();
+
+		Ray ray = Ray(worldRayOrigin, worldRayDir);
+
+		Vec3 pickPos;
+		float distance = 0.f;
+		if (gameObject->GetMeshRenderer()->Pick(screenX, screenY, OUT pickPos, OUT distance) == false)
+			continue;
+
+		if (distance < minDistance)
+		{
+			minDistance = distance;
+			picked = gameObject;
+		}
+	}
+
+	//MODEL 
 	for (auto& gameObject : gameObjects)
 	{
 		if (camera->IsCulled(gameObject->GetLayerIndex()))

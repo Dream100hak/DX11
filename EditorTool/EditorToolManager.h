@@ -16,7 +16,7 @@ public:
 
 	int64 GetSelectedIdH() { return _selectedIdH; }
 	int64 GetSelectedIdP() { return _selectedIdP; }
-	
+
 	shared_ptr<LogWindow> GetLog();
 
 private:

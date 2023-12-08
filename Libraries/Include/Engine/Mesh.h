@@ -21,7 +21,7 @@ public:
 	shared_ptr<Geometry<VertexTextureNormalTangentData>> GetGeometry() { return _geometry; }
 
 	void CalculateMeshBox();
-	const BoundingBox& GetMeshBox() {return _meshBox; }
+	BoundingBox& GetMeshBox() {return _meshBox; }
 
 private:
 	void CreateBuffers();

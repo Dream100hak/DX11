@@ -21,8 +21,7 @@ private:
 	shared_ptr<Material> _material = nullptr;
 	shared_ptr<Texture> _texture = nullptr;
 
-	SkyType _type = SkyType::SkyBox;
-	
+	SkyType _type = SkyType::SkyBox;	
 	
 };
 

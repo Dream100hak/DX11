@@ -12,13 +12,23 @@ public:
 	virtual void Remove(shared_ptr<GameObject> object);
 
 	unordered_set<shared_ptr<GameObject>>& GetObjects() { return _objects; }
-	map<int64, shared_ptr<GameObject>>& GetCreatedObjects() { return _createdObjects; }
+	map<int64, shared_ptr<GameObject>>& GetCreatedObjects() { return _createdObjectsById; }
 	shared_ptr<GameObject> GetCreatedObject(int32 id) 
 	{
-		if(_createdObjects.find(id) != _createdObjects.end()) 
-			return  _createdObjects[id];
+		if(_createdObjectsById.find(id) != _createdObjectsById.end()) 
+			return  _createdObjectsById[id];
 
 		return nullptr;
+	}
+
+	shared_ptr<GameObject> FindCreatedObjectByName(wstring name) {
+		auto it = _createdObjectsByName.find(name);
+		if (it != _createdObjectsByName.end()) {
+			return it->second;
+		}
+		else {
+			return nullptr; 
+		}
 	}
 
 	shared_ptr<GameObject> GetMainCamera();
@@ -41,6 +51,9 @@ private:
 	unordered_set<shared_ptr<GameObject>> _lights;
 	
 	// Cache Sorted by Time 
-	map<int64, shared_ptr<GameObject>> _createdObjects;
+	map<int64, shared_ptr<GameObject>> _createdObjectsById;
+
+	// Cache Sorted by Name 
+	map<wstring, shared_ptr<GameObject>> _createdObjectsByName;
 };
 

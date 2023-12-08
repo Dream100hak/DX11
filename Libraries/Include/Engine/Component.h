@@ -59,13 +59,6 @@ public:
 	shared_ptr<GameObject> GetGameObject();
 	shared_ptr<Transform> GetTransform();
 
-	template<typename T> void foo(const T a) // 실제 템플릿 타입 T와 변수타입은 다를 수 있음
-	{
-		cout << type_id_with_cvr<T>().pretty_name() << endl;
-		cout << type_id_with_cvr<decltype(a)>().pretty_name() << endl;
-	}
-
-
 private:
 	friend class GameObject;
 	void SetGameObject(shared_ptr<GameObject> gameObject) { _gameObject = gameObject; }

@@ -3,6 +3,11 @@
 #include "GeometryHelper.h"
 #include "Camera.h"
 
+SceneGrid::SceneGrid()
+{
+		
+}
+
 void SceneGrid::Start()
 {
 	_shader = make_shared<Shader>(L"01. SceneGrid.fx");
@@ -30,6 +35,8 @@ void SceneGrid::Update()
 
 void SceneGrid::DrawGrid()
 {
+	GetGameObject()->SetIgnoredTransformEdit(true);
+
 	if (_geometry == nullptr)
 		return;
 

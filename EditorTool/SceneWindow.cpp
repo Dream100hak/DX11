@@ -6,6 +6,9 @@
 #include "EditorToolManager.h"
 #include "Utils.h"
 #include "MathUtils.h"
+#include "SkyBox.h"
+#include "Light.h"
+#include "SceneGrid.h"
 
 const char* SceneWindow::s_translationInfoMask[] = { "X : %5.3f", "Y : %5.3f", "Z : %5.3f",
    "Y : %5.3f Z : %5.3f", "X : %5.3f Z : %5.3f", "X : %5.3f Y : %5.3f",
@@ -78,12 +81,14 @@ void SceneWindow::ShowSceneWindow()
 
 	shared_ptr<GameObject> obj = SCENE->GetCurrentScene()->GetCreatedObject(id);
 	_tr = obj->GetTransform();
-
 }
 
 void SceneWindow::EditTransform()
 {
 	if(_tr == nullptr)
+		return;
+
+	if(_tr->GetGameObject() == nullptr || _tr->GetGameObject()->IsIgnoredTransformEdit())
 		return;
 
 	ImGuiIO& io = ImGui::GetIO();

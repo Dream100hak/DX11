@@ -22,6 +22,7 @@ void Light::Start()
 	{
 		auto go = GetGameObject();
 		go->SetUIPickable(false);
+		GetGameObject()->SetIgnoredTransformEdit(true);
 	}
 }
 

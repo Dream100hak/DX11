@@ -34,3 +34,4 @@ enum LayerMask
 	Wall = 2,
 	Invisible = 3
 };
+

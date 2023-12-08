@@ -33,7 +33,6 @@ void ShortcutManager::CreateEmpty()
 		TOOL->SetSelectedObjH(GUI->CreateEmptyGameObject());
 		ADDLOG("Create GameObject", LogFilter::Info);
 	}
-	
 }
 
 void ShortcutManager::DeleteObject()

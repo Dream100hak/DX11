@@ -217,7 +217,12 @@ pass name											\
 	SetVertexShader(CompileShader(vs_5_0, vs()));	\
 	SetPixelShader(CompileShader(ps_5_0, ps()));	\
 }
-
+#define PASS_VP_COLOR(name, vs, ps)						\
+pass name											\
+{													\
+	SetVertexShader(CompileShader(vs_5_0, vs()));	\
+	SetPixelShader(CompileShader(ps_5_0, ps(3,false,false)));	\
+}
 #define PASS_VP_TEXTURE(name, vs, ps)						\
 pass name											\
 {													\

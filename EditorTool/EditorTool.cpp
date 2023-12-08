@@ -72,11 +72,11 @@ void EditorTool::Init()
 	}
 
 	{
-		shared_ptr<GameObject> grid = make_shared<GameObject>();
-		grid->SetObjectName(L"Scene Grid");
-		grid->GetOrAddTransform()->SetPosition(Vec3{ 0.f, 0.f, 0.f });
-		grid->AddComponent(make_shared<SceneGrid>());
-		CUR_SCENE->Add(grid);
+		//shared_ptr<GameObject> grid = make_shared<GameObject>();
+		//grid->SetObjectName(L"Scene Grid");
+		//grid->GetOrAddTransform()->SetPosition(Vec3{ 0.f, 0.f, 0.f });
+		//grid->AddComponent(make_shared<SceneGrid>());
+		//CUR_SCENE->Add(grid);
 	}
 	
 	{
@@ -120,7 +120,6 @@ void EditorTool::Init()
 
 	 //Model
 	{
-
 		shared_ptr<class Model> m2 = make_shared<Model>();
 		m2->ReadModel(L"Kachujin/Kachujin");
 		m2->ReadMaterial(L"Kachujin/Kachujin");

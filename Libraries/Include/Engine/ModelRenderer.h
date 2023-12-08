@@ -15,8 +15,6 @@ public:
 	ModelRenderer(shared_ptr<Shader> shader);
 	virtual ~ModelRenderer();
 
-	
-
 	void OnInspectorGUI() override;
 
 	void SetModel(shared_ptr<Model> model);
@@ -27,7 +25,8 @@ public:
 	void PreRenderInstancing(shared_ptr<class InstancingBuffer>& buffer);
 	void RenderInstancing(shared_ptr<class InstancingBuffer>& buffer);
 	void PushData(uint8 technique, shared_ptr<class InstancingBuffer>& buffer);
-	
+
+
 	void TransformBoundingBox();
 
 	//void TestRenderStart();

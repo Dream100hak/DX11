@@ -24,29 +24,51 @@ void ModelRenderer::OnInspectorGUI()
 {
 	Super::OnInspectorGUI();
 
-	float center[3] = { _boundingBox.Center.x, _boundingBox.Center.y, _boundingBox.Center.z };
-	float extents[3] = {_boundingBox.Extents.x, _boundingBox.Extents.y, _boundingBox.Extents.z };
+	auto mats = _model->GetMaterials();
 
-	ImVec4 color = ImVec4(0.85f, 0.94f, 0.f, 1.f);
-
-	ImGui::TextColored(color, "Offset      ");
-	ImGui::SameLine(0.f, -2.f);
-
-	if (ImGui::DragFloat3("##center", center))
+	for (auto& mat : mats)
 	{
-		_boundingBox.Center = Vec3(center);
-	}
-	ImGui::TextColored(color, "Extents     ");
-	ImGui::SameLine();
+		MaterialDesc& desc = mat->GetMaterialDesc();
 
-	if (ImGui::DragFloat3("##extents", extents))
-	{
-		_boundingBox.Extents = Vec3(extents);
+		if (ImGui::ColorEdit3("Diffuse", (float*)&desc.diffuse)) {}
+		if (ImGui::ColorEdit3("Ambient", (float*)&desc.ambient)) {}
+		if (ImGui::ColorEdit3("Emissive", (float*)&desc.emissive)) {}
+		if (ImGui::ColorEdit3("Specular", (float*)&desc.specular)) {}
+
+		ImGui::NewLine();
+
+		// Diffuse Map
+		if (mat->GetDiffuseMap() != nullptr)
+		{
+			ImGui::BeginGroup();
+			ImGui::Text("Diffuse");
+			ImGui::Image((void*)mat->GetDiffuseMap()->GetComPtr().Get(), ImVec2(100, 100));
+			ImGui::EndGroup();
+		}
+
+		ImGui::SameLine(); // 같은 줄에 배치
+
+		// Normal Map
+		if (mat->GetNormalMap() != nullptr)
+		{
+			ImGui::BeginGroup();
+			ImGui::Text("Normal");
+			ImGui::Image((void*)mat->GetNormalMap()->GetComPtr().Get(), ImVec2(100, 100));
+			ImGui::EndGroup();
+		}
+
+		ImGui::SameLine(); // 같은 줄에 배치
+
+		// Specular Map
+		if (mat->GetSpecularMap() != nullptr)
+		{
+			ImGui::BeginGroup();
+			ImGui::Text("Specular");
+			ImGui::Image((void*)mat->GetSpecularMap()->GetComPtr().Get(), ImVec2(100, 100));
+			ImGui::EndGroup();
+		}
 	}
 }
-
-
-
 
 void ModelRenderer::SetModel(shared_ptr<Model> model)
 {
@@ -83,7 +105,7 @@ void ModelRenderer::PreRenderInstancing(shared_ptr<class InstancingBuffer>& buff
 	_shader->PushGlobalData(Light::S_MatView, Light::S_MatProjection);
 
 	PushData(0 ,buffer);
-	
+
 }
 
 void ModelRenderer::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
@@ -94,19 +116,21 @@ void ModelRenderer::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
 	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
 	auto shader = RESOURCES->Get<Shader>(L"Standard");
 	ChangeShader(shader);
-
 	// GlobalData
-	_shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
+	shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
 	
+	// 그 다음 아웃라인 렌더링 수행
 	{
 		DCT->OMSetDepthStencilState(GRAPHICS->GetDSStateOutline().Get(), 1);
 		PushData(1, buffer);
 	}
 
+	// 기본 렌더링 먼저 수행
 	{
-		DCT->OMSetDepthStencilState(nullptr, 1);
-		PushData(0 , buffer);
+		DCT->OMSetDepthStencilState(GRAPHICS->GetDSStateStandard().Get(), 0);
+		PushData(0, buffer);
 	}
+
 	
 }
 
@@ -147,7 +171,6 @@ void ModelRenderer::PushData(uint8 technique,  shared_ptr<class InstancingBuffer
 		_shader->DrawIndexedInstanced(technique, _pass, mesh->indexBuffer->GetCount(), buffer->GetCount());
 	}
 }
-
 
 
 InstanceID ModelRenderer::GetInstanceID()

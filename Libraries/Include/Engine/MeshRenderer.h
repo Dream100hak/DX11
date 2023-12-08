@@ -14,6 +14,8 @@ public:
 	MeshRenderer();
 	virtual ~MeshRenderer();
 
+	void OnInspectorGUI() override;
+
 	void SetMesh(shared_ptr<Mesh> mesh) { _mesh = mesh; }
 	void SetMaterial(shared_ptr<Material> material) { _material = material; }
 	void SetPass(uint8 pass) { _pass = pass; }

@@ -18,6 +18,37 @@ MeshRenderer::~MeshRenderer()
 
 }
 
+void MeshRenderer::OnInspectorGUI()
+{
+	Super::OnInspectorGUI();
+
+
+	if (_material != nullptr)
+	{
+		MaterialDesc& desc = _material->GetMaterialDesc();
+
+		if (ImGui::ColorEdit3("Diffuse", (float*)&desc.diffuse))
+		{
+		
+		}
+
+		if (ImGui::ColorEdit3("Ambient", (float*)&desc.ambient))
+		{
+	
+		}
+
+		if (ImGui::ColorEdit3("Emissive", (float*)&desc.emissive))
+		{
+		
+		}
+
+		if (ImGui::ColorEdit3("Specular", (float*)&desc.specular))
+		{
+		
+		}
+	}
+}
+
 void MeshRenderer::PreRenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
 {
 	if (_mesh == nullptr || _material == nullptr)

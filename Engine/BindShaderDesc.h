@@ -72,8 +72,6 @@ struct MaterialDesc
 	Color diffuse = Color(1.f, 1.f, 1.f, 1.f);
 	Color specular = Color(0.f, 0.f, 0.f, 1.f);
 	Color emissive = Color(0.f, 0.f, 0.f, 1.f);
-	//int  useDiffuseMap = 0;
-	//Vec3 pad = Vec3::Zero; 
 };
 
 // Bone

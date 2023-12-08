@@ -69,27 +69,39 @@ void Hiearchy::ShowHiearchy()
 
 	if (ImGui::BeginPopupContextWindow())
 	{
+		int32 id = -1;
+
 		if (ImGui::MenuItem("Add GameObject"))
-		{
-			// "Add GameObject" 클릭 시 처리할 로직
+		{	
+			id = GUI->CreateEmptyGameObject(); 
+			TOOL->SetSelectedObjH(id);
+			ADDLOG("Create GameObject", LogFilter::Info);
 		}
 
 		if (ImGui::MenuItem("Create Cube"))
 		{
-			TOOL->SetSelectedObjH(GUI->CreateMesh(CreatedObjType::CUBE));
+			id = GUI->CreateMesh(CreatedObjType::CUBE);
+			TOOL->SetSelectedObjH(id);
 			ADDLOG("Create Cube", LogFilter::Info);
 		}
 		if (ImGui::MenuItem("Create Quad"))
 		{
-			TOOL->SetSelectedObjH(GUI->CreateMesh(CreatedObjType::QUAD));
+			id = GUI->CreateMesh(CreatedObjType::QUAD);
+			TOOL->SetSelectedObjH(id);
 			ADDLOG("Create Quad", LogFilter::Info);
 		}	
 		if (ImGui::MenuItem("Create Sphere"))
 		{
-			TOOL->SetSelectedObjH(GUI->CreateMesh(CreatedObjType::SPHERE));
+			id = GUI->CreateMesh(CreatedObjType::SPHERE);
+			TOOL->SetSelectedObjH(id);
 			ADDLOG("Create Sphere", LogFilter::Info);
 		}
 
+		if (id != -1)
+		{
+			CUR_SCENE->UnPickAll();
+			CUR_SCENE->GetCreatedObject(id)->SetUIPicked(true);
+		}
 
 		ImGui::EndPopup();
 	}

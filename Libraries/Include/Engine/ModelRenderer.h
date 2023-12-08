@@ -4,6 +4,8 @@
 class Model;
 class Shader;
 class Material;
+class BVH;
+struct BVHNode;
 
 class ModelRenderer : public Component
 {
@@ -13,6 +15,11 @@ public:
 	ModelRenderer(shared_ptr<Shader> shader);
 	virtual ~ModelRenderer();
 
+	
+
+	void OnInspectorGUI() override;
+
+
 	void SetModel(shared_ptr<Model> model);
 	void SetPass(uint8 pass) { _pass = pass; }
 
@@ -20,11 +27,12 @@ public:
 
 	void PreRenderInstancing(shared_ptr<class InstancingBuffer>& buffer);
 	void RenderInstancing(shared_ptr<class InstancingBuffer>& buffer);
-
-	void RenderOutline();
-
 	void PushData(uint8 technique, shared_ptr<class InstancingBuffer>& buffer);
+	
+	void TransformBoundingBox();
 
+	//void TestRenderStart();
+	//void TestRenderBox();
 
 	InstanceID GetInstanceID();
 
@@ -36,5 +44,16 @@ private:
 	shared_ptr<Shader>	_shader;
 	uint8				_pass = 0;
 	shared_ptr<Model>	_model;
+
+
+	shared_ptr<Geometry<VertexColorData>> _geometry;
+	shared_ptr<VertexBuffer> _vertexBuffer;
+	shared_ptr<IndexBuffer> _indexBuffer;
+
+	shared_ptr<class Material> _material;
+	BoundingBox _boundingBox;
+
+	bool _once = false;
+
 };
 

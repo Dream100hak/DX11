@@ -23,7 +23,7 @@ public:
 	static void CreateGrid(shared_ptr<Geometry<VertexTextureNormalTangentData>> geometry, int32 sizeX, int32 sizeZ);
 	static void CreateSphere(shared_ptr<Geometry<VertexTextureNormalTangentData>> geometry);
 
-
+	static void CreateAABB(shared_ptr<Geometry<VertexColorData>> geometry, Color color, const BoundingBox& aabb);
 	static void CreateOBB(shared_ptr<Geometry<VertexColorData>> geometry , Color color , const BoundingOrientedBox& obb);
 	
 	static void CreateSceneGrid(shared_ptr<Geometry<VertexColorData>> geometry, Color color );

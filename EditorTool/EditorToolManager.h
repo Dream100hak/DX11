@@ -25,6 +25,7 @@ private:
 	 int64 _selectedIdH = -1;
 	 int64 _selectedIdP = -1;
 
+
 private:
 	unordered_map<string, shared_ptr<class EditorWindow>> _editorWindows;
 

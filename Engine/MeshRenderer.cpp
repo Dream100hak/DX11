@@ -58,8 +58,8 @@ void MeshRenderer::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
 
 	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
 	// GlobalData
-	
 	shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
+
 	// Light
 	auto lightObj = SCENE->GetCurrentScene()->GetLight();
 	if (lightObj)

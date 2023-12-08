@@ -54,6 +54,11 @@ void LogWindow::Draw(const char* title, bool* p_open /*= NULL*/)
 		return;
 	}
 
+	//uint32 fps = GET_SINGLE(TimeManager)->GetFps();
+	//char tmps[64];
+	//ImFormatString(tmps, sizeof(tmps),"FPS : %d", fps);
+	//ImGui::Text(tmps);
+
 	// Options menu
 	if (ImGui::BeginPopup("Options"))
 	{

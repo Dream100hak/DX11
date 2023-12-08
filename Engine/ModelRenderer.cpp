@@ -7,6 +7,7 @@
 #include "Light.h"
 #include "ShadowMap.h"
 #include "MathUtils.h"
+#include "BVH.h"
 
 ModelRenderer::ModelRenderer(shared_ptr<Shader> shader)
 	: Super(ComponentType::ModelRenderer), _shader(shader)
@@ -19,11 +20,43 @@ ModelRenderer::~ModelRenderer()
 
 }
 
+void ModelRenderer::OnInspectorGUI()
+{
+	Super::OnInspectorGUI();
+
+	float center[3] = { _boundingBox.Center.x, _boundingBox.Center.y, _boundingBox.Center.z };
+	float extents[3] = {_boundingBox.Extents.x, _boundingBox.Extents.y, _boundingBox.Extents.z };
+
+	ImVec4 color = ImVec4(0.85f, 0.94f, 0.f, 1.f);
+
+	ImGui::TextColored(color, "Offset      ");
+	ImGui::SameLine(0.f, -2.f);
+
+	if (ImGui::DragFloat3("##center", center))
+	{
+		_boundingBox.Center = Vec3(center);
+	}
+	ImGui::TextColored(color, "Extents     ");
+	ImGui::SameLine();
+
+	if (ImGui::DragFloat3("##extents", extents))
+	{
+		_boundingBox.Extents = Vec3(extents);
+	}
+}
+
+
+
 
 void ModelRenderer::SetModel(shared_ptr<Model> model)
 {
+	Matrix W = GetTransform()->GetWorldMatrix();
+
 	_model = model;
+	_model->CalculateModelBox();
+
 	ChangeShader(_shader);
+
 }
 
 void ModelRenderer::ChangeShader(shared_ptr<Shader> shader)
@@ -58,31 +91,23 @@ void ModelRenderer::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
 	if (_model == nullptr)
 		return;
 
+	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
+	auto shader = RESOURCES->Get<Shader>(L"Standard");
+	ChangeShader(shader);
+
+	// GlobalData
+	_shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
+	
 	{
-		auto shader = RESOURCES->Get<Shader>(L"Standard");
-		ChangeShader(shader);
-
-		auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
 		DCT->OMSetDepthStencilState(GRAPHICS->GetDSStateOutline().Get(), 1);
-
-		// GlobalData
-		_shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
-
 		PushData(1, buffer);
 	}
 
 	{
-		auto shader = RESOURCES->Get<Shader>(L"Standard");
-		ChangeShader(shader);
-
-		auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
 		DCT->OMSetDepthStencilState(nullptr, 1);
-	
-		// GlobalData
-		_shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
-
 		PushData(0 , buffer);
 	}
+	
 }
 
 
@@ -92,7 +117,6 @@ void ModelRenderer::PushData(uint8 technique,  shared_ptr<class InstancingBuffer
 	auto lightObj = SCENE->GetCurrentScene()->GetLight();
 	if (lightObj)
 		_shader->PushLightData(lightObj->GetLight()->GetLightDesc());
-
 
 	// Bones
 	BoneDesc boneDesc;
@@ -126,56 +150,6 @@ void ModelRenderer::PushData(uint8 technique,  shared_ptr<class InstancingBuffer
 
 
 
-void ModelRenderer::RenderOutline()
-{
-
-	auto go = _gameObject.lock();
-
-	if (go->GetUIPicked())
-	{
-		auto shader = RESOURCES->Get<Shader>(L"Outline");
-		ChangeShader(shader);
-
-		DCT->OMSetDepthStencilState(GRAPHICS->GetDSStateOutline().Get(), 1);
-
-		auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
-		// GlobalData
-		_shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
-
-		// Light
-		auto lightObj = SCENE->GetCurrentScene()->GetLight();
-		if (lightObj)
-			_shader->PushLightData(lightObj->GetLight()->GetLightDesc());
-
-		// Bones
-		BoneDesc boneDesc;
-
-		const uint32 boneCount = _model->GetBoneCount();
-		for (uint32 i = 0; i < boneCount; i++)
-		{
-			shared_ptr<ModelBone> bone = _model->GetBoneByIndex(i);
-			boneDesc.transforms[i] = bone->transform;
-		}
-		_shader->PushBoneData(boneDesc);
-
-		const auto& meshes = _model->GetMeshes();
-		for (auto& mesh : meshes)
-		{
-			if (mesh->material)
-				mesh->material->Update();
-
-			// BoneIndex
-			_shader->GetScalar("BoneIndex")->SetInt(mesh->boneIndex);
-
-			// IA
-			mesh->vertexBuffer->PushData();
-			mesh->indexBuffer->PushData();
-
-			_shader->DrawIndexed(0, _pass, mesh->indexBuffer->GetCount());
-		}
-	}
-}
-
 InstanceID ModelRenderer::GetInstanceID()
 {
 	return make_pair((uint64)_model.get(), (uint64)_shader.get());
@@ -195,35 +169,135 @@ bool ModelRenderer::Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& dis
 	Vec3 start = n;
 	Vec3 direction = f - n;
 	direction.Normalize();
-	Ray ray = Ray(start, direction); 
-
+	Ray ray = Ray(start, direction);
 	vector<shared_ptr<ModelMesh>>& meshes = _model->GetMeshes();
 	vector<shared_ptr<ModelBone>>& bones = _model->GetBones();
 
-	for (auto mesh : meshes)
+
+	//메시가 하나 일 경우
+	TransformBoundingBox();
+	float dist = 0.f;
+
+	if (_boundingBox.Intersects(ray.position, ray.direction, dist))
 	{
-		Matrix boneWorldMatrix = bones[mesh->boneIndex]->transform * W;
-
-		const auto& vertices = mesh->GetGeometry()->GetVertices();
-		const auto& indices = mesh->GetGeometry()->GetIndices();
-
-		for (uint32 i = 0; i < indices.size() / 3; ++i)
+		for (auto mesh : meshes)
 		{
-			uint32 i0 = indices[i * 3 + 0];
-			uint32 i1 = indices[i * 3 + 1];
-			uint32 i2 = indices[i * 3 + 2];
+			Matrix boneWorldMatrix = bones[mesh->boneIndex]->transform * W;
 
-			Vec3 v0 = XMVector3TransformCoord(vertices[i0].position, boneWorldMatrix);
-			Vec3 v1 = XMVector3TransformCoord(vertices[i1].position, boneWorldMatrix);
-			Vec3 v2 = XMVector3TransformCoord(vertices[i2].position, boneWorldMatrix);
+			const auto& vertices = mesh->GetGeometry()->GetVertices();
+			const auto& indices = mesh->GetGeometry()->GetIndices();
 
-			if (ray.Intersects(v0, v1, v2, OUT distance))
+			for (uint32 i = 0; i < indices.size() / 3; ++i)
 			{
-				pickPos = ray.position + ray.direction * distance;
-				return true;
+				uint32 i0 = indices[i * 3 + 0];
+				uint32 i1 = indices[i * 3 + 1];
+				uint32 i2 = indices[i * 3 + 2];
+
+				Vec3 v0 = XMVector3TransformCoord(vertices[i0].position, boneWorldMatrix);
+				Vec3 v1 = XMVector3TransformCoord(vertices[i1].position, boneWorldMatrix);
+				Vec3 v2 = XMVector3TransformCoord(vertices[i2].position, boneWorldMatrix);
+
+				if (ray.Intersects(v0, v1, v2, OUT distance))
+				{
+					pickPos = ray.position + ray.direction * distance;
+					return true;
+				}
 			}
 		}
 	}
 
 	return false;
+	
 }
+void ModelRenderer::TransformBoundingBox()
+{
+
+	Matrix W = GetTransform()->GetWorldMatrix();
+
+	vector<shared_ptr<ModelMesh>>& meshes = _model->GetMeshes();
+	vector<shared_ptr<ModelBone>>& bones = _model->GetBones();
+
+	if(meshes.size() == 0 || bones.size() == 0)
+		return;
+
+	Vec3 vMin = Vec3(MathUtils::INF, MathUtils::INF, MathUtils::INF);
+	Vec3 vMax = Vec3(-MathUtils::INF, -MathUtils::INF, -MathUtils::INF);
+
+	Vec3 corners[8];
+	BoundingBox& modelBox = GetModel()->GetModelBox();
+	
+	modelBox.GetCorners(corners);
+
+	for (int i = 0; i < 8; ++i) {
+		corners[i] = XMVector3TransformCoord(corners[i], W);
+	}
+
+	for (const Vec3& corner : corners) {
+		vMin = ::XMVectorMin(vMin, corner);
+		vMax = ::XMVectorMax(vMax, corner);
+	}
+
+	_boundingBox.Center = 0.5f * (vMin + vMax);
+	_boundingBox.Extents = 0.5f * (vMax - vMin);
+
+}
+
+//void ModelRenderer::TestRenderStart()
+//{
+//	auto mat = RESOURCES->Get<Material>(L"Collider");
+//
+//	if (mat == nullptr)
+//	{
+//		mat = make_shared<Material>();
+//		auto shader = make_shared<Shader>(L"01. Collider.fx");
+//		mat->SetShader(shader);
+//		MaterialDesc& desc = mat->GetMaterialDesc();
+//		desc.diffuse = Vec4(0.f, 1.f, 0.f, 1.f);
+//
+//		RESOURCES->Add(L"Collider", mat);
+//	}
+//
+//	TransformBoundingBox();
+//
+//	_material = mat;
+//	_geometry = make_shared<Geometry<VertexColorData>>();
+//
+//	GeometryHelper::CreateAABB(_geometry, mat->GetMaterialDesc().diffuse, _boundingBox);
+//
+//	_vertexBuffer = make_shared<VertexBuffer>();
+//	_vertexBuffer->Create(_geometry->GetVertices());
+//	_indexBuffer = make_shared<IndexBuffer>();
+//	_indexBuffer->Create(_geometry->GetIndices());
+//
+//
+//}
+//
+//void ModelRenderer::TestRenderBox()
+//{
+//	
+//	TestRenderStart();
+//
+//	if (_material == nullptr || _geometry == nullptr)
+//		return;
+//
+//	auto shader = _material->GetShader();
+//
+//	if (shader == nullptr)
+//		return;
+//
+//	Matrix world;
+//	Matrix matScale = Matrix::CreateScale(_boundingBox.Extents);
+//	Matrix matTranslation = Matrix::CreateTranslation(_boundingBox.Center );
+//
+//	world = matScale * matTranslation;
+//	shader->PushTransformData(TransformDesc{ world });
+//
+//	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
+//	// GlobalData
+//	shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
+//
+//	_vertexBuffer->PushData();
+//	_indexBuffer->PushData();
+//
+//	shader->DrawLineIndexed(0, 0, _indexBuffer->GetCount());
+//}

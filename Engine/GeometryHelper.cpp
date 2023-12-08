@@ -275,6 +275,8 @@ void GeometryHelper::CreateSphere(shared_ptr<Geometry<VertexTextureData>> geomet
 
 
 
+
+
 void GeometryHelper::CreateGrid(shared_ptr<Geometry<VertexTextureData>> geometry, int32 sizeX, int32 sizeZ)
 {
 	vector<VertexTextureData> vtx;
@@ -801,6 +803,29 @@ void GeometryHelper::CreateSphere(shared_ptr<Geometry<VertexTextureNormalTangent
 	}
 
 	geometry->SetIndices(idx);
+}
+
+void GeometryHelper::CreateAABB(shared_ptr<Geometry<VertexColorData>> geometry, Color color, const BoundingBox& aabb)
+{
+	vector<VertexColorData> vtx;
+	vtx.resize(24);
+
+	Vec3 corners[8];
+	aabb.GetCorners(corners); 
+
+	// 각 꼭지점에 대한 색상을 설정합니다.
+	for (int i = 0; i < 8; ++i) {
+		geometry->AddVertex({ corners[i], color });
+	}
+
+	// AABB를 구성하는 선분의 인덱스를 정의합니다.
+	std::vector<uint32_t> indices = {
+		0, 1, 1, 2, 2, 3, 3, 0, // 하단 사각형
+		4, 5, 5, 6, 6, 7, 7, 4, // 상단 사각형
+		0, 4, 1, 5, 2, 6, 3, 7  // 상단과 하단을 연결하는 선분
+	};
+
+	geometry->SetIndices(indices);
 }
 
 void GeometryHelper::CreateOBB(shared_ptr<Geometry<VertexColorData>> geometry, Color color , const BoundingOrientedBox& obb)

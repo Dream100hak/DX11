@@ -153,6 +153,7 @@
   <ItemGroup>
     <ClInclude Include="AABBBoxCollider.h" />
     <ClInclude Include="BaseCollider.h" />
+    <ClInclude Include="BVH.h" />
     <ClInclude Include="Billboard.h" />
     <ClInclude Include="BindShaderDesc.h" />
     <ClInclude Include="Button.h" />
@@ -225,6 +226,7 @@
   <ItemGroup>
     <ClCompile Include="AABBBoxCollider.cpp" />
     <ClCompile Include="BaseCollider.cpp" />
+    <ClCompile Include="BVH.cpp" />
     <ClCompile Include="Billboard.cpp" />
     <ClCompile Include="BindShaderDesc.cpp" />
     <ClCompile Include="Button.cpp" />

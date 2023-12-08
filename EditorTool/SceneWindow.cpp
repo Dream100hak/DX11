@@ -58,9 +58,7 @@ void SceneWindow::ShowSceneWindow()
 					if (obj->GetUIPickable())
 					{
 						CUR_SCENE->UnPickAll();
-
-						_tr = obj->GetTransform();
-						obj->SetUIPicked(true);
+						obj->SetUIPicked(true);			
 					}
 				
 					wstring name = obj->GetObjectName();
@@ -72,10 +70,24 @@ void SceneWindow::ShowSceneWindow()
 			}
 		}
 	}
+
+	int64 id = TOOL->GetSelectedIdH();
+
+	if(id == -1)
+		return;
+
+	shared_ptr<GameObject> obj = SCENE->GetCurrentScene()->GetCreatedObject(id);
+	_tr = obj->GetTransform();
+
 }
 
 void SceneWindow::EditTransform()
 {
+	if(_tr == nullptr)
+		return;
+
+	ImGuiIO& io = ImGui::GetIO();
+
 	static SceneWindow::Mode currentGizmoMode(SceneWindow::Local);
 	static bool useSnap = false;
 	static float snap[3] = { 1.f, 1.f, 1.f };
@@ -98,6 +110,17 @@ void SceneWindow::EditTransform()
 	ImGui::SameLine();
 	if (ImGui::RadioButton("Scale", _currentGizmoOperation == SCALE))
 		_currentGizmoOperation = SCALE;
+
+	int32 mouse[2] = { io.MousePos.x , io.MousePos.y };
+	ImGui::InputInt2("Mouse Pos : ", mouse);
+
+	uint32 fps = GET_SINGLE(TimeManager)->GetFps();
+	char tmps[64];
+	ImFormatString(tmps, sizeof(tmps),"FPS : %d", fps);
+	ImGui::Text(tmps);
+
+
+
 	//if (ImGui::RadioButton("Universal", _currentGizmoOperation == UNIVERSAL))
 	//	_currentGizmoOperation = UNIVERSAL;
 
@@ -455,9 +478,6 @@ int32 SceneWindow::GetMoveType(OPERATION op, Vec3& gizmoHitProportion)
 	int type = MT_NONE;
 
 	ImGuiIO& io = ImGui::GetIO();
-	int32 mouse[2] = { io.MousePos.x , io.MousePos.y};
-
-	ImGui::InputInt2("Mouse Pos : " , mouse );
 
 	// screen
 	if (io.MousePos.x >= _screenSquareMin.x && io.MousePos.x <= _screenSquareMax.x &&

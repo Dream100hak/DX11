@@ -18,6 +18,7 @@ struct VertexMesh
 	// INSTANCING;
 	uint instanceID : SV_INSTANCEID;
 	matrix world : INST;
+    uint isPicked : PICKED;
 	
 };
 

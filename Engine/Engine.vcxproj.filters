@@ -211,6 +211,9 @@
     <ClInclude Include="ShadowMap.h">
       <Filter>01. Graphics</Filter>
     </ClInclude>
+    <ClInclude Include="BVH.h">
+      <Filter>05. Component\Collision</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -413,6 +416,9 @@
     </ClCompile>
     <ClCompile Include="ShadowMap.cpp">
       <Filter>01. Graphics</Filter>
+    </ClCompile>
+    <ClCompile Include="BVH.cpp">
+      <Filter>05. Component\Collision</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -222,7 +222,7 @@ pass name											\
 pass name											\
 {													\
 	SetVertexShader(CompileShader(vs_5_0, vs()));	\
-	SetPixelShader(CompileShader(ps_5_0, ps(1,true,true)));	\
+	SetPixelShader(CompileShader(ps_5_0, ps(3,true,true)));	\
 }
 
 #define PASS_RS_VP(name, rs, vs, ps)				\

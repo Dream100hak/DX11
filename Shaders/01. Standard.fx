@@ -6,11 +6,18 @@ MeshOutput VS_MeshOutline(VertexMesh input)
 {
     MeshOutput output;
     
-    input.position.xyz += input.normal * 0.1f; // 0.1f는 아웃라인의 두께를 조절하는 값입니다.
+    float outlineThickness = 0.4f;
     
     output.position = mul(input.position, input.world); // W
     output.worldPosition = output.position;
     output.position = mul(output.position, VP);
+    
+    if (input.isPicked == 1)
+    {
+        output.position.xy += outlineThickness * normalize(input.normal.xy);
+    }
+
+    
     output.uv = input.uv;
     output.normal = input.normal;
     
@@ -19,29 +26,34 @@ MeshOutput VS_MeshOutline(VertexMesh input)
 
 MeshOutput VS_ModelOutline(VertexModel input)
 {
-    MeshOutput output;
-    
-    if(input.isPicked == 1)
-    {
-        input.position.xyz += input.normal * 0.01f; // 0.1f는 아웃라인의 두께를 조절하는 값입니다.
-    }
+   MeshOutput output;
+
+    float outlineThickness = 0.4f; 
 
     output.position = mul(input.position, BoneTransforms[BoneIndex]); // Model Global
     output.position = mul(output.position, input.world); // W
     output.worldPosition = output.position;
     output.position = mul(output.position, VP);
-    output.uv = input.uv;
 
+    // 아웃라인을 적용할 경우 스크린 좌표계에서 두께 조절
+    if (input.isPicked == 1)
+    {
+        output.position.xy += outlineThickness * normalize(input.normal.xy);
+    }
+
+
+    // 기타 속성 설정
+    output.uv = input.uv;
     output.normal = input.normal;
-   
+
     return output;
 }
 
 MeshOutput VS_AnimationOutline(VertexModel input)
 {
     MeshOutput output;
-
-    input.position.xyz += input.normal * 0.1f; // 0.1f는 아웃라인의 두께를 조절하는 값입니다.
+    
+    float outlineThickness = 0.4f;
 
     matrix m = GetAnimationMatrix(input);
 
@@ -49,6 +61,13 @@ MeshOutput VS_AnimationOutline(VertexModel input)
     output.position = mul(output.position, input.world); // W
     output.worldPosition = output.position;
     output.position = mul(output.position, VP);
+    
+    if (input.isPicked == 1)
+    {
+        output.position.xy += outlineThickness * normalize(input.normal.xy);
+    }
+
+    
     output.uv = input.uv;
     output.normal = mul(input.normal, (float3x3) input.world);
     output.tangent = mul(input.tangent, (float3x3) input.world);

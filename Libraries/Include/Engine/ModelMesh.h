@@ -9,13 +9,16 @@ struct ModelBone
 
 	Matrix transform;
 	vector<shared_ptr<ModelBone>> children; // Cache
+	BoundingBox boundingBox;
+
+	void CalculateBoneBoundingBox(shared_ptr<ModelBone>& bone, const vector<shared_ptr<struct ModelMesh>>& meshes, const Matrix& world);
 };
 
 struct ModelMesh
 {
 	void CreateBuffers();
 	void CalculateMeshBox();
-	const BoundingBox& GetMeshBox() { return _meshBox; }
+	BoundingOrientedBox& GetMeshBox() { return _meshBox; }
 	shared_ptr<Geometry<ModelVertexType>> GetGeometry() { return geometry; }
 
 	wstring name;
@@ -33,6 +36,6 @@ struct ModelMesh
 	int32 boneIndex;
 	shared_ptr<ModelBone> bone; // Cache;
 
-	BoundingBox _meshBox;
+	BoundingOrientedBox _meshBox;
 };
 

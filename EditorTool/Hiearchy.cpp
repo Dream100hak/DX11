@@ -57,9 +57,12 @@ void Hiearchy::ShowHiearchy()
 		else
 			ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.2f, 0.2f, 0.2f, 0.2f)); // Default background
 
-		if (ImGui::Selectable(name.c_str(), (SELECTED_H == object.first, ImGuiSelectableFlags_SpanAllColumns)))
+		if (ImGui::Selectable(name.c_str(), (isSelected, ImGuiSelectableFlags_SpanAllColumns)))
 		{
+			CUR_SCENE->UnPickAll();
+
 			TOOL->SetSelectedObjH(object.first);
+			object.second->SetUIPicked(true);
 			//TODO : ¿ŒΩ∫∆Â≈Õ
 		}
 

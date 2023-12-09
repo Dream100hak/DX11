@@ -22,29 +22,62 @@ void MeshRenderer::OnInspectorGUI()
 {
 	Super::OnInspectorGUI();
 
-
 	if (_material != nullptr)
 	{
 		MaterialDesc& desc = _material->GetMaterialDesc();
+		ImVec4 color = ImVec4(0.85f, 0.94f, 0.f, 1.f);
 
-		if (ImGui::ColorEdit3("Diffuse", (float*)&desc.diffuse))
+		if (ImGui::ColorEdit3("Diffuse", (float*)&desc.diffuse)) {}
+		if (ImGui::ColorEdit3("Ambient", (float*)&desc.ambient)) {}
+		if (ImGui::ColorEdit3("Emissive", (float*)&desc.emissive)) {}
+		if (ImGui::ColorEdit3("Specular", (float*)&desc.specular)) {}
+
+		ImGui::NewLine();
+
+		// Diffuse Map
 		{
-		
+			ImGui::BeginGroup();
+			ImGui::TextColored(color, "Diffuse");
+
+			if (_material->GetDiffuseMap() != nullptr)
+				ImGui::Image((void*)_material->GetDiffuseMap()->GetComPtr().Get(), ImVec2(75, 75));
+			else
+				ImGui::Image((void*)RESOURCES->Get<Texture>(L"Grid")->GetComPtr().Get(), ImVec2(75, 75));
+
+			ImGui::EndGroup();
 		}
 
-		if (ImGui::ColorEdit3("Ambient", (float*)&desc.ambient))
+
+		ImGui::SameLine(0.f, -2.f); // 같은 줄에 배치
+
+		// Normal Map
 		{
-	
+			ImGui::BeginGroup();
+			ImGui::TextColored(color, "Normal");
+
+			if (_material->GetNormalMap() != nullptr)
+				ImGui::Image((void*)_material->GetNormalMap()->GetComPtr().Get(), ImVec2(75, 75));
+			else
+				ImGui::Image((void*)RESOURCES->Get<Texture>(L"Grid")->GetComPtr().Get(), ImVec2(75, 75));
+
+			ImGui::EndGroup();
 		}
 
-		if (ImGui::ColorEdit3("Emissive", (float*)&desc.emissive))
-		{
-		
-		}
 
-		if (ImGui::ColorEdit3("Specular", (float*)&desc.specular))
+		ImGui::SameLine(); // 같은 줄에 배치
+
+		// Specular Map
 		{
-		
+			ImGui::BeginGroup();
+			ImGui::TextColored(color, "Specular");
+
+			if (_material->GetSpecularMap() != nullptr)
+				ImGui::Image((void*)_material->GetSpecularMap()->GetComPtr().Get(), ImVec2(75, 75));
+
+			else
+				ImGui::Image((void*)RESOURCES->Get<Texture>(L"Grid")->GetComPtr().Get(), ImVec2(75, 75));
+
+			ImGui::EndGroup();
 		}
 	}
 }

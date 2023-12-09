@@ -31,6 +31,7 @@ Inspector::~Inspector()
 
 void Inspector::Init()
 {
+	auto grid = RESOURCES->Load<Texture>(L"Grid", L"..\\Resources\\Textures\\Grid.png");
 
 }
 
@@ -58,8 +59,8 @@ void Inspector::ShowInspector()
 		strncpy_s(modifiedName, objName.c_str(), sizeof(modifiedName));
 
 		ImGuiStyle& style = ImGui::GetStyle();
-		style.Colors[ImGuiCol_FrameBg] = ImVec4(0.2f, 0.2f, 0.2f, 0.2f);
-		style.Colors[ImGuiCol_ScrollbarBg] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+		//style.Colors[ImGuiCol_FrameBg] = ImVec4(0.2f, 0.2f, 0.2f, 0.2f);
+	//	style.Colors[ImGuiCol_ScrollbarBg] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
 
 		ImGui::InputText(" ", modifiedName, sizeof(modifiedName));
 		{
@@ -84,27 +85,14 @@ void Inspector::ShowInspector()
 
 			string s = GUI->EnumToString(componentType);
 
-			// 트리 노드의 헤더 색상을 파란색으로 설정
-		//	ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.0f, 0.0f, 1.0f, 1.0f));
-		//	ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.1f, 0.1f, 1.0f, 1.0f));
-
-			style.Colors[ImGuiCol_Header] = ImVec4(0.0f, 0.0f, 1.0f, 1.0f);
-			style.Colors[ImGuiCol_HeaderHovered] = ImVec4(0.1f, 0.1f, 1.0f, 1.0f);
-
 			if (ImGui::TreeNodeEx(s.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
 			{
+
 				comp->OnInspectorGUI();
 
 				ImGui::TreePop();
-
+			}
 	
-			}
-			else
-			{
-				style.Colors[ImGuiCol_FrameBg] = ImVec4(0.2f, 0.2f, 0.2f, 0.2f);
-				style.Colors[ImGuiCol_ScrollbarBg] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-			}
-
 		}
 
 		

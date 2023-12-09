@@ -181,7 +181,7 @@ void EditorTool::Init()
 		m2->ReadModel(L"Juno/Juno");
 		m2->ReadMaterial(L"Juno/Juno");
 
-		for (int i = 10; i < 10; i++)
+		for (int i = 10; i < 15; i++)
 		{
 			auto obj = make_shared<GameObject>();
 			wstring name = L"Model_" + to_wstring(i);

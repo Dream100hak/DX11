@@ -18,15 +18,15 @@ public:
 
 		ImVec4 color = ImVec4(0.85f, 0.94f, 0.f, 1.f);
 
-		ImGui::TextColored(color ,"Position ");
+		ImGui::TextColored(color ,"Position  ");
 		ImGui::SameLine(0.f, -2.f);
 
 		ImGui::DragFloat3("##pos", (float*)&_localPosition, 0.01f);
-		ImGui::TextColored(color ,"Rotation ");
+		ImGui::TextColored(color ,"Rotation  ");
 		ImGui::SameLine();
 
 		ImGui::DragFloat3("##rot", (float*)&_localRotation , 0.01f , -360.f , 360.f);
-		ImGui::TextColored(color, "Scale	  ");
+		ImGui::TextColored(color, "Scale	 ");
 		ImGui::SameLine();
 
 		ImGui::DragFloat3("##scale", (float*)&_localScale, 0.01f);

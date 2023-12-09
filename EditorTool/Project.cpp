@@ -82,8 +82,11 @@ MetaType Project::GetMetaType(const wstring& name)
 
 void Project::ShowProject()
 {
-	ImGui::SetNextWindowPos(ImVec2(800 + 373, 51));
-	ImGui::SetNextWindowSize(ImVec2(373, 500));
+	//ImGui::SetNextWindowPos(ImVec2(800 + 373, 51));
+	//ImGui::SetNextWindowSize(ImVec2(373, 500));
+
+	ImGui::SetNextWindowPos(ImVec2(800, 551));
+	ImGui::SetNextWindowSize(ImVec2(373 * 2, 500));
 	ImGui::Begin("Project");
 
 	if (ImGui::BeginTable("FolderTable", 1 , ImGuiTableFlags_BordersOuter | ImGuiTableFlags_Resizable))

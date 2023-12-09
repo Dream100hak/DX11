@@ -45,7 +45,7 @@ void LogWindow::AddLog(string msg, LogFilter filter)
 
 void LogWindow::Draw(const char* title, bool* p_open /*= NULL*/)
 {
-	ImGui::SetNextWindowPos(ImVec2(800, 551));
+	ImGui::SetNextWindowPos(ImVec2(0, 551));
 	ImGui::SetNextWindowSize(ImVec2(373 * 2, 500));
 
 	if (!ImGui::Begin(title, p_open))
@@ -53,11 +53,6 @@ void LogWindow::Draw(const char* title, bool* p_open /*= NULL*/)
 		ImGui::End();
 		return;
 	}
-
-	//uint32 fps = GET_SINGLE(TimeManager)->GetFps();
-	//char tmps[64];
-	//ImFormatString(tmps, sizeof(tmps),"FPS : %d", fps);
-	//ImGui::Text(tmps);
 
 	// Options menu
 	if (ImGui::BeginPopup("Options"))

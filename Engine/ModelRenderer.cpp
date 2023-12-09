@@ -25,47 +25,72 @@ void ModelRenderer::OnInspectorGUI()
 	Super::OnInspectorGUI();
 
 	auto mats = _model->GetMaterials();
+	ImVec4 color = ImVec4(0.85f, 0.94f, 0.f, 1.f);
 
-	for (auto& mat : mats)
+	for (int i = 0; i < mats.size(); i++)
 	{
+		auto& mat = mats[i];
 		MaterialDesc& desc = mat->GetMaterialDesc();
 
-		if (ImGui::ColorEdit3("Diffuse", (float*)&desc.diffuse)) {}
-		if (ImGui::ColorEdit3("Ambient", (float*)&desc.ambient)) {}
-		if (ImGui::ColorEdit3("Emissive", (float*)&desc.emissive)) {}
-		if (ImGui::ColorEdit3("Specular", (float*)&desc.specular)) {}
-
-		ImGui::NewLine();
-
-		// Diffuse Map
-		if (mat->GetDiffuseMap() != nullptr)
+		// 매터리얼 노드
+		if (ImGui::TreeNodeEx(("Material " + std::to_string(i)).c_str(), ImGuiTreeNodeFlags_DefaultOpen))
 		{
-			ImGui::BeginGroup();
-			ImGui::Text("Diffuse");
-			ImGui::Image((void*)mat->GetDiffuseMap()->GetComPtr().Get(), ImVec2(100, 100));
-			ImGui::EndGroup();
-		}
+	
+			if (ImGui::ColorEdit3("Diffuse", (float*)&desc.diffuse)) {}
+			if (ImGui::ColorEdit3("Ambient", (float*)&desc.ambient)) {}
+			if (ImGui::ColorEdit3("Emissive", (float*)&desc.emissive)) {}
+			if (ImGui::ColorEdit3("Specular", (float*)&desc.specular)) {}
 
-		ImGui::SameLine(); // 같은 줄에 배치
+			ImGui::NewLine();
+		
+			// Diffuse Map
+			{
+				ImGui::BeginGroup();
+				ImGui::TextColored(color, "Diffuse");
 
-		// Normal Map
-		if (mat->GetNormalMap() != nullptr)
-		{
-			ImGui::BeginGroup();
-			ImGui::Text("Normal");
-			ImGui::Image((void*)mat->GetNormalMap()->GetComPtr().Get(), ImVec2(100, 100));
-			ImGui::EndGroup();
-		}
+				if (mat->GetDiffuseMap() != nullptr)
+					ImGui::Image((void*)mat->GetDiffuseMap()->GetComPtr().Get(), ImVec2(75, 75));
+				else
+					ImGui::Image((void*)RESOURCES->Get<Texture>(L"Grid")->GetComPtr().Get(), ImVec2(75, 75));
 
-		ImGui::SameLine(); // 같은 줄에 배치
+				ImGui::EndGroup();
+			}
+			
 
-		// Specular Map
-		if (mat->GetSpecularMap() != nullptr)
-		{
-			ImGui::BeginGroup();
-			ImGui::Text("Specular");
-			ImGui::Image((void*)mat->GetSpecularMap()->GetComPtr().Get(), ImVec2(100, 100));
-			ImGui::EndGroup();
+			ImGui::SameLine(0.f, -2.f); // 같은 줄에 배치
+
+			// Normal Map
+			{
+				ImGui::BeginGroup();
+				ImGui::TextColored(color, "Normal");
+
+				if (mat->GetNormalMap() != nullptr)
+					ImGui::Image((void*)mat->GetNormalMap()->GetComPtr().Get(), ImVec2(75, 75));
+				else
+					ImGui::Image((void*)RESOURCES->Get<Texture>(L"Grid")->GetComPtr().Get(), ImVec2(75, 75));
+
+				ImGui::EndGroup();
+			}
+		
+
+			ImGui::SameLine(); // 같은 줄에 배치
+
+			// Specular Map
+			{
+				ImGui::BeginGroup();
+				ImGui::TextColored(color, "Specular");
+
+				if (mat->GetSpecularMap() != nullptr)
+					ImGui::Image((void*)mat->GetSpecularMap()->GetComPtr().Get(), ImVec2(75, 75));
+
+				else
+					ImGui::Image((void*)RESOURCES->Get<Texture>(L"Grid")->GetComPtr().Get(), ImVec2(75, 75));
+		
+				ImGui::EndGroup();
+			}
+
+
+			ImGui::TreePop(); // 매터리얼 노드 종료
 		}
 	}
 }
@@ -130,8 +155,6 @@ void ModelRenderer::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
 		DCT->OMSetDepthStencilState(GRAPHICS->GetDSStateStandard().Get(), 0);
 		PushData(0, buffer);
 	}
-
-	
 }
 
 

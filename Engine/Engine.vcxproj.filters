@@ -214,6 +214,9 @@
     <ClInclude Include="BVH.h">
       <Filter>05. Component\Collision</Filter>
     </ClInclude>
+    <ClInclude Include="MeshThumbnail.h">
+      <Filter>00. Engine\Resource</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -419,6 +422,9 @@
     </ClCompile>
     <ClCompile Include="BVH.cpp">
       <Filter>05. Component\Collision</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshThumbnail.cpp">
+      <Filter>00. Engine\Resource</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

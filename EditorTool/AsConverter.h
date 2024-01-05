@@ -34,9 +34,9 @@ private:
 	uint32 GetBoneIndex(const string& name);
 
 private:
-	wstring _assetPath = L"../Resources/Assets/";
-	wstring _modelPath = L"../Resources/Models/";
-	wstring _texturePath = L"../Resources/Textures/";
+	wstring _assetPath = L"../Resources/PrevConverted/";
+	wstring _modelPath = L"../Resources/Assets/Models/";
+	wstring _texturePath = L"../Resources/Assets/Textures/";
 
 private:
 	shared_ptr<Assimp::Importer> _importer;

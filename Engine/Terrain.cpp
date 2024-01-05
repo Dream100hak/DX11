@@ -29,7 +29,7 @@ void Terrain::Create(int32 sizeX, int32 sizeZ, shared_ptr<Material> material)
 	_mesh = make_shared<Mesh>();
 	_mesh->CreateGrid(sizeX, sizeZ);
 
-	auto texture = RESOURCES->Load<Texture>(L"Wood", L"..\\Resources\\Textures\\Wood.jpg");
+	auto texture = RESOURCES->Load<Texture>(L"Wood", L"..\\Resources\\Assets\\Textures\\Wood.jpg");
 	material->SetDiffuseMap(texture);
 
 	go->GetMeshRenderer()->SetMesh(_mesh);

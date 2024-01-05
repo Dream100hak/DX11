@@ -55,7 +55,7 @@ void SkyBox::Init(SkyType type)
 
 		shared_ptr<Material> material = make_shared<Material>();
 		material->SetShader(shader);
-		auto texture = RESOURCES->Load<Texture>(L"Sky", L"../Resources/Textures/desertcube1024.dds");
+		auto texture = RESOURCES->Load<Texture>(L"Sky", L"../Resources/Assets/Textures/desertcube1024.dds");
 
 		material->SetCubeMap(texture);
 		MaterialDesc& desc = material->GetMaterialDesc();

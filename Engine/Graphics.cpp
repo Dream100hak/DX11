@@ -110,6 +110,8 @@ void Graphics::CreateDepthStencilView()
 		CHECK(hr);
 	}
 
+
+	// 스탠다드 용 
 	{
 		D3D11_DEPTH_STENCIL_DESC depthStencilDesc;
 		ZeroMemory(&depthStencilDesc, sizeof(depthStencilDesc));
@@ -120,7 +122,7 @@ void Graphics::CreateDepthStencilView()
 		HRESULT hr = DEVICE->CreateDepthStencilState(&depthStencilDesc, _dsStateStandard.GetAddressOf());
 		CHECK(hr);
 	}
-
+	// 아웃라인 용
 	{
 		D3D11_DEPTH_STENCIL_DESC depthStencilDesc;
 		ZeroMemory(&depthStencilDesc, sizeof(depthStencilDesc));

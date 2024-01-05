@@ -70,17 +70,20 @@ void SceneWindow::ShowSceneWindow()
 
 					ADDLOG("Pick Object : " + Utils::ToString(name), LogFilter::Info);
 				}
+				else
+				{
+					CUR_SCENE->UnPickAll();
+					TOOL->SetSelectedObjH(-1);
+				}
 			}
+			
 		}
 	}
 
 	int64 id = TOOL->GetSelectedIdH();
 
-	if(id == -1)
-		return;
-
 	shared_ptr<GameObject> obj = SCENE->GetCurrentScene()->GetCreatedObject(id);
-	_tr = obj->GetTransform();
+	_tr = id == -1 ? nullptr :  obj->GetTransform();
 }
 
 void SceneWindow::EditTransform()

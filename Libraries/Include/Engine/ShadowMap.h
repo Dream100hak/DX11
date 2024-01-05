@@ -11,9 +11,6 @@ public:
 
 private:
 
-
-private:
-
 	uint32 _width;
 	uint32 _height;
 

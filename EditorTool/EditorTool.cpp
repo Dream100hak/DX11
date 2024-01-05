@@ -230,5 +230,12 @@ void EditorTool::Render()
 
 void EditorTool::OnMouseWheel(int32 scrollAmount)
 {
-	_sceneCam->MoveCam(scrollAmount);
+	int32 x = INPUT->GetMousePos().x;
+	int32 y = INPUT->GetMousePos().y;
+
+	if (GRAPHICS->IsMouseInViewport(x, y))
+	{
+		_sceneCam->MoveCam(scrollAmount);
+	}
+
 }

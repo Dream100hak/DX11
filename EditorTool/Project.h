@@ -8,6 +8,9 @@ enum MetaType
 	Meta, 
 	Text,
 	Sound,
+	Image,
+	Mesh,
+	Xml,
 	UnKnown,
 };
 
@@ -47,7 +50,9 @@ public:
 
 	void ShowProject();
 	void ListFolderHierarchy(const wstring& directory);
-	void DisplayContentsOfSelectedFolder(const wstring& directory);
+	// 새로운 함수 추가: 선택된 폴더의 내용을 보여주는 창
+	void ShowFolderContents();
+	void DisplayItem(const std::wstring& path, const MetaData& meta, int columns);
 
 private:
 
@@ -57,7 +62,8 @@ private:
 private:
 	wstring _rootDirectory = L"";
 	wstring _selectedDirectory = L"";  // 선택한 폴더의 경로
-
+	wstring _selectedFolder = L"";  // 사용자가 선택한 폴더
+	wstring _selectedItem = L"";  // 사용자가 선택한 폴더
 	map<wstring , MetaData> _cashesFileList; 
 
 };

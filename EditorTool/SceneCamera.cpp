@@ -16,25 +16,31 @@ void SceneCamera::Update()
 
 	Vec3 pos = GetTransform()->GetPosition();
 
-	if (INPUT->GetButton(KEY_TYPE::W))
-		pos += GetTransform()->GetLook() * _speed * dt;
+	int32 x = INPUT->GetMousePos().x;
+	int32 y = INPUT->GetMousePos().y;
 
-	if (INPUT->GetButton(KEY_TYPE::S))
-		pos -= GetTransform()->GetLook() * _speed * dt;
-
-	if (INPUT->GetButton(KEY_TYPE::A))
-		pos -= GetTransform()->GetRight() * _speed * dt;
-
-	if (INPUT->GetButton(KEY_TYPE::D))
-		pos += GetTransform()->GetRight() * _speed * dt;
-
-	GetTransform()->SetPosition(pos);
-
-
-	// ¾ê¸¸ À©µµ¿ì ¸Þ¼¼Áö·Õ 
-	if (INPUT->GetButton(KEY_TYPE::RBUTTON))
+	if (GRAPHICS->IsMouseInViewport(x, y))
 	{
-		RotateCam();
+		if (INPUT->GetButton(KEY_TYPE::W))
+			pos += GetTransform()->GetLook() * _speed * dt;
+
+		if (INPUT->GetButton(KEY_TYPE::S))
+			pos -= GetTransform()->GetLook() * _speed * dt;
+
+		if (INPUT->GetButton(KEY_TYPE::A))
+			pos -= GetTransform()->GetRight() * _speed * dt;
+
+		if (INPUT->GetButton(KEY_TYPE::D))
+			pos += GetTransform()->GetRight() * _speed * dt;
+
+		GetTransform()->SetPosition(pos);
+
+
+		// ¾ê¸¸ À©µµ¿ì ¸Þ¼¼Áö·Õ 
+		if (INPUT->GetButton(KEY_TYPE::RBUTTON))
+		{
+			RotateCam();
+		}
 	}
 }
 

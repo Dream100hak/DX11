@@ -39,7 +39,6 @@ void Hiearchy::ShowHiearchy()
 
 	const auto gameObjects = CUR_SCENE->GetCreatedObjects();
 	ImGuiStyle& style = ImGui::GetStyle();
-	style.Colors[ImGuiCol_Header] = ImVec4(0.2f, 0.2f, 0.2f, 0.2f);
 
 	for (auto& object : gameObjects)
 	{

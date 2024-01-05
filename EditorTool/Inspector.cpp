@@ -31,7 +31,7 @@ Inspector::~Inspector()
 
 void Inspector::Init()
 {
-	auto grid = RESOURCES->Load<Texture>(L"Grid", L"..\\Resources\\Textures\\Grid.png");
+	auto grid = RESOURCES->Load<Texture>(L"Grid", L"..\\Resources\\Assets\\Textures\\Grid.png");
 
 }
 
@@ -46,6 +46,7 @@ void Inspector::ShowInspector()
 	ImGui::SetNextWindowSize(ImVec2(373, 1010) , ImGuiCond_Appearing);
 
 	ImGui::Begin("Inspector");
+
 
 
 	if (SELECTED_H > -1)
@@ -87,11 +88,11 @@ void Inspector::ShowInspector()
 
 			if (ImGui::TreeNodeEx(s.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
 			{
-
 				comp->OnInspectorGUI();
-
 				ImGui::TreePop();
 			}
+
+			ImGui::Separator();
 	
 		}
 

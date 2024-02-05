@@ -31,16 +31,28 @@ void LogWindow::Clear()
 
 void LogWindow::AddLog(string msg, LogFilter filter)
 {
+
 	LogMessage logMsg = {};
-	logMsg.type = filter;
 
 	auto nowTime = chrono::system_clock::now();
 	auto miltime = chrono::duration_cast<chrono::milliseconds>(nowTime.time_since_epoch()).count();
-	
-	logMsg.msg = "[" + Utils::ConvertTimeToHHMMSS(miltime) + "]";
-	logMsg.msg += " : " + msg;
 
-	_messages.push_back(logMsg);
+	if (_messages.find(msg) == _messages.end())
+	{
+		logMsg.type = filter;
+		logMsg.msg = msg;
+	}
+	else
+	{
+		logMsg = _messages[msg];
+	}
+
+	logMsg.time = "[" + Utils::ConvertTimeToHHMMSS(miltime) + "]" + " : ";
+	logMsg.count++;
+
+	//_messages.push_back(logMsg);
+	_messages[msg] = logMsg;
+
 }
 
 void LogWindow::Draw(const char* title, bool* p_open /*= NULL*/)
@@ -98,10 +110,18 @@ void LogWindow::Draw(const char* title, bool* p_open /*= NULL*/)
 
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
 
-	
+		vector<LogMessage> messages; 
+
 		for (auto logMsg : _messages)
 		{
-			if((logMsg.type & _msgFilter) == false)
+			messages.push_back(logMsg.second);
+		}
+		
+		sort(messages.begin(), messages.end());
+
+		for (auto logMsg : messages)
+		{
+			if ((logMsg.type & _msgFilter) == false)
 				continue;
 
 			ImVec4 color(ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
@@ -114,10 +134,29 @@ void LogWindow::Draw(const char* title, bool* p_open /*= NULL*/)
 				color = ImVec4(1.f, 0.f, 0.f, 1.f);
 
 			string colorStr = "[" + GUI->EnumToString(logMsg.type) + "]";
-		
+
+
 			ImGui::TextColored(color, colorStr.c_str());
 			ImGui::SameLine();
+			ImGui::Text(logMsg.time.c_str());
+			ImGui::SameLine();
 			ImGui::Text(logMsg.msg.c_str());
+			ImGui::SameLine(ImGui::GetWindowWidth() - ImGui::CalcTextSize("오른쪽에 글자").x - ImGui::GetStyle().ItemSpacing.x);
+
+			std::string countStr = std::to_string(logMsg.count);
+			int countLength = static_cast<int>(countStr.length());
+
+			ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 10.0f);
+			ImVec2 buttonSize((countLength * 30.0f) * 0.5f, 15.f);
+			float buttonXPos = ImGui::GetWindowWidth() - buttonSize.x; 
+			float buttonYPos = ImGui::GetCursorPos().y + 5.0f; 
+			ImGui::SetCursorPos(ImVec2(buttonXPos, buttonYPos));
+			ImGui::Button("##logCount", buttonSize);
+			
+			ImGui::PopStyleVar();
+			ImVec2 buttonPos = ImGui::GetItemRectMin();
+			ImVec2 textPosition = ImVec2(buttonPos.x + (buttonSize.x - ImGui::CalcTextSize(countStr.c_str()).x) * 0.5f, buttonPos.y + (buttonSize.y - ImGui::CalcTextSize(countStr.c_str()).y) * 0.5f);
+			ImGui::GetWindowDrawList()->AddText(textPosition, ImGui::GetColorU32(ImGuiCol_Text), countStr.c_str());
 		}
 		
 		ImGui::PopStyleVar();

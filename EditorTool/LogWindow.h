@@ -15,6 +15,12 @@ struct LogMessage
 	LogFilter type;
 	string msg;
 	string time;
+	int32 count = 0;
+
+	bool operator<(const LogMessage& other) const
+	{
+		return time < other.time;
+	}
 };
 
 class LogWindow : public EditorWindow
@@ -37,7 +43,8 @@ private:
 	ImGuiTextFilter     _filter;
 	bool                _autoScroll;  
 
-	vector<LogMessage> _messages;
+	map<string , LogMessage> _messages;
+	
 	bool _logOpen = false;
 	int32 _msgFilter = (int)(LogFilter::Info | LogFilter::Warn | LogFilter::Error);
 

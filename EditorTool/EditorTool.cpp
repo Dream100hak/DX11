@@ -229,6 +229,8 @@ void EditorTool::Update()
 	ImGui::Begin("Thumbnail");
 	ImGui::Image((void*)thumbnail->GetComPtr().Get(), ImVec2(400, 400));
 	ImGui::End();
+
+	ADDLOG("Test!!" , LogFilter::Info);
 }
 
 void EditorTool::Render()

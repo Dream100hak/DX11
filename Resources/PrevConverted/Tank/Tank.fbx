@@ -57,8 +57,8 @@ GlobalSettings:  {
 		P: "CoordAxisSign", "int", "Integer", "",1
 		P: "OriginalUpAxis", "int", "Integer", "",-1
 		P: "OriginalUpAxisSign", "int", "Integer", "",1
-		P: "UnitScaleFactor", "double", "Number", "",100
-		P: "OriginalUnitScaleFactor", "double", "Number", "",100
+		P: "UnitScaleFactor", "double", "Number", "",40
+		P: "OriginalUnitScaleFactor", "double", "Number", "",40
 		P: "AmbientColor", "ColorRGB", "Color", "",0,0,0
 		P: "DefaultCamera", "KString", "", "", "Producer Perspective"
 		P: "TimeMode", "enum", "", "",11

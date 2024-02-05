@@ -34,6 +34,7 @@ private:
 
 	void CreateShadowMapShader();
 	void CreateOutlineShader();
+	void CreateThumbnailShader();
 
 private:
 	wstring _resourcePath;

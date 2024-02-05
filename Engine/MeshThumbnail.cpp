@@ -1,37 +1,51 @@
 #include "pch.h"
 #include "MeshThumbnail.h"
 
-MeshThumbnail::MeshThumbnail(uint32 width, uint32 height) : _width(width) , _height(height)
+#include "ModelRenderer.h"
+#include "Camera.h"
+
+MeshThumbnail::MeshThumbnail(uint32 width, uint32 height)
+	: _width(width), _height(height)
 {
+
 	_vp.Set(width, height, GAME->GetSceneDesc().x, GAME->GetSceneDesc().y);
 
-	D3D11_TEXTURE2D_DESC texDesc;
+	CreateColorTexture();
+	CreateDepthStencilTexture();
+}
+
+MeshThumbnail::~MeshThumbnail()
+{
+
+}
+
+void MeshThumbnail::SetModelAndCam(shared_ptr<ModelRenderer> renderer, shared_ptr<Camera> cam)
+{
+	_modelRenderer = renderer;
+	_cam = cam;
+}
+
+void MeshThumbnail::CreateColorTexture()
+{
+	D3D11_TEXTURE2D_DESC texDesc = {};
 	texDesc.Width = _width;
 	texDesc.Height = _height;
 	texDesc.MipLevels = 1;
 	texDesc.ArraySize = 1;
-	texDesc.Format = DXGI_FORMAT_R24G8_TYPELESS;
+	texDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	texDesc.SampleDesc.Count = 1;
 	texDesc.SampleDesc.Quality = 0;
 	texDesc.Usage = D3D11_USAGE_DEFAULT;
-	texDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
+	texDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 	texDesc.CPUAccessFlags = 0;
 	texDesc.MiscFlags = 0;
 
-	HRESULT hr;
+	ComPtr<ID3D11Texture2D> colorMap;
 
-	ComPtr<ID3D11Texture2D> depthMap;
-
-	hr = DEVICE->CreateTexture2D(&texDesc, 0, depthMap.GetAddressOf());
+	HRESULT hr = DEVICE->CreateTexture2D(&texDesc, nullptr, colorMap.GetAddressOf());
 	CHECK(hr);
 
-	D3D11_DEPTH_STENCIL_VIEW_DESC dsvDesc;
-	dsvDesc.Flags = 0;
-	dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-	dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
-	dsvDesc.Texture2D.MipSlice = 0;
-
-	hr = DEVICE->CreateDepthStencilView(depthMap.Get(), &dsvDesc, _depthMapDSV.GetAddressOf());
+	hr = DEVICE->CreateRenderTargetView(colorMap.Get(), nullptr, &_colorMapRTV);
 	CHECK(hr);
 
 	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
@@ -40,11 +54,48 @@ MeshThumbnail::MeshThumbnail(uint32 width, uint32 height) : _width(width) , _hei
 	srvDesc.Texture2D.MipLevels = texDesc.MipLevels;
 	srvDesc.Texture2D.MostDetailedMip = 0;
 
-	hr = DEVICE->CreateShaderResourceView(depthMap.Get(), &srvDesc, _shaderResourveView.GetAddressOf());
+	hr = DEVICE->CreateShaderResourceView(colorMap.Get(), nullptr, _shaderResourveView.GetAddressOf());
 	CHECK(hr);
 }
 
-MeshThumbnail::~MeshThumbnail()
+void MeshThumbnail::CreateDepthStencilTexture()
 {
+	D3D11_TEXTURE2D_DESC desc = { 0 };
+	ZeroMemory(&desc, sizeof(desc));
+	desc.Width = _width;
+	desc.Height = _height;
+	desc.MipLevels = 1;
+	desc.ArraySize = 1;
+	desc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	desc.SampleDesc.Count = 1;
+	desc.SampleDesc.Quality = 0;
+	desc.Usage = D3D11_USAGE_DEFAULT;
+	desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+	desc.CPUAccessFlags = 0;
+	desc.MiscFlags = 0;
+
+	ComPtr<ID3D11Texture2D> depthMap;
+
+	HRESULT hr = DEVICE->CreateTexture2D(&desc, nullptr, depthMap.GetAddressOf());
+	CHECK(hr);
+
+	hr = DEVICE->CreateDepthStencilView(depthMap.Get(), nullptr, &_depthMapDSV);
+	CHECK(hr);
+
+
+}
+
+void MeshThumbnail::Draw()
+{
+	if(_modelRenderer == nullptr && _cam  == nullptr)
+		return;
+
+	_vp.RSSetViewport();
+
+	DCT->OMSetRenderTargets(1, _colorMapRTV.GetAddressOf(), _depthMapDSV.Get());
+	DCT->ClearRenderTargetView(_colorMapRTV.Get(), (float*)(&GAME->GetGameDesc().clearColor));
+	DCT->ClearDepthStencilView(_depthMapDSV.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1, 0);
+
+	_modelRenderer->ThumbnailRender(_cam , _world) ;
 
 }

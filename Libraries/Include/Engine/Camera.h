@@ -60,7 +60,7 @@ private:
 	Matrix _matView = Matrix::Identity;
 	Matrix _matProjection = Matrix::Identity;
 
-	float _near = 1.f;
+	float _near = 0.01f;
 	float _far = 1000.f;
 	float _fov = XM_PI / 4.f;
 	float _width = 0.f;
@@ -82,6 +82,7 @@ public:
 	void SetCullingMaskAll() { SetCullingMask(UINT32_MAX); }
 	void SetCullingMask(uint32 mask) { _cullingMask = mask; }
 	bool IsCulled(uint8 layer) { return (_cullingMask & (1 << layer)) != 0; }
+
 
 private:
 	uint32 _cullingMask = 0;

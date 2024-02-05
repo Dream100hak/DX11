@@ -75,6 +75,7 @@ using namespace Microsoft::WRL;
 #include "InstancingManager.h"
 #include "ImGuiManager.h"
 #include "SceneManager.h"
+#include "ProjectManager.h"
 
 // Engine
 #include "VertexData.h"

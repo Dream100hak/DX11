@@ -22,10 +22,8 @@ void Camera::SortGameObject()
 		_vecForward.push_back(gameObject);
 	}
 }
-
 void Camera::Render_Forward()
 {
-	//GET_SINGLE(InstancingManager)->PreRender(_vecForward);
 	GET_SINGLE(InstancingManager)->Render(_vecForward);
 }
 

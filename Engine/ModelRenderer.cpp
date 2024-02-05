@@ -100,7 +100,6 @@ void ModelRenderer::SetModel(shared_ptr<Model> model)
 	Matrix W = GetTransform()->GetWorldMatrix();
 
 	_model = model;
-	_model->CalculateModelBox();
 
 	ChangeShader(_shader);
 
@@ -118,6 +117,45 @@ void ModelRenderer::ChangeShader(shared_ptr<Shader> shader)
 		material->SetShadowMap(static_pointer_cast<Texture>(shadowMap));
 	}
 }
+
+void ModelRenderer::ThumbnailRender(shared_ptr<Camera> cam , const Matrix& world)
+{
+	_shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
+
+	auto lightObj = SCENE->GetCurrentScene()->GetLight();
+	if (lightObj)
+		_shader->PushLightData(lightObj->GetLight()->GetLightDesc());
+
+	_shader->PushTransformData(TransformDesc{ world });
+
+	// Bones
+	BoneDesc boneDesc;
+
+	const uint32 boneCount = _model->GetBoneCount();
+	for (uint32 i = 0; i < boneCount; i++)
+	{
+		shared_ptr<ModelBone> bone = _model->GetBoneByIndex(i);
+		boneDesc.transforms[i] = bone->transform;
+	}
+	_shader->PushBoneData(boneDesc);
+
+	const auto& meshes = _model->GetMeshes();
+	for (auto& mesh : meshes)
+	{
+		if (mesh->material)
+			mesh->material->Update();
+
+		// BoneIndex
+		_shader->GetScalar("BoneIndex")->SetInt(mesh->boneIndex);
+
+		// IA
+		mesh->vertexBuffer->PushData();
+		mesh->indexBuffer->PushData();
+
+		_shader->DrawIndexed(0, _pass, mesh->indexBuffer->GetCount(),0,0);
+	}
+}
+
 
 void ModelRenderer::PreRenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
 {
@@ -143,14 +181,12 @@ void ModelRenderer::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
 	ChangeShader(shader);
 	// GlobalData
 	shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
-	
-	// 그 다음 아웃라인 렌더링 수행
+
 	{
 		DCT->OMSetDepthStencilState(GRAPHICS->GetDSStateOutline().Get(), 1);
 		PushData(1, buffer);
 	}
 
-	// 기본 렌더링 먼저 수행
 	{
 		DCT->OMSetDepthStencilState(GRAPHICS->GetDSStateStandard().Get(), 0);
 		PushData(0, buffer);
@@ -257,33 +293,33 @@ bool ModelRenderer::Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& dis
 void ModelRenderer::TransformBoundingBox()
 {
 
-	Matrix W = GetTransform()->GetWorldMatrix();
+	//Matrix W = GetTransform()->GetWorldMatrix();
 
-	vector<shared_ptr<ModelMesh>>& meshes = _model->GetMeshes();
-	vector<shared_ptr<ModelBone>>& bones = _model->GetBones();
+	//vector<shared_ptr<ModelMesh>>& meshes = _model->GetMeshes();
+	//vector<shared_ptr<ModelBone>>& bones = _model->GetBones();
 
-	if(meshes.size() == 0 || bones.size() == 0)
-		return;
+	//if(meshes.size() == 0 || bones.size() == 0)
+	//	return;
 
-	Vec3 vMin = Vec3(MathUtils::INF, MathUtils::INF, MathUtils::INF);
-	Vec3 vMax = Vec3(-MathUtils::INF, -MathUtils::INF, -MathUtils::INF);
+	//Vec3 vMin = Vec3(MathUtils::INF, MathUtils::INF, MathUtils::INF);
+	//Vec3 vMax = Vec3(-MathUtils::INF, -MathUtils::INF, -MathUtils::INF);
 
-	Vec3 corners[8];
-	BoundingBox& modelBox = GetModel()->GetModelBox();
-	
-	modelBox.GetCorners(corners);
+	//Vec3 corners[8];
+	//BoundingBox& modelBox = GetModel()->GetModelBox();
+	//
+	//modelBox.GetCorners(corners);
 
-	for (int i = 0; i < 8; ++i) {
-		corners[i] = XMVector3TransformCoord(corners[i], W);
-	}
+	//for (int i = 0; i < 8; ++i) {
+	//	corners[i] = XMVector3TransformCoord(corners[i], W);
+	//}
 
-	for (const Vec3& corner : corners) {
-		vMin = ::XMVectorMin(vMin, corner);
-		vMax = ::XMVectorMax(vMax, corner);
-	}
+	//for (const Vec3& corner : corners) {
+	//	vMin = ::XMVectorMin(vMin, corner);
+	//	vMax = ::XMVectorMax(vMax, corner);
+	//}
 
-	_boundingBox.Center = 0.5f * (vMin + vMax);
-	_boundingBox.Extents = 0.5f * (vMax - vMin);
+	//_boundingBox.Center = 0.5f * (vMin + vMax);
+	//_boundingBox.Extents = 0.5f * (vMax - vMin);
 
 }
 

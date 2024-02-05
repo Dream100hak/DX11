@@ -4,6 +4,17 @@
 #include "LogWindow.h"
 #include "EditorToolManager.h"
 
+#include "Camera.h"
+#include "Model.h"
+#include "Material.h"
+#include "ModelRenderer.h"
+
+#include "MeshThumbnail.h"
+#include "ShadowMap.h"
+#include "OBBBoxCollider.h"
+
+#include "ModelMesh.h"
+
 
 Project::Project()
 {
@@ -18,7 +29,12 @@ Project::~Project()
 
 void Project::Init()
 {
-	
+	//_camera = make_shared<GameObject>();
+	//_camera->AddComponent(make_shared<Camera>());
+	//_camera->GetOrAddTransform()->SetPosition(Vec3(0, 1.f, -4.f));
+	//_camera->GetCamera()->SetCullingMaskLayerOnOff(LayerMask::UI, true);
+	//CUR_SCENE->Add(_camera);
+
 
 	_rootDirectory = GetDirectoryAbove(GetExecutablePath()) + L"\\Resources";
 	RefreshCasheFileList(_rootDirectory);
@@ -27,11 +43,11 @@ void Project::Init()
 void Project::Update()
 {
 	ImGui::SetNextWindowPos(ImVec2(800, 551));
-	ImGui::SetNextWindowSize(ImVec2(373 , 500));
+	ImGui::SetNextWindowSize(ImVec2(373, 500));
 	ShowProject();
 
-	ImGui::SetNextWindowPos(ImVec2(800 + 373 , 551));
-	ImGui::SetNextWindowSize(ImVec2(373 , 500));
+	ImGui::SetNextWindowPos(ImVec2(800 + 373, 551));
+	ImGui::SetNextWindowSize(ImVec2(373, 500));
 	ShowFolderContents();
 }
 
@@ -66,25 +82,21 @@ void Project::RefreshCasheFileList(const wstring& directory)
 	FindClose(hFind);
 }
 
-
-
-
 MetaType Project::GetMetaType(const wstring& name)
 {
 	size_t idx = name.find('.');
-	if(idx == string::npos)
+	if (idx == string::npos)
 		return MetaType::Folder;
 
-
 	wstring ext = name.substr(idx + 1);
-	
-	if(ext == L"txt" || ext == L"TXT")
+
+	if (ext == L"txt" || ext == L"TXT")
 		return MetaType::Text;
-	
+
 	else if (ext == L"meta" || ext == L"META")
 		return MetaType::Meta;
 
-	else if (ext == L"wav" || ext == L"mp3" )
+	else if (ext == L"wav" || ext == L"mp3")
 		return MetaType::Sound;
 
 	else if (ext == L"jpg" || ext == L"png" || ext == L"dds")
@@ -105,7 +117,7 @@ void Project::ShowProject()
 
 	ImGui::Begin("Project");
 
-	if (ImGui::BeginTable("FolderTable", 1 , ImGuiTableFlags_BordersOuter | ImGuiTableFlags_Resizable))
+	if (ImGui::BeginTable("FolderTable", 1, ImGuiTableFlags_BordersOuter | ImGuiTableFlags_Resizable))
 	{
 		// 폴더 계층 구조를 표시합니다.
 		ListFolderHierarchy(_rootDirectory);
@@ -122,7 +134,7 @@ void Project::ShowProject()
 void Project::ListFolderHierarchy(const wstring& directory)
 {
 	static ImGuiTreeNodeFlags base_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth;
-	string selectedPath = Utils::ToString(_selectedFolder); // 선택된 폴더의 경로를 문자열로 변환
+	string selectedPath = Utils::ToString(_selectedFolder); 
 
 	for (auto& [path, meta] : _cashesFileList)
 	{
@@ -142,7 +154,6 @@ void Project::ListFolderHierarchy(const wstring& directory)
 		std::string fileName = Utils::ToString(meta.name);
 		bool node_open = ImGui::TreeNodeEx(fileName.c_str(), node_flags);
 
-		// 클릭하여 선택 상태 갱신
 		if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
 			_selectedFolder = path;
 
@@ -163,7 +174,6 @@ void Project::ShowFolderContents()
 		std::vector<std::pair<std::wstring, MetaData>> folders;
 		std::vector<std::pair<std::wstring, MetaData>> files;
 
-		// 폴더와 파일을 분리하여 저장합니다.
 		for (auto& [path, meta] : _cashesFileList) {
 			if (meta.path == _selectedFolder) {
 				if (meta.type == MetaType::Folder) {
@@ -180,12 +190,9 @@ void Project::ShowFolderContents()
 		int columns = max(1, static_cast<int>(windowWidth / itemWidth));
 
 		if (ImGui::BeginTable("FolderTable", columns, ImGuiTableFlags_Sortable | ImGuiTableFlags_NoBordersInBody)) {
-			// 먼저 폴더를 표시합니다.
 			for (auto& [path, meta] : folders) {
 				DisplayItem(path, meta, columns);
 			}
-
-			// 그 다음 파일을 표시합니다.
 			for (auto& [path, meta] : files) {
 				DisplayItem(path, meta, columns);
 			}
@@ -197,7 +204,9 @@ void Project::ShowFolderContents()
 	ImGui::End();
 }
 
-void Project::DisplayItem(const std::wstring& path, const MetaData& meta, int columns) {
+void Project::DisplayItem(const std::wstring& path, const MetaData& meta, int columns) 
+{
+	
 	ImGui::TableNextColumn();
 
 	float cellWidth = ImGui::GetColumnWidth();
@@ -228,10 +237,10 @@ void Project::DisplayItem(const std::wstring& path, const MetaData& meta, int co
 				_selectedItem = path;
 			}
 		}
-	
+
 	}
 	// 문서 파일 처리
-	else if ( meta.type == MetaType::Xml) {
+	else if (meta.type == MetaType::Xml) {
 		auto tex = RESOURCES->Get<Texture>(L"Text");
 		if (tex != nullptr)
 		{
@@ -241,13 +250,45 @@ void Project::DisplayItem(const std::wstring& path, const MetaData& meta, int co
 		}
 	}
 
-	else if (meta.type == MetaType::Mesh) {
-		auto tex = RESOURCES->Get<Texture>(L"Text");
-		if (tex != nullptr)
-		{
-			if (ImGui::ImageButton(tex->GetComPtr().Get(), ImVec2(50, 50))) {
-				_selectedItem = path;
-			}
+	// 메시 파일 처리
+	if (meta.type == MetaType::Mesh) 
+	{
+		shared_ptr<GameObject> camera = make_shared<GameObject>();
+		camera->AddComponent(make_shared<Camera>());
+		camera->GetOrAddTransform()->SetPosition(Vec3(0, 1.f, -4.f));
+		camera->GetCamera()->SetCullingMaskLayerOnOff(LayerMask::UI, true);
+		camera->GetCamera()->UpdateMatrix();
+
+		auto shader = RESOURCES->Get<Shader>(L"Thumbnail");
+		shared_ptr<Model> model = make_shared<Model>();
+		wstring modelName = meta.name.substr(0, meta.name.find('.'));
+
+		model->ReadModel(modelName + L'/' + modelName);
+		model->ReadMaterial(modelName + L'/' + modelName);
+
+		BoundingBox box = model->CalculateModelBoundingBox();
+		float modelDiagonal = max(max(box.Extents.x, box.Extents.y), box.Extents.z) * 2.0f;
+		
+		if(modelDiagonal > 10.f)
+			modelDiagonal = _modelDiagonal;
+
+		float scale = _modelDiagonal / modelDiagonal;
+
+		auto obj = make_shared<GameObject>();
+
+		obj->GetOrAddTransform()->SetPosition(Vec3::Zero);
+		obj->GetOrAddTransform()->SetRotation(Vec3(0, -0.65f, 0));
+		obj->GetOrAddTransform()->SetScale(Vec3(scale, scale, scale));
+	
+		obj->AddComponent(make_shared<ModelRenderer>(shader));
+		obj->GetModelRenderer()->SetModel(model);
+		obj->GetModelRenderer()->SetPass(1);
+
+		shared_ptr<MeshThumbnail> thumbnail = GRAPHICS->GetMeshThumbnail();
+		thumbnail->SetModelAndCam(obj->GetModelRenderer(), camera->GetCamera());
+		thumbnail->SetWorldMatrix(obj->GetOrAddTransform()->GetWorldMatrix());
+		if (ImGui::ImageButton((void*)thumbnail->GetComPtr().Get(), ImVec2(50, 50))) {
+			_selectedItem = path;
 		}
 	}
 	// 예외 파일 처리
@@ -260,6 +301,7 @@ void Project::DisplayItem(const std::wstring& path, const MetaData& meta, int co
 			}
 		}
 	}
+
 	ImGui::PopStyleColor(3);
 
 	std::string itemName = Utils::ToString(meta.name);

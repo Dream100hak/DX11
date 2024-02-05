@@ -217,6 +217,9 @@
     <ClInclude Include="MeshThumbnail.h">
       <Filter>00. Engine\Resource</Filter>
     </ClInclude>
+    <ClInclude Include="ProjectManager.h">
+      <Filter>02. Managers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -425,6 +428,9 @@
     </ClCompile>
     <ClCompile Include="MeshThumbnail.cpp">
       <Filter>00. Engine\Resource</Filter>
+    </ClCompile>
+    <ClCompile Include="ProjectManager.cpp">
+      <Filter>02. Managers</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

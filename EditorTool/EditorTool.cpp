@@ -29,14 +29,16 @@
 
 #include "AsConverter.h"
 
+#include "MeshThumbnail.h"
+
 void EditorTool::Init()
 {
 	
 	shared_ptr<AsConverter> converter = make_shared<AsConverter>();
 
-	/* converter->ReadAssetFile(L"Hyejin/Hyejin_S002_LOD1.fbx");
-	 converter->ExportMaterialData(L"Hyejin/Hyejin");
-     converter->ExportModelData(L"Hyejin/Hyejin");*/
+	converter->ReadAssetFile(L"Tower/Tower2.fbx");
+	converter->ExportMaterialData(L"Tower/Tower");
+	converter->ExportModelData(L"Tower/Tower");
 
 	GET_SINGLE(ShortcutManager)->Init();
 	GET_SINGLE(EditorToolManager)->Init();
@@ -55,6 +57,7 @@ void EditorTool::Init()
 
 		CUR_SCENE->Add(camera);
 	}
+
 	// UI_Camera
 	{
 		auto camera = make_shared<GameObject>();
@@ -118,32 +121,31 @@ void EditorTool::Init()
 	}
 
 
-	 //Model
-	{
-		shared_ptr<class Model> m2 = make_shared<Model>();
-		m2->ReadModel(L"Kachujin/Kachujin");
-		m2->ReadMaterial(L"Kachujin/Kachujin");
 
-		for (int i = 100; i < 110; i++)
-		{
-			auto obj = make_shared<GameObject>();
-			wstring name = L"Model_" + to_wstring(i);
-			obj->SetObjectName(name);
+/*	auto collider = make_shared<OBBBoxCollider>();
+		collider->GetBoundingBox().Extents = Vec3(1.f);
+		obj->AddComponent(collider);*/
 
-			obj->GetOrAddTransform()->SetPosition(Vec3(rand() % 100, 0, rand() % 100));
-			obj->GetOrAddTransform()->SetScale(Vec3(0.1f));
+	//	for (int i = 100; i < 110; i++)
+	//	{
+	//		auto obj = make_shared<GameObject>();
+	//		wstring name = L"Model_" + to_wstring(i);
+	//		obj->SetObjectName(name);
 
-			obj->AddComponent(make_shared<ModelRenderer>(shader));
-			obj->GetModelRenderer()->SetModel(m2);
-			obj->GetModelRenderer()->SetPass(1);
+	//		obj->GetOrAddTransform()->SetPosition(Vec3(rand() % 100, 0, rand() % 100));
+	//		obj->GetOrAddTransform()->SetScale(Vec3(0.1f));
 
-	/*	auto collider = make_shared<OBBBoxCollider>();
-			collider->GetBoundingBox().Extents = Vec3(1.f);
-			obj->AddComponent(collider);*/
+	//		obj->AddComponent(make_shared<ModelRenderer>(shader));
+	//		obj->GetModelRenderer()->SetModel(m2);
+	//		obj->GetModelRenderer()->SetPass(1);
 
-			CUR_SCENE->Add(obj);
-		}
-	}
+	///*	auto collider = make_shared<OBBBoxCollider>();
+	//		collider->GetBoundingBox().Extents = Vec3(1.f);
+	//		obj->AddComponent(collider);*/
+
+	//		CUR_SCENE->Add(obj);
+	//	}
+	//}
 	// Model
 	//{
 
@@ -176,36 +178,36 @@ void EditorTool::Init()
 	//}
 	//{
 
-	{
-		shared_ptr<class Model> m2 = make_shared<Model>();
-		m2->ReadModel(L"Juno/Juno");
-		m2->ReadMaterial(L"Juno/Juno");
+	//{
+	//	shared_ptr<class Model> m2 = make_shared<Model>();
+	//	m2->ReadModel(L"Juno/Juno");
+	//	m2->ReadMaterial(L"Juno/Juno");
 
-		for (int i = 10; i < 15; i++)
-		{
-			auto obj = make_shared<GameObject>();
-			wstring name = L"Model_" + to_wstring(i);
-			obj->SetObjectName(name);
+	//	for (int i = 10; i < 15; i++)
+	//	{
+	//		auto obj = make_shared<GameObject>();
+	//		wstring name = L"Model_" + to_wstring(i);
+	//		obj->SetObjectName(name);
 
-			if(i == 10)
-				obj->GetOrAddTransform()->SetPosition(Vec3(3,0,5));
-			else
-				obj->GetOrAddTransform()->SetPosition(Vec3(rand() % 100, 0, rand() % 100));
+	//		if(i == 10)
+	//			obj->GetOrAddTransform()->SetPosition(Vec3(3,0,5));
+	//		else
+	//			obj->GetOrAddTransform()->SetPosition(Vec3(rand() % 100, 0, rand() % 100));
 
-			obj->GetOrAddTransform()->SetScale(Vec3(10.f));
+	//		obj->GetOrAddTransform()->SetScale(Vec3(10.f));
 
-			obj->AddComponent(make_shared<ModelRenderer>(shader));
-			obj->GetModelRenderer()->SetModel(m2);
-			obj->GetModelRenderer()->SetPass(1);
+	//		obj->AddComponent(make_shared<ModelRenderer>(shader));
+	//		obj->GetModelRenderer()->SetModel(m2);
+	//		obj->GetModelRenderer()->SetPass(1);
 
-		//	auto collider = make_shared<OBBBoxCollider>();
-		//	collider->SetOffset(Vec3(0.f, 8.f, 0.f));
-		//	collider->GetBoundingBox().Extents = Vec3(1.5f, 2.8f, 1.5f);		
-		//	obj->AddComponent(collider);
+	//	//	auto collider = make_shared<OBBBoxCollider>();
+	//	//	collider->SetOffset(Vec3(0.f, 8.f, 0.f));
+	//	//	collider->GetBoundingBox().Extents = Vec3(1.5f, 2.8f, 1.5f);		
+	//	//	obj->AddComponent(collider);
 
-			CUR_SCENE->Add(obj);
-		}
-	}
+	//		CUR_SCENE->Add(obj);
+	//	}
+	//}
 }
 
 void EditorTool::Update()
@@ -220,6 +222,12 @@ void EditorTool::Update()
 
 	ImGui::Begin("ShadowMap");
 	ImGui::Image((void*)shadowMap->GetComPtr().Get(), ImVec2(400, 400));
+	ImGui::End();
+
+	auto thumbnail = GRAPHICS->GetMeshThumbnail();
+
+	ImGui::Begin("Thumbnail");
+	ImGui::Image((void*)thumbnail->GetComPtr().Get(), ImVec2(400, 400));
 	ImGui::End();
 }
 

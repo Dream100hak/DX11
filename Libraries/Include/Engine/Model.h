@@ -35,8 +35,9 @@ public:
 	shared_ptr<ModelAnimation> GetAnimationByIndex(UINT index) { return (index < 0 || index >= _animations.size()) ? nullptr : _animations[index]; }
 	shared_ptr<ModelAnimation> GetAnimationByName(wstring name);
 
-	void CalculateModelBox();
-	BoundingBox& GetModelBox() { return _modelBox; }
+
+	BoundingBox CalculateModelBoundingBox();
+
 
 private:
 	void BindCacheInfo();
@@ -53,8 +54,5 @@ private:
 	vector<shared_ptr<ModelMesh>> _meshes;
 	vector<shared_ptr<ModelAnimation>> _animations;
 
-
-	bool _calcOnce = false;
-	BoundingBox _modelBox;
 };
 

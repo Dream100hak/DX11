@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Graphics.h"
 #include "ShadowMap.h"
+#include "MeshThumbnail.h"
 
 void Graphics::Init(HWND hwnd)
 {
@@ -13,16 +14,21 @@ void Graphics::Init(HWND hwnd)
 
 void Graphics::PreRenderBegin()
 {
-
 	if(_smap == nullptr)
 		_smap = make_shared<ShadowMap>(2048,2048);
 
 	_smap->BindDsvAndSetNullRenderTarget();
 	_smap->Draw();
+
 }
 
 void Graphics::RenderBegin()
 {
+
+	if (_thumbnail == nullptr)
+		_thumbnail = make_shared<MeshThumbnail>(512, 512);
+	_thumbnail->Draw();
+
 	_deviceContext->RSSetState(0);
 
 	_deviceContext->OMSetRenderTargets(1, _renderTargetView.GetAddressOf(), _depthStencilView.Get());

@@ -22,19 +22,18 @@ public:
 
 	void ChangeShader(shared_ptr<Shader> shader);
 
+	void ThumbnailRender(shared_ptr<Camera> cam , const Matrix& world);
+
 	void PreRenderInstancing(shared_ptr<class InstancingBuffer>& buffer);
 	void RenderInstancing(shared_ptr<class InstancingBuffer>& buffer);
 	void PushData(uint8 technique, shared_ptr<class InstancingBuffer>& buffer);
 
-
 	void TransformBoundingBox();
-
-	//void TestRenderStart();
-	//void TestRenderBox();
 
 	InstanceID GetInstanceID();
 
 	shared_ptr<Model>& GetModel() {return _model;}
+	BoundingBox& GetBoundingBox()  {return _boundingBox; }
 
 	bool Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& distance);
 

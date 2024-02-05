@@ -197,13 +197,17 @@ void Model::ReadModel(wstring filename)
 				mesh->geometry->AddIndices(indices);
 			}
 
+			//ABB	
+			mesh->aabb = file->Read<aiAABB>();
+		
 			mesh->CreateBuffers();
-
 			_meshes.push_back(mesh);
 		}
 	}
 
 	BindCacheInfo();
+
+	
 }
 
 void Model::ReadAnimation(wstring filename)
@@ -326,28 +330,40 @@ void Model::BindCacheInfo()
 			}
 		}
 	}
-
 }
 
-void Model::CalculateModelBox()
+DirectX::BoundingBox Model::CalculateModelBoundingBox()
 {
+	XMFLOAT3 minPoint = XMFLOAT3(FLT_MAX, FLT_MAX, FLT_MAX);
+	XMFLOAT3 maxPoint = XMFLOAT3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
 
-	Vec3 vMin = Vec3(MathUtils::INF, MathUtils::INF, MathUtils::INF);
-	Vec3 vMax = Vec3(-MathUtils::INF, -MathUtils::INF, -MathUtils::INF);
-
+	// 모든 메시의 정점을 순회하여 AABB 계산
 	for (const auto& mesh : _meshes) {
-		const BoundingOrientedBox& meshBox = mesh->GetMeshBox();
+		for (const auto& vertex : mesh->geometry->GetVertices()) {
+			minPoint.x = min(minPoint.x, vertex.position.x);
+			minPoint.y = min(minPoint.y, vertex.position.y);
+			minPoint.z = min(minPoint.z, vertex.position.z);
 
-		// 메시 바운딩 박스의 꼭짓점 변환
-		Vec3 corners[8];
-		meshBox.GetCorners(corners);
-		for (const Vec3& corner : corners) {
-
-			vMin = ::XMVectorMin(vMin, corner);
-			vMax = ::XMVectorMax(vMax, corner);
+			maxPoint.x = max(maxPoint.x, vertex.position.x);
+			maxPoint.y = max(maxPoint.y, vertex.position.y);
+			maxPoint.z = max(maxPoint.z, vertex.position.z);
 		}
 	}
 
-	_modelBox.Center = 0.5f * (vMin + vMax);
-	_modelBox.Extents = 0.5f * (vMax - vMin);
+	// AABB 중심과 크기 계산
+	XMFLOAT3 center = XMFLOAT3(
+		(minPoint.x + maxPoint.x) / 2.0f,
+		(minPoint.y + maxPoint.y) / 2.0f,
+		(minPoint.z + maxPoint.z) / 2.0f);
+
+	XMFLOAT3 extents = XMFLOAT3(
+		(maxPoint.x - minPoint.x) / 2.0f,
+		(maxPoint.y - minPoint.y) / 2.0f,
+		(maxPoint.z - minPoint.z) / 2.0f);
+
+	BoundingBox aabb;
+	aabb.Center = center;
+	aabb.Extents = extents;
+
+	return aabb;
 }

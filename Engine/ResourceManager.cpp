@@ -13,6 +13,7 @@ void ResourceManager::Init()
 
 	CreateShadowMapShader();
 	CreateOutlineShader();
+	CreateThumbnailShader();
 }
 
 std::shared_ptr<Texture> ResourceManager::GetOrAddTexture(const wstring& key, const wstring& path)
@@ -78,4 +79,10 @@ void ResourceManager::CreateOutlineShader()
 {
 	shared_ptr<Shader> shader = make_shared<Shader>(L"01. Outline.fx");
 	RESOURCES->Add(L"Outline", shader);
+}
+
+void ResourceManager::CreateThumbnailShader()
+{
+	shared_ptr<Shader> shader = make_shared<Shader>(L"01. Thumbnail.fx");
+	RESOURCES->Add(L"Thumbnail", shader);
 }

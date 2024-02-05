@@ -25,10 +25,13 @@ void AsConverter::ReadAssetFile(wstring file)
 	_scene = _importer->ReadFile(
 		Utils::ToString(fileStr),
 		aiProcess_ConvertToLeftHanded |
+		aiProcess_FindInvalidData | 
 		aiProcess_Triangulate |
 		aiProcess_GenUVCoords |
 		aiProcess_GenNormals |
-		aiProcess_CalcTangentSpace
+		aiProcess_CalcTangentSpace | 
+		aiProcess_GenBoundingBoxes |
+		aiProcess_GlobalScale
 	);
 
 	assert(_scene != nullptr);
@@ -94,6 +97,7 @@ void AsConverter::ExportAnimationData(wstring savePath, uint32 index /*= 0*/)
 
 void AsConverter::ReadModelData(aiNode* node, int32 index, int32 parent)
 {
+
 	shared_ptr<asBone> bone = make_shared<asBone>();
 	bone->index = index;
 	bone->parent = parent;
@@ -154,7 +158,7 @@ void AsConverter::ReadMeshData(aiNode* node, int32 bone)
 			// Normal
 			if (srcMesh->HasNormals())
 				::memcpy(&vertex.normal, &srcMesh->mNormals[v], sizeof(Vec3));
-
+			
 			mesh->vertices.push_back(vertex);
 		}
 
@@ -166,6 +170,10 @@ void AsConverter::ReadMeshData(aiNode* node, int32 bone)
 			for (uint32 k = 0; k < face.mNumIndices; k++)
 				mesh->indices.push_back(face.mIndices[k] + startVertex);
 		}
+
+		// AABB
+
+		mesh->aabb = srcMesh->mAABB;
 	}
 
 	_meshes.push_back(mesh);
@@ -197,6 +205,10 @@ void AsConverter::ReadSkinData()
 			{
 				uint32 index = srcMeshBone->mWeights[w].mVertexId;
 				float weight = srcMeshBone->mWeights[w].mWeight;
+
+				if(index >= tempVertexBoneWeights.size())
+					continue;
+
 				tempVertexBoneWeights[index].AddWeights(boneIndex, weight);
 			}
 		}
@@ -248,6 +260,8 @@ void AsConverter::WriteModelFile(wstring finalPath)
 		// Index Data
 		file->Write<uint32>(meshData->indices.size());
 		file->Write(&meshData->indices[0], sizeof(uint32) * meshData->indices.size());
+
+		file->Write<aiAABB>(meshData->aabb);
 	}
 }
 

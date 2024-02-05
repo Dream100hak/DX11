@@ -24,6 +24,7 @@ public:										\
 #define INSTANCING	GET_SINGLE(InstancingManager)
 #define GUI			GET_SINGLE(ImGuiManager)
 #define SCENE		GET_SINGLE(SceneManager)
+#define PROJECT		GET_SINGLE(ProjectManager)
 #define CUR_SCENE	SCENE->GetCurrentScene()
 #define MAIN_CAM	SCENE->GetCurrentScene()->GetMainCamera()->GetCamera()
 

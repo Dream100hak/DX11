@@ -3,6 +3,7 @@
 
 class Texture;
 class ShadowMap;
+class MeshThumbnail;
 
 class Graphics
 {
@@ -18,6 +19,7 @@ public:
 	ComPtr<ID3D11Device> GetDevice() { return _device; }
 	ComPtr<ID3D11DeviceContext> GetDeviceContext() { return _deviceContext; }
 
+	shared_ptr<MeshThumbnail> GetMeshThumbnail() { return _thumbnail; }
 	shared_ptr<ShadowMap> GetShadowMap() { return _smap; }
 
 	ComPtr <ID3D11DepthStencilState> GetDSStateStandard() { return _dsStateStandard; }
@@ -56,6 +58,7 @@ private:
 	ComPtr<ID3D11DepthStencilState> _dsStateStandard;
 	ComPtr<ID3D11DepthStencilState> _dsStateOutline;
 
+	shared_ptr<MeshThumbnail> _thumbnail = nullptr;
 	shared_ptr<ShadowMap> _smap = nullptr; 
 
 	Viewport _vp;

@@ -110,7 +110,7 @@ void ComputeDirectionalLight(float3 normal, float3 toEye,
         float specFactor = pow(max(dot(v, toEye), 0.0f), Material.specular.w);
 					
         diffuse = diffuseFactor * Material.diffuse * GlobalLight.diffuse * GlobalLight.intensity;
-        spec = specFactor * Material.specular * GlobalLight.specular * GlobalLight.intensity;
+       // spec = specFactor * Material.specular * GlobalLight.specular * GlobalLight.intensity;
     }
 }
 

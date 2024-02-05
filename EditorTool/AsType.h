@@ -19,6 +19,8 @@ struct asMesh
 
 	int32 boneIndex;
 	string materialName;
+
+	aiAABB aabb; 
 };
 
 struct asMaterial

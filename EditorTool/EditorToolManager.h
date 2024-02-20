@@ -11,19 +11,20 @@ public:
 	void Init();
 	void Update();
 
-	void SetSelectedObjH(int64 id) { _selectedIdH = id; }
-	void SetSelectedObjP(int64 id) { _selectedIdP = id; }
+	void SetSelectedObjH(int64 id) { ClearId(); _selectedH = id; }
+	void SetSelectedObjP(MetaData meta) { ClearId(); _selectedP = meta; }
+	void ClearId() { _selectedH = -1 ; _selectedP = {};  }
 
-	int64 GetSelectedIdH() { return _selectedIdH; }
-	int64 GetSelectedIdP() { return _selectedIdP; }
+	int64 GetSelectedIdH() { return _selectedH; }
+	MetaData GetSelectedIdP() { return _selectedP; }
 
 	shared_ptr<LogWindow> GetLog();
 
 private:
 	
 	 bool _hiearchyWindow = false;
-	 int64 _selectedIdH = -1;
-	 int64 _selectedIdP = -1;
+	 int64 _selectedH = -1;
+	 MetaData _selectedP;
 
 
 private:

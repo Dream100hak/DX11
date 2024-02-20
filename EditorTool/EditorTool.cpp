@@ -224,13 +224,9 @@ void EditorTool::Update()
 	ImGui::Image((void*)shadowMap->GetComPtr().Get(), ImVec2(400, 400));
 	ImGui::End();
 
-	auto thumbnail = GRAPHICS->GetMeshThumbnail();
 
-	ImGui::Begin("Thumbnail");
-	ImGui::Image((void*)thumbnail->GetComPtr().Get(), ImVec2(400, 400));
-	ImGui::End();
 
-	ADDLOG("Test!!" , LogFilter::Info);
+	//ADDLOG("Test!!" , LogFilter::Info);
 }
 
 void EditorTool::Render()

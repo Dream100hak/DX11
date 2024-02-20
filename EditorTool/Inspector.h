@@ -11,4 +11,8 @@ public:
 	virtual void Update() override;
 
 	void ShowInspector();
+	void ShowInfoHiearchy();
+	void ShowInfoProject();
+
+	ID3D11ShaderResourceView* GetMetaFileIcon();
 };

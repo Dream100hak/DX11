@@ -60,7 +60,7 @@ enum COLOR
 	ROTATION_USING_BORDER,
 	ROTATION_USING_FILL,
 	HATCHED_AXIS_LINES,
-	TEXT,
+	Text,
 	TEXT_SHADOW,
 	COUNT
 };
@@ -93,7 +93,7 @@ struct Style
 		Colors[ROTATION_USING_BORDER] = ImVec4(1.000f, 0.500f, 0.062f, 1.000f);
 		Colors[ROTATION_USING_FILL] = ImVec4(1.000f, 0.500f, 0.062f, 0.500f);
 		Colors[HATCHED_AXIS_LINES] = ImVec4(0.000f, 0.000f, 0.000f, 0.500f);
-		Colors[TEXT] = ImVec4(1.000f, 1.000f, 1.000f, 1.000f);
+		Colors[Text] = ImVec4(1.000f, 1.000f, 1.000f, 1.000f);
 		Colors[TEXT_SHADOW] = ImVec4(0.000f, 0.000f, 0.000f, 1.000f);
 	}
 

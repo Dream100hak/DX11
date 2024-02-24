@@ -36,9 +36,9 @@ void EditorTool::Init()
 	
 	shared_ptr<AsConverter> converter = make_shared<AsConverter>();
 
-	converter->ReadAssetFile(L"Tower/Tower2.fbx");
-	converter->ExportMaterialData(L"Tower/Tower");
-	converter->ExportModelData(L"Tower/Tower");
+//	converter->ReadAssetFile(L"Tower/Tower2.fbx");
+//	converter->ExportMaterialData(L"Tower/Tower");
+//	converter->ExportModelData(L"Tower/Tower");
 
 	GET_SINGLE(ShortcutManager)->Init();
 	GET_SINGLE(EditorToolManager)->Init();
@@ -47,39 +47,37 @@ void EditorTool::Init()
 
 	auto shader = RESOURCES->Get<Shader>(L"Standard");
 
-	{
-		shared_ptr<GameObject> camera = make_shared<GameObject>();
-		camera->SetObjectName(L"Scene Camera");
-		camera->GetOrAddTransform()->SetPosition(Vec3{ -31.716f, 14.f, -25.f });
-		camera->AddComponent(make_shared<Camera>());
-		camera->GetCamera()->SetCullingMaskLayerOnOff(LayerMask::UI, true);
-		camera->AddComponent(_sceneCam);
+	shared_ptr<GameObject> sceneCamera = make_shared<GameObject>();
+	sceneCamera->SetObjectName(L"Scene Camera");
+	sceneCamera->GetOrAddTransform()->SetPosition(Vec3{ -31.716f, 14.f, -25.f });
+	sceneCamera->AddComponent(make_shared<Camera>());
+	sceneCamera->GetCamera()->SetCullingMaskLayerOnOff(LayerMask::UI, true);
+	sceneCamera->AddComponent(_sceneCam);
 
-		CUR_SCENE->Add(camera);
-	}
+	CUR_SCENE->Add(sceneCamera);
 
 	// UI_Camera
 	{
-		auto camera = make_shared<GameObject>();
-		camera->SetObjectName(L"UI Camera");
-		camera->GetOrAddTransform()->SetPosition(Vec3{ 0.f, 0.f, -10.f });
-		camera->AddComponent(make_shared<Camera>());
-		camera->GetCamera()->SetProjectionType(ProjectionType::Orthographic);
-		camera->GetCamera()->SetNear(1.f);
-		camera->GetCamera()->SetFar(100);
-	
-		camera->GetCamera()->SetCullingMaskAll();
-		camera->GetCamera()->SetCullingMaskLayerOnOff(LayerMask::UI, false);
+		auto uiCamera = make_shared<GameObject>();
+		uiCamera->SetObjectName(L"UI Camera");
+		uiCamera->GetOrAddTransform()->SetPosition(Vec3{ 0.f, 0.f, -10.f });
+		uiCamera->AddComponent(make_shared<Camera>());
+		uiCamera->GetCamera()->SetProjectionType(ProjectionType::Orthographic);
+		uiCamera->GetCamera()->SetNear(1.f);
+		uiCamera->GetCamera()->SetFar(100);
+		
+		uiCamera->GetCamera()->SetCullingMaskAll();
+		uiCamera->GetCamera()->SetCullingMaskLayerOnOff(LayerMask::UI, false);
 
-		CUR_SCENE->Add(camera);
+		CUR_SCENE->Add(uiCamera);
 	}
 
 	{
-		//shared_ptr<GameObject> grid = make_shared<GameObject>();
-		//grid->SetObjectName(L"Scene Grid");
-		//grid->GetOrAddTransform()->SetPosition(Vec3{ 0.f, 0.f, 0.f });
-		//grid->AddComponent(make_shared<SceneGrid>());
-		//CUR_SCENE->Add(grid);
+	/*	shared_ptr<GameObject> grid = make_shared<GameObject>();
+		grid->SetObjectName(L"Scene Grid");
+		grid->GetOrAddTransform()->SetPosition(Vec3{ 0.f, 0.f, 0.f });
+		grid->AddComponent(make_shared<SceneGrid>(MAIN_CAM));
+		CUR_SCENE->Add(grid);*/
 	}
 	
 	{
@@ -96,16 +94,14 @@ void EditorTool::Init()
 		light->GetLight()->SetLightDesc(lightDesc);
 		CUR_SCENE->Add(light);
 	}
-	{
-		
+	{		
 		//// Sky
 		auto obj = make_shared<GameObject>();
 		obj->SetObjectName(L"SkyBox");
 		obj->GetOrAddTransform();
 		obj->AddComponent(make_shared<SkyBox>());
 		obj->GetSkyBox()->Init(SkyType::CubeMap);
-		CUR_SCENE->Add(obj);
-		
+		CUR_SCENE->Add(obj);		
 	}
 
 	{
@@ -223,8 +219,6 @@ void EditorTool::Update()
 	ImGui::Begin("ShadowMap");
 	ImGui::Image((void*)shadowMap->GetComPtr().Get(), ImVec2(400, 400));
 	ImGui::End();
-
-
 
 	//ADDLOG("Test!!" , LogFilter::Info);
 }

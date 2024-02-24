@@ -18,9 +18,9 @@ const char* SceneWindow::s_scaleInfoMask[] = { "X : %5.2f", "Y : %5.2f", "Z : %5
 const int SceneWindow::s_translationInfoIndex[] = { 0,0,0, 1,0,0, 2,0,0, 1,2,0, 0,2,0, 0,1,0, 0,1,2 };
 
 
-SceneWindow::SceneWindow()
+SceneWindow::SceneWindow(Vec2 pos, Vec2 size)
 {
-
+	SetWinPosAndSize(pos , size);
 }
 
 SceneWindow::~SceneWindow()
@@ -42,6 +42,26 @@ void SceneWindow::ShowSceneWindow()
 {
 
 	const ImGuiIO& io = ImGui::GetIO();
+
+	ImVec2 scenePos(GAME->GetSceneDesc().x, GAME->GetSceneDesc().y);
+	ImVec2 sceneSize(GAME->GetSceneDesc().width, GAME->GetSceneDesc().height);
+	// 드롭 가능 영역 설정
+	if (ImGui::BeginDragDropTargetCustom(ImRect(scenePos, scenePos + sceneSize), ImGui::GetID("Scene"))) 
+	{	
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MeshPayload"))
+		{
+			MetaData** droppedMeshRawPtr = static_cast<MetaData**>(payload->Data);
+			std::shared_ptr<MetaData> droppedMesh = std::make_shared<MetaData>(**droppedMeshRawPtr);
+
+			wstring wsName = droppedMesh->fileName;
+			wstring wsPath = droppedMesh->fileFullPath;
+
+			ADDLOG("DropTarget To Scene ", LogFilter::Warn);
+			SetCursor(LoadCursor(NULL, IDC_ARROW));
+		}
+		ImGui::EndDragDropTarget();
+	}
+
 
 	EditTransform();
 

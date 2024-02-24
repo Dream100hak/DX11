@@ -14,21 +14,15 @@ void Graphics::Init(HWND hwnd)
 
 void Graphics::PreRenderBegin()
 {
-	if(_smap == nullptr)
-		_smap = make_shared<ShadowMap>(2048,2048);
+	if (_smap == nullptr)
+		_smap = make_shared<ShadowMap>(2048, 2048);
 
 	_smap->BindDsvAndSetNullRenderTarget();
 	_smap->Draw();
-
 }
 
 void Graphics::RenderBegin()
 {
-
-	if (_thumbnail == nullptr)
-		_thumbnail = make_shared<MeshThumbnail>(512, 512);
-	_thumbnail->Draw();
-
 	_deviceContext->RSSetState(0);
 
 	_deviceContext->OMSetRenderTargets(1, _renderTargetView.GetAddressOf(), _depthStencilView.Get());
@@ -36,6 +30,13 @@ void Graphics::RenderBegin()
 	_deviceContext->ClearDepthStencilView(_depthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1, 0);
 
 	_vp.RSSetViewport();
+}
+
+void Graphics::PostRenderBegin()
+{
+	if (_thumbnail == nullptr)
+		_thumbnail = make_shared<MeshThumbnail>(512, 512);
+	_thumbnail->Draw();
 }
 
 void Graphics::RenderEnd()

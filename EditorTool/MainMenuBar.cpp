@@ -27,7 +27,6 @@ void MainMenuBar::Update()
 
 void MainMenuBar::ShowMainMenuBar()
 {
-	ImVec2 menuBarSize = ImGui::GetWindowSize();
 
 	if (ImGui::BeginMainMenuBar())
 	{

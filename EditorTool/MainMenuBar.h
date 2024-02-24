@@ -5,7 +5,7 @@ class MainMenuBar : public EditorWindow
 {
 public:
 	MainMenuBar();
-	~MainMenuBar();
+	virtual ~MainMenuBar();
 
 	virtual void Init() override;
 	virtual void Update() override;

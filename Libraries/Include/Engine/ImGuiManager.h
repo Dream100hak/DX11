@@ -15,6 +15,8 @@ class Button;
 class Billboard;
 class SnowBillboard;
 
+class Model;
+
 
 enum CreatedObjType
 {
@@ -44,6 +46,7 @@ public:
 	wstring FindEmptyName(CreatedObjType type);
 
 	int32 CreateMesh(CreatedObjType type);
+	int32 CreateModelMesh(shared_ptr<Model> model);
 
 	template<class E>
 	std::string EnumToString(E e)
@@ -113,6 +116,5 @@ public:
 	{
 		IM_ASSERT(idx < COLOR::COUNT);
 		return ImGui::ColorConvertFloat4ToU32(GAME->GetSceneDesc().style.Colors[idx]);
-	}
+	}	
 };
-

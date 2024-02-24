@@ -83,6 +83,9 @@
     <ClInclude Include="SceneWindow.h">
       <Filter>EditorWindow</Filter>
     </ClInclude>
+    <ClInclude Include="FolderContents.h">
+      <Filter>EditorWindow</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -133,6 +136,9 @@
       <Filter>Utils</Filter>
     </ClCompile>
     <ClCompile Include="SceneWindow.cpp">
+      <Filter>EditorWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="FolderContents.cpp">
       <Filter>EditorWindow</Filter>
     </ClCompile>
   </ItemGroup>

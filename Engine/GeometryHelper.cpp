@@ -882,7 +882,7 @@ Vec4 Multiply(const Matrix& mat, const Vec4& vec)
 void GeometryHelper::CreateSceneGrid(shared_ptr<Geometry<VertexColorData>> geometry, Color color)
 {
 
-	int32 _gridCount = 150;
+	int32 _gridCount = 100;
 	float _gridSize = 2.f;
 
 	vector<VertexColorData> vtx;

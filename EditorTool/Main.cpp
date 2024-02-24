@@ -10,7 +10,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	{
 
 		GameDesc gameDesc;
-		gameDesc.appName = L"GameCoding";
+		gameDesc.appName = L"Editor";
 		gameDesc.hInstance = hInstance;
 		gameDesc.vsync = false;
 		gameDesc.hWnd = NULL;

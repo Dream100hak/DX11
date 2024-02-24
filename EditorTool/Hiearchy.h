@@ -4,8 +4,8 @@
 class Hiearchy : public EditorWindow
 {
 public:
-	Hiearchy();
-	~Hiearchy();
+	Hiearchy(Vec2 pos, Vec2 size);
+	virtual ~Hiearchy();
 
 	virtual void Init() override;
 	virtual void Update() override;

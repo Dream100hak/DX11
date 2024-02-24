@@ -117,6 +117,28 @@ void Transform::SetPosition(const Vec3& worldPosition)
 		SetLocalPosition(worldPosition);
 	}
 }
+
+void Transform::LookAt(const Vec3& targetPosition)
+{
+	Vec3 eyePosition = GetLocalPosition();
+	Vec3 upDirection = GetUp(); 
+
+	Vec3 lookDirection = targetPosition - eyePosition;
+	lookDirection.Normalize();
+
+	Vec3 rightDirection;
+	rightDirection.Cross(upDirection, lookDirection);
+	rightDirection.Normalize();
+
+	upDirection.Cross(lookDirection, rightDirection);
+
+	Matrix rotationMatrix = Matrix::CreateLookAt(eyePosition, targetPosition, upDirection);
+
+	Quaternion lookRotation =  Quaternion::CreateFromRotationMatrix(rotationMatrix);
+	Vec3 eulerAngles = Transform::ToEulerAngles(lookRotation);
+	SetLocalRotation(eulerAngles);
+}
+
 void Transform::Pitch(float angle)
 {
 	Vec3 rot = _localRotation;

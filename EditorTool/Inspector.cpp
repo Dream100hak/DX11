@@ -20,9 +20,11 @@
 #include "Material.h"
 #include "MeshThumbnail.h"
 
-Inspector::Inspector()
-{
+#include "SceneGrid.h"
 
+Inspector::Inspector(Vec2 pos, Vec2 size)
+{
+	SetWinPosAndSize(pos , size);
 }
 
 Inspector::~Inspector()
@@ -44,18 +46,19 @@ void Inspector::Update()
 
 void Inspector::ShowInspector()
 {
-	ImGui::SetNextWindowPos(ImVec2(800 + 373 + 373, 51) , ImGuiCond_Appearing);
-	ImGui::SetNextWindowSize(ImVec2(373, 1010) , ImGuiCond_Appearing);
+	ImGui::SetNextWindowPos(GetEWinPos() , ImGuiCond_Appearing);
+	ImGui::SetNextWindowSize(GetEWinSize() , ImGuiCond_Appearing);
 
 	ImGui::Begin("Inspector");
 
 	//하이어라키 설정
+	shared_ptr<MetaData> metaData = SELECTED_P;
 
 	if (SELECTED_H > -1)
 	{
 		ShowInfoHiearchy();
 	}
-	else if (SELECTED_P.metaType != NONE)
+	else if (metaData != nullptr && metaData->metaType != NONE)
 	{
 		ShowInfoProject();
 	}
@@ -213,10 +216,10 @@ void Inspector::ShowInfoHiearchy()
 
 void Inspector::ShowInfoProject()
 {
-	MetaData metaData = SELECTED_P;
+	shared_ptr<MetaData> metaData = SELECTED_P;
 
-	string objName = string(metaData.fileName.begin(), metaData.fileName.end());
-	if (metaData.metaType != MetaType::FOLDER)
+	string objName = string(metaData->fileName.begin(), metaData->fileName.end());
+	if (metaData->metaType != MetaType::FOLDER)
 		objName += " import setting";
 
 	auto icon = GetMetaFileIcon();
@@ -231,43 +234,51 @@ void Inspector::ShowInfoProject()
 	ImGui::GetWindowDrawList()->AddText(textPosition, ImGui::GetColorU32(ImGuiCol_Text), objName.c_str());
 	
 	ImGui::Separator();
+	ImGui::Spacing();
 
-	// 폴더 처리
-	if (metaData.metaType == MetaType::FOLDER)
-	{
-		
-
-	}
 
 	// 이미지 파일 처리
-	else if (metaData.metaType == MetaType::IMAGE)
+	if (metaData->metaType == MetaType::IMAGE)
 	{
+		auto tex = RESOURCES->Get<Texture>(L"FILE_" + metaData->fileName);
+
+		static int32 texType = 0;
+		ImGui::Text("Texture Type ");
+		ImGui::SameLine();
+		ImGui::Combo("##Texture Type", &texType, "Default\0UI\0Wall\0Invisible\0");
+		static int32 texShape = 0;
+		ImGui::Text("Texture Shape");
+		ImGui::SameLine();
+		ImGui::Combo("##Texture Shape", &texShape, "Default\0UI\0Wall\0Invisible\0");
+
+		ImGui::Dummy(ImVec2(0, 50.f));
+		ImGui::SeparatorText("Texture Preview");
+		ImGui::BeginGroup();
 		
-	}
-	// 문서 파일 처리
-	else if (metaData.metaType == MetaType::XML)
-	{
+		ImGui::Button("RGB"); ImGui::SameLine();
+		ImGui::Button("R"); ImGui::SameLine();
+		ImGui::Button("G"); ImGui::SameLine();
+		ImGui::Button("B");
+		ImGui::EndGroup();
 	
+		float width =  min(tex->GetSize().x , ImGui::GetCurrentWindow()->Size.x);
+		ImGui::Image(icon, ImVec2(width, width));
+	
+		string texInfo = "Size : %.0f X %.0f";
+		char tmps[512];
+		ImFormatString(tmps, sizeof(tmps), texInfo.c_str(), tex->GetSize().x , tex->GetSize().y);
+		ImGui::Text(tmps);
 	}
 
 	// 메시 파일 처리
-	if (metaData.metaType == MetaType::MESH)
+	if (metaData->metaType == MetaType::MESH)
 	{
-		if (ImGui::TreeNodeEx(objName.c_str(), ImGuiTreeNodeFlags_Leaf ))
-		{
-			auto thumbnail = GRAPHICS->GetMeshThumbnail();
+		ImGui::Dummy(ImVec2(0, 50.f));
+		ImGui::SeparatorText("Mesh Preview");
 
-			ImGui::Image(thumbnail->GetComPtr().Get(), ImVec2(373, 400));
+		ImGui::Image(icon, ImVec2(373, 400));
 
-			ImGui::TreePop();
-		}
 	}
-	// 예외 파일 처리
-	else if (metaData.metaType == MetaType::Unknown)
-	{
-	
-	}
-
 
 	ImGui::Separator();
 
@@ -275,10 +286,10 @@ void Inspector::ShowInfoProject()
 
 ID3D11ShaderResourceView* Inspector::GetMetaFileIcon()
 {	
-	MetaData metaData = SELECTED_P;
+	shared_ptr<MetaData> metaData = SELECTED_P;
 	ID3D11ShaderResourceView* srv = nullptr;
 
-	switch (metaData.metaType)
+	switch (metaData->metaType)
 	{
 		case FOLDER:
 			srv = RESOURCES->Get<Texture>(L"Folder")->GetComPtr().Get();
@@ -289,7 +300,7 @@ ID3D11ShaderResourceView* Inspector::GetMetaFileIcon()
 		case SOUND:
 			break;
 		case IMAGE:
-			srv = RESOURCES->Load<Texture>(L"FILE_" + metaData.fileName, metaData.fileFullPath + L"\\" + metaData.fileName)->GetComPtr().Get();
+			srv = RESOURCES->Load<Texture>(L"FILE_" + metaData->fileName, metaData->fileFullPath + L"\\" + metaData->fileName)->GetComPtr().Get();
 			break;
 		case MESH:
 			srv = GRAPHICS->GetMeshThumbnail()->GetComPtr().Get();

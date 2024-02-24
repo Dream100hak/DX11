@@ -14,9 +14,11 @@ public:										\
 
 #define CHECK(p)	assert(SUCCEEDED(p))
 #define GAME		GET_SINGLE(Game)		
+
 #define GRAPHICS	GET_SINGLE(Graphics)
 #define DEVICE		GRAPHICS->GetDevice()
 #define DCT			GRAPHICS->GetDeviceContext()
+
 #define INPUT		GET_SINGLE(InputManager)
 #define TIME		GET_SINGLE(TimeManager)
 #define DT			TIME->GetDeltaTime()
@@ -27,6 +29,9 @@ public:										\
 #define PROJECT		GET_SINGLE(ProjectManager)
 #define CUR_SCENE	SCENE->GetCurrentScene()
 #define MAIN_CAM	SCENE->GetCurrentScene()->GetMainCamera()->GetCamera()
+
+#define MODEL_GLOBAL_SCALE 	2.07744789f;
+
 
 enum LayerMask
 {

@@ -3,6 +3,9 @@
 #include "GameObject.h"
 #include "MeshRenderer.h"
 #include "Material.h"
+#include "ModelRenderer.h"
+
+#include "Model.h"
 
 
 void ImGuiManager::Init()
@@ -88,7 +91,7 @@ int32 ImGuiManager::CreateMesh(CreatedObjType type)
 {
 
 	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetTransform();
-	float distance = 50.0f;
+	float distance = 10.0f;
 	Vec3 objectPosition = cam->GetLocalPosition() + (cam->GetLook() * distance);
 
 	auto obj = make_shared<GameObject>();
@@ -130,4 +133,35 @@ int32 ImGuiManager::CreateMesh(CreatedObjType type)
 
 	return obj->GetId();
 
+}
+
+int32 ImGuiManager::CreateModelMesh(shared_ptr<Model> model)
+{
+	auto obj = make_shared<GameObject>();
+	auto shader = RESOURCES->Get<Shader>(L"Standard");
+
+	BoundingBox box = model->CalculateModelBoundingBox();
+	float modelScale = max(max(box.Extents.x, box.Extents.y), box.Extents.z) * 2.0f;
+	float globalScale = MODEL_GLOBAL_SCALE;
+
+	if (modelScale > 10.f)
+		modelScale = globalScale;
+
+	float scale = globalScale / modelScale;
+	
+	wstring name;
+	name = FindEmptyName(CreatedObjType::MODEL);
+	obj->SetObjectName(name);
+
+	obj->GetOrAddTransform()->SetPosition(Vec3::Zero);
+	obj->GetOrAddTransform()->SetRotation(Vec3(0, 0, 0));
+	obj->GetOrAddTransform()->SetScale(Vec3(scale, scale, scale));
+
+	obj->AddComponent(make_shared<ModelRenderer>(shader));
+	obj->GetModelRenderer()->SetModel(model);
+	obj->GetModelRenderer()->SetPass(1);
+
+	CUR_SCENE->Add(obj);
+
+	return obj->GetId();
 }

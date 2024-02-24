@@ -29,6 +29,7 @@ WPARAM Game::Run(GameDesc& gameDesc , SceneDesc& sceneDesc)
 		return FALSE;
 	
 	GRAPHICS->Init(_gameDesc.hWnd);
+
 	TIME->Init();
 	INPUT->Init(_gameDesc.hWnd);
 	GUI->Init();
@@ -128,12 +129,15 @@ void Game::Update()
 	INPUT->Update();
 	ShowFps();
 
+
 	GRAPHICS->SetViewport(_sceneDesc.width , _sceneDesc.height , _sceneDesc.x , _sceneDesc.y);
 	GRAPHICS->PreRenderBegin();
 	GRAPHICS->RenderBegin();
-
+	
 	SCENE->Update();
 	GUI->Update();
+
+	
 
 	ImGui::SetNextWindowPos(ImVec2(_sceneDesc.x, _sceneDesc.y), ImGuiCond_Appearing);
 	ImGui::SetNextWindowSize(ImVec2(_sceneDesc.width, _sceneDesc.height), ImGuiCond_Appearing);
@@ -171,7 +175,10 @@ void Game::Update()
 	ImGui::End();
 
 	GUI->Render();
+	GRAPHICS->PostRenderBegin();
 	GRAPHICS->RenderEnd();
+	
+
 }
 
 void Game::ShowFps()

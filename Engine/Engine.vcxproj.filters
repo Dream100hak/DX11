@@ -91,9 +91,6 @@
     <ClInclude Include="SceneManager.h">
       <Filter>03. Scene</Filter>
     </ClInclude>
-    <ClInclude Include="Graphics.h">
-      <Filter>01. Graphics</Filter>
-    </ClInclude>
     <ClInclude Include="Game.h">
       <Filter>00. Engine</Filter>
     </ClInclude>
@@ -220,6 +217,9 @@
     <ClInclude Include="ProjectManager.h">
       <Filter>02. Managers</Filter>
     </ClInclude>
+    <ClInclude Include="Graphics.h">
+      <Filter>01. Graphics\Render</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -302,9 +302,6 @@
     </ClCompile>
     <ClCompile Include="SceneManager.cpp">
       <Filter>03. Scene</Filter>
-    </ClCompile>
-    <ClCompile Include="Graphics.cpp">
-      <Filter>01. Graphics</Filter>
     </ClCompile>
     <ClCompile Include="Game.cpp">
       <Filter>00. Engine</Filter>
@@ -432,6 +429,9 @@
     <ClCompile Include="ProjectManager.cpp">
       <Filter>02. Managers</Filter>
     </ClCompile>
+    <ClCompile Include="Graphics.cpp">
+      <Filter>01. Graphics\Render</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="98. Utils">
@@ -484,6 +484,9 @@
     </Filter>
     <Filter Include="07. UI &amp; Effect">
       <UniqueIdentifier>{faad9faa-c3b3-48c8-8ef5-35c75acbd085}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="01. Graphics\Render">
+      <UniqueIdentifier>{f3d64771-eddf-436e-a7af-02b4e8d5aab9}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

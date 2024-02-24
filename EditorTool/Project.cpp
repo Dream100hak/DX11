@@ -1,4 +1,4 @@
-#include "pch.h"
+ï»¿#include "pch.h"
 #include "Project.h"
 #include "Utils.h"
 #include "LogWindow.h"
@@ -15,16 +15,15 @@
 
 #include "ModelMesh.h"
 
-
-Project::Project()
+Project::Project(Vec2 pos, Vec2 size)
 {
+	SetWinPosAndSize(pos, size);
 	auto folder = RESOURCES->Load<Texture>(L"Folder", L"..\\Resources\\Assets\\Textures\\Folder.png");
 	auto text = RESOURCES->Load<Texture>(L"Text", L"..\\Resources\\Assets\\Textures\\Text.png");
 }
 
 Project::~Project()
 {
-
 }
 
 void Project::Init()
@@ -35,13 +34,9 @@ void Project::Init()
 
 void Project::Update()
 {
-	ImGui::SetNextWindowPos(ImVec2(800, 551));
-	ImGui::SetNextWindowSize(ImVec2(373, 500));
+	ImGui::SetNextWindowPos(GetEWinPos());
+	ImGui::SetNextWindowSize(GetEWinSize());
 	ShowProject();
-
-	ImGui::SetNextWindowPos(ImVec2(800 + 373, 551));
-	ImGui::SetNextWindowSize(ImVec2(373, 500));
-	ShowFolderContents();
 }
 
 void Project::RefreshCasheFileList(const wstring& directory)
@@ -60,14 +55,20 @@ void Project::RefreshCasheFileList(const wstring& directory)
 
 		wstring fullPath = directory + L"\\" + fileName;
 
-		MetaData meta = {};
-		meta.fileName = fileName;
-		meta.fileFullPath = directory;
-		meta.metaType = GetMetaType(fileName);
+		
+		auto meta = make_shared<MetaData>();
+		meta->fileName = fileName;
+		meta->fileFullPath = directory;
+		meta->metaType = GetMetaType(fileName);
 
-		_cashesFileList.insert({ fullPath, meta });
+		if (meta->metaType == IMAGE)
+		{
+			auto tex = RESOURCES->Load<Texture>(L"FILE_" + meta->fileName, meta->fileFullPath + L"\\" + meta->fileName);
+		}
 
-		if (meta.metaType == MetaType::FOLDER)
+		CASHE_FILE_LIST.insert({ fullPath, meta });
+
+		if (meta->metaType == MetaType::FOLDER)
 			RefreshCasheFileList(fullPath);
 
 	} while (FindNextFile(hFind, &findFileData) != 0);
@@ -107,12 +108,11 @@ MetaType Project::GetMetaType(const wstring& name)
 
 void Project::ShowProject()
 {
-
 	ImGui::Begin("Project");
 
 	if (ImGui::BeginTable("FolderTable", 1, ImGuiTableFlags_BordersOuter | ImGuiTableFlags_Resizable))
 	{
-		// Æú´õ °èÃþ ±¸Á¶¸¦ Ç¥½ÃÇÕ´Ï´Ù.
+		// í´ë” ê³„ì¸µ êµ¬ì¡°ë¥¼ í‘œì‹œí•©ë‹ˆë‹¤.
 		ListFolderHierarchy(_rootDirectory);
 
 		ImGui::EndTable();
@@ -124,11 +124,11 @@ void Project::ShowProject()
 void Project::ListFolderHierarchy(const wstring& directory)
 {
 	static ImGuiTreeNodeFlags base_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth;
-	string selectedPath = Utils::ToString(_selectedFolder); 
+	string selectedPath = Utils::ToString(SELECTED_FOLDER); 
 
-	for (auto& [path, meta] : _cashesFileList)
+	for (auto& [path, meta] : CASHE_FILE_LIST)
 	{
-		if (meta.metaType != FOLDER || meta.fileFullPath != directory)
+		if (meta->metaType != FOLDER || meta->fileFullPath != directory)
 			continue;
 
 		ImGuiTreeNodeFlags node_flags = base_flags;
@@ -141,11 +141,11 @@ void Project::ListFolderHierarchy(const wstring& directory)
 		ImGui::PushID(path.c_str());
 		ImGui::AlignTextToFramePadding();
 
-		std::string fileName = Utils::ToString(meta.fileName);
+		std::string fileName = Utils::ToString(meta->fileName);
 		bool node_open = ImGui::TreeNodeEx(fileName.c_str(), node_flags);
 
 		if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
-			_selectedFolder = path;
+			SELECTED_FOLDER = path;
 
 		if (node_open)
 		{
@@ -155,156 +155,4 @@ void Project::ListFolderHierarchy(const wstring& directory)
 
 		ImGui::PopID();
 	}
-}
-void Project::ShowFolderContents()
-{
-	ImGui::Begin("Folder Contents");
-
-	if (!_selectedFolder.empty()) {
-		std::vector<std::pair<std::wstring, MetaData>> folders;
-		std::vector<std::pair<std::wstring, MetaData>> files;
-
-		for (auto& [path, meta] : _cashesFileList) 
-		{
-			if (meta.fileFullPath == _selectedFolder)
-			{
-				if (meta.metaType == MetaType::FOLDER)
-				{
-					folders.push_back({ path, meta });
-				}
-				else 
-				{
-					files.push_back({ path, meta });
-				}
-			}
-		}
-
-		float windowWidth = ImGui::GetContentRegionAvail().x;
-		int itemWidth = 100;
-		int columns = max(1, static_cast<int>(windowWidth / itemWidth));
-
-		if (ImGui::BeginTable("FolderTable", columns, ImGuiTableFlags_Sortable | ImGuiTableFlags_NoBordersInBody)) {
-			
-			int32 folderId = 0;
-			for (auto& [path, meta] : folders) 
-			{
-				DisplayItem(path, meta, columns , folderId++);
-			}
-			int32 fileId = 0;
-			for (auto& [path, meta] : files) 
-			{
-				DisplayItem(path, meta, columns, fileId);
-			}
-
-			ImGui::EndTable();
-		}
-	}
-
-	ImGui::End();
-}
-
-void Project::DisplayItem(const std::wstring& path, const MetaData& meta, int32 columns, int32 id)
-{
-	
-	ImGui::TableNextColumn();
-
-	float cellWidth = ImGui::GetColumnWidth();
-
-	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.1f, 0.1f, 1.0f)); // Åõ¸í ¹è°æ
-	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.25f, 0.25f, 1.0f)); // ¸¶¿ì½º ¿À¹ö½Ã °ËÁ¤»ö
-	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.4f, 0.4f, 0.4f, 1.0f)); // Å¬¸¯½Ã °ËÁ¤»ö
-
-	float cursorX = (cellWidth - 50) * 0.5f; // Áß¾Ó Á¤·Ä °è»ê
-	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + cursorX);
-	// Æú´õ Ã³¸®
-	if (meta.metaType == MetaType::FOLDER) 
-	{
-		auto tex = RESOURCES->Get<Texture>(L"Folder");
-		RefreshButton(tex, meta, id);
-	}
-
-	// ÀÌ¹ÌÁö ÆÄÀÏ Ã³¸®
-	else if (meta.metaType == MetaType::IMAGE) 
-	{
-		auto tex = RESOURCES->Load<Texture>(L"FILE_" + meta.fileName, meta.fileFullPath + L"\\" + meta.fileName);
-		RefreshButton(tex, meta, id);
-	}
-	// ¹®¼­ ÆÄÀÏ Ã³¸®
-	else if (meta.metaType == MetaType::XML) 
-	{
-		auto tex = RESOURCES->Get<Texture>(L"Text");
-		RefreshButton(tex, meta, id);
-	}
-
-	// ¸Þ½Ã ÆÄÀÏ Ã³¸®
-	if (meta.metaType == MetaType::MESH)
-	{
-		shared_ptr<GameObject> camera = make_shared<GameObject>();
-		camera->AddComponent(make_shared<Camera>());
-		camera->GetOrAddTransform()->SetPosition(Vec3(0, 1.f, -4.f));
-		camera->GetCamera()->UpdateMatrix();
-
-		auto shader = RESOURCES->Get<Shader>(L"Thumbnail");
-		shared_ptr<Model> model = make_shared<Model>();
-		wstring modelName = meta.fileName.substr(0, meta.fileName.find('.'));
-
-		model->ReadModel(modelName + L'/' + modelName);
-		model->ReadMaterial(modelName + L'/' + modelName);
-
-		BoundingBox box = model->CalculateModelBoundingBox();
-		float modelDiagonal = max(max(box.Extents.x, box.Extents.y), box.Extents.z) * 2.0f;
-
-		if(modelDiagonal > 10.f)
-			modelDiagonal = _modelDiagonal;
-
-		float scale = _modelDiagonal / modelDiagonal;
-
-		auto obj = make_shared<GameObject>();
-
-		obj->GetOrAddTransform()->SetPosition(Vec3::Zero);
-		obj->GetOrAddTransform()->SetRotation(Vec3(0, -0.5f, 0));
-		obj->GetOrAddTransform()->SetScale(Vec3(scale, scale, scale));
-	
-		obj->AddComponent(make_shared<ModelRenderer>(shader));
-		obj->GetModelRenderer()->SetModel(model);
-		obj->GetModelRenderer()->SetPass(1);
-
-		shared_ptr<MeshThumbnail> thumbnail = GRAPHICS->GetMeshThumbnail();
-		thumbnail->SetModelAndCam(obj->GetModelRenderer(), camera->GetCamera());
-		thumbnail->SetWorldMatrix(obj->GetOrAddTransform()->GetWorldMatrix());
-		
-		ImGui::PushID(id);
-		if (ImGui::ImageButton((void*)thumbnail->GetComPtr().Get(), ImVec2(50, 50)))
-		{
-			_selectedItem = path;
-			TOOL->SetSelectedObjP(meta);
-		}
-		ImGui::PopID();
-	}
-	// ¿¹¿Ü ÆÄÀÏ Ã³¸®
-	else if (meta.metaType == MetaType::Unknown) {
-		auto tex = RESOURCES->Get<Texture>(L"Text");
-		RefreshButton(tex, meta, id);
-	}
-
-	ImGui::PopStyleColor(3);
-
-	std::string itemName = Utils::ToString(meta.fileName);
-	ImVec2 textSize = ImGui::CalcTextSize(itemName.c_str());
-	cursorX = (cellWidth - textSize.x) * 0.5f; // Áß¾Ó Á¤·Ä °è»ê
-	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + cursorX);
-	ImGui::Text(itemName.c_str()); // ÀÌ¸§ Ç¥½Ã
-}
-
-void Project::RefreshButton(shared_ptr<Texture> texture, const MetaData& meta, int32 id)
-{
-	ImGui::PushID(id);
-	if (texture != nullptr)
-	{
-		if (ImGui::ImageButton(texture->GetComPtr().Get(), ImVec2(50, 50))) {
-			_selectedItem = meta.fileFullPath;
-			TOOL->SetSelectedObjP(meta);
-		}
-	}
-	ImGui::PopID();
 }

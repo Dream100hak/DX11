@@ -4,8 +4,8 @@
 class Inspector : public EditorWindow
 {
 public:
-	Inspector();
-	~Inspector();
+	Inspector(Vec2 pos, Vec2 size);
+	virtual ~Inspector();
 
 	virtual void Init() override;
 	virtual void Update() override;

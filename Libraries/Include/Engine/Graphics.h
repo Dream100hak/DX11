@@ -14,7 +14,10 @@ public:
 
 	void PreRenderBegin();
 	void RenderBegin();
+	void PostRenderBegin();
+
 	void RenderEnd();
+
 
 	ComPtr<ID3D11Device> GetDevice() { return _device; }
 	ComPtr<ID3D11DeviceContext> GetDeviceContext() { return _deviceContext; }
@@ -55,12 +58,13 @@ private:
 	ComPtr<ID3D11Texture2D> _depthStencilTexture;
 	ComPtr<ID3D11DepthStencilView> _depthStencilView;
 
+	Viewport _vp;
+
 	ComPtr<ID3D11DepthStencilState> _dsStateStandard;
 	ComPtr<ID3D11DepthStencilState> _dsStateOutline;
 
 	shared_ptr<MeshThumbnail> _thumbnail = nullptr;
-	shared_ptr<ShadowMap> _smap = nullptr; 
 
-	Viewport _vp;
+	shared_ptr<ShadowMap> _smap = nullptr;
 
 };

@@ -9,7 +9,7 @@
 #include "ModelAnimation.h"
 #include "MathUtils.h"
 
-Model::Model()
+Model::Model() : Super(ResourceType::Model)
 {
 
 }
@@ -34,7 +34,6 @@ void Model::ReadMaterial(wstring filename)
 	while (materialNode)
 	{
 		shared_ptr<Material> material = make_shared<Material>();
-
 		tinyxml2::XMLElement* node = nullptr;
 
 		node = materialNode->FirstChildElement();
@@ -51,7 +50,6 @@ void Model::ReadMaterial(wstring filename)
 				material->SetDiffuseMap(texture);
 			}
 		}
-
 		// Specular Texture
 		node = node->NextSiblingElement();
 		if (node->GetText())
@@ -206,8 +204,6 @@ void Model::ReadModel(wstring filename)
 	}
 
 	BindCacheInfo();
-
-	
 }
 
 void Model::ReadAnimation(wstring filename)

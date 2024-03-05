@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Materials>
+    <Material>
+        <Name>a50_sheath.003</Name>
+        <DiffuseFile></DiffuseFile>
+        <SpecularFile></SpecularFile>
+        <NormalFile></NormalFile>
+        <Ambient R="0" G="0" B="0" A="1"/>
+        <Diffuse R="0.80000001" G="0.80000001" B="0.80000001" A="1"/>
+        <Specular R="0.80000001" G="0.80000001" B="0.80000001" A="36"/>
+        <Emissive R="0" G="0" B="0" A="1"/>
+    </Material>
+    <Material>
+        <Name>a30_sheath.003</Name>
+        <DiffuseFile></DiffuseFile>
+        <SpecularFile></SpecularFile>
+        <NormalFile></NormalFile>
+        <Ambient R="0" G="0" B="0" A="1"/>
+        <Diffuse R="0.80000001" G="0.80000001" B="0.80000001" A="1"/>
+        <Specular R="0.80000001" G="0.80000001" B="0.80000001" A="36"/>
+        <Emissive R="0" G="0" B="0" A="1"/>
+    </Material>
+    <Material>
+        <Name>a20_sheath.003</Name>
+        <DiffuseFile></DiffuseFile>
+        <SpecularFile></SpecularFile>
+        <NormalFile></NormalFile>
+        <Ambient R="0" G="0" B="0" A="1"/>
+        <Diffuse R="0.80000001" G="0.80000001" B="0.80000001" A="1"/>
+        <Specular R="0.80000001" G="0.80000001" B="0.80000001" A="36"/>
+        <Emissive R="0" G="0" B="0" A="1"/>
+    </Material>
+    <Material>
+        <Name>a10_sheath.003</Name>
+        <DiffuseFile></DiffuseFile>
+        <SpecularFile></SpecularFile>
+        <NormalFile></NormalFile>
+        <Ambient R="0" G="0" B="0" A="1"/>
+        <Diffuse R="0.80000001" G="0.80000001" B="0.80000001" A="1"/>
+        <Specular R="0.80000001" G="0.80000001" B="0.80000001" A="36"/>
+        <Emissive R="0" G="0" B="0" A="1"/>
+    </Material>
+    <Material>
+        <Name>a00_sheath.003</Name>
+        <DiffuseFile></DiffuseFile>
+        <SpecularFile></SpecularFile>
+        <NormalFile></NormalFile>
+        <Ambient R="0" G="0" B="0" A="1"/>
+        <Diffuse R="0.80000001" G="0.80000001" B="0.80000001" A="1"/>
+        <Specular R="0.80000001" G="0.80000001" B="0.80000001" A="36"/>
+        <Emissive R="0" G="0" B="0" A="1"/>
+    </Material>
+    <Material>
+        <Name>common.043</Name>
+        <DiffuseFile></DiffuseFile>
+        <SpecularFile></SpecularFile>
+        <NormalFile></NormalFile>
+        <Ambient R="0" G="0" B="0" A="1"/>
+        <Diffuse R="0.80000007" G="0.63949102" B="0.13312843" A="1"/>
+        <Specular R="0.80000007" G="0.63949102" B="0.13312843" A="36"/>
+        <Emissive R="0" G="0" B="0" A="1"/>
+    </Material>
+    <Material>
+        <Name>common.044</Name>
+        <DiffuseFile></DiffuseFile>
+        <SpecularFile></SpecularFile>
+        <NormalFile></NormalFile>
+        <Ambient R="0" G="0" B="0" A="1"/>
+        <Diffuse R="0.80000007" G="0.65354472" B="0.058493238" A="1"/>
+        <Specular R="0.80000007" G="0.65354472" B="0.058493238" A="36"/>
+        <Emissive R="0" G="0" B="0" A="1"/>
+    </Material>
+    <Material>
+        <Name>common.045</Name>
+        <DiffuseFile></DiffuseFile>
+        <SpecularFile></SpecularFile>
+        <NormalFile></NormalFile>
+        <Ambient R="0" G="0" B="0" A="1"/>
+        <Diffuse R="0.80000007" G="0.57282317" B="0.28502953" A="1"/>
+        <Specular R="0.80000007" G="0.57282317" B="0.28502953" A="36"/>
+        <Emissive R="0" G="0" B="0" A="1"/>
+    </Material>
+    <Material>
+        <Name>common.046</Name>
+        <DiffuseFile>pl1400_body03_lod0_albd.tga</DiffuseFile>
+        <SpecularFile>pl1400_body03_lod0_albd.tga</SpecularFile>
+        <NormalFile>pl1400_body03_lod0_albd.tga</NormalFile>
+        <Ambient R="0" G="0" B="0" A="1"/>
+        <Diffuse R="0.80000001" G="0.80000001" B="0.80000001" A="1"/>
+        <Specular R="0.80000001" G="0.80000001" B="0.80000001" A="25"/>
+        <Emissive R="0" G="0" B="0" A="1"/>
+    </Material>
+    <Material>
+        <Name>common.047</Name>
+        <DiffuseFile></DiffuseFile>
+        <SpecularFile></SpecularFile>
+        <NormalFile></NormalFile>
+        <Ambient R="0" G="0" B="0" A="1"/>
+        <Diffuse R="0.80000007" G="0.5898363" B="0.65045267" A="1"/>
+        <Specular R="0.80000007" G="0.5898363" B="0.65045267" A="36"/>
+        <Emissive R="0" G="0" B="0" A="1"/>
+    </Material>
+    <Material>
+        <Name>common.048</Name>
+        <DiffuseFile></DiffuseFile>
+        <SpecularFile></SpecularFile>
+        <NormalFile></NormalFile>
+        <Ambient R="0" G="0" B="0" A="1"/>
+        <Diffuse R="0.18843231" G="0.80000007" B="0.094799638" A="1"/>
+        <Specular R="0.18843231" G="0.80000007" B="0.094799638" A="36"/>
+        <Emissive R="0" G="0" B="0" A="1"/>
+    </Material>
+    <Material>
+        <Name>common.049</Name>
+        <DiffuseFile>pl1400_hair02_lod0_albd.tga</DiffuseFile>
+        <SpecularFile>pl1400_hair02_lod0_albd.tga</SpecularFile>
+        <NormalFile>pl1400_hair02_lod0_albd.tga</NormalFile>
+        <Ambient R="0" G="0" B="0" A="1"/>
+        <Diffuse R="0.4848333" G="0.80000007" B="0.0099556698" A="1"/>
+        <Specular R="0.4848333" G="0.80000007" B="0.0099556698" A="25"/>
+        <Emissive R="0" G="0" B="0" A="1"/>
+    </Material>
+    <Material>
+        <Name>common.050</Name>
+        <DiffuseFile></DiffuseFile>
+        <SpecularFile></SpecularFile>
+        <NormalFile></NormalFile>
+        <Ambient R="0" G="0" B="0" A="1"/>
+        <Diffuse R="0.80000001" G="0.80000001" B="0.80000001" A="1"/>
+        <Specular R="0.80000001" G="0.80000001" B="0.80000001" A="36"/>
+        <Emissive R="0" G="0" B="0" A="1"/>
+    </Material>
+    <Material>
+        <Name>Face.021</Name>
+        <DiffuseFile></DiffuseFile>
+        <SpecularFile></SpecularFile>
+        <NormalFile></NormalFile>
+        <Ambient R="0" G="0" B="0" A="1"/>
+        <Diffuse R="0.71572286" G="0.75200504" B="0.80000007" A="1"/>
+        <Specular R="0.71572286" G="0.75200504" B="0.80000007" A="36"/>
+        <Emissive R="0" G="0" B="0" A="1"/>
+    </Material>
+    <Material>
+        <Name>Face.022</Name>
+        <DiffuseFile></DiffuseFile>
+        <SpecularFile></SpecularFile>
+        <NormalFile></NormalFile>
+        <Ambient R="0" G="0" B="0" A="1"/>
+        <Diffuse R="0.80000001" G="0.80000001" B="0.80000001" A="1"/>
+        <Specular R="0.80000001" G="0.80000001" B="0.80000001" A="36"/>
+        <Emissive R="0" G="0" B="0" A="1"/>
+    </Material>
+    <Material>
+        <Name>Face.023</Name>
+        <DiffuseFile></DiffuseFile>
+        <SpecularFile></SpecularFile>
+        <NormalFile></NormalFile>
+        <Ambient R="0" G="0" B="0" A="1"/>
+        <Diffuse R="0.80000001" G="0.80000001" B="0.80000001" A="1"/>
+        <Specular R="0.80000001" G="0.80000001" B="0.80000001" A="36"/>
+        <Emissive R="0" G="0" B="0" A="1"/>
+    </Material>
+    <Material>
+        <Name>Face.024</Name>
+        <DiffuseFile></DiffuseFile>
+        <SpecularFile></SpecularFile>
+        <NormalFile></NormalFile>
+        <Ambient R="0" G="0" B="0" A="1"/>
+        <Diffuse R="0" G="0.80000007" B="0.062336966" A="1"/>
+        <Specular R="0" G="0.80000007" B="0.062336966" A="36"/>
+        <Emissive R="0" G="0" B="0" A="1"/>
+    </Material>
+    <Material>
+        <Name>Face.025</Name>
+        <DiffuseFile></DiffuseFile>
+        <SpecularFile></SpecularFile>
+        <NormalFile></NormalFile>
+        <Ambient R="0" G="0" B="0" A="1"/>
+        <Diffuse R="0.80000007" G="0.048663862" B="0.0090340702" A="1"/>
+        <Specular R="0.80000007" G="0.048663862" B="0.0090340702" A="36"/>
+        <Emissive R="0" G="0" B="0" A="1"/>
+    </Material>
+    <Material>
+        <Name>Face.026</Name>
+        <DiffuseFile></DiffuseFile>
+        <SpecularFile></SpecularFile>
+        <NormalFile></NormalFile>
+        <Ambient R="0" G="0" B="0" A="1"/>
+        <Diffuse R="0.80000001" G="0.80000001" B="0.80000001" A="1"/>
+        <Specular R="0.80000001" G="0.80000001" B="0.80000001" A="36"/>
+        <Emissive R="0" G="0" B="0" A="1"/>
+    </Material>
+    <Material>
+        <Name>Face.027</Name>
+        <DiffuseFile></DiffuseFile>
+        <SpecularFile></SpecularFile>
+        <NormalFile></NormalFile>
+        <Ambient R="0" G="0" B="0" A="1"/>
+        <Diffuse R="0.11918893" G="0.80000007" B="0.13024446" A="1"/>
+        <Specular R="0.11918893" G="0.80000007" B="0.13024446" A="36"/>
+        <Emissive R="0" G="0" B="0" A="1"/>
+    </Material>
+</Materials>

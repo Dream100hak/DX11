@@ -55,17 +55,24 @@ void Project::RefreshCasheFileList(const wstring& directory)
 
 		wstring fullPath = directory + L"\\" + fileName;
 
-		
 		auto meta = make_shared<MetaData>();
 		meta->fileName = fileName;
 		meta->fileFullPath = directory;
 		meta->metaType = GetMetaType(fileName);
 
-		if (meta->metaType == IMAGE)
+		if (meta->metaType == MetaType::IMAGE)
 		{
-			auto tex = RESOURCES->Load<Texture>(L"FILE_" + meta->fileName, meta->fileFullPath + L"\\" + meta->fileName);
+			auto tex = RESOURCES->Load<Texture>(L"TEX_" + meta->fileName, meta->fileFullPath + L"\\" + meta->fileName);
 		}
+		else if (meta->metaType == MetaType::MESH)
+		{
+			shared_ptr<Model> model = make_shared<Model>();
+			wstring modelName = meta->fileName.substr(0, meta->fileName.find('.'));
 
+			model->ReadModel(modelName + L'/' + modelName);
+			model->ReadMaterial(modelName + L'/' + modelName);
+			RESOURCES->Add(L"MODEL_" +meta->fileName, model);
+		}
 		CASHE_FILE_LIST.insert({ fullPath, meta });
 
 		if (meta->metaType == MetaType::FOLDER)

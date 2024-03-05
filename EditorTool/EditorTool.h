@@ -9,21 +9,15 @@ public:
 	void Render() override;
 
 	void OnMouseWheel(int32 scrollAmount) override;
+
+	void DrawShadowMap(); 
+
 private:
 
 	bool _showWindow = true;
 	shared_ptr<class SceneCamera> _sceneCam;
 	shared_ptr<class Button> _btn; 
 
-	Matrix _view;
-	Matrix _projection;
-	Matrix _mvp;
-	Matrix _vp;
-
-	Vec3 _translationPlan;
-	Vec3 _rayOrigin;
-	Vec3 _rayDir;
-
-	shared_ptr<Transform> _tr; 
+	shared_ptr<ShadowMap> _smap = nullptr;
 
 };

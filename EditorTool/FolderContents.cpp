@@ -29,12 +29,17 @@ FolderContents::~FolderContents()
 
 void FolderContents::Init()
 {
-
+	if (_meshPreviewCamera == nullptr)
+	{
+		_meshPreviewCamera = make_shared<GameObject>();
+		_meshPreviewCamera->AddComponent(make_shared<Camera>());
+		_meshPreviewCamera->GetOrAddTransform()->SetPosition(Vec3(0, 1.f, -4.f));
+		_meshPreviewCamera->GetCamera()->UpdateMatrix();
+	}
 }
 
 void FolderContents::Update()
 {
-
 	ImGui::SetNextWindowPos(GetEWinPos());
 	ImGui::SetNextWindowSize(GetEWinSize());
 	ShowFolderContents();
@@ -44,9 +49,10 @@ void FolderContents::ShowFolderContents()
 {
 	ImGui::Begin("Folder Contents");
 
-	if (!SELECTED_FOLDER.empty()) {
-		std::vector<std::pair<std::wstring, shared_ptr<MetaData>>> folders;
-		std::vector<std::pair<std::wstring, shared_ptr<MetaData>>> files;
+	if (!SELECTED_FOLDER.empty()) 
+	{
+		vector<pair<wstring, shared_ptr<MetaData>>> folders;
+		vector<pair<wstring, shared_ptr<MetaData>>> files;
 
 		for (auto& [path, meta] : CASHE_FILE_LIST)
 		{
@@ -67,8 +73,8 @@ void FolderContents::ShowFolderContents()
 		int itemWidth = 100;
 		int columns = max(1, static_cast<int>(windowWidth / itemWidth));
 
-		if (ImGui::BeginTable("FolderTable", columns, ImGuiTableFlags_Sortable | ImGuiTableFlags_NoBordersInBody)) {
-
+		if (ImGui::BeginTable("FolderTable", columns, ImGuiTableFlags_Sortable | ImGuiTableFlags_NoBordersInBody))
+		{
 			int32 folderId = 0;
 			for (auto& [path, meta] : folders)
 			{
@@ -110,7 +116,7 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 	// 이미지 파일 처리
 	else if (meta->metaType == MetaType::IMAGE)
 	{
-		auto tex = RESOURCES->Get<Texture>(L"FILE_" + meta->fileName);
+		auto tex = RESOURCES->Get<Texture>(L"TEX_" + meta->fileName);
 		RefreshButton(tex->GetComPtr().Get(), meta, id, []() {});
 	}
 	// 문서 파일 처리
@@ -123,40 +129,31 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 	// 메시 파일 처리
 	if (meta->metaType == MetaType::MESH)
 	{
-		shared_ptr<GameObject> camera = make_shared<GameObject>();
-		camera->AddComponent(make_shared<Camera>());
-		camera->GetOrAddTransform()->SetPosition(Vec3(0, 1.f, -4.f));
-		camera->GetCamera()->UpdateMatrix();
+		shared_ptr<GameObject> obj = nullptr;
 
-		auto shader = RESOURCES->Get<Shader>(L"Thumbnail");
-		shared_ptr<Model> model = make_shared<Model>();
-		wstring modelName = meta->fileName.substr(0, meta->fileName.find('.'));
+		if (_meshPreviewObjs.find(L"MODEL_" + meta->fileName) == _meshPreviewObjs.end())
+			CreateMeshPreviewObj(meta);
 
-		model->ReadModel(modelName + L'/' + modelName);
-		model->ReadMaterial(modelName + L'/' + modelName);
+		obj = _meshPreviewObjs[L"MODEL_" + meta->fileName];
 
-		BoundingBox box = model->CalculateModelBoundingBox();
-		float modelScale = max(max(box.Extents.x, box.Extents.y), box.Extents.z) * 2.0f;
-		float globalScale = MODEL_GLOBAL_SCALE;
+		shared_ptr<MeshThumbnail> thumbnail = nullptr;
 
-		if (modelScale > 10.f)
-			modelScale = globalScale;
+		if(_meshPreviewthumbnails.find(L"MODEL_" + meta->fileName) == _meshPreviewthumbnails.end())
+		{
+			thumbnail = make_shared<MeshThumbnail>(512, 512);
+			thumbnail->SetModelAndCam(obj->GetModelRenderer(), _meshPreviewCamera->GetCamera());
+			thumbnail->SetWorldMatrix(obj->GetOrAddTransform()->GetWorldMatrix());
 
-		float scale = globalScale / modelScale;
+			_meshPreviewthumbnails.insert(make_pair(L"MODEL_" + meta->fileName, thumbnail));
+			
+			JOB_POST_RENDER->DoPush([=]()
+			{
+				thumbnail->Draw();
+			});
+		}
 
-		auto obj = make_shared<GameObject>();
+		thumbnail = _meshPreviewthumbnails[L"MODEL_" + meta->fileName];
 
-		obj->GetOrAddTransform()->SetPosition(Vec3::Zero);
-		obj->GetOrAddTransform()->SetRotation(Vec3(0, -0.5f, 0));
-		obj->GetOrAddTransform()->SetScale(Vec3(scale, scale, scale));
-
-		obj->AddComponent(make_shared<ModelRenderer>(shader));
-		obj->GetModelRenderer()->SetModel(model);
-		obj->GetModelRenderer()->SetPass(1);
-
-		shared_ptr<MeshThumbnail> thumbnail = GRAPHICS->GetMeshThumbnail();
-		thumbnail->SetModelAndCam(obj->GetModelRenderer(), camera->GetCamera());
-		thumbnail->SetWorldMatrix(obj->GetOrAddTransform()->GetWorldMatrix());
 		RefreshButton(thumbnail->GetComPtr().Get(), meta, id, []() {});
 
 		ImVec2 scenePos = TOOL->GetEditorWindow(Utils::GetClassNameEX<SceneWindow>())->GetEWinPos();
@@ -165,23 +162,51 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 		ImVec2 hiearchyPos = TOOL->GetEditorWindow(Utils::GetClassNameEX<Hiearchy>())->GetEWinPos();
 		ImVec2 hiearchySize = TOOL->GetEditorWindow(Utils::GetClassNameEX<Hiearchy>())->GetEWinSize();
 
-
 		if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
 		{
 			MetaData* metaRawPtr = meta.get();
 
 			ImGui::SetDragDropPayload("MeshPayload", &metaRawPtr,  sizeof(MetaData*));
 
-			if (IsMouseInSceneWindow(scenePos, sceneSize))
-			{
+			if (IsMouseInGUIWindow(scenePos, sceneSize))
+			{	
+				CUR_SCENE->Add(obj);
+
 				::SetCursor(LoadCursor(NULL, IDC_HAND));
+
+				int32 x = INPUT->GetMousePos().x;
+				int32 y = INPUT->GetMousePos().y;
+
+				Matrix V = MAIN_CAM->GetViewMatrix();
+				Matrix P = MAIN_CAM->GetProjectionMatrix();
+				Viewport& vp = GRAPHICS->GetViewport();
+
+				Vec3 n = vp.Unproject(Vec3(x, y, 0), Matrix::Identity, V, P);
+				Vec3 f = vp.Unproject(Vec3(x, y, 1), Matrix::Identity, V, P);
+				
+				Vec3 start =  MAIN_CAM->GetTransform()->GetPosition();
+				Vec3 direction = f - n;
+				direction.Normalize();
+
+				float rayLength = 1000.0f; 
+				float t = -start.y / direction.y; // y=0
+
+				if (t > 0 && t < rayLength) {
+					Vec3 hitPoint = start + direction * t; // 교차 지점
+					obj->GetTransform()->SetPosition(hitPoint);
+				}
+
 			}
-			else if (IsMouseInSceneWindow(hiearchyPos, hiearchySize))
+			else if (IsMouseInGUIWindow(hiearchyPos, hiearchySize))
 			{
+				CUR_SCENE->Remove(obj);
+
 				::SetCursor(LoadCursor(NULL, IDC_HAND));
 			}
 			else
 			{
+				CUR_SCENE->Remove(obj);
+
 				::SetCursor(LoadCursor(NULL, IDC_NO));
 			}
 
@@ -221,4 +246,32 @@ void FolderContents::RefreshButton(ID3D11ShaderResourceView* srv, shared_ptr<Met
 		}
 	}
 	ImGui::PopID();
+}
+
+void FolderContents::CreateMeshPreviewObj(shared_ptr<MetaData>& meta)
+{
+	auto shader = RESOURCES->Get<Shader>(L"Thumbnail");
+	auto model = RESOURCES->Get<Model>(L"MODEL_" + meta->fileName);
+	
+	BoundingBox box = model->CalculateModelBoundingBox();
+
+	auto obj = make_shared<GameObject>();
+
+	float modelScale = max(max(box.Extents.x, box.Extents.y), box.Extents.z) * 2.0f;
+	float globalScale = MODEL_GLOBAL_SCALE;
+
+	if (modelScale > 10.f)
+		modelScale = globalScale;
+
+	float scale = globalScale / modelScale;
+
+	obj->GetOrAddTransform()->SetPosition(Vec3::Zero);
+	obj->GetOrAddTransform()->SetRotation(Vec3(0.f, 0.f, 0.f));
+	obj->GetOrAddTransform()->SetScale(Vec3(scale, scale, scale));
+
+	obj->AddComponent(make_shared<ModelRenderer>(shader));
+	obj->GetModelRenderer()->SetModel(model);
+	obj->GetModelRenderer()->SetPass(1);
+
+	_meshPreviewObjs.insert(make_pair(L"MODEL_" + meta->fileName, obj));
 }

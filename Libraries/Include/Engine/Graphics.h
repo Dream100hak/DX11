@@ -1,5 +1,6 @@
 #pragma once
 #include "Viewport.h"
+#include "JobQueue.h"
 
 class Texture;
 class ShadowMap;
@@ -18,12 +19,17 @@ public:
 
 	void RenderEnd();
 
-
 	ComPtr<ID3D11Device> GetDevice() { return _device; }
 	ComPtr<ID3D11DeviceContext> GetDeviceContext() { return _deviceContext; }
 
+	//-- 그림자 , 썸네일 , 프리뷰 등 필요한 일감들은 앞으로 JobQueue에 넣어 관리합니다. -- // 
+	shared_ptr<JobQueue>& GetPreRenderJobQueue() { return _preRenderJobQueue;  }
+	shared_ptr<JobQueue>& GetRenderJobQueue() { return _renderJobQueue;  }
+	shared_ptr<JobQueue>& GetPostRenderJobQueue() { return _postRenderJobQueue;  }
+
+	//----------------------------------------------------------------------------------
+
 	shared_ptr<MeshThumbnail> GetMeshThumbnail() { return _thumbnail; }
-	shared_ptr<ShadowMap> GetShadowMap() { return _smap; }
 
 	ComPtr <ID3D11DepthStencilState> GetDSStateStandard() { return _dsStateStandard; }
 	ComPtr <ID3D11DepthStencilState> GetDSStateOutline() { return _dsStateOutline; }
@@ -65,6 +71,8 @@ private:
 
 	shared_ptr<MeshThumbnail> _thumbnail = nullptr;
 
-	shared_ptr<ShadowMap> _smap = nullptr;
+	shared_ptr<JobQueue> _preRenderJobQueue = nullptr;
+	shared_ptr<JobQueue> _renderJobQueue = nullptr;
+	shared_ptr<JobQueue> _postRenderJobQueue = nullptr;
 
 };

@@ -46,7 +46,7 @@ public:
 	wstring FindEmptyName(CreatedObjType type);
 
 	int32 CreateMesh(CreatedObjType type);
-	int32 CreateModelMesh(shared_ptr<Model> model , Vec3 position = Vec3(0,0,0));
+	int32 CreateModelMesh(shared_ptr<Model> model);
 
 	template<class E>
 	std::string EnumToString(E e)

@@ -130,22 +130,6 @@ void MeshRenderer::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
 	if (lightObj)
 		shader->PushLightData(lightObj->GetLight()->GetLightDesc());
 	
-
-	{
-		DCT->OMSetDepthStencilState(nullptr, 1);
-
-		if (lightObj)
-			shader->PushLightData(lightObj->GetLight()->GetLightDesc());
-
-		_material->Update();
-		// IA
-		_mesh->GetVertexBuffer()->PushData();
-		_mesh->GetIndexBuffer()->PushData();
-
-		buffer->PushData();
-		shader->DrawIndexedInstanced(_teq, _pass, _mesh->GetIndexBuffer()->GetCount(), buffer->GetCount());
-	}
-
 	{
 
 		////Outline 
@@ -164,6 +148,21 @@ void MeshRenderer::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
 			buffer->PushData();
 			shader->DrawIndexedInstanced(1, _pass, _mesh->GetIndexBuffer()->GetCount(), buffer->GetCount());
 		}
+	}
+	
+	{
+		DCT->OMSetDepthStencilState(nullptr, 1);
+
+		if (lightObj)
+			shader->PushLightData(lightObj->GetLight()->GetLightDesc());
+
+		_material->Update();
+		// IA
+		_mesh->GetVertexBuffer()->PushData();
+		_mesh->GetIndexBuffer()->PushData();
+
+		buffer->PushData();
+		shader->DrawIndexedInstanced(_teq, _pass, _mesh->GetIndexBuffer()->GetCount(), buffer->GetCount());
 	}
 	
 }

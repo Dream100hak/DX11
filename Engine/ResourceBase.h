@@ -7,7 +7,6 @@ enum class ResourceType : uint8
 	Shader,
 	Texture,
 	Material,
-	Model,
 	Animation,
 
 	End

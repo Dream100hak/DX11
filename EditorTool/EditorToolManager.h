@@ -10,6 +10,8 @@ public:
 	void Init();
 	void Update();
 
+	void MakeGameObject();
+
 public:
 
 	const unordered_map<string, shared_ptr< EditorWindow>>& GetEditorWindows() const {return _editorWindows;}
@@ -49,7 +51,6 @@ private:
 	wstring _selectedFolder = L"";  // 사용자가 선택한 폴더
 	wstring _selectedItem = L"";  // 사용자가 선택한 폴더
 	map<wstring, shared_ptr<MetaData>> _cashesFileList;
-	map<wstring, shared_ptr<Model>> _cashesModelList;
 
 };
 

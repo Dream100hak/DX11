@@ -7,10 +7,6 @@ void Graphics::Init(HWND hwnd)
 {
 	_hwnd = hwnd;
 
-	_preRenderJobQueue = make_shared<JobQueue>();
-	_renderJobQueue = make_shared<JobQueue>();
-	_postRenderJobQueue = make_shared<JobQueue>();
-
 	CreateDeviceAndSwapChain();
 	CreateRenderTargetView();
 	CreateDepthStencilView();
@@ -18,13 +14,15 @@ void Graphics::Init(HWND hwnd)
 
 void Graphics::PreRenderBegin()
 {
-	_preRenderJobQueue->Execute();
+	if (_smap == nullptr)
+		_smap = make_shared<ShadowMap>(2048, 2048);
+
+	_smap->BindDsvAndSetNullRenderTarget();
+	_smap->Draw();
 }
 
 void Graphics::RenderBegin()
-{	
-	_renderJobQueue->Execute();
-
+{
 	_deviceContext->RSSetState(0);
 
 	_deviceContext->OMSetRenderTargets(1, _renderTargetView.GetAddressOf(), _depthStencilView.Get());
@@ -36,8 +34,6 @@ void Graphics::RenderBegin()
 
 void Graphics::PostRenderBegin()
 {
-	_postRenderJobQueue->Execute();
-
 	if (_thumbnail == nullptr)
 		_thumbnail = make_shared<MeshThumbnail>(512, 512);
 	_thumbnail->Draw();
@@ -120,6 +116,8 @@ void Graphics::CreateDepthStencilView()
 		HRESULT hr = DEVICE->CreateTexture2D(&desc, nullptr, _depthStencilTexture.GetAddressOf());
 		CHECK(hr);
 	}
+
+
 	// ½ºÅÄ´Ùµå ¿ë 
 	{
 		D3D11_DEPTH_STENCIL_DESC depthStencilDesc;

@@ -220,15 +220,6 @@
     <ClInclude Include="Graphics.h">
       <Filter>01. Graphics\Render</Filter>
     </ClInclude>
-    <ClInclude Include="Job.h">
-      <Filter>08. Job</Filter>
-    </ClInclude>
-    <ClInclude Include="JobQueue.h">
-      <Filter>08. Job</Filter>
-    </ClInclude>
-    <ClInclude Include="JobTimer.h">
-      <Filter>08. Job</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -441,15 +432,6 @@
     <ClCompile Include="Graphics.cpp">
       <Filter>01. Graphics\Render</Filter>
     </ClCompile>
-    <ClCompile Include="Job.cpp">
-      <Filter>08. Job</Filter>
-    </ClCompile>
-    <ClCompile Include="JobQueue.cpp">
-      <Filter>08. Job</Filter>
-    </ClCompile>
-    <ClCompile Include="JobTimer.cpp">
-      <Filter>08. Job</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="98. Utils">
@@ -505,9 +487,6 @@
     </Filter>
     <Filter Include="01. Graphics\Render">
       <UniqueIdentifier>{f3d64771-eddf-436e-a7af-02b4e8d5aab9}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="08. Job">
-      <UniqueIdentifier>{54296739-e5e5-467c-bbc1-b9c239ee5787}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

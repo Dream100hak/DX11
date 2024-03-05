@@ -1,17 +1,14 @@
 #pragma once
-#include "ResourceBase.h"
 
 struct ModelBone;
 struct ModelMesh;
 struct ModelAnimation;
 
-class Model : public ResourceBase
+class Model : public enable_shared_from_this<Model>
 {
-	using Super = ResourceBase;
-
 public:
 	Model();
-	virtual ~Model();
+	~Model();
 
 public:
 	void ReadMaterial(wstring filename);
@@ -38,7 +35,9 @@ public:
 	shared_ptr<ModelAnimation> GetAnimationByIndex(UINT index) { return (index < 0 || index >= _animations.size()) ? nullptr : _animations[index]; }
 	shared_ptr<ModelAnimation> GetAnimationByName(wstring name);
 
+
 	BoundingBox CalculateModelBoundingBox();
+
 
 private:
 	void BindCacheInfo();

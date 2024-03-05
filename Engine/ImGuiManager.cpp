@@ -135,7 +135,7 @@ int32 ImGuiManager::CreateMesh(CreatedObjType type)
 
 }
 
-int32 ImGuiManager::CreateModelMesh(shared_ptr<Model> model, Vec3 position /*= Vec3(0,0,0)*/)
+int32 ImGuiManager::CreateModelMesh(shared_ptr<Model> model)
 {
 	auto obj = make_shared<GameObject>();
 	auto shader = RESOURCES->Get<Shader>(L"Standard");
@@ -148,12 +148,12 @@ int32 ImGuiManager::CreateModelMesh(shared_ptr<Model> model, Vec3 position /*= V
 		modelScale = globalScale;
 
 	float scale = globalScale / modelScale;
-
+	
 	wstring name;
 	name = FindEmptyName(CreatedObjType::MODEL);
 	obj->SetObjectName(name);
 
-	obj->GetOrAddTransform()->SetPosition(position);
+	obj->GetOrAddTransform()->SetPosition(Vec3::Zero);
 	obj->GetOrAddTransform()->SetRotation(Vec3(0, 0, 0));
 	obj->GetOrAddTransform()->SetScale(Vec3(scale, scale, scale));
 

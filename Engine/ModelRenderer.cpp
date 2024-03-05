@@ -113,8 +113,8 @@ void ModelRenderer::ChangeShader(shared_ptr<Shader> shader)
 	for (auto& material : materials)
 	{
 		material->SetShader(shader);
-		auto shadowMap = GRAPHICS->GetShadowMap();
-		material->SetShadowMap(static_pointer_cast<Texture>(shadowMap));
+	//	auto shadowMap = GRAPHICS->GetShadowMap();
+	//	material->SetShadowMap(static_pointer_cast<Texture>(shadowMap));
 	}
 }
 
@@ -293,92 +293,27 @@ bool ModelRenderer::Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& dis
 void ModelRenderer::TransformBoundingBox()
 {
 
-	//Matrix W = GetTransform()->GetWorldMatrix();
+	Matrix W = GetTransform()->GetWorldMatrix();
 
-	//vector<shared_ptr<ModelMesh>>& meshes = _model->GetMeshes();
-	//vector<shared_ptr<ModelBone>>& bones = _model->GetBones();
+	Vec3 vMin = Vec3(MathUtils::INF, MathUtils::INF, MathUtils::INF);
+	Vec3 vMax = Vec3(-MathUtils::INF, -MathUtils::INF, -MathUtils::INF);
 
-	//if(meshes.size() == 0 || bones.size() == 0)
-	//	return;
+	Vec3 corners[8];
+	BoundingBox modelBox;
+	modelBox.Center = Vec3(0.f,1.0f,0.f);
+	modelBox.Extents = Vec3(1.0f,1.0f,1.0f);
+	modelBox.GetCorners(corners);
 
-	//Vec3 vMin = Vec3(MathUtils::INF, MathUtils::INF, MathUtils::INF);
-	//Vec3 vMax = Vec3(-MathUtils::INF, -MathUtils::INF, -MathUtils::INF);
+	for (int i = 0; i < 8; ++i) {
+		corners[i] = XMVector3TransformCoord(corners[i], W);
+	}
 
-	//Vec3 corners[8];
-	//BoundingBox& modelBox = GetModel()->GetModelBox();
-	//
-	//modelBox.GetCorners(corners);
+	for (const Vec3& corner : corners) {
+		vMin = ::XMVectorMin(vMin, corner);
+		vMax = ::XMVectorMax(vMax, corner);
+	}
 
-	//for (int i = 0; i < 8; ++i) {
-	//	corners[i] = XMVector3TransformCoord(corners[i], W);
-	//}
-
-	//for (const Vec3& corner : corners) {
-	//	vMin = ::XMVectorMin(vMin, corner);
-	//	vMax = ::XMVectorMax(vMax, corner);
-	//}
-
-	//_boundingBox.Center = 0.5f * (vMin + vMax);
-	//_boundingBox.Extents = 0.5f * (vMax - vMin);
+	_boundingBox.Center = 0.5f * (vMin + vMax);
+	_boundingBox.Extents = 0.5f * (vMax - vMin);
 
 }
-
-//void ModelRenderer::TestRenderStart()
-//{
-//	auto mat = RESOURCES->Get<Material>(L"Collider");
-//
-//	if (mat == nullptr)
-//	{
-//		mat = make_shared<Material>();
-//		auto shader = make_shared<Shader>(L"01. Collider.fx");
-//		mat->SetShader(shader);
-//		MaterialDesc& desc = mat->GetMaterialDesc();
-//		desc.diffuse = Vec4(0.f, 1.f, 0.f, 1.f);
-//
-//		RESOURCES->Add(L"Collider", mat);
-//	}
-//
-//	TransformBoundingBox();
-//
-//	_material = mat;
-//	_geometry = make_shared<Geometry<VertexColorData>>();
-//
-//	GeometryHelper::CreateAABB(_geometry, mat->GetMaterialDesc().diffuse, _boundingBox);
-//
-//	_vertexBuffer = make_shared<VertexBuffer>();
-//	_vertexBuffer->Create(_geometry->GetVertices());
-//	_indexBuffer = make_shared<IndexBuffer>();
-//	_indexBuffer->Create(_geometry->GetIndices());
-//
-//
-//}
-//
-//void ModelRenderer::TestRenderBox()
-//{
-//	
-//	TestRenderStart();
-//
-//	if (_material == nullptr || _geometry == nullptr)
-//		return;
-//
-//	auto shader = _material->GetShader();
-//
-//	if (shader == nullptr)
-//		return;
-//
-//	Matrix world;
-//	Matrix matScale = Matrix::CreateScale(_boundingBox.Extents);
-//	Matrix matTranslation = Matrix::CreateTranslation(_boundingBox.Center );
-//
-//	world = matScale * matTranslation;
-//	shader->PushTransformData(TransformDesc{ world });
-//
-//	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
-//	// GlobalData
-//	shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
-//
-//	_vertexBuffer->PushData();
-//	_indexBuffer->PushData();
-//
-//	shader->DrawLineIndexed(0, 0, _indexBuffer->GetCount());
-//}

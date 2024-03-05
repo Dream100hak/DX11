@@ -31,7 +31,7 @@ MeshOutput VS_ModelOutline(VertexModel input)
    
     MeshOutput output;
     
-    float outlineThickness = 0.4f;
+    float outlineThickness = 0.02f;
 
     // 모델의 월드 공간에서 정점 위치 계산
     float4 worldPosition = mul(input.position, BoneTransforms[BoneIndex]); // Bone Transform

@@ -24,8 +24,6 @@
 #include "Material.h"
 #include "ShortcutManager.h"
 #include "EditorToolManager.h"
-#include <boost/describe.hpp>
-#include <boost/mp11.hpp>
 
 #include "AsConverter.h"
 
@@ -36,20 +34,20 @@ void EditorTool::Init()
 	
 	shared_ptr<AsConverter> converter = make_shared<AsConverter>();
 
-//	converter->ReadAssetFile(L"Tower/Tower2.fbx");
-//	converter->ExportMaterialData(L"Tower/Tower");
-//	converter->ExportModelData(L"Tower/Tower");
+	//converter->ReadAssetFile(L"Naru/naru.fbx");
+	//converter->ExportMaterialData(L"Naru/Naru");
+//	converter->ExportModelData(L"Naru/Naru");
 
 	GET_SINGLE(ShortcutManager)->Init();
 	GET_SINGLE(EditorToolManager)->Init();
 
 	_sceneCam = make_shared<SceneCamera>();
-
 	auto shader = RESOURCES->Get<Shader>(L"Standard");
 
 	shared_ptr<GameObject> sceneCamera = make_shared<GameObject>();
 	sceneCamera->SetObjectName(L"Scene Camera");
-	sceneCamera->GetOrAddTransform()->SetPosition(Vec3{ -31.716f, 14.f, -25.f });
+	sceneCamera->GetOrAddTransform()->SetPosition(Vec3{ -7.102f, 5.f, -9.f });
+	sceneCamera->GetOrAddTransform()->SetRotation(Vec3{ 0.346f, 0.56f, 0.f });
 	sceneCamera->AddComponent(make_shared<Camera>());
 	sceneCamera->GetCamera()->SetCullingMaskLayerOnOff(LayerMask::UI, true);
 	sceneCamera->AddComponent(_sceneCam);
@@ -174,36 +172,36 @@ void EditorTool::Init()
 	//}
 	//{
 
-	//{
-	//	shared_ptr<class Model> m2 = make_shared<Model>();
-	//	m2->ReadModel(L"Juno/Juno");
-	//	m2->ReadMaterial(L"Juno/Juno");
+	{
+		//shared_ptr<class Model> m2 = make_shared<Model>();
+		//m2->ReadModel(L"Naru/Naru");
+		//m2->ReadMaterial(L"Naru/Naru");
 
-	//	for (int i = 10; i < 15; i++)
-	//	{
-	//		auto obj = make_shared<GameObject>();
-	//		wstring name = L"Model_" + to_wstring(i);
-	//		obj->SetObjectName(name);
+		//for (int i = 10; i < 11; i++)
+		//{
+		//	auto obj = make_shared<GameObject>();
+		//	wstring name = L"Model_" + to_wstring(i);
+		//	obj->SetObjectName(name);
 
-	//		if(i == 10)
-	//			obj->GetOrAddTransform()->SetPosition(Vec3(3,0,5));
-	//		else
-	//			obj->GetOrAddTransform()->SetPosition(Vec3(rand() % 100, 0, rand() % 100));
+		//	if(i == 10)
+		//		obj->GetOrAddTransform()->SetPosition(Vec3(3,0,5));
+		//	else
+		//		obj->GetOrAddTransform()->SetPosition(Vec3(rand() % 100, 0, rand() % 100));
 
-	//		obj->GetOrAddTransform()->SetScale(Vec3(10.f));
+		//	obj->GetOrAddTransform()->SetScale(Vec3(10.f));
 
-	//		obj->AddComponent(make_shared<ModelRenderer>(shader));
-	//		obj->GetModelRenderer()->SetModel(m2);
-	//		obj->GetModelRenderer()->SetPass(1);
+		//	obj->AddComponent(make_shared<ModelRenderer>(shader));
+		//	obj->GetModelRenderer()->SetModel(m2);
+		//	obj->GetModelRenderer()->SetPass(1);
 
-	//	//	auto collider = make_shared<OBBBoxCollider>();
-	//	//	collider->SetOffset(Vec3(0.f, 8.f, 0.f));
-	//	//	collider->GetBoundingBox().Extents = Vec3(1.5f, 2.8f, 1.5f);		
-	//	//	obj->AddComponent(collider);
+		////	auto collider = make_shared<OBBBoxCollider>();
+		////	collider->SetOffset(Vec3(0.f, 8.f, 0.f));
+		////	collider->GetBoundingBox().Extents = Vec3(1.5f, 2.8f, 1.5f);		
+		////	obj->AddComponent(collider);
 
-	//		CUR_SCENE->Add(obj);
-	//	}
-	//}
+		//	CUR_SCENE->Add(obj);
+		//}
+	}
 }
 
 void EditorTool::Update()
@@ -213,14 +211,8 @@ void EditorTool::Update()
 
 	ImGui::ShowDemoWindow(&_showWindow);
 
-	auto shadowMap = GRAPHICS->GetShadowMap();
-	auto shadowTex = static_pointer_cast<Texture>(shadowMap);
+	DrawShadowMap();
 
-	ImGui::Begin("ShadowMap");
-	ImGui::Image((void*)shadowMap->GetComPtr().Get(), ImVec2(400, 400));
-	ImGui::End();
-
-	//ADDLOG("Test!!" , LogFilter::Info);
 }
 
 void EditorTool::Render()
@@ -237,5 +229,24 @@ void EditorTool::OnMouseWheel(int32 scrollAmount)
 	{
 		_sceneCam->MoveCam(scrollAmount);
 	}
+}
 
+void EditorTool::DrawShadowMap()
+{
+
+	if (_smap == nullptr)
+		_smap = make_shared<ShadowMap>(2048, 2048);
+	
+	JOB_PRE_RENDER->DoPush( [=]()
+		{
+			_smap->BindDsvAndSetNullRenderTarget();
+			_smap->Draw();
+		});
+
+	//shadowMap = GRAPHICS->GetShadowMap();
+	//auto shadowTex = static_pointer_cast<Texture>(shadowMap);
+
+	ImGui::Begin("ShadowMap");
+	ImGui::Image(_smap->GetComPtr().Get(), ImVec2(400, 400));
+	ImGui::End();
 }

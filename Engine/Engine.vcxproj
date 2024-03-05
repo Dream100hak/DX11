@@ -162,6 +162,9 @@
     <ClInclude Include="ConstantBuffer.h" />
     <ClInclude Include="Define.h" />
     <ClInclude Include="EnginePch.h" />
+    <ClInclude Include="Job.h" />
+    <ClInclude Include="JobQueue.h" />
+    <ClInclude Include="JobTimer.h" />
     <ClInclude Include="ProjectManager.h" />
     <ClInclude Include="FileUtils.h" />
     <ClInclude Include="Frustum.h" />
@@ -236,6 +239,9 @@
     <ClCompile Include="Component.cpp" />
     <ClCompile Include="ConstantBuffer.cpp" />
     <ClCompile Include="Engine.cpp" />
+    <ClCompile Include="Job.cpp" />
+    <ClCompile Include="JobQueue.cpp" />
+    <ClCompile Include="JobTimer.cpp" />
     <ClCompile Include="ProjectManager.cpp" />
     <ClCompile Include="FileUtils.cpp" />
     <ClCompile Include="Frustum.cpp" />

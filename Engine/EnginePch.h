@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <typeinfo>
 #include <typeindex>
+#include <queue>
 using namespace std;
 
 // WIN

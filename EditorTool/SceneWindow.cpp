@@ -9,6 +9,9 @@
 #include "SkyBox.h"
 #include "Light.h"
 #include "SceneGrid.h"
+#include "FolderContents.h"
+
+#include "Model.h"
 
 const char* SceneWindow::s_translationInfoMask[] = { "X : %5.3f", "Y : %5.3f", "Z : %5.3f",
    "Y : %5.3f Z : %5.3f", "X : %5.3f Z : %5.3f", "X : %5.3f Y : %5.3f",
@@ -43,20 +46,30 @@ void SceneWindow::ShowSceneWindow()
 
 	const ImGuiIO& io = ImGui::GetIO();
 
+	auto& prviewObjs = 
+		static_pointer_cast<FolderContents>(TOOL->GetEditorWindow(Utils::GetClassNameEX<FolderContents>()))->GetMeshPreviewObjs();
+
 	ImVec2 scenePos(GAME->GetSceneDesc().x, GAME->GetSceneDesc().y);
 	ImVec2 sceneSize(GAME->GetSceneDesc().width, GAME->GetSceneDesc().height);
-	// 드롭 가능 영역 설정
+
 	if (ImGui::BeginDragDropTargetCustom(ImRect(scenePos, scenePos + sceneSize), ImGui::GetID("Scene"))) 
 	{	
 		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MeshPayload"))
 		{
 			MetaData** droppedMeshRawPtr = static_cast<MetaData**>(payload->Data);
-			std::shared_ptr<MetaData> droppedMesh = std::make_shared<MetaData>(**droppedMeshRawPtr);
+			shared_ptr<MetaData> droppedMesh =	make_shared<MetaData>(**droppedMeshRawPtr);
 
-			wstring wsName = droppedMesh->fileName;
-			wstring wsPath = droppedMesh->fileFullPath;
+			shared_ptr<GameObject> obj =  prviewObjs[L"MODEL_" + droppedMesh->fileName];
+			CUR_SCENE->Remove(obj);
+		
+			auto model = RESOURCES->Get<Model>(L"MODEL_" + droppedMesh->fileName);
 
-			ADDLOG("DropTarget To Scene ", LogFilter::Warn);
+			int32 id = GUI->CreateModelMesh(model , obj->GetTransform()->GetPosition());
+			CUR_SCENE->UnPickAll();
+			TOOL->SetSelectedObjH(id);
+			CUR_SCENE->GetCreatedObject(id)->SetUIPicked(true);
+
+			ADDLOG("Create Object : " + Utils::ToString(droppedMesh->fileName) , LogFilter::Warn);
 			SetCursor(LoadCursor(NULL, IDC_ARROW));
 		}
 		ImGui::EndDragDropTarget();

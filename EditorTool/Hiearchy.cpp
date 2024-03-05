@@ -39,7 +39,7 @@ void Hiearchy::ShowHiearchy()
 	ImGui::Begin("Hiearchy", nullptr);
 
 	// 드롭 가능 영역 설정
-	if (ImGui::BeginDragDropTargetCustom(ImRect(GetEWinPos(), GetEWinPos() + GetEWinSize()), ImGui::GetID("Scene")))
+	if (ImGui::BeginDragDropTargetCustom(ImRect(GetEWinPos(), GetEWinPos() + GetEWinSize()), ImGui::GetID("Hiearchy")))
 	{
 		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MeshPayload"))
 		{
@@ -48,11 +48,7 @@ void Hiearchy::ShowHiearchy()
 
 			if(metaData->metaType == MetaType::MESH)
 			{
-				shared_ptr<Model> model = make_shared<Model>();
-				wstring modelName = metaData->fileName.substr(0, metaData->fileName.find('.'));
-				
-				model->ReadModel(modelName + L'/' + modelName);
-				model->ReadMaterial(modelName + L'/' + modelName);
+				auto model = RESOURCES->Get<Model>(L"MODEL_" + metaData->fileName);
 
 				int32 id = GUI->CreateModelMesh(model);
 				CUR_SCENE->UnPickAll();
@@ -96,21 +92,17 @@ void Hiearchy::ShowHiearchy()
 
 		if (isSelected && ImGui::IsItemClicked() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
 		{
-		
 			auto camera = SCENE->GetCurrentScene()->GetMainCamera();
 			if (camera)
 			{
 				Vec3 objPos = object.second->GetTransform()->GetPosition();
 				auto cameraTransform = SCENE->GetCurrentScene()->GetMainCamera()->GetTransform();
 
-				// 카메라와 오브젝트 사이의 기본 거리를 정의합니다.
-				float distance = 10.0f; // 이 값을 조정하여 카메라가 오브젝트로부터 떨어지는 거리를 변경할 수 있습니다.
+				float distance = 10.0f; 
 
-				// 카메라가 오브젝트를 바라보는 방향 벡터를 계산합니다.
 				Vec3 lookDirection = cameraTransform->GetLook();
-				lookDirection.Normalize(); // 방향 벡터는 항상 정규화되어야 합니다.
+				lookDirection.Normalize(); 
 
-				// 카메라를 오브젝트의 위치로 이동시키되, 바라보는 방향의 반대 방향으로 일정 거리 떨어지도록 합니다.
 				Vec3 cameraPosition = objPos - (lookDirection * distance);
 
 				cameraTransform->SetPosition(cameraPosition);

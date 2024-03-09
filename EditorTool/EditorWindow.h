@@ -13,10 +13,14 @@ public:
 	ImVec2 GetEWinSize() { return ImVec2(_winSize.x , _winSize.y); }
 
 	void SetWinPosAndSize(Vec2 pos , Vec2 size) {_winPos = pos, _winSize = size;}
+	ImGuiWindow* GetCurrentGUIWindow() { return _guiWindow; }
+
 
 protected:
 	Vec2 _winPos;
 	Vec2 _winSize;
+
+	ImGuiWindow* _guiWindow = nullptr; 
 
 };
 

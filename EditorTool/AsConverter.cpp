@@ -12,7 +12,6 @@ AsConverter::AsConverter()
 
 AsConverter::~AsConverter()
 {
-
 }
 
 void AsConverter::ReadAssetFile(wstring file)
@@ -80,11 +79,19 @@ void AsConverter::ExportModelData(wstring savePath)
 	WriteModelFile(finalPath);
 }
 
-void AsConverter::ExportMaterialData(wstring savePath)
+void AsConverter::ExportMaterialDataByXml(wstring savePath)
 {
 	wstring finalPath = _texturePath + savePath + L".xml";
 	ReadMaterialData();
-	WriteMaterialData(finalPath);
+	WriteMaterialDataByXml(finalPath);
+}
+
+
+void AsConverter::ExportMaterialDataByMat(wstring savePath)
+{
+	wstring finalPath = _modelPath + savePath + L".mat";
+	ReadMaterialData();
+	WriteMaterialDataByXml(finalPath);
 }
 
 void AsConverter::ExportAnimationData(wstring savePath, uint32 index /*= 0*/)
@@ -94,6 +101,7 @@ void AsConverter::ExportAnimationData(wstring savePath, uint32 index /*= 0*/)
 	shared_ptr<asAnimation> animation = ReadAnimationData(_scene->mAnimations[index]);
 	WriteAnimationData(animation, finalPath);
 }
+
 
 void AsConverter::ReadModelData(aiNode* node, int32 index, int32 parent)
 {
@@ -310,7 +318,7 @@ void AsConverter::ReadMaterialData()
 	}
 }
 
-void AsConverter::WriteMaterialData(wstring finalPath)
+void AsConverter::WriteMaterialDataByXml(wstring finalPath)
 {
 	auto path = filesystem::path(finalPath);
 
@@ -318,7 +326,6 @@ void AsConverter::WriteMaterialData(wstring finalPath)
 	filesystem::create_directory(path.parent_path());
 
 	string folder = path.parent_path().string();
-
 	shared_ptr<tinyxml2::XMLDocument> document = make_shared<tinyxml2::XMLDocument>();
 
 	tinyxml2::XMLDeclaration* decl = document->NewDeclaration();
@@ -380,6 +387,44 @@ void AsConverter::WriteMaterialData(wstring finalPath)
 	}
 
 	document->SaveFile(Utils::ToString(finalPath).c_str());
+}
+
+void AsConverter::WriteMaterialDataByMat(wstring finalPath)
+{
+	auto path = filesystem::path(finalPath);
+	// 폴더가 없으면 만든다.
+	filesystem::create_directory(path.parent_path());
+
+	shared_ptr<FileUtils> file = make_shared<FileUtils>();
+	file->Open(finalPath, FileMode::Write);
+
+
+	file->Write<uint32>(_materials.size());
+	for (shared_ptr<asMaterial> material : _materials)
+	{
+		file->Write<string>(material->name);
+		//file->Write<>(bone->parent);
+		//file->Write<Matrix>(bone->transform);
+	}
+
+	//// Mesh Data
+	//file->Write<uint32>(_meshes.size());
+	//for (shared_ptr<asMesh>& meshData : _meshes)
+	//{
+	//	file->Write<string>(meshData->name);
+	//	file->Write<int32>(meshData->boneIndex);
+	//	file->Write<string>(meshData->materialName);
+
+	//	// Vertex Data
+	//	file->Write<uint32>(meshData->vertices.size());
+	//	file->Write(&meshData->vertices[0], sizeof(VertexType) * meshData->vertices.size());
+
+	//	// Index Data
+	//	file->Write<uint32>(meshData->indices.size());
+	//	file->Write(&meshData->indices[0], sizeof(uint32) * meshData->indices.size());
+
+	//
+	//}
 }
 
 std::string AsConverter::WriteTexture(string saveFolder, string file)

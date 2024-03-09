@@ -13,7 +13,7 @@ public:
 	virtual void Update() override;
 
 	void ShowProject();
-	void ListFolderHierarchy(const wstring& directory);
+	void ListFolderHierarchy(const wstring& directory , bool isForcedToggle = false);
 
 private:
 
@@ -31,13 +31,9 @@ private:
 		return path.substr(0, pos);
 	}
 
-	MetaType GetMetaType(const wstring& name);
-
 	void RefreshCasheFileList(const wstring& directory);
-
 
 private:
 	wstring _rootDirectory = L"";
-
 
 };

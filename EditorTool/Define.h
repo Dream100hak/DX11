@@ -20,6 +20,7 @@ enum MetaType
 	SOUND,
 	IMAGE,
 	MESH,
+	MATERIAL,
 	XML,
 	Unknown,
 };

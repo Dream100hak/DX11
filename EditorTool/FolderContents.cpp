@@ -17,6 +17,9 @@
 #include "Hiearchy.h"
 #include "Utils.h"
 
+#include "Project.h"
+#include "FileUtils.h"
+
 FolderContents::FolderContents(Vec2 pos, Vec2 size)
 {
 	SetWinPosAndSize(pos, size);
@@ -33,7 +36,8 @@ void FolderContents::Init()
 	{
 		_meshPreviewCamera = make_shared<GameObject>();
 		_meshPreviewCamera->AddComponent(make_shared<Camera>());
-		_meshPreviewCamera->GetOrAddTransform()->SetPosition(Vec3(0, 1.f, -4.f));
+		_meshPreviewCamera->GetOrAddTransform()->SetPosition(Vec3(-1.5f, 1.f, -4.f));
+		_meshPreviewCamera->GetOrAddTransform()->SetRotation(Vec3(0.f, 0.35f, 0.f));
 		_meshPreviewCamera->GetCamera()->UpdateMatrix();
 	}
 }
@@ -44,6 +48,20 @@ void FolderContents::Update()
 	ImGui::SetNextWindowSize(GetEWinSize());
 	ShowFolderContents();
 }
+
+void FolderContents::PopupContextMenu()
+{
+	if (ImGui::BeginPopupContextWindow())
+	{
+		if (ImGui::MenuItem("Create Material"))
+		{
+			CreateMaterial();
+		}
+
+		ImGui::EndPopup();
+	}
+}
+
 
 void FolderContents::ShowFolderContents()
 {
@@ -90,12 +108,13 @@ void FolderContents::ShowFolderContents()
 		}
 	}
 
+	PopupContextMenu();
+
 	ImGui::End();
 }
 
 void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta, int32 columns, int32 id)
 {
-
 	ImGui::TableNextColumn();
 
 	float cellWidth = ImGui::GetColumnWidth();
@@ -104,13 +123,17 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.25f, 0.25f, 1.0f)); // 마우스 오버시 검정색
 	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.4f, 0.4f, 0.4f, 1.0f)); // 클릭시 검정색
 
-	float cursorX = (cellWidth - 50) * 0.5f; // 중앙 정렬 계산
+	float cursorX = (cellWidth - 75) * 0.5f; // 중앙 정렬 계산
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + cursorX);
 	// 폴더 처리
 	if (meta->metaType == MetaType::FOLDER)
 	{
 		auto tex = RESOURCES->Get<Texture>(L"Folder");
-		RefreshButton(tex->GetComPtr().Get(), meta, id, [=]() { SELECTED_FOLDER = meta->fileFullPath + L"\\" + meta->fileName; ADDLOG("Move Folder Path", LogFilter::Info); });
+		RefreshButton(tex->GetComPtr().Get(), meta, id, [=]() 
+		{ 
+			SELECTED_FOLDER = meta->fileFullPath + L"\\" + meta->fileName;  
+			ADDLOG("Move Folder Path", LogFilter::Info);
+		});
 	}
 
 	// 이미지 파일 처리
@@ -125,34 +148,36 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 		auto tex = RESOURCES->Get<Texture>(L"Text");
 		RefreshButton(tex->GetComPtr().Get(), meta, id, []() {});
 	}
-
+	// 매터리얼 파일 처리
+	else if (meta->metaType == MetaType::MATERIAL)
+	{
+		auto tex = RESOURCES->Get<Texture>(L"Text");
+		RefreshButton(tex->GetComPtr().Get(), meta, id, []() {});
+	}
 	// 메시 파일 처리
 	if (meta->metaType == MetaType::MESH)
 	{
 		shared_ptr<GameObject> obj = nullptr;
 
+		/////////////// Create Mesh Preview Obj ////////////////////////
 		if (_meshPreviewObjs.find(L"MODEL_" + meta->fileName) == _meshPreviewObjs.end())
+		{
 			CreateMeshPreviewObj(meta);
-
+		}
+			
 		obj = _meshPreviewObjs[L"MODEL_" + meta->fileName];
 
+		/////////////// Create Mesh Preview Thumbnail ////////////////////////
 		shared_ptr<MeshThumbnail> thumbnail = nullptr;
 
-		if(_meshPreviewthumbnails.find(L"MODEL_" + meta->fileName) == _meshPreviewthumbnails.end())
+		if (_meshPreviewthumbnails.find(L"MODEL_" + meta->fileName) == _meshPreviewthumbnails.end())
 		{
-			thumbnail = make_shared<MeshThumbnail>(512, 512);
-			thumbnail->SetModelAndCam(obj->GetModelRenderer(), _meshPreviewCamera->GetCamera());
-			thumbnail->SetWorldMatrix(obj->GetOrAddTransform()->GetWorldMatrix());
-
-			_meshPreviewthumbnails.insert(make_pair(L"MODEL_" + meta->fileName, thumbnail));
-			
-			JOB_POST_RENDER->DoPush([=]()
-			{
-				thumbnail->Draw();
-			});
+			CreateMeshPreviewThumbnail(meta , obj);
 		}
-
+		
 		thumbnail = _meshPreviewthumbnails[L"MODEL_" + meta->fileName];
+
+		/////////////////////////////////////////////////////////////////////////
 
 		RefreshButton(thumbnail->GetComPtr().Get(), meta, id, []() {});
 
@@ -200,13 +225,11 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 			else if (IsMouseInGUIWindow(hiearchyPos, hiearchySize))
 			{
 				CUR_SCENE->Remove(obj);
-
 				::SetCursor(LoadCursor(NULL, IDC_HAND));
 			}
 			else
 			{
 				CUR_SCENE->Remove(obj);
-
 				::SetCursor(LoadCursor(NULL, IDC_NO));
 			}
 
@@ -222,10 +245,12 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 
 	ImGui::PopStyleColor(3);
 
-	std::string itemName = Utils::ToString(meta->fileName);
+	string itemName = AdjustItemNameToFit(Utils::ToString(meta->fileName), _displayBtnWidth);
 	ImVec2 textSize = ImGui::CalcTextSize(itemName.c_str());
+
 	cursorX = (cellWidth - textSize.x) * 0.5f; // 중앙 정렬 계산
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + cursorX);
+
 	ImGui::Text(itemName.c_str()); // 이름 표시
 }
 
@@ -234,7 +259,7 @@ void FolderContents::RefreshButton(ID3D11ShaderResourceView* srv, shared_ptr<Met
 	ImGui::PushID(id);
 	if (srv != nullptr)
 	{
-		if (ImGui::ImageButton(srv, ImVec2(50, 50))) {
+		if (ImGui::ImageButton(srv, ImVec2(_displayBtnWidth, _displayBtnHeight))) {
 			SELECTED_ITEM = meta->fileFullPath;
 			TOOL->SetSelectedObjP(meta);
 		}
@@ -246,6 +271,35 @@ void FolderContents::RefreshButton(ID3D11ShaderResourceView* srv, shared_ptr<Met
 		}
 	}
 	ImGui::PopID();
+}
+
+void FolderContents::CreateMaterial()
+{
+	auto shader = RESOURCES->Get<Shader>(L"Standard");
+	shared_ptr<Material> material = RESOURCES->Get<Material>(L"DefaultMaterial")->Clone();
+
+	wstring finalPath = CreateUniqueMaterialName(SELECTED_FOLDER, L"New Material", L".mat");
+	auto path = filesystem::path(finalPath);
+
+	wstring fileName = path.filename().wstring();
+	wstring directory = path.parent_path().wstring();
+	filesystem::create_directory(path.parent_path());
+
+	shared_ptr<FileUtils> file = make_shared<FileUtils>();
+	file->Open(finalPath, FileMode::Write);
+
+	file->Write<int32>(5);
+	file->Write<int32>(7);
+	//file->Write<string>(material->name);
+
+	auto meta = make_shared<MetaData>();
+	meta->fileName = fileName;
+	meta->fileFullPath = directory;
+	meta->metaType = TOOL->GetMetaType(fileName);
+	CASHE_FILE_LIST.insert({ finalPath, meta });
+
+	ADDLOG("Create Material", LogFilter::Info);
+
 }
 
 void FolderContents::CreateMeshPreviewObj(shared_ptr<MetaData>& meta)
@@ -274,4 +328,20 @@ void FolderContents::CreateMeshPreviewObj(shared_ptr<MetaData>& meta)
 	obj->GetModelRenderer()->SetPass(1);
 
 	_meshPreviewObjs.insert(make_pair(L"MODEL_" + meta->fileName, obj));
+}
+
+void FolderContents::CreateMeshPreviewThumbnail(shared_ptr<MetaData>& meta , shared_ptr<GameObject>& obj)
+{
+	shared_ptr<MeshThumbnail> thumbnail = nullptr;
+
+	thumbnail = make_shared<MeshThumbnail>(512, 512);
+	thumbnail->SetModelAndCam(obj->GetModelRenderer(), _meshPreviewCamera->GetCamera());
+	thumbnail->SetWorldMatrix(obj->GetOrAddTransform()->GetWorldMatrix());
+
+	_meshPreviewthumbnails.insert(make_pair(L"MODEL_" + meta->fileName, thumbnail));
+
+	JOB_POST_RENDER->DoPush([=]()
+	{
+		thumbnail->Draw();
+	});
 }

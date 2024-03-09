@@ -20,6 +20,9 @@
 #include "Material.h"
 #include "MeshThumbnail.h"
 
+#include "FolderContents.h"
+#include "Utils.h"
+
 #include "SceneGrid.h"
 
 Inspector::Inspector(Vec2 pos, Vec2 size)
@@ -303,7 +306,8 @@ ID3D11ShaderResourceView* Inspector::GetMetaFileIcon()
 			srv = RESOURCES->Load<Texture>(L"FILE_" + metaData->fileName, metaData->fileFullPath + L"\\" + metaData->fileName)->GetComPtr().Get();
 			break;
 		case MESH:
-			srv = GRAPHICS->GetMeshThumbnail()->GetComPtr().Get();
+
+			srv = GetMeshThumbnail()->GetComPtr().Get();
 			break;
 		case TEXT:
 		case XML:
@@ -316,4 +320,15 @@ ID3D11ShaderResourceView* Inspector::GetMetaFileIcon()
 	}
 
 	return srv;
+}
+
+class shared_ptr<MeshThumbnail>& Inspector::GetMeshThumbnail()
+{
+	shared_ptr<MetaData> metaData = SELECTED_P;
+
+	auto& previewsThumbnails =
+		static_pointer_cast<FolderContents>(TOOL->GetEditorWindow(Utils::GetClassNameEX<FolderContents>()))->GetMeshPreviewThumbnails();
+
+	return previewsThumbnails[L"MODEL_" + metaData->fileName];
+	
 }

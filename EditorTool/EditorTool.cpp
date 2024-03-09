@@ -34,9 +34,9 @@ void EditorTool::Init()
 	
 	shared_ptr<AsConverter> converter = make_shared<AsConverter>();
 
-	//converter->ReadAssetFile(L"Naru/naru.fbx");
-	//converter->ExportMaterialData(L"Naru/Naru");
-//	converter->ExportModelData(L"Naru/Naru");
+	//converter->ReadAssetFile(L"Kachujin/Mesh.fbx");
+	//converter->ExportMaterialDataByXml(L"Kachujin/Kachujin");
+	//converter->ExportModelData(L"Kachujin/Kachujin");
 
 	GET_SINGLE(ShortcutManager)->Init();
 	GET_SINGLE(EditorToolManager)->Init();

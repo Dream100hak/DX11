@@ -58,7 +58,7 @@ void LogWindow::AddLog(string msg, LogFilter filter)
 void LogWindow::Draw(const char* title, bool* p_open /*= NULL*/)
 {
 	ImGui::SetNextWindowPos(ImVec2(0, 551));
-	ImGui::SetNextWindowSize(ImVec2(373 * 2, 500));
+	ImGui::SetNextWindowSize(ImVec2(800, 500));
 
 	if (!ImGui::Begin(title, p_open))
 	{
@@ -103,7 +103,7 @@ void LogWindow::Draw(const char* title, bool* p_open /*= NULL*/)
 
 	ImGui::Separator();
 
-	if (ImGui::BeginChild("scrolling", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar))
+	if (ImGui::BeginChild("scrolling", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_AlwaysVerticalScrollbar))
 	{
 		if (clear)
 			Clear();
@@ -143,12 +143,12 @@ void LogWindow::Draw(const char* title, bool* p_open /*= NULL*/)
 			ImGui::Text(logMsg.msg.c_str());
 			ImGui::SameLine(ImGui::GetWindowWidth() - ImGui::CalcTextSize("오른쪽에 글자").x - ImGui::GetStyle().ItemSpacing.x);
 
-			std::string countStr = std::to_string(logMsg.count);
+			std::string countStr = to_string(logMsg.count);
 			int countLength = static_cast<int>(countStr.length());
 
 			ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 10.0f);
 			ImVec2 buttonSize((countLength * 30.0f) * 0.5f, 15.f);
-			float buttonXPos = ImGui::GetWindowWidth() - buttonSize.x; 
+			float buttonXPos = (ImGui::GetWindowWidth() - buttonSize.x) - 20.f; 
 			float buttonYPos = ImGui::GetCursorPos().y + 5.0f; 
 			ImGui::SetCursorPos(ImVec2(buttonXPos, buttonYPos));
 			ImGui::Button("##logCount", buttonSize);

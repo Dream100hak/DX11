@@ -58,7 +58,7 @@ void Project::RefreshCasheFileList(const wstring& directory)
 		auto meta = make_shared<MetaData>();
 		meta->fileName = fileName;
 		meta->fileFullPath = directory;
-		meta->metaType = GetMetaType(fileName);
+		meta->metaType = TOOL->GetMetaType(fileName);
 
 		if (meta->metaType == MetaType::IMAGE)
 		{
@@ -73,6 +73,7 @@ void Project::RefreshCasheFileList(const wstring& directory)
 			model->ReadMaterial(modelName + L'/' + modelName);
 			RESOURCES->Add(L"MODEL_" +meta->fileName, model);
 		}
+
 		CASHE_FILE_LIST.insert({ fullPath, meta });
 
 		if (meta->metaType == MetaType::FOLDER)
@@ -83,39 +84,10 @@ void Project::RefreshCasheFileList(const wstring& directory)
 	FindClose(hFind);
 }
 
-MetaType Project::GetMetaType(const wstring& name)
-{
-	size_t idx = name.find('.');
-	if (idx == string::npos)
-		return MetaType::FOLDER;
-
-	wstring ext = name.substr(idx + 1);
-
-	if (ext == L"txt" || ext == L"TXT")
-		return MetaType::TEXT;
-
-	else if (ext == L"meta" || ext == L"META")
-		return MetaType::META;
-
-	else if (ext == L"wav" || ext == L"mp3")
-		return MetaType::SOUND;
-
-	else if (ext == L"jpg" || ext == L"png" || ext == L"dds")
-		return MetaType::IMAGE;
-
-	else if (ext == L"mesh")
-		return MetaType::MESH;
-
-	else if (ext == L"xml" || ext == L"XML")
-		return MetaType::XML;
-
-	else
-		return MetaType::Unknown;
-}
-
 void Project::ShowProject()
 {
 	ImGui::Begin("Project");
+	_guiWindow = ImGui::GetCurrentWindow();
 
 	if (ImGui::BeginTable("FolderTable", 1, ImGuiTableFlags_BordersOuter | ImGuiTableFlags_Resizable))
 	{
@@ -128,10 +100,10 @@ void Project::ShowProject()
 	ImGui::End();
 }
 
-void Project::ListFolderHierarchy(const wstring& directory)
+void Project::ListFolderHierarchy(const wstring& directory, bool isForcedToggle /*= false*/)
 {
 	static ImGuiTreeNodeFlags base_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_SpanAvailWidth;
-	string selectedPath = Utils::ToString(SELECTED_FOLDER); 
+	string selectedPath = Utils::ToString(SELECTED_FOLDER);
 
 	for (auto& [path, meta] : CASHE_FILE_LIST)
 	{
@@ -140,7 +112,7 @@ void Project::ListFolderHierarchy(const wstring& directory)
 
 		ImGuiTreeNodeFlags node_flags = base_flags;
 		string currentPath = Utils::ToString(path);
-		if (selectedPath == currentPath)
+		if (selectedPath == currentPath)			
 			node_flags |= ImGuiTreeNodeFlags_Selected;
 
 		ImGui::TableNextRow();

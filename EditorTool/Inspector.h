@@ -15,4 +15,7 @@ public:
 	void ShowInfoProject();
 
 	ID3D11ShaderResourceView* GetMetaFileIcon();
+
+	class shared_ptr<MeshThumbnail>& GetMeshThumbnail();
+	
 };

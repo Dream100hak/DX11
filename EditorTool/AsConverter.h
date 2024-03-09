@@ -8,23 +8,43 @@ public:
 	~AsConverter();
 
 public:
+	/////////////////  Export By AiConverter  //////////////////////////////
 	void ReadAssetFile(wstring file);
 	void ExportModelData(wstring savePath);
-	void ExportMaterialData(wstring savePath);
+	void ExportMaterialDataByXml(wstring savePath);
 	void ExportAnimationData(wstring savePath, uint32 index = 0);
 
+	void ExportMaterialDataByMat(wstring savePath);
+
 private:
+	/////////////////  Model , Mesh , Skin  //////////////////////////////
+
 	void ReadModelData(aiNode* node, int32 index, int32 parent);
 	void ReadMeshData(aiNode* node, int32 bone);
 	void ReadSkinData();
 	void WriteModelFile(wstring finalPath);
 
-private:
-	void ReadMaterialData();
-	void WriteMaterialData(wstring finalPath);
-	string WriteTexture(string saveFolder, string file);
+	////////////////////////////////// //////////////////////////////
 
 private:
+	/////////////////  Material  //////////////////////////////
+
+	void ReadMaterialData();
+	void WriteMaterialDataByXml(wstring finalPath);
+	void WriteMaterialDataByMat(wstring finalPath);
+
+	////////////////////////////////// //////////////////////////////
+
+
+private:
+	/////////////////  Texture  //////////////////////////////
+
+	string WriteTexture(string saveFolder, string file);
+	////////////////////////////////// //////////////////////////////
+private:
+
+	/////////////////  Animaiton  //////////////////////////////
+
 	shared_ptr<asAnimation> ReadAnimationData(aiAnimation* srcAnimation);
 	shared_ptr<asAnimationNode> ParseAnimationNode(shared_ptr<asAnimation> animation, aiNodeAnim* srcNode);
 	void ReadKeyframeData(shared_ptr<asAnimation> animation, aiNode* node, map<string, shared_ptr<asAnimationNode>>& cache);
@@ -32,6 +52,9 @@ private:
 
 private:
 	uint32 GetBoneIndex(const string& name);
+	
+	////////////////////////////////// //////////////////////////////
+
 
 private:
 	wstring _assetPath = L"../Resources/PrevConverted/";

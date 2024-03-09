@@ -36,6 +36,39 @@ public:
 
 	shared_ptr<LogWindow> GetLog();
 
+	MetaType GetMetaType(const wstring& name)
+	{
+		size_t idx = name.find('.');
+		if (idx == string::npos)
+			return MetaType::FOLDER;
+
+		wstring ext = name.substr(idx + 1);
+
+		if (ext == L"txt" || ext == L"TXT")
+			return MetaType::TEXT;
+
+		else if (ext == L"meta" || ext == L"META")
+			return MetaType::META;
+
+		else if (ext == L"wav" || ext == L"mp3")
+			return MetaType::SOUND;
+
+		else if (ext == L"jpg" || ext == L"png" || ext == L"dds")
+			return MetaType::IMAGE;
+
+		else if (ext == L"mesh")
+			return MetaType::MESH;
+
+		else if (ext == L"xml" || ext == L"XML")
+			return MetaType::XML;
+
+		else if (ext == L"mat")
+			return MetaType::MATERIAL;
+
+		else
+			return MetaType::Unknown;
+	}
+
 private:
 	
 	 bool _hiearchyWindow = false;

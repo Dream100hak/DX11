@@ -1,9 +1,6 @@
 #include "pch.h"
 #include "MeshThumbnail.h"
 
-#include "ModelRenderer.h"
-#include "Camera.h"
-
 MeshThumbnail::MeshThumbnail(uint32 width, uint32 height)
 	: _width(width), _height(height)
 {
@@ -17,12 +14,6 @@ MeshThumbnail::MeshThumbnail(uint32 width, uint32 height)
 MeshThumbnail::~MeshThumbnail()
 {
 
-}
-
-void MeshThumbnail::SetModelAndCam(shared_ptr<ModelRenderer> renderer, shared_ptr<Camera> cam)
-{
-	_modelRenderer = renderer;
-	_cam = cam;
 }
 
 void MeshThumbnail::CreateColorTexture()
@@ -81,21 +72,4 @@ void MeshThumbnail::CreateDepthStencilTexture()
 
 	hr = DEVICE->CreateDepthStencilView(depthMap.Get(), nullptr, &_depthMapDSV);
 	CHECK(hr);
-
-
-}
-
-void MeshThumbnail::Draw()
-{
-	if(_modelRenderer == nullptr && _cam  == nullptr)
-		return;
-
-	_vp.RSSetViewport();
-
-	DCT->OMSetRenderTargets(1, _colorMapRTV.GetAddressOf(), _depthMapDSV.Get());
-	DCT->ClearRenderTargetView(_colorMapRTV.Get(), (float*)(&GAME->GetGameDesc().clearColor));
-	DCT->ClearDepthStencilView(_depthMapDSV.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1, 0);
-
-	_modelRenderer->ThumbnailRender(_cam , _world) ;
-
 }

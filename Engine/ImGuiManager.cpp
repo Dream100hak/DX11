@@ -128,7 +128,7 @@ int32 ImGuiManager::CreateMesh(CreatedObjType type)
 	meshRenderer->SetMaterial(mat);
 	meshRenderer->SetTechnique(2);
 	obj->AddComponent(meshRenderer);
-	obj->GetOrAddTransform()->SetLocalScale(Vec3{ 5.f, 5.f, 5.f });
+	obj->GetOrAddTransform()->SetLocalScale(Vec3{ 1.f, 1.f, 1.f });
 	CUR_SCENE->Add(obj);
 
 	return obj->GetId();

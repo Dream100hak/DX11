@@ -59,10 +59,10 @@ void SceneWindow::ShowSceneWindow()
 			MetaData** droppedMeshRawPtr = static_cast<MetaData**>(payload->Data);
 			shared_ptr<MetaData> droppedMesh =	make_shared<MetaData>(**droppedMeshRawPtr);
 
-			shared_ptr<GameObject> obj =  prviewObjs[L"MODEL_" + droppedMesh->fileName];
+			shared_ptr<GameObject> obj =  prviewObjs[droppedMesh->fileFullPath + L"/" + droppedMesh->fileName];
 			CUR_SCENE->Remove(obj);
 		
-			auto model = RESOURCES->Get<Model>(L"MODEL_" + droppedMesh->fileName);
+			auto model = RESOURCES->Get<Model>(droppedMesh->fileFullPath + L"/" + droppedMesh->fileName);
 
 			int32 id = GUI->CreateModelMesh(model , obj->GetTransform()->GetPosition());
 			CUR_SCENE->UnPickAll();

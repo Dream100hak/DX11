@@ -1,5 +1,8 @@
 #include "pch.h"
 #include "Material.h"
+#include <filesystem>
+#include "Utils.h"
+#include "FileUtils.h"
 
 Material::Material() : Super(ResourceType::Material)
 {
@@ -9,6 +12,28 @@ Material::Material() : Super(ResourceType::Material)
 Material::~Material()
 {
 
+}
+
+void Material::Load(const wstring& path)
+{
+	wstring fullPath = path + L".mat";
+
+	shared_ptr<FileUtils> file = make_shared<FileUtils>();
+	file->Open(fullPath, FileMode::Read);
+
+	wstring shaderFile = Utils::ToWString(file->Read<string>());
+	shared_ptr<Shader> shader = RESOURCES->Get<Shader>(shaderFile);
+
+	if (shader == nullptr)
+	{
+		shader = make_shared<Shader>(shaderFile); 
+	}
+	SetShader(shader);
+
+	_desc.ambient = file->Read<Color>();
+	_desc.diffuse = file->Read<Color>();
+	_desc.specular = file->Read<Color>();
+	_desc.emissive = file->Read<Color>();
 }
 
 void Material::SetShader(shared_ptr<Shader> shader)

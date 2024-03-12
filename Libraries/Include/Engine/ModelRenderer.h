@@ -4,8 +4,6 @@
 class Model;
 class Shader;
 class Material;
-class BVH;
-struct BVHNode;
 
 class ModelRenderer : public Component
 {
@@ -22,11 +20,11 @@ public:
 
 	void ChangeShader(shared_ptr<Shader> shader);
 
-	void ThumbnailRender(shared_ptr<Camera> cam , const Matrix& world);
+	void ThumbnailRender(shared_ptr<Camera> cam , shared_ptr<Light> light, shared_ptr<class InstancingBuffer>& buffer);
 
 	void PreRenderInstancing(shared_ptr<class InstancingBuffer>& buffer);
 	void RenderInstancing(shared_ptr<class InstancingBuffer>& buffer);
-	void PushData(uint8 technique, shared_ptr<class InstancingBuffer>& buffer);
+	void PushData(uint8 technique, shared_ptr<Light>& light, shared_ptr<class InstancingBuffer>& buffer);
 
 	void TransformBoundingBox();
 

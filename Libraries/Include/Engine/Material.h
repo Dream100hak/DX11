@@ -8,6 +8,8 @@ public:
 	Material();
 	virtual ~Material();
 
+	virtual void Load(const wstring& path) override;
+
 	shared_ptr<Shader> GetShader() { return _shader; }
 
 	MaterialDesc& GetMaterialDesc() { return _desc; }

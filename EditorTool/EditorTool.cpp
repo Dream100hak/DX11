@@ -92,27 +92,27 @@ void EditorTool::Init()
 		light->GetLight()->SetLightDesc(lightDesc);
 		CUR_SCENE->Add(light);
 	}
-	{		
-		//// Sky
-		auto obj = make_shared<GameObject>();
-		obj->SetObjectName(L"SkyBox");
-		obj->GetOrAddTransform();
-		obj->AddComponent(make_shared<SkyBox>());
-		obj->GetSkyBox()->Init(SkyType::CubeMap);
-		CUR_SCENE->Add(obj);		
-	}
+	//{		
+	//	//// Sky
+	//	auto obj = make_shared<GameObject>();
+	//	obj->SetObjectName(L"SkyBox");
+	//	obj->GetOrAddTransform();
+	//	obj->AddComponent(make_shared<SkyBox>());
+	//	obj->GetSkyBox()->Init(SkyType::CubeMap);
+	//	CUR_SCENE->Add(obj);		
+	//}
 
-	{
-		auto obj = make_shared<GameObject>();
-		obj->SetObjectName(L"Terrain");
-		obj->GetOrAddTransform();
-		obj->GetOrAddTransform()->SetPosition(Vec3(-75.f, 0.f, -75.f));
-		obj->AddComponent(make_shared<Terrain>());
+	//{
+	//	auto obj = make_shared<GameObject>();
+	//	obj->SetObjectName(L"Terrain");
+	//	obj->GetOrAddTransform();
+	//	obj->GetOrAddTransform()->SetPosition(Vec3(-75.f, 0.f, -75.f));
+	//	obj->AddComponent(make_shared<Terrain>());
 
-		auto mat = RESOURCES->Get<Material>(L"DefaultMaterial");
-		obj->GetTerrain()->Create(200, 200, mat->Clone());
-		CUR_SCENE->Add(obj);
-	}
+	//	auto mat = RESOURCES->Get<Material>(L"DefaultMaterial");
+	//	obj->GetTerrain()->Create(200, 200, mat->Clone());
+	//	CUR_SCENE->Add(obj);
+	//}
 
 
 

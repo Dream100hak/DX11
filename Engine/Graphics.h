@@ -29,8 +29,6 @@ public:
 
 	//----------------------------------------------------------------------------------
 
-	shared_ptr<MeshThumbnail> GetMeshThumbnail() { return _thumbnail; }
-
 	ComPtr <ID3D11DepthStencilState> GetDSStateStandard() { return _dsStateStandard; }
 	ComPtr <ID3D11DepthStencilState> GetDSStateOutline() { return _dsStateOutline; }
 
@@ -68,8 +66,6 @@ private:
 
 	ComPtr<ID3D11DepthStencilState> _dsStateStandard;
 	ComPtr<ID3D11DepthStencilState> _dsStateOutline;
-
-	shared_ptr<MeshThumbnail> _thumbnail = nullptr;
 
 	shared_ptr<JobQueue> _preRenderJobQueue = nullptr;
 	shared_ptr<JobQueue> _renderJobQueue = nullptr;

@@ -20,6 +20,7 @@ Project::Project(Vec2 pos, Vec2 size)
 	SetWinPosAndSize(pos, size);
 	auto folder = RESOURCES->Load<Texture>(L"Folder", L"..\\Resources\\Assets\\Textures\\Folder.png");
 	auto text = RESOURCES->Load<Texture>(L"Text", L"..\\Resources\\Assets\\Textures\\Text.png");
+
 }
 
 Project::~Project()
@@ -30,6 +31,7 @@ void Project::Init()
 {
 	_rootDirectory = GetDirectoryAbove(GetExecutablePath()) + L"\\Resources";
 	RefreshCasheFileList(_rootDirectory);
+	SELECTED_FOLDER = L"..\\Resources\\Assets\\";
 }
 
 void Project::Update()
@@ -64,6 +66,14 @@ void Project::RefreshCasheFileList(const wstring& directory)
 		{
 			auto tex = RESOURCES->Load<Texture>(L"TEX_" + meta->fileName, meta->fileFullPath + L"\\" + meta->fileName);
 		}
+		else if (meta->metaType == MetaType::MATERIAL)
+		{
+			shared_ptr<Material> material = make_shared<Material>();
+			wstring matName = meta->fileName.substr(0, meta->fileName.find('.'));
+
+			material->Load(meta->fileFullPath + L'/' + matName);
+			RESOURCES->Add(meta->fileFullPath + L'/' + meta->fileName, material);
+		}
 		else if (meta->metaType == MetaType::MESH)
 		{
 			shared_ptr<Model> model = make_shared<Model>();
@@ -71,7 +81,7 @@ void Project::RefreshCasheFileList(const wstring& directory)
 
 			model->ReadModel(modelName + L'/' + modelName);
 			model->ReadMaterial(modelName + L'/' + modelName);
-			RESOURCES->Add(L"MODEL_" +meta->fileName, model);
+			RESOURCES->Add(meta->fileFullPath + L'/' + meta->fileName, model);
 		}
 
 		CASHE_FILE_LIST.insert({ fullPath, meta });

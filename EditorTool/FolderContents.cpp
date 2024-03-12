@@ -4,6 +4,7 @@
 #include "Camera.h"
 #include "Model.h"
 #include "Material.h"
+#include "MeshRenderer.h"
 #include "ModelRenderer.h"
 
 #include "MeshThumbnail.h"
@@ -20,6 +21,12 @@
 #include "Project.h"
 #include "FileUtils.h"
 
+#include "InstancingBuffer.h"
+
+
+
+#include "Light.h"
+
 FolderContents::FolderContents(Vec2 pos, Vec2 size)
 {
 	SetWinPosAndSize(pos, size);
@@ -35,10 +42,26 @@ void FolderContents::Init()
 	if (_meshPreviewCamera == nullptr)
 	{
 		_meshPreviewCamera = make_shared<GameObject>();
+		_meshPreviewCamera->SetObjectName(L"Preview Cam");
 		_meshPreviewCamera->AddComponent(make_shared<Camera>());
 		_meshPreviewCamera->GetOrAddTransform()->SetPosition(Vec3(-1.5f, 1.f, -4.f));
 		_meshPreviewCamera->GetOrAddTransform()->SetRotation(Vec3(0.f, 0.35f, 0.f));
 		_meshPreviewCamera->GetCamera()->UpdateMatrix();
+	}
+
+	if(_meshPreviewLight == nullptr)
+	{
+		_meshPreviewLight = make_shared<GameObject>();
+		_meshPreviewLight->GetOrAddTransform()->SetRotation(Vec3(-0.57735f, -0.57735f, 0.57735f));
+		_meshPreviewLight->AddComponent(make_shared<Light>());
+		LightDesc lightDesc;
+
+		lightDesc.ambient = Vec4(1.f, 1.0f, 1.0f, 1.0f);
+	//	lightDesc.diffuse = Vec4(0.8f, 0.8f, 0.7f, 1.0f);
+		lightDesc.diffuse = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+		lightDesc.specular = Vec4(0.8f, 0.8f, 0.7f, 1.0f);
+		lightDesc.direction = _meshPreviewLight->GetTransform()->GetRotation();
+		_meshPreviewLight->GetLight()->SetLightDesc(lightDesc);
 	}
 }
 
@@ -151,8 +174,25 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 	// 매터리얼 파일 처리
 	else if (meta->metaType == MetaType::MATERIAL)
 	{
-		auto tex = RESOURCES->Get<Texture>(L"Text");
-		RefreshButton(tex->GetComPtr().Get(), meta, id, []() {});
+		shared_ptr<GameObject> obj = nullptr;
+		/////////////// Create Material Preview Obj ////////////////////////
+		if (_meshPreviewObjs.find(meta->fileFullPath + L'/' + meta->fileName) == _meshPreviewObjs.end())
+		{
+			CreateMeshPreviewObj(meta);
+		}
+		obj = _meshPreviewObjs[meta->fileFullPath + L'/' + meta->fileName];
+	
+		/////////////// Create Mesh Preview Thumbnail ////////////////////////
+		shared_ptr<MeshThumbnail> thumbnail = nullptr;
+
+		if (_meshPreviewthumbnails.find(meta->fileFullPath + L'/' + meta->fileName) == _meshPreviewthumbnails.end())
+		{
+			CreateMeshPreviewThumbnail(meta, obj);
+		}
+
+		thumbnail = _meshPreviewthumbnails[meta->fileFullPath + L'/' + meta->fileName];
+
+		RefreshButton(thumbnail->GetComPtr().Get(), meta, id, []() {});
 	}
 	// 메시 파일 처리
 	if (meta->metaType == MetaType::MESH)
@@ -160,24 +200,22 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 		shared_ptr<GameObject> obj = nullptr;
 
 		/////////////// Create Mesh Preview Obj ////////////////////////
-		if (_meshPreviewObjs.find(L"MODEL_" + meta->fileName) == _meshPreviewObjs.end())
+		if (_meshPreviewObjs.find(meta->fileFullPath + L'/' + meta->fileName) == _meshPreviewObjs.end())
 		{
-			CreateMeshPreviewObj(meta);
+			CreateModelPreviewObj(meta);
 		}
 			
-		obj = _meshPreviewObjs[L"MODEL_" + meta->fileName];
+		obj = _meshPreviewObjs[meta->fileFullPath + L'/' + meta->fileName];
 
 		/////////////// Create Mesh Preview Thumbnail ////////////////////////
 		shared_ptr<MeshThumbnail> thumbnail = nullptr;
 
-		if (_meshPreviewthumbnails.find(L"MODEL_" + meta->fileName) == _meshPreviewthumbnails.end())
+		if (_meshPreviewthumbnails.find(meta->fileFullPath + L'/' + meta->fileName) == _meshPreviewthumbnails.end())
 		{
 			CreateMeshPreviewThumbnail(meta , obj);
 		}
 		
-		thumbnail = _meshPreviewthumbnails[L"MODEL_" + meta->fileName];
-
-		/////////////////////////////////////////////////////////////////////////
+		thumbnail = _meshPreviewthumbnails[meta->fileFullPath + L'/' + meta->fileName];
 
 		RefreshButton(thumbnail->GetComPtr().Get(), meta, id, []() {});
 
@@ -220,7 +258,6 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 					Vec3 hitPoint = start + direction * t; // 교차 지점
 					obj->GetTransform()->SetPosition(hitPoint);
 				}
-
 			}
 			else if (IsMouseInGUIWindow(hiearchyPos, hiearchySize))
 			{
@@ -275,7 +312,6 @@ void FolderContents::RefreshButton(ID3D11ShaderResourceView* srv, shared_ptr<Met
 
 void FolderContents::CreateMaterial()
 {
-	auto shader = RESOURCES->Get<Shader>(L"Standard");
 	shared_ptr<Material> material = RESOURCES->Get<Material>(L"DefaultMaterial")->Clone();
 
 	wstring finalPath = CreateUniqueMaterialName(SELECTED_FOLDER, L"New Material", L".mat");
@@ -288,24 +324,51 @@ void FolderContents::CreateMaterial()
 	shared_ptr<FileUtils> file = make_shared<FileUtils>();
 	file->Open(finalPath, FileMode::Write);
 
-	file->Write<int32>(5);
-	file->Write<int32>(7);
-	//file->Write<string>(material->name);
+	file->Write<string>(Utils::ToString(material->GetShader()->GetFile()));
+	file->Write<Color>(material->GetMaterialDesc().ambient);	
+	file->Write<Color>(material->GetMaterialDesc().diffuse);	
+	file->Write<Color>(material->GetMaterialDesc().specular);	
+	file->Write<Color>(material->GetMaterialDesc().emissive);
+
+	wstring fullPath = directory + L"\\" + fileName;
 
 	auto meta = make_shared<MetaData>();
 	meta->fileName = fileName;
 	meta->fileFullPath = directory;
 	meta->metaType = TOOL->GetMetaType(fileName);
-	CASHE_FILE_LIST.insert({ finalPath, meta });
+	CASHE_FILE_LIST.insert({ fullPath, meta });
+	RESOURCES->Add(meta->fileFullPath + L'/' + meta->fileName, material);
 
-	ADDLOG("Create Material", LogFilter::Info);
+	string logStr = Utils::ToString(L"Create Material : " + finalPath);
+	ADDLOG(logStr, LogFilter::Info);
 
 }
 
 void FolderContents::CreateMeshPreviewObj(shared_ptr<MetaData>& meta)
 {
+	shared_ptr<Mesh> mesh = make_shared<Mesh>();
+	auto mat = RESOURCES->Get<Material>(meta->fileFullPath + L'/' + meta->fileName);
+	wstring debugPath = meta->fileFullPath + L'/' + meta->fileName;
+
+	mesh->CreateSphere();
+	auto obj = make_shared<GameObject>();
+	obj->AddComponent(make_shared<MeshRenderer>());
+	obj->SetObjectName(L"MAT_" + meta->fileName);
+	obj->GetOrAddTransform()->SetPosition(Vec3(1.929f, 1.f, 5.394f));
+	obj->GetOrAddTransform()->SetRotation(Vec3(0.f, 0.f, 0.f));
+	obj->GetOrAddTransform()->SetScale(Vec3(7.f, 7.f, 7.f));
+	obj->GetMeshRenderer()->SetMesh(mesh);
+	obj->GetMeshRenderer()->SetMaterial(mat);
+	obj->GetMeshRenderer()->SetTechnique(2);
+
+	_meshPreviewObjs.insert(make_pair(meta->fileFullPath + L'/' + meta->fileName, obj));
+
+}
+
+void FolderContents::CreateModelPreviewObj(shared_ptr<MetaData>& meta)
+{
 	auto shader = RESOURCES->Get<Shader>(L"Thumbnail");
-	auto model = RESOURCES->Get<Model>(L"MODEL_" + meta->fileName);
+	auto model = RESOURCES->Get<Model>(meta->fileFullPath + L'/' + meta->fileName);
 	
 	BoundingBox box = model->CalculateModelBoundingBox();
 
@@ -327,21 +390,40 @@ void FolderContents::CreateMeshPreviewObj(shared_ptr<MetaData>& meta)
 	obj->GetModelRenderer()->SetModel(model);
 	obj->GetModelRenderer()->SetPass(1);
 
-	_meshPreviewObjs.insert(make_pair(L"MODEL_" + meta->fileName, obj));
+	_meshPreviewObjs.insert(make_pair(meta->fileFullPath + L'/' + meta->fileName, obj));
+
 }
 
 void FolderContents::CreateMeshPreviewThumbnail(shared_ptr<MetaData>& meta , shared_ptr<GameObject>& obj)
 {
 	shared_ptr<MeshThumbnail> thumbnail = nullptr;
-
 	thumbnail = make_shared<MeshThumbnail>(512, 512);
-	thumbnail->SetModelAndCam(obj->GetModelRenderer(), _meshPreviewCamera->GetCamera());
-	thumbnail->SetWorldMatrix(obj->GetOrAddTransform()->GetWorldMatrix());
 
-	_meshPreviewthumbnails.insert(make_pair(L"MODEL_" + meta->fileName, thumbnail));
+	InstancingData data;
+	data.world = obj->GetTransform()->GetWorldMatrix();
+	data.isPicked = obj->GetUIPicked() ? 1 : 0;
+	shared_ptr<InstancingBuffer> buffer = make_shared<InstancingBuffer>();
+	buffer->AddData(data);
 
-	JOB_POST_RENDER->DoPush([=]()
+	switch (meta->metaType)
 	{
-		thumbnail->Draw();
-	});
+		case MATERIAL:
+
+			JOB_POST_RENDER->DoPush([=]()
+			{		
+				thumbnail->Draw(obj->GetMeshRenderer(), _meshPreviewCamera->GetCamera(), _meshPreviewLight->GetLight() , buffer);
+			});
+			break;
+		case MESH:
+
+			JOB_POST_RENDER->DoPush([=]()
+			{
+				thumbnail->Draw(obj->GetModelRenderer(), _meshPreviewCamera->GetCamera(), _meshPreviewLight->GetLight(),  buffer);
+			});
+			break;
+	}
+
+	_meshPreviewthumbnails.insert(make_pair(meta->fileFullPath + L'/' + meta->fileName, thumbnail));
+
 }
+

@@ -253,6 +253,12 @@ pass name											\
     SetGeometryShader(CompileShader(gs_5_0, GS())); \
     SetPixelShader(CompileShader(ps_5_0, ps()));	\
 }
+#define PASS_VP_PREVIEW(name, vs, ps)				\
+pass name											\
+{													\
+	SetVertexShader(CompileShader(vs_5_0, vs()));	\
+	SetPixelShader(CompileShader(ps_5_0, ps(3,false,false)));	\
+}
 //////////////
 // Function //
 //////////////

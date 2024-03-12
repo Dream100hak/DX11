@@ -48,7 +48,7 @@ void Hiearchy::ShowHiearchy()
 
 			if(metaData->metaType == MetaType::MESH)
 			{
-				auto model = RESOURCES->Get<Model>(L"MODEL_" + metaData->fileName);
+				auto model = RESOURCES->Get<Model>(metaData->fileFullPath + L"/" + metaData->fileName);
 
 				int32 id = GUI->CreateModelMesh(model);
 				CUR_SCENE->UnPickAll();

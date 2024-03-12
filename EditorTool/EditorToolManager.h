@@ -62,7 +62,7 @@ public:
 		else if (ext == L"xml" || ext == L"XML")
 			return MetaType::XML;
 
-		else if (ext == L"mat")
+		else if (ext == L"mat" || ext == L"MAT")
 			return MetaType::MATERIAL;
 
 		else

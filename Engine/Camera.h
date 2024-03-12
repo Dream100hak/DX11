@@ -3,7 +3,7 @@
 
 enum class ProjectionType
 {
-	Perspective, // 원근 투영
+	Perspective = 0, // 원근 투영
 	Orthographic, // 직교 투영
 };
 
@@ -20,17 +20,18 @@ public:
 
 		ImVec4 color = ImVec4(0.85f, 0.94f, 0.f, 1.f);
 
-		ImGui::DragFloat("##pov", (float*)&_fov, 0.01f);
-		ImGui::TextColored(color, "Fov		");
-	//	ImGui::SameLine();
-		
-	/*	ImGui::DragFloat("##near", (float*)&_near, 0.01f);
-		ImGui::TextColored(color, "Near		");
-		ImGui::SameLine();
+		ImGui::DragFloat("Fov", (float*)&_fov, 0.01f);
+		ImGui::DragFloat("Near", (float*)&_near, 0.01f);
+		ImGui::DragFloat("Far", (float*)&_far, 0.01f);
 
-		ImGui::DragFloat("##far", (float*)&_far, 0.01f);
-		ImGui::TextColored(color, "Far		");*/
+		// ProjectionType 콤보 박스 추가
+		const char* projectionTypes[] = { "Perspective", "Orthographic" };
+		int currentProjection = static_cast<int>(_type); // 현재 선택된 ProjectionType을 int로 변환
 
+		if (ImGui::Combo("Projection Type", &currentProjection, projectionTypes, IM_ARRAYSIZE(projectionTypes)))
+		{
+			_type = static_cast<ProjectionType>(currentProjection); // 사용자 선택에 따라 _type 업데이트
+		}
 	}
 
 

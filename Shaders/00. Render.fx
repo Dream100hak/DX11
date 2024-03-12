@@ -19,7 +19,6 @@ struct VertexMesh
 	uint instanceID : SV_INSTANCEID;
 	matrix world : INST;
     uint isPicked : PICKED;
-	
 };
 
 MeshOutput VS_Mesh(VertexMesh input)
@@ -31,7 +30,6 @@ MeshOutput VS_Mesh(VertexMesh input)
 	output.position = mul(output.position, VP);
 	output.uv = input.uv;
 	output.normal = input.normal;
-
 	// Generate projective tex-coords to project shadow map onto scene.
     output.shadow = mul(float4(output.worldPosition.xyz, 1.0f), Shadow);
 	
@@ -70,13 +68,10 @@ MeshOutput VS_Model(VertexModel input)
 	output.worldPosition = output.position;
 	output.position = mul(output.position, VP);
 	output.uv = input.uv;
-
 	output.normal = input.normal;
-		
 	// Generate projective tex-coords to project shadow map onto scene.
     output.shadow = mul(float4(output.worldPosition.xyz, 1.0f), Shadow);
-	
-	
+
 	return output;
 }
 
@@ -192,7 +187,6 @@ MeshOutput VS_Animation(VertexModel input)
 	output.uv = input.uv;
 	output.normal = mul(input.normal, (float3x3)input.world);
 	output.tangent = mul(input.tangent, (float3x3)input.world);
-
 	// Generate projective tex-coords to project shadow map onto scene.
     output.shadow = mul(float4(output.worldPosition.xyz, 1.0f), Shadow);
 	

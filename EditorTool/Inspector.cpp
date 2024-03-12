@@ -272,9 +272,53 @@ void Inspector::ShowInfoProject()
 		ImFormatString(tmps, sizeof(tmps), texInfo.c_str(), tex->GetSize().x , tex->GetSize().y);
 		ImGui::Text(tmps);
 	}
+	// 概磐府倔 颇老 贸府
+	else if (metaData->metaType == MetaType::MATERIAL)
+	{
+		ImGui::Dummy(ImVec2(0, 50.f));
+		ImGui::SeparatorText("Material Preview");
+
+		ImGui::Image(icon, ImVec2(373, 400));
+
+		auto folderContents = static_pointer_cast<FolderContents>(TOOL->GetEditorWindow(Utils::GetClassNameEX<FolderContents>()));
+
+		auto& previewsMeshObjs = folderContents->GetMeshPreviewObjs();
+		auto& obj = previewsMeshObjs[metaData->fileFullPath + L'/' + metaData->fileName];
+
+		auto& previewsThumbnails = folderContents->GetMeshPreviewThumbnails();
+		auto& thumbnail = previewsThumbnails[metaData->fileFullPath + L'/' + metaData->fileName];
+
+		auto cam = folderContents->GetCamera();
+		auto light = folderContents->GetLight();
+
+		shared_ptr<Material>& material = obj->GetMeshRenderer()->GetMaterial();
+		MaterialDesc& desc = material->GetMaterialDesc();
+		ImVec4 color = ImVec4(0.85f, 0.94f, 0.f, 1.f);
+
+		bool changed = false;
+
+		if (ImGui::ColorEdit3("Diffuse", (float*)&desc.diffuse)) { changed = true; }
+		if (ImGui::ColorEdit3("Ambient", (float*)&desc.ambient)) { changed = true; }
+		if (ImGui::ColorEdit3("Emissive", (float*)&desc.emissive)) { changed = true; }
+		if (ImGui::ColorEdit3("Specular", (float*)&desc.specular)) { changed = true; }
+
+		if (changed)
+		{
+			JOB_POST_RENDER->DoPush([=]()
+			{
+				InstancingData data;
+				data.world = obj->GetTransform()->GetWorldMatrix();
+				data.isPicked = obj->GetUIPicked() ? 1 : 0;
+				shared_ptr<InstancingBuffer> buffer = make_shared<InstancingBuffer>();
+				buffer->AddData(data);
+
+				thumbnail->Draw(obj->GetMeshRenderer(), cam, light, buffer);
+			});
+		}
+	}
 
 	// 皋矫 颇老 贸府
-	if (metaData->metaType == MetaType::MESH)
+	else if (metaData->metaType == MetaType::MESH)
 	{
 		ImGui::Dummy(ImVec2(0, 50.f));
 		ImGui::SeparatorText("Mesh Preview");
@@ -305,8 +349,8 @@ ID3D11ShaderResourceView* Inspector::GetMetaFileIcon()
 		case IMAGE:
 			srv = RESOURCES->Load<Texture>(L"FILE_" + metaData->fileName, metaData->fileFullPath + L"\\" + metaData->fileName)->GetComPtr().Get();
 			break;
-		case MESH:
-
+		case MATERIAL:
+		case MESH:		
 			srv = GetMeshThumbnail()->GetComPtr().Get();
 			break;
 		case TEXT:
@@ -324,11 +368,12 @@ ID3D11ShaderResourceView* Inspector::GetMetaFileIcon()
 
 class shared_ptr<MeshThumbnail>& Inspector::GetMeshThumbnail()
 {
+
 	shared_ptr<MetaData> metaData = SELECTED_P;
 
 	auto& previewsThumbnails =
 		static_pointer_cast<FolderContents>(TOOL->GetEditorWindow(Utils::GetClassNameEX<FolderContents>()))->GetMeshPreviewThumbnails();
 
-	return previewsThumbnails[L"MODEL_" + metaData->fileName];
+	return previewsThumbnails[metaData->fileFullPath + L'/' + metaData->fileName];
 	
 }

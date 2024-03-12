@@ -118,42 +118,12 @@ void ModelRenderer::ChangeShader(shared_ptr<Shader> shader)
 	}
 }
 
-void ModelRenderer::ThumbnailRender(shared_ptr<Camera> cam , const Matrix& world)
+void ModelRenderer::ThumbnailRender(shared_ptr<Camera> cam , shared_ptr<Light> light, shared_ptr<class InstancingBuffer>& buffer)
 {
 	_shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
+	_shader->PushLightData(light->GetLightDesc());
 
-	auto lightObj = SCENE->GetCurrentScene()->GetLight();
-	if (lightObj)
-		_shader->PushLightData(lightObj->GetLight()->GetLightDesc());
-
-	_shader->PushTransformData(TransformDesc{ world });
-
-	// Bones
-	BoneDesc boneDesc;
-
-	const uint32 boneCount = _model->GetBoneCount();
-	for (uint32 i = 0; i < boneCount; i++)
-	{
-		shared_ptr<ModelBone> bone = _model->GetBoneByIndex(i);
-		boneDesc.transforms[i] = bone->transform;
-	}
-	_shader->PushBoneData(boneDesc);
-
-	const auto& meshes = _model->GetMeshes();
-	for (auto& mesh : meshes)
-	{
-		if (mesh->material)
-			mesh->material->Update();
-
-		// BoneIndex
-		_shader->GetScalar("BoneIndex")->SetInt(mesh->boneIndex);
-
-		// IA
-		mesh->vertexBuffer->PushData();
-		mesh->indexBuffer->PushData();
-
-		_shader->DrawIndexed(0, _pass, mesh->indexBuffer->GetCount(),0,0);
-	}
+	PushData(0, light, buffer);
 }
 
 
@@ -167,7 +137,10 @@ void ModelRenderer::PreRenderInstancing(shared_ptr<class InstancingBuffer>& buff
 
 	_shader->PushGlobalData(Light::S_MatView, Light::S_MatProjection);
 
-	PushData(0 ,buffer);
+	// Light
+	auto lightObj = SCENE->GetCurrentScene()->GetLight()->GetLight();
+
+	PushData(0 ,lightObj, buffer);
 
 }
 
@@ -182,24 +155,25 @@ void ModelRenderer::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
 	// GlobalData
 	shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
 
+	// Light
+	auto lightObj = SCENE->GetCurrentScene()->GetLight()->GetLight();
+
 	{
 		DCT->OMSetDepthStencilState(GRAPHICS->GetDSStateOutline().Get(), 1);
-		PushData(1, buffer);
+		PushData(1, lightObj, buffer);
 	}
 
 	{
 		DCT->OMSetDepthStencilState(GRAPHICS->GetDSStateStandard().Get(), 0);
-		PushData(0, buffer);
+		PushData(0, lightObj, buffer );
 	}
 }
 
 
-void ModelRenderer::PushData(uint8 technique,  shared_ptr<class InstancingBuffer>& buffer)
+void ModelRenderer::PushData(uint8 technique, shared_ptr<Light>& light, shared_ptr<class InstancingBuffer>& buffer)
 {
-	// Light
-	auto lightObj = SCENE->GetCurrentScene()->GetLight();
-	if (lightObj)
-		_shader->PushLightData(lightObj->GetLight()->GetLightDesc());
+	if (light)
+		_shader->PushLightData(light->GetLightDesc());
 
 	// Bones
 	BoneDesc boneDesc;

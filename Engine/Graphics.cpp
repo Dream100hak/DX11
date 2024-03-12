@@ -37,10 +37,6 @@ void Graphics::RenderBegin()
 void Graphics::PostRenderBegin()
 {
 	_postRenderJobQueue->Execute();
-
-	if (_thumbnail == nullptr)
-		_thumbnail = make_shared<MeshThumbnail>(512, 512);
-	_thumbnail->Draw();
 }
 
 void Graphics::RenderEnd()

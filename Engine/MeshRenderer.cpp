@@ -120,7 +120,6 @@ void MeshRenderer::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
 		return;
 
 	_material->SetShader(shader);
-
 	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
 	// GlobalData
 	shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
@@ -129,7 +128,6 @@ void MeshRenderer::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
 	auto lightObj = SCENE->GetCurrentScene()->GetLight();
 	if (lightObj)
 		shader->PushLightData(lightObj->GetLight()->GetLightDesc());
-	
 
 	{
 		DCT->OMSetDepthStencilState(nullptr, 1);
@@ -148,26 +146,42 @@ void MeshRenderer::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
 
 	{
 
-		////Outline 
-		if (GetGameObject()->GetEnableOutline())
-		{
-			DCT->OMSetDepthStencilState(GRAPHICS->GetDSStateOutline().Get(), 1);
+		//////Outline 
+		//if (GetGameObject()->GetEnableOutline())
+		//{
+		//	DCT->OMSetDepthStencilState(GRAPHICS->GetDSStateOutline().Get(), 1);
 
-			if (lightObj)
-				shader->PushLightData(lightObj->GetLight()->GetLightDesc());
+		//	if (lightObj)
+		//		shader->PushLightData(lightObj->GetLight()->GetLightDesc());
 
-			_material->Update();
-			// IA
-			_mesh->GetVertexBuffer()->PushData();
-			_mesh->GetIndexBuffer()->PushData();
+		//	_material->Update();
+		//	// IA
+		//	_mesh->GetVertexBuffer()->PushData();
+		//	_mesh->GetIndexBuffer()->PushData();
 
-			buffer->PushData();
-			shader->DrawIndexedInstanced(1, _pass, _mesh->GetIndexBuffer()->GetCount(), buffer->GetCount());
-		}
+		//	buffer->PushData();
+		//	shader->DrawIndexedInstanced(1, _pass, _mesh->GetIndexBuffer()->GetCount(), buffer->GetCount());
+		//}
 	}
-	
 }
 
+void MeshRenderer::ThumbnailRender(shared_ptr<Camera> cam, shared_ptr<Light> light, shared_ptr<class InstancingBuffer>& buffer)
+{
+	auto shader = _material->GetShader();
+
+	DCT->OMSetDepthStencilState(nullptr, 1);
+
+	shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
+	shader->PushLightData(light->GetLightDesc());
+
+	_material->Update();
+	// IA
+	_mesh->GetVertexBuffer()->PushData();
+	_mesh->GetIndexBuffer()->PushData();
+
+	buffer->PushData();
+	shader->DrawIndexedInstanced(_teq, _pass, _mesh->GetIndexBuffer()->GetCount(), buffer->GetCount());
+}
 
 void MeshRenderer::TransformBoundingBox()
 {

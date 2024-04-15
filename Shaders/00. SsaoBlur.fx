@@ -1,26 +1,21 @@
-
-cbuffer cbPerFrame
+cbuffer SsaoBlurBuffer
 {
-    float gTexelWidth;
-    float gTexelHeight;
+    float TexelWidth;
+    float TexelHeight;
+    float2 Dummy;
 };
 
-cbuffer cbSettings
+cbuffer WeightSettings
 {
-    float gWeights[11] =
+    float Weights[11] =
     {
         0.05f, 0.05f, 0.1f, 0.1f, 0.1f, 0.2f, 0.1f, 0.1f, 0.1f, 0.05f, 0.05f
     };
 };
 
-cbuffer cbFixed
-{
-    static const int gBlurRadius = 5;
-};
- 
 // Nonnumeric values cannot be added to a cbuffer.
-Texture2D gNormalDepthMap;
-Texture2D gInputImage;
+Texture2D NormalDepthMap;
+Texture2D InputImage;
 
 SamplerState samNormalDepth
 {
@@ -38,28 +33,28 @@ SamplerState samInputImage
     AddressV = CLAMP;
 };
 
-struct VertexIn
+struct VertexSSao
 {
-    float3 PosL : POSITION;
-    float3 NormalL : NORMAL;
-    float2 Tex : TEXCOORD;
+    float4 pos : POSITION;
+    float3 normal : NORMAL;
+    float2 uv : TEXCOORD;
 };
 
 struct VertexOut
 {
     float4 PosH : SV_POSITION;
-    float2 Tex : TEXCOORD;
+    float2 uv : TEXCOORD0;
 };
 
-VertexOut VS(VertexIn vin)
+VertexOut VS(VertexSSao vin)
 {
     VertexOut vout;
 	
 	// Already in NDC space.
-    vout.PosH = float4(vin.PosL, 1.0f);
+    vout.PosH = vin.pos;
 
 	// Pass onto pixel shader.
-    vout.Tex = vin.Tex;
+    vout.uv = vin.uv;
 	
     return vout;
 }
@@ -70,18 +65,22 @@ float4 PS(VertexOut pin, uniform bool gHorizontalBlur) : SV_Target
     float2 texOffset;
     if (gHorizontalBlur)
     {
-        texOffset = float2(gTexelWidth, 0.0f);
+        texOffset = float2(TexelWidth, 0.0f);
     }
     else
     {
-        texOffset = float2(0.0f, gTexelHeight);
+        texOffset = float2(0.0f, TexelHeight);
     }
+    
+    int gBlurRadius = 5;
 
 	// The center value always contributes to the sum.
-    float4 color = gWeights[5] * gInputImage.SampleLevel(samInputImage, pin.Tex, 0.0);
-    float totalWeight = gWeights[5];
+    float4 color = Weights[5] * InputImage.SampleLevel(samInputImage, pin.uv, 0.0);
+    float totalWeight = Weights[5];
 	 
-    float4 centerNormalDepth = gNormalDepthMap.SampleLevel(samNormalDepth, pin.Tex, 0.0f);
+    float4 centerNormalDepth = NormalDepthMap.SampleLevel(samNormalDepth, pin.uv, 0.0f);
+    
+   // return centerNormalDepth;
 
     for (float i = -gBlurRadius; i <= gBlurRadius; ++i)
     {
@@ -89,9 +88,9 @@ float4 PS(VertexOut pin, uniform bool gHorizontalBlur) : SV_Target
         if (i == 0)
             continue;
 
-        float2 tex = pin.Tex + i * texOffset;
+        float2 tex = pin.uv + i * texOffset;
 
-        float4 neighborNormalDepth = gNormalDepthMap.SampleLevel(
+        float4 neighborNormalDepth = NormalDepthMap.SampleLevel(
 			samNormalDepth, tex, 0.0f);
 
 		//
@@ -103,10 +102,10 @@ float4 PS(VertexOut pin, uniform bool gHorizontalBlur) : SV_Target
         if (dot(neighborNormalDepth.xyz, centerNormalDepth.xyz) >= 0.8f &&
 		    abs(neighborNormalDepth.a - centerNormalDepth.a) <= 0.2f)
         {
-            float weight = gWeights[i + gBlurRadius];
+            float weight = Weights[i + gBlurRadius];
 
 			// Add neighbor pixel to blur.
-            color += weight * gInputImage.SampleLevel(
+            color += weight * InputImage.SampleLevel(
 				samInputImage, tex, 0.0);
 		
             totalWeight += weight;
@@ -117,7 +116,7 @@ float4 PS(VertexOut pin, uniform bool gHorizontalBlur) : SV_Target
     return color / totalWeight;
 }
 
-technique11 HorzBlur
+technique11 T0
 {
     pass P0
     {
@@ -127,7 +126,7 @@ technique11 HorzBlur
     }
 }
 
-technique11 VertBlur
+technique11 T1
 {
     pass P0
     {

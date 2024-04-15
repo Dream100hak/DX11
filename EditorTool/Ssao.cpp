@@ -9,12 +9,11 @@ Ssao::Ssao(int32 width, int32 height, float fovy, float farZ)
 	OnSize(width, height, fovy, farZ);
 
 	CreateBuffer();
-	SetOffsetVectors();
+	CreateTwoAmbientTexture();
 	CreateRandomVectorTexture();
 
-	auto shader = RESOURCES->Get<Shader>(L"Ssao");
-
-	SetShader(shader); 
+	SetOffsetVectors();
+	SetShader(); 
 }
 Ssao::~Ssao()
 {
@@ -61,24 +60,41 @@ void Ssao::OnSize(int32 width, int32 height, float fovy, float farZ)
 	_vp.Set(width / 2  , height / 2 , 0.f , 0.f , 0.f, 1.0f);
 
 	SetFrustumFarCorners(fovy, farZ);
-	CreateTextureViews();
+
 }
 
-void Ssao::SetShader(shared_ptr<Shader> shader)
+void Ssao::SetShader()
 {
-	_shader = shader;
+	// SSAO //
 
-	_viewToTexEffectBuffer = shader->GetMatrix("gViewToTexSpace");
-	_offsetEffectBuffer = shader->GetVector("gOffsetVectors");
-	_frustumConersEffectBuffer = shader->GetVector("gFrustumCorners");
-	_normalDepthEffectBuffer = shader->GetSRV("NormalDepthMap");
-	_randomEffectBuffer = shader->GetSRV("RandomVecMap");
+	auto ssaoShader = RESOURCES->Get<Shader>(L"Ssao");
+
+	_ssaoShader = ssaoShader;
+
+	_normalDepthEffectBuffer = ssaoShader->GetSRV("NormalDepthMap");
+	_randomEffectBuffer = ssaoShader->GetSRV("RandomVecMap");
 
 	if (_ssaoEffectBuffer == nullptr)
 	{
 		_ssaoBuffer = make_shared<ConstantBuffer<SsaoBuffer>>();
 		_ssaoBuffer->Create();
-		_ssaoEffectBuffer = shader->GetConstantBuffer("SsaoBuffer");
+		_ssaoEffectBuffer = ssaoShader->GetConstantBuffer("SsaoBuffer");
+	}
+
+	// SSAO BLUR //
+
+	auto ssaoBlurShader = RESOURCES->Get<Shader>(L"SsaoBlur");
+
+	_ssaoBlurShader = ssaoBlurShader;
+
+	_normalDepthBlurEffectBuffer = ssaoBlurShader->GetSRV("NormalDepthMap");
+	_inputBlurEffectBuffer = ssaoBlurShader->GetSRV("InputImage");
+
+	if (_ssaoBlurEffectBuffer == nullptr)
+	{
+		_ssaoBlurBuffer = make_shared<ConstantBuffer<SsaoBlurBuffer>>();
+		_ssaoBlurBuffer->Create();
+		_ssaoBlurEffectBuffer = ssaoBlurShader->GetConstantBuffer("SsaoBlurBuffer");
 	}
 }
 
@@ -148,7 +164,7 @@ void Ssao::SetOffsetVectors()
 	}
 }
 
-void Ssao::CreateTextureViews()
+void Ssao::CreateTwoAmbientTexture()
 {
 	D3D11_TEXTURE2D_DESC texDesc;
 	texDesc.Width = _width;
@@ -237,24 +253,20 @@ void Ssao::CreateRandomVectorTexture()
 	CHECK(hr);
 }
 
-void Ssao::ComputeSsao()
+void Ssao::ComputeSsao(Matrix& P)
 {
 	// Bind the ambient map as the render target.  Observe that this pass does not bind 
 	// a depth/stencil buffer--it does not need it, and without one, no depth test is
 	// performed, which is what we want.
 
-	if(_shader == nullptr)
+	if(_ssaoShader == nullptr)
 		return;
-
-	shared_ptr<Scene> scene = CUR_SCENE;
-	auto camera = scene->GetMainCamera()->GetCamera();
 
 	Color black = Color(0.f,0.f,0.f,1.f);
 
 	ID3D11RenderTargetView* renderTargets[1] = { _ambientRTV0.Get() };
 	DCT->OMSetRenderTargets(1, renderTargets, 0);
 	DCT->ClearRenderTargetView(_ambientRTV0.Get(), (float*)(&black));
-
 	_vp.RSSetViewport();
 
 	// Transform NDC space [-1,+1]^2 to texture space [0,1]^2
@@ -264,21 +276,21 @@ void Ssao::ComputeSsao()
 		0.0f, 0.0f, 1.0f, 0.0f,
 		0.5f, 0.5f, 0.0f, 1.0f);
 
-	Matrix PT = camera->GetProjectionMatrix() * T;
+	Matrix PT = P * T;
 
 	_ssaoDesc = SsaoBuffer{};
-	_ssaoDesc.gViewToTexSpace = PT;
+	_ssaoDesc.ViewToTexSpace = PT;
 
 	for (int i = 0; i < 14; ++i) 
-		_ssaoDesc.gOffsetVectors[i] = _offsets[i];
+		_ssaoDesc.OffsetVectors[i] = _offsets[i];
 
 	for (int i = 0; i < 4; ++i) 
-		_ssaoDesc.gFrustumCorners[i] = _frustumFarCorner[i];
+		_ssaoDesc.FrustumCorners[i] = _frustumFarCorner[i];
 	
-	_ssaoDesc.gOcclusionRadius = 0.5f;
-	_ssaoDesc.gOcclusionFadeStart = 0.2f;
-	_ssaoDesc.gOcclusionFadeEnd = 2.0f;
-	_ssaoDesc.gSurfaceEpsilon = 0.05f;
+	_ssaoDesc.OcclusionRadius = 0.5f;
+	_ssaoDesc.OcclusionFadeStart = 0.2f;
+	_ssaoDesc.OcclusionFadeEnd = 2.0f;
+	_ssaoDesc.SurfaceEpsilon = 0.05f;
 
 	_ssaoBuffer->CopyData(_ssaoDesc);
 	_ssaoEffectBuffer->SetConstantBuffer(_ssaoBuffer->GetComPtr().Get());
@@ -288,7 +300,7 @@ void Ssao::ComputeSsao()
 
 	_vertexBuffer->PushData();
 	_indexBuffer->PushData();
-	_shader->DrawIndexed(0, 0, 6, 0, 0);
+	_ssaoShader->DrawIndexed(0, 0, 6, 0, 0);
 }
 
 
@@ -305,39 +317,36 @@ void Ssao::BlurAmbientMap(int32 blurCount)
 
 void Ssao::BlurAmbientMap(ComPtr<ID3D11ShaderResourceView> inputSRV, ComPtr<ID3D11RenderTargetView> outputRTV, bool horzBlur)
 {
-	auto shader = RESOURCES->Get<Shader>(L"SsaoBlur");
+	if(_ssaoBlurShader == nullptr)
+		return;
+
 	Color black = Color(0.f, 0.f, 0.f, 1.f);
 
 	ID3D11RenderTargetView* renderTargets[1] = { outputRTV.Get() };
 	DCT->OMSetRenderTargets(1, renderTargets, 0);
-	DCT->ClearRenderTargetView(outputRTV.Get(), reinterpret_cast<const float*>(&black));
+	DCT->ClearRenderTargetView(outputRTV.Get(), (float*)(&black));
 	_vp.RSSetViewport();
 
-	if (_texelWidthEffectBuffer == nullptr)
-		_texelWidthEffectBuffer = shader->GetScalar("gTexelWidth");
+	_ssaoBlurDesc = SsaoBlurBuffer {} ;
+	_ssaoBlurDesc.TexelWidth =  1.f / _vp.GetWidth();
+	_ssaoBlurDesc.TexelHeight = 1.f / _vp.GetHeight();
 
-	if (_texelHeightEffectBuffer == nullptr)
-		_texelHeightEffectBuffer = shader->GetScalar("gTexelHeight");
+	_ssaoBlurBuffer->CopyData(_ssaoBlurDesc);
+	_ssaoBlurEffectBuffer->SetConstantBuffer(_ssaoBlurBuffer->GetComPtr().Get());
 
-	if(_normalDepthBlurEffectBuffer == nullptr)
-		_normalDepthBlurEffectBuffer = shader->GetSRV("gNormalDepthMap");
-
-	if (_inputBlurEffectBuffer == nullptr)
-		_inputBlurEffectBuffer = shader->GetSRV("gInputImage");
-
-	_texelWidthEffectBuffer->SetFloat(1.f / _vp.GetWidth());
-	_texelHeightEffectBuffer->SetFloat(1.f / _vp.GetHeight());
 	_normalDepthBlurEffectBuffer->SetResource(_normalDepthSRV.Get());
 	_inputBlurEffectBuffer->SetResource(inputSRV.Get());
 
 	_vertexBuffer->PushData();
 	_indexBuffer->PushData();
 
-	// Unbind the input SRV as it is going to be an output in the next blur.
-	shader->DrawIndexed(0, 0, 6, 0, 0);
+	_ssaoBlurShader->DrawIndexed(horzBlur, 0, 6, 0, 0);
 	
-	ID3D11ShaderResourceView* nullSRV[1] = { nullptr };
-	DCT->PSSetShaderResources(0, 1, nullSRV);
+	DCT->RSSetState(0);
+	DCT->OMSetDepthStencilState(0, 0);
+
+	ID3D11ShaderResourceView* nullSRV[16] = { 0 };
+	DCT->PSSetShaderResources(0, 16, nullSRV);
 }
 
 void Ssao::Draw()
@@ -372,7 +381,6 @@ void Ssao::Draw()
 	INSTANCING->Render(shader, V, P, light, vecForward);
 
 	/////////////////////////////////////////////////////////
-	ComputeSsao();
-	//BlurAmbientMap(4);
-
+	ComputeSsao(P);
+	BlurAmbientMap(4);
 }

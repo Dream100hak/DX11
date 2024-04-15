@@ -18,7 +18,6 @@ cbuffer GlobalBuffer
 cbuffer TransformBuffer
 {
     matrix W;
-    matrix WInvTransposeV;
 };
 
 ////////////////

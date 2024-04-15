@@ -248,7 +248,6 @@ void EditorTool::Update()
 
 void EditorTool::Render()
 {
-	
 }
 
 void EditorTool::OnMouseWheel(int32 scrollAmount)
@@ -268,7 +267,7 @@ void EditorTool::DrawShadowMap()
 	auto tex2 = TEXTURE->GetSsao()->GetAmbientPtr().Get();
 	auto tex3 = TEXTURE->GetSsao()->GetNormalDepthPtr().Get();
 
-	ImGui::Begin("ShadowMap");
+	ImGui::Begin("RenderTextures");
 	ImGui::Image(tex2, ImVec2(256, 200));
 	ImGui::Image(tex3, ImVec2(256, 200));
 	ImGui::End();

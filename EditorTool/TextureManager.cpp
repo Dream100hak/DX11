@@ -31,7 +31,6 @@ void TextureManager::Update()
 void TextureManager::DrawShadowMap()
 {
 
-
 	JOB_PRE_RENDER->DoPush([=]()
 	{
 		_smap->Draw();
@@ -39,14 +38,13 @@ void TextureManager::DrawShadowMap()
 	JOB_RENDER->DoPush([=]()
 	{
 		_ssao->Draw();
-		_ssao->ComputeSsao();
 	});
 
 	Matrix W1(
 		0.5f, 0.0f, 0.0f, 0.0f,
 		0.0f, 0.5f, 0.0f, 0.0f,
 		0.0f, 0.0f, 1.0f, 0.0f,
-		0.5f, -0.5f, 0.0f, 1.0f);
+		0.75f, -0.75f, 0.0f, 1.0f);
 
 	if (_ssaoAmbientDebugTexture)
 		_ssaoAmbientDebugTexture->Update(W1);
@@ -55,7 +53,7 @@ void TextureManager::DrawShadowMap()
 		0.5f, 0.0f, 0.0f, 0.0f,
 		0.0f, 0.5f, 0.0f, 0.0f,
 		0.0f, 0.0f, 1.0f, 0.0f,
-		0.f, -0.5f, 0.0f, 1.0f);
+		0.25f, -0.75f, 0.0f, 1.0f);
 
 	if (_ssaoNormalDebugTexture)
 		_ssaoNormalDebugTexture->Update(W2);

@@ -1,14 +1,14 @@
 cbuffer SsaoBuffer
 {
-    float4x4 gViewToTexSpace; // Proj*Texture
-    float4 gOffsetVectors[14];
-    float4 gFrustumCorners[4];
+    float4x4 ViewToTexSpace; // Proj*Texture
+    float4 OffsetVectors[14];
+    float4 FrustumCorners[4];
 
 	// Coordinates given in view space.
-    float gOcclusionRadius = 0.5f;
-    float gOcclusionFadeStart = 0.2f;
-    float gOcclusionFadeEnd = 2.0f;
-    float gSurfaceEpsilon = 0.05f;
+    float OcclusionRadius = 0.5f;
+    float OcclusionFadeStart = 0.2f;
+    float OcclusionFadeEnd = 2.0f;
+    float SurfaceEpsilon = 0.05f;
 };
  
 // Nonnumeric values cannot be added to a cbuffer.
@@ -54,7 +54,7 @@ VertexOut VS(VertexSSao vin)
 	//// Already in NDC space.
     vout.PosH = float4(vin.pos.xyz, 1.0f);
 	// We store the index to the frustum corner in the normal x-coord slot.
-    vout.ToFarPlane = gFrustumCorners[vin.normal.x].xyz;
+    vout.ToFarPlane = FrustumCorners[vin.normal.x].xyz;
 	// Pass onto pixel shader.
     vout.uv = vin.uv;
 
@@ -85,13 +85,13 @@ float OcclusionFunction(float distZ)
 	//
 	
     float occlusion = 0.0f;
-    if (distZ > gSurfaceEpsilon)
+    if (distZ > SurfaceEpsilon)
     {
-        float fadeLength = gOcclusionFadeEnd - gOcclusionFadeStart;
+        float fadeLength = OcclusionFadeEnd - OcclusionFadeStart;
 		
 		// Linearly decrease occlusion from 1 to 0 as distZ goes 
 		// from gOcclusionFadeStart to gOcclusionFadeEnd.	
-        occlusion = saturate((gOcclusionFadeEnd - distZ) / fadeLength);
+        occlusion = saturate((OcclusionFadeEnd - distZ) / fadeLength);
     }
 	
     return occlusion;
@@ -131,16 +131,16 @@ float4 PS(VertexOut pin, uniform int gSampleCount) : SV_Target
 		// Are offset vectors are fixed and uniformly distributed (so that our offset vectors
 		// do not clump in the same direction).  If we reflect them about a random vector
 		// then we get a random uniform distribution of offset vectors.
-        float3 offset = reflect(gOffsetVectors[i].xyz, randVec);
+        float3 offset = reflect(OffsetVectors[i].xyz, randVec);
 	
 		// Flip offset vector if it is behind the plane defined by (p, n).
         float flip = sign(dot(offset, n));
 		
 		// Sample a point near p within the occlusion radius.
-        float3 q = p + flip * gOcclusionRadius * offset;
+        float3 q = p + flip * OcclusionRadius * offset;
 		
 		// Project q and generate projective tex-coords.  
-        float4 projQ = mul(float4(q, 1.0f), gViewToTexSpace);
+        float4 projQ = mul(float4(q, 1.0f), ViewToTexSpace);
         projQ /= projQ.w;
 
 		// Find the nearest depth value along the ray from the eye to q (this is not

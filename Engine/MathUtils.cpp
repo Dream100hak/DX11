@@ -4,6 +4,11 @@
 const float MathUtils::INF = FLT_MAX;
 const float MathUtils::PI = 3.1415926535f;
 
+float MathUtils::Random()
+{
+	return  ((float)rand()) / (float)RAND_MAX;
+}
+
 float MathUtils::Random(float r1, float r2)
 {
 	float random = ((float)rand()) / (float)RAND_MAX;

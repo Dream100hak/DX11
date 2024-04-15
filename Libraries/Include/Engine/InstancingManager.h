@@ -2,6 +2,9 @@
 #include "InstancingBuffer.h"
 
 class GameObject;
+class Shader;
+class Camera;
+class Light; 
 
 
 class InstancingManager
@@ -10,20 +13,15 @@ class InstancingManager
 
 public:
 	
-	void PreRender();
-	void Render(vector<shared_ptr<GameObject>>& gameObjects);
+	void Render(shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, vector<shared_ptr<GameObject>>& gameObjects);
 	void Clear() { _buffers.clear(); }
 	void ClearData();
 
-private:
+public:
 
-	void PreRenderMeshRenderer();
-	void PreRenderModelRenderer();
-	void PreRenderAnimRenderer();
-
-	void RenderMeshRenderer(vector<shared_ptr<GameObject>>& gameObjects);
-	void RenderModelRenderer(vector<shared_ptr<GameObject>>& gameObjects);
-	void RenderAnimRenderer(vector<shared_ptr<GameObject>>& gameObjects);
+	void RenderMeshRenderer(shared_ptr<Shader> shader, Matrix V , Matrix P,  shared_ptr<Light> light, vector<shared_ptr<GameObject>>& gameObjects);
+	void RenderModelRenderer(shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, vector<shared_ptr<GameObject>>& gameObjects);
+	void RenderAnimRenderer(shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, vector<shared_ptr<GameObject>>& gameObjects);
 
 
 private:

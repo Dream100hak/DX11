@@ -30,6 +30,9 @@ public:
 	const wstring& GetName() { return _name; }
 	uint32 GetID() { return _id; }
 
+	void SetPath(const wstring& path) { _path  = path; }
+	const wstring& GetPath() { return _path; }
+
 protected:
 	virtual void Load(const wstring& path) { }
 	virtual void Save(const wstring& path) { }

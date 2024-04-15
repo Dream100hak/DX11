@@ -3,6 +3,8 @@
 #include "ModelRenderer.h"
 #include "MeshRenderer.h"
 #include "ModelAnimator.h"
+#include "Camera.h"
+#include "Light.h"
 
 ShadowMap::ShadowMap(uint32 width, uint32 height) : _width(width) , _height(height)
 {
@@ -22,7 +24,6 @@ ShadowMap::ShadowMap(uint32 width, uint32 height) : _width(width) , _height(heig
 	texDesc.MiscFlags = 0;
 
 	HRESULT hr;
-
 	ComPtr<ID3D11Texture2D> depthMap;
 
 	hr = DEVICE->CreateTexture2D(&texDesc, 0, depthMap.GetAddressOf());
@@ -49,19 +50,40 @@ ShadowMap::ShadowMap(uint32 width, uint32 height) : _width(width) , _height(heig
 
 ShadowMap::~ShadowMap()
 {
-
 }
 
-void ShadowMap::BindDsvAndSetNullRenderTarget()
+void ShadowMap::Draw()
 {
 	_vp.RSSetViewport();
 
 	ID3D11RenderTargetView* renderTargets[1] = { 0 };
 	DCT->OMSetRenderTargets(1, renderTargets, _depthMapDSV.Get());
 	DCT->ClearDepthStencilView(_depthMapDSV.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
-}
 
-void ShadowMap::Draw()
-{
-	INSTANCING->PreRender();
+	shared_ptr<Scene> scene = CUR_SCENE;
+	unordered_set<shared_ptr<GameObject>>& gameObjects = scene->GetObjects();
+
+	auto shader = RESOURCES->Get<Shader>(L"Shadow");
+	auto camera = scene->GetMainCamera()->GetCamera();
+	auto light = SCENE->GetCurrentScene()->GetLight()->GetLight();
+
+	vector<shared_ptr<GameObject>> vecForward;
+
+	for (auto& gameObject : gameObjects)
+	{
+		if (camera->IsCulled(gameObject->GetLayerIndex()))
+			continue;
+
+		if (gameObject->GetMeshRenderer() == nullptr
+			&& gameObject->GetModelRenderer() == nullptr
+			&& gameObject->GetModelAnimator() == nullptr)
+			continue;
+
+		vecForward.push_back(gameObject);
+	}
+	
+	Matrix V = Light::S_MatView;
+	Matrix P = Light::S_MatProjection;
+
+	INSTANCING->Render(shader , V , P , light , vecForward);
 }

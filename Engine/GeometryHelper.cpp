@@ -274,9 +274,6 @@ void GeometryHelper::CreateSphere(shared_ptr<Geometry<VertexTextureData>> geomet
 }
 
 
-
-
-
 void GeometryHelper::CreateGrid(shared_ptr<Geometry<VertexTextureData>> geometry, int32 sizeX, int32 sizeZ)
 {
 	vector<VertexTextureData> vtx;
@@ -335,7 +332,7 @@ void GeometryHelper::CreateQuad(shared_ptr<Geometry<VertexTextureNormalData>> ge
 	vtx[2].normal = Vec3(0.f, 0.f, -1.f);
 	vtx[3].position = Vec3(0.5f, 0.5f, 0.f);
 	vtx[3].uv = Vec2(1.f, 0.f);
-	vtx[2].normal = Vec3(0.f, 0.f, -1.f);
+	vtx[3].normal = Vec3(0.f, 0.f, -1.f);
 	geometry->SetVertices(vtx);
 
 	vector<uint32> idx = { 0, 1, 2, 2, 1, 3 };

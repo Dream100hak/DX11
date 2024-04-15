@@ -18,6 +18,5 @@ private:
 	shared_ptr<class SceneCamera> _sceneCam;
 	shared_ptr<class Button> _btn; 
 
-	shared_ptr<ShadowMap> _smap = nullptr;
 
 };

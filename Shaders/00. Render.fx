@@ -27,6 +27,7 @@ MeshOutput VS_Mesh(VertexMesh input)
 
 	output.position = mul(input.position, input.world); // W
 	output.worldPosition = output.position;
+    output.worldViewPosition = mul(output.position, V);
 	output.position = mul(output.position, VP);
 	output.uv = input.uv;
 	output.normal = input.normal;
@@ -66,6 +67,7 @@ MeshOutput VS_Model(VertexModel input)
 	output.position = mul(input.position, BoneTransforms[BoneIndex]); // Model Global
 	output.position = mul(output.position, input.world); // W
 	output.worldPosition = output.position;
+    output.worldViewPosition = mul(output.position, V);
 	output.position = mul(output.position, VP);
 	output.uv = input.uv;
 	output.normal = input.normal;
@@ -183,6 +185,7 @@ MeshOutput VS_Animation(VertexModel input)
 	output.position = mul(input.position, m);
 	output.position = mul(output.position, input.world); // W
 	output.worldPosition = output.position;
+    output.worldViewPosition = mul(output.position, V);
 	output.position = mul(output.position, VP);
 	output.uv = input.uv;
 	output.normal = mul(input.normal, (float3x3)input.world);

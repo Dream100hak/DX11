@@ -5,8 +5,8 @@ public:
 	ShadowMap(uint32 width , uint32 height);
 	~ShadowMap();
 
+
 	ComPtr<ID3D11DepthStencilView> GetDepthMapDSV() { return _depthMapDSV; }
-	void BindDsvAndSetNullRenderTarget();
 	void Draw();
 
 private:

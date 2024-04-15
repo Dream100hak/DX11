@@ -14,6 +14,7 @@ void ResourceManager::Init()
 	CreateShadowMapShader();
 	CreateOutlineShader();
 	CreateThumbnailShader();
+	CreateSSAOShader();
 }
 
 std::shared_ptr<Texture> ResourceManager::GetOrAddTexture(const wstring& key, const wstring& path)
@@ -71,7 +72,7 @@ void ResourceManager::CreateDefaultMaterial()
 
 void ResourceManager::CreateShadowMapShader()
 {
-	shared_ptr<Shader> shader = make_shared<Shader>(L"01. ShadowMap.fx");
+	shared_ptr<Shader> shader = make_shared<Shader>(L"00. ShadowMap.fx");
 	RESOURCES->Add(L"Shadow", shader);
 }
 
@@ -85,4 +86,21 @@ void ResourceManager::CreateThumbnailShader()
 {
 	shared_ptr<Shader> shader = make_shared<Shader>(L"01. Thumbnail.fx");
 	RESOURCES->Add(L"Thumbnail", shader);
+}
+
+void ResourceManager::CreateSSAOShader()
+{
+	{
+		shared_ptr<Shader> shader = make_shared<Shader>(L"00. Ssao.fx");
+		RESOURCES->Add(L"Ssao", shader);
+	}
+
+	{
+		shared_ptr<Shader> shader = make_shared<Shader>(L"00. SsaoNormalDepth.fx");
+		RESOURCES->Add(L"SsaoNormalDepth", shader);
+	}
+	{
+		shared_ptr<Shader> shader = make_shared<Shader>(L"00. SsaoBlur.fx");
+		RESOURCES->Add(L"SsaoBlur", shader);
+	}
 }

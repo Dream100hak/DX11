@@ -21,8 +21,7 @@ public:
 	void SetPass(uint8 pass) { _pass = pass; }
 	void SetTechnique(uint8 teq) { _teq = teq; }
 
-	void PreRenderInstancing(shared_ptr<class InstancingBuffer>& buffer);
-	void RenderInstancing(shared_ptr<class InstancingBuffer>& buffer);
+	void RenderInstancing(shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<class InstancingBuffer>& buffer);
 
 	void ThumbnailRender(shared_ptr<Camera> cam, shared_ptr<Light> light, shared_ptr<class InstancingBuffer>& buffer);
 

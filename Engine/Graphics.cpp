@@ -1,7 +1,5 @@
 #include "pch.h"
 #include "Graphics.h"
-#include "ShadowMap.h"
-#include "MeshThumbnail.h"
 
 void Graphics::Init(HWND hwnd)
 {

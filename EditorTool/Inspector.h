@@ -14,8 +14,10 @@ public:
 	void ShowInfoHiearchy();
 	void ShowInfoProject();
 
+	void PickMaterialTexture(string textureType , OUT bool& changed);
+
 	ID3D11ShaderResourceView* GetMetaFileIcon();
 
-	class shared_ptr<MeshThumbnail>& GetMeshThumbnail();
+	shared_ptr<class MeshThumbnail>& GetMeshThumbnail();
 	
 };

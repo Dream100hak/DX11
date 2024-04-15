@@ -2,6 +2,7 @@
 
 #define TOOL			GET_SINGLE(EditorToolManager)		
 #define SHORTCUT		GET_SINGLE(ShortcutManager)		
+#define TEXTURE			GET_SINGLE(TextureManager)		
 
 #define ADDLOG(msg, filter)			TOOL->GetLog()->AddLog(msg,filter)
 

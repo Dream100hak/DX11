@@ -16,10 +16,13 @@ std::shared_ptr<Texture> Texture::Clone()
 {
 	auto clonedTexture = std::make_shared<Texture>();
 
-	ComPtr<ID3D11Texture2D> srcTexture2D = GetTexture2D();
+	ComPtr<ID3D11Texture2D> srcTexture2D = GetTexture2D().Get(); // 수정된 부분
 
 	D3D11_TEXTURE2D_DESC textureDesc;
 	srcTexture2D->GetDesc(&textureDesc);
+
+	// Shader Resource View 생성을 위해 BindFlags 수정
+	textureDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 
 	ComPtr<ID3D11Texture2D> newTexture2D;
 	HRESULT hr = DEVICE.Get()->CreateTexture2D(&textureDesc, nullptr, newTexture2D.GetAddressOf());
@@ -34,7 +37,10 @@ std::shared_ptr<Texture> Texture::Clone()
 	ComPtr<ID3D11ShaderResourceView> newSRV;
 	hr = DEVICE.Get()->CreateShaderResourceView(newTexture2D.Get(), nullptr, newSRV.GetAddressOf());
 	if (FAILED(hr))
+	{
+		// 오류 처리...
 		return nullptr;
+	}
 
 	clonedTexture->SetSRV(newSRV);
 	clonedTexture->_size = _size;
@@ -62,11 +68,15 @@ void Texture::Load(const wstring& path)
 
 	_size.x = md.width;
 	_size.y = md.height;
+
+	_path = path;
 }
 
 Microsoft::WRL::ComPtr<ID3D11Texture2D> Texture::GetTexture2D()
 {
-	ComPtr<ID3D11Texture2D> texture;
-	_shaderResourveView->GetResource((ID3D11Resource**)texture.GetAddressOf());
+	Microsoft::WRL::ComPtr<ID3D11Resource> resource;
+	_shaderResourveView->GetResource(&resource);
+	Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;
+	resource.As(&texture);
 	return texture;
 }

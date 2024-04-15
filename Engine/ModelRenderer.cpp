@@ -5,7 +5,6 @@
 #include "Model.h"
 #include "Camera.h"
 #include "Light.h"
-#include "ShadowMap.h"
 #include "MathUtils.h"
 #include "BVH.h"
 
@@ -54,8 +53,7 @@ void ModelRenderer::OnInspectorGUI()
 					ImGui::Image((void*)RESOURCES->Get<Texture>(L"Grid")->GetComPtr().Get(), ImVec2(75, 75));
 
 				ImGui::EndGroup();
-			}
-			
+			}		
 
 			ImGui::SameLine(0.f, -2.f); // 같은 줄에 배치
 
@@ -71,8 +69,6 @@ void ModelRenderer::OnInspectorGUI()
 
 				ImGui::EndGroup();
 			}
-		
-
 			ImGui::SameLine(); // 같은 줄에 배치
 
 			// Specular Map
@@ -88,21 +84,15 @@ void ModelRenderer::OnInspectorGUI()
 		
 				ImGui::EndGroup();
 			}
-
-
-			ImGui::TreePop(); // 매터리얼 노드 종료
+			ImGui::TreePop(); 
 		}
 	}
 }
 
 void ModelRenderer::SetModel(shared_ptr<Model> model)
 {
-	Matrix W = GetTransform()->GetWorldMatrix();
-
 	_model = model;
-
 	ChangeShader(_shader);
-
 }
 
 void ModelRenderer::ChangeShader(shared_ptr<Shader> shader)
@@ -126,49 +116,29 @@ void ModelRenderer::ThumbnailRender(shared_ptr<Camera> cam , shared_ptr<Light> l
 	PushData(0, light, buffer);
 }
 
-
-void ModelRenderer::PreRenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
+void ModelRenderer::RenderInstancing(shared_ptr<Shader> shader , Matrix V, Matrix P, shared_ptr<Light> light,  shared_ptr<InstancingBuffer>& buffer)
 {
+
 	if (_model == nullptr)
 		return;
 
-	auto shader = RESOURCES->Get<Shader>(L"Shadow");
-	ChangeShader(shader);
-
-	_shader->PushGlobalData(Light::S_MatView, Light::S_MatProjection);
-
-	// Light
-	auto lightObj = SCENE->GetCurrentScene()->GetLight()->GetLight();
-
-	PushData(0 ,lightObj, buffer);
-
-}
-
-void ModelRenderer::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
-{
-	if (_model == nullptr)
-		return;
-
-	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
-	auto shader = RESOURCES->Get<Shader>(L"Standard");
 	ChangeShader(shader);
 	// GlobalData
-	shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
+	shader->PushGlobalData(V , P);
 
-	// Light
-	auto lightObj = SCENE->GetCurrentScene()->GetLight()->GetLight();
+	Matrix W = GetTransform()->GetWorldMatrix();
+	Matrix WInvTransposeV = MathUtils::InverseTranspose(W) * V;
 
-	{
-		DCT->OMSetDepthStencilState(GRAPHICS->GetDSStateOutline().Get(), 1);
-		PushData(1, lightObj, buffer);
-	}
+	TransformDesc trDesc = {};
+	trDesc.W = W;
+	trDesc.WInvTransposeV = WInvTransposeV;
+	_shader->PushTransformData(trDesc);
 
-	{
-		DCT->OMSetDepthStencilState(GRAPHICS->GetDSStateStandard().Get(), 0);
-		PushData(0, lightObj, buffer );
-	}
+	//	DCT->OMSetDepthStencilState(GRAPHICS->GetDSStateOutline().Get(), 1);
+	//	PushData(1, light, buffer);
+	//	DCT->OMSetDepthStencilState(GRAPHICS->GetDSStateStandard().Get(), 0);
+	PushData(0, light, buffer );	
 }
-
 
 void ModelRenderer::PushData(uint8 technique, shared_ptr<Light>& light, shared_ptr<class InstancingBuffer>& buffer)
 {
@@ -198,6 +168,7 @@ void ModelRenderer::PushData(uint8 technique, shared_ptr<Light>& light, shared_p
 		// IA
 		mesh->vertexBuffer->PushData();
 		mesh->indexBuffer->PushData();
+		
 
 		buffer->PushData();
 
@@ -262,11 +233,9 @@ bool ModelRenderer::Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& dis
 	}
 
 	return false;
-	
 }
 void ModelRenderer::TransformBoundingBox()
 {
-
 	Matrix W = GetTransform()->GetWorldMatrix();
 
 	Vec3 vMin = Vec3(MathUtils::INF, MathUtils::INF, MathUtils::INF);
@@ -281,12 +250,10 @@ void ModelRenderer::TransformBoundingBox()
 	for (int i = 0; i < 8; ++i) {
 		corners[i] = XMVector3TransformCoord(corners[i], W);
 	}
-
 	for (const Vec3& corner : corners) {
 		vMin = ::XMVectorMin(vMin, corner);
 		vMax = ::XMVectorMax(vMax, corner);
 	}
-
 	_boundingBox.Center = 0.5f * (vMin + vMax);
 	_boundingBox.Extents = 0.5f * (vMax - vMin);
 

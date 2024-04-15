@@ -12,11 +12,13 @@ cbuffer GlobalBuffer
     matrix VP;
     matrix VInv;
     matrix Shadow;
+
 };
 
 cbuffer TransformBuffer
 {
     matrix W;
+    matrix WInvTransposeV;
 };
 
 ////////////////
@@ -87,6 +89,7 @@ struct MeshOutput
 {
     float4 position : SV_POSITION;
     float3 worldPosition : POSITION1;
+    float3 worldViewPosition : POSITION2;
     float2 uv : TEXCOORD;
     float3 normal : NORMAL;
     float3 tangent : TANGENT;
@@ -252,12 +255,6 @@ pass name											\
     SetVertexShader(CompileShader(vs_5_0, vs()));	\
     SetGeometryShader(CompileShader(gs_5_0, GS())); \
     SetPixelShader(CompileShader(ps_5_0, ps()));	\
-}
-#define PASS_VP_PREVIEW(name, vs, ps)				\
-pass name											\
-{													\
-	SetVertexShader(CompileShader(vs_5_0, vs()));	\
-	SetPixelShader(CompileShader(ps_5_0, ps(3,false,false)));	\
 }
 //////////////
 // Function //

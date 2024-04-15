@@ -28,6 +28,12 @@
     <Filter Include="Shaders\Contents">
       <UniqueIdentifier>{2d1ecde8-e453-48bc-acd7-0b8e97c6c24b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Textures">
+      <UniqueIdentifier>{bef55cdc-bbca-4aa6-b60f-7cdea1846f07}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Managers">
+      <UniqueIdentifier>{72b3cb0f-be3a-416a-a8aa-ee913991e35e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -48,12 +54,6 @@
     </ClInclude>
     <ClInclude Include="Hiearchy.h">
       <Filter>EditorWindow</Filter>
-    </ClInclude>
-    <ClInclude Include="ShortcutManager.h">
-      <Filter>Utils</Filter>
-    </ClInclude>
-    <ClInclude Include="EditorToolManager.h">
-      <Filter>Utils</Filter>
     </ClInclude>
     <ClInclude Include="Define.h">
       <Filter>Utils</Filter>
@@ -86,6 +86,27 @@
     <ClInclude Include="FolderContents.h">
       <Filter>EditorWindow</Filter>
     </ClInclude>
+    <ClInclude Include="ShortcutManager.h">
+      <Filter>Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="EditorToolManager.h">
+      <Filter>Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="Ssao.h">
+      <Filter>Textures</Filter>
+    </ClInclude>
+    <ClInclude Include="TextureRenderer.h">
+      <Filter>Textures</Filter>
+    </ClInclude>
+    <ClInclude Include="TextureManager.h">
+      <Filter>Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="ShadowMap.h">
+      <Filter>Textures</Filter>
+    </ClInclude>
+    <ClInclude Include="MeshThumbnail.h">
+      <Filter>Textures</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -106,12 +127,6 @@
     </ClCompile>
     <ClCompile Include="Hiearchy.cpp">
       <Filter>EditorWindow</Filter>
-    </ClCompile>
-    <ClCompile Include="ShortcutManager.cpp">
-      <Filter>Utils</Filter>
-    </ClCompile>
-    <ClCompile Include="EditorToolManager.cpp">
-      <Filter>Utils</Filter>
     </ClCompile>
     <ClCompile Include="EditorWindow.cpp">
       <Filter>EditorWindow</Filter>
@@ -140,6 +155,27 @@
     </ClCompile>
     <ClCompile Include="FolderContents.cpp">
       <Filter>EditorWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="EditorToolManager.cpp">
+      <Filter>Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="ShortcutManager.cpp">
+      <Filter>Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="Ssao.cpp">
+      <Filter>Textures</Filter>
+    </ClCompile>
+    <ClCompile Include="TextureRenderer.cpp">
+      <Filter>Textures</Filter>
+    </ClCompile>
+    <ClCompile Include="TextureManager.cpp">
+      <Filter>Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="ShadowMap.cpp">
+      <Filter>Textures</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshThumbnail.cpp">
+      <Filter>Textures</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -185,9 +221,6 @@
     <FxCompile Include="..\Shaders\01. Sky.fx">
       <Filter>Shaders\Contents</Filter>
     </FxCompile>
-    <FxCompile Include="..\Shaders\01. ShadowMap.fx">
-      <Filter>Shaders\Contents</Filter>
-    </FxCompile>
     <FxCompile Include="..\Shaders\01. DebugTexture.fx">
       <Filter>Shaders\Contents</Filter>
     </FxCompile>
@@ -196,6 +229,21 @@
     </FxCompile>
     <FxCompile Include="..\Shaders\01. Thumbnail.fx">
       <Filter>Shaders\Contents</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\00. ShadowMap.fx">
+      <Filter>Shaders\Common</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\00. SsaoNormalDepth.fx">
+      <Filter>Shaders\Common</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\00. Ssao.fx">
+      <Filter>Shaders\Common</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\00. SsaoBlur.fx">
+      <Filter>Shaders\Common</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\00. Ssao2.fx">
+      <Filter>Shaders\Common</Filter>
     </FxCompile>
   </ItemGroup>
 </Project>

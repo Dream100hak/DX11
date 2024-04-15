@@ -16,7 +16,7 @@ struct GlobalDesc
 struct TransformDesc
 {
 	Matrix W = Matrix::Identity;
-
+	Matrix WInvTransposeV = Matrix::Identity;
 };
 
 // Light

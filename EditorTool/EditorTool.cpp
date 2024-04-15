@@ -24,10 +24,14 @@
 #include "Material.h"
 #include "ShortcutManager.h"
 #include "EditorToolManager.h"
+#include "TextureManager.h"
 
 #include "AsConverter.h"
 
 #include "MeshThumbnail.h"
+#include "TextureRenderer.h"
+
+#include "Ssao.h"
 
 void EditorTool::Init()
 {
@@ -41,6 +45,7 @@ void EditorTool::Init()
 	GET_SINGLE(ShortcutManager)->Init();
 	GET_SINGLE(EditorToolManager)->Init();
 
+
 	_sceneCam = make_shared<SceneCamera>();
 	auto shader = RESOURCES->Get<Shader>(L"Standard");
 
@@ -53,6 +58,9 @@ void EditorTool::Init()
 	sceneCamera->AddComponent(_sceneCam);
 
 	CUR_SCENE->Add(sceneCamera);
+
+
+	GET_SINGLE(TextureManager)->Init();
 
 	// UI_Camera
 	{
@@ -92,27 +100,27 @@ void EditorTool::Init()
 		light->GetLight()->SetLightDesc(lightDesc);
 		CUR_SCENE->Add(light);
 	}
-	//{		
-	//	//// Sky
-	//	auto obj = make_shared<GameObject>();
-	//	obj->SetObjectName(L"SkyBox");
-	//	obj->GetOrAddTransform();
-	//	obj->AddComponent(make_shared<SkyBox>());
-	//	obj->GetSkyBox()->Init(SkyType::CubeMap);
-	//	CUR_SCENE->Add(obj);		
-	//}
+	{		
+		//// Sky
+/*		auto obj = make_shared<GameObject>();
+		obj->SetObjectName(L"SkyBox");
+		obj->GetOrAddTransform();
+		obj->AddComponent(make_shared<SkyBox>());
+		obj->GetSkyBox()->Init(SkyType::CubeMap);
+		CUR_SCENE->Add(obj);*/		
+	}
 
-	//{
-	//	auto obj = make_shared<GameObject>();
-	//	obj->SetObjectName(L"Terrain");
-	//	obj->GetOrAddTransform();
-	//	obj->GetOrAddTransform()->SetPosition(Vec3(-75.f, 0.f, -75.f));
-	//	obj->AddComponent(make_shared<Terrain>());
+	{
+		auto obj = make_shared<GameObject>();
+		obj->SetObjectName(L"Terrain");
+		obj->GetOrAddTransform();
+		obj->GetOrAddTransform()->SetPosition(Vec3(-75.f, 0.f, -75.f));
+		obj->AddComponent(make_shared<Terrain>());
 
-	//	auto mat = RESOURCES->Get<Material>(L"DefaultMaterial");
-	//	obj->GetTerrain()->Create(200, 200, mat->Clone());
-	//	CUR_SCENE->Add(obj);
-	//}
+		auto mat = RESOURCES->Get<Material>(L"DefaultMaterial");
+		obj->GetTerrain()->Create(200, 200, mat->Clone());
+		CUR_SCENE->Add(obj);
+	}
 
 
 
@@ -141,6 +149,28 @@ void EditorTool::Init()
 	//	}
 	//}
 	// Model
+	 {
+
+		shared_ptr<class Model> m2 = make_shared<Model>();
+		m2->ReadModel(L"Kachujin/Kachujin");
+		m2->ReadMaterial(L"Kachujin/Kachujin");
+
+		for (int i = 130; i < 140; i++)
+		{
+			auto obj = make_shared<GameObject>();
+			wstring name = L"Model_" + to_wstring(i);
+			obj->SetObjectName(name);
+
+			obj->GetOrAddTransform()->SetPosition(Vec3(rand() % 10, 0, rand() % 10));
+			obj->GetOrAddTransform()->SetScale(Vec3(1.0f));
+
+			obj->AddComponent(make_shared<ModelRenderer>(shader));
+			obj->GetModelRenderer()->SetModel(m2);
+			obj->GetModelRenderer()->SetPass(1);
+
+			CUR_SCENE->Add(obj);
+		}
+	 }
 	//{
 
 	//	shared_ptr<class Model> m2 = make_shared<Model>();
@@ -208,6 +238,7 @@ void EditorTool::Update()
 {
 	GET_SINGLE(ShortcutManager)->Update();
 	GET_SINGLE(EditorToolManager)->Update();
+	GET_SINGLE(TextureManager)->Update();
 
 	ImGui::ShowDemoWindow(&_showWindow);
 
@@ -233,20 +264,12 @@ void EditorTool::OnMouseWheel(int32 scrollAmount)
 
 void EditorTool::DrawShadowMap()
 {
-
-	if (_smap == nullptr)
-		_smap = make_shared<ShadowMap>(2048, 2048);
-	
-	JOB_PRE_RENDER->DoPush( [=]()
-		{
-			_smap->BindDsvAndSetNullRenderTarget();
-			_smap->Draw();
-		});
-
-	//shadowMap = GRAPHICS->GetShadowMap();
-	//auto shadowTex = static_pointer_cast<Texture>(shadowMap);
+	auto tex1 = TEXTURE->GetShadowMap()->GetComPtr().Get();
+	auto tex2 = TEXTURE->GetSsao()->GetAmbientPtr().Get();
+	auto tex3 = TEXTURE->GetSsao()->GetNormalDepthPtr().Get();
 
 	ImGui::Begin("ShadowMap");
-	ImGui::Image(_smap->GetComPtr().Get(), ImVec2(400, 400));
+	ImGui::Image(tex2, ImVec2(256, 200));
+	ImGui::Image(tex3, ImVec2(256, 200));
 	ImGui::End();
 }

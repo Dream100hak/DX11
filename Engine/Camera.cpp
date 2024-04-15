@@ -24,7 +24,11 @@ void Camera::SortGameObject()
 }
 void Camera::Render_Forward()
 {
-	GET_SINGLE(InstancingManager)->Render(_vecForward);
+	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
+	auto shader = RESOURCES->Get<Shader>(L"Standard");
+	auto light = SCENE->GetCurrentScene()->GetLight()->GetLight();
+
+	GET_SINGLE(InstancingManager)->Render(shader, cam->GetViewMatrix() , cam->GetProjectionMatrix(), light, _vecForward);
 }
 
 Camera::Camera() : Super(ComponentType::Camera)

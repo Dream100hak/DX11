@@ -82,23 +82,30 @@ void MeshRenderer::OnInspectorGUI()
 	}
 }
 
-void MeshRenderer::PreRenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
+void MeshRenderer::RenderInstancing(shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<class InstancingBuffer>& buffer)
 {
 	if (_mesh == nullptr || _material == nullptr)
 		return;
 
-	auto shader = RESOURCES->Get<Shader>(L"Shadow");
-
-	if (shader == nullptr)
+	if(shader == nullptr)
 		return;
 
+	_material->SetShader(shader);
 	// GlobalData
-	shader->PushGlobalData(Light::S_MatView , Light::S_MatProjection);
+	shader->PushGlobalData(V, P);
+
+	Matrix W = GetTransform()->GetWorldMatrix();
+	Matrix WInvTransposeV = MathUtils::InverseTranspose(W) * V;
+
+	TransformDesc trDesc = {};
+	trDesc.W = W;
+	trDesc.WInvTransposeV = WInvTransposeV;
+	shader->PushTransformData(trDesc);
 	
-	// Light
-	auto lightObj = SCENE->GetCurrentScene()->GetLight();
-	if (lightObj)
-		shader->PushLightData(lightObj->GetLight()->GetLightDesc());
+	//DCT->OMSetDepthStencilState(nullptr, 1);
+
+	if (light)
+		shader->PushLightData(light->GetLightDesc());
 
 	_material->Update();
 	// IA
@@ -106,63 +113,7 @@ void MeshRenderer::PreRenderInstancing(shared_ptr<class InstancingBuffer>& buffe
 	_mesh->GetIndexBuffer()->PushData();
 
 	buffer->PushData();
-	shader->DrawIndexedInstanced(0, _pass, _mesh->GetIndexBuffer()->GetCount(), buffer->GetCount());
-}
-
-void MeshRenderer::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
-{
-	if (_mesh == nullptr || _material == nullptr)
-		return;
-
-	auto shader = _material->GetShader();
-
-	if (shader == nullptr)
-		return;
-
-	_material->SetShader(shader);
-	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
-	// GlobalData
-	shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
-
-	// Light
-	auto lightObj = SCENE->GetCurrentScene()->GetLight();
-	if (lightObj)
-		shader->PushLightData(lightObj->GetLight()->GetLightDesc());
-
-	{
-		DCT->OMSetDepthStencilState(nullptr, 1);
-
-		if (lightObj)
-			shader->PushLightData(lightObj->GetLight()->GetLightDesc());
-
-		_material->Update();
-		// IA
-		_mesh->GetVertexBuffer()->PushData();
-		_mesh->GetIndexBuffer()->PushData();
-
-		buffer->PushData();
-		shader->DrawIndexedInstanced(_teq, _pass, _mesh->GetIndexBuffer()->GetCount(), buffer->GetCount());
-	}
-
-	{
-
-		//////Outline 
-		//if (GetGameObject()->GetEnableOutline())
-		//{
-		//	DCT->OMSetDepthStencilState(GRAPHICS->GetDSStateOutline().Get(), 1);
-
-		//	if (lightObj)
-		//		shader->PushLightData(lightObj->GetLight()->GetLightDesc());
-
-		//	_material->Update();
-		//	// IA
-		//	_mesh->GetVertexBuffer()->PushData();
-		//	_mesh->GetIndexBuffer()->PushData();
-
-		//	buffer->PushData();
-		//	shader->DrawIndexedInstanced(1, _pass, _mesh->GetIndexBuffer()->GetCount(), buffer->GetCount());
-		//}
-	}
+	shader->DrawIndexedInstanced(_teq, _pass, _mesh->GetIndexBuffer()->GetCount(), buffer->GetCount());
 }
 
 void MeshRenderer::ThumbnailRender(shared_ptr<Camera> cam, shared_ptr<Light> light, shared_ptr<class InstancingBuffer>& buffer)

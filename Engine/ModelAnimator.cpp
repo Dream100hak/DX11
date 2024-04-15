@@ -6,6 +6,7 @@
 #include "ModelAnimation.h"
 #include "Camera.h"
 #include "Light.h"
+#include "MathUtils.h"
 
 ModelAnimator::ModelAnimator(shared_ptr<Shader> shader)
 	: Super(ComponentType::Animator), _shader(shader)
@@ -114,6 +115,14 @@ void ModelAnimator::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
 	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
 	// GlobalData
 	_shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
+
+	Matrix W = GetTransform()->GetWorldMatrix();
+	Matrix WInvTransposeV = MathUtils::InverseTranspose(W) * cam->GetViewMatrix();
+
+	TransformDesc trDesc = {};
+	trDesc.W = W;
+	trDesc.WInvTransposeV = WInvTransposeV;
+	_shader->PushTransformData(trDesc);
 
 	PushData(buffer);
 }

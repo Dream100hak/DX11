@@ -24,7 +24,6 @@
 #include "InstancingBuffer.h"
 
 
-
 #include "Light.h"
 
 FolderContents::FolderContents(Vec2 pos, Vec2 size)
@@ -354,15 +353,16 @@ void FolderContents::CreateMeshPreviewObj(shared_ptr<MetaData>& meta)
 	auto obj = make_shared<GameObject>();
 	obj->AddComponent(make_shared<MeshRenderer>());
 	obj->SetObjectName(L"MAT_" + meta->fileName);
-	obj->GetOrAddTransform()->SetPosition(Vec3(1.929f, 1.f, 5.394f));
+	obj->GetOrAddTransform()->SetPosition(Vec3(1.929f, 1.2f, 5.394f));
 	obj->GetOrAddTransform()->SetRotation(Vec3(0.f, 0.f, 0.f));
 	obj->GetOrAddTransform()->SetScale(Vec3(7.f, 7.f, 7.f));
 	obj->GetMeshRenderer()->SetMesh(mesh);
 	obj->GetMeshRenderer()->SetMaterial(mat);
-	obj->GetMeshRenderer()->SetTechnique(2);
+
+	if(mat->GetDiffuseMap() == nullptr && mat->GetNormalMap() == nullptr && mat->GetSpecularMap() == nullptr)
+		obj->GetMeshRenderer()->SetTechnique(2);
 
 	_meshPreviewObjs.insert(make_pair(meta->fileFullPath + L'/' + meta->fileName, obj));
-
 }
 
 void FolderContents::CreateModelPreviewObj(shared_ptr<MetaData>& meta)
@@ -397,10 +397,11 @@ void FolderContents::CreateModelPreviewObj(shared_ptr<MetaData>& meta)
 void FolderContents::CreateMeshPreviewThumbnail(shared_ptr<MetaData>& meta , shared_ptr<GameObject>& obj)
 {
 	shared_ptr<MeshThumbnail> thumbnail = nullptr;
-	thumbnail = make_shared<MeshThumbnail>(512, 512);
+	thumbnail = make_shared<MeshThumbnail>(1024, 1024);
 
 	InstancingData data;
 	data.world = obj->GetTransform()->GetWorldMatrix();
+	//data.worldInvTransposeView = MathUtils::InverseTranspose(data.world) * V;
 	data.isPicked = obj->GetUIPicked() ? 1 : 0;
 	shared_ptr<InstancingBuffer> buffer = make_shared<InstancingBuffer>();
 	buffer->AddData(data);

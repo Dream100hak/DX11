@@ -205,14 +205,8 @@
     <ClInclude Include="SkyBox.h">
       <Filter>05. Component</Filter>
     </ClInclude>
-    <ClInclude Include="ShadowMap.h">
-      <Filter>01. Graphics</Filter>
-    </ClInclude>
     <ClInclude Include="BVH.h">
       <Filter>05. Component\Collision</Filter>
-    </ClInclude>
-    <ClInclude Include="MeshThumbnail.h">
-      <Filter>00. Engine\Resource</Filter>
     </ClInclude>
     <ClInclude Include="ProjectManager.h">
       <Filter>02. Managers</Filter>
@@ -426,14 +420,8 @@
     <ClCompile Include="SkyBox.cpp">
       <Filter>05. Component</Filter>
     </ClCompile>
-    <ClCompile Include="ShadowMap.cpp">
-      <Filter>01. Graphics</Filter>
-    </ClCompile>
     <ClCompile Include="BVH.cpp">
       <Filter>05. Component\Collision</Filter>
-    </ClCompile>
-    <ClCompile Include="MeshThumbnail.cpp">
-      <Filter>00. Engine\Resource</Filter>
     </ClCompile>
     <ClCompile Include="ProjectManager.cpp">
       <Filter>02. Managers</Filter>

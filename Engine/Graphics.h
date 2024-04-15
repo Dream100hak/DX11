@@ -3,8 +3,6 @@
 #include "JobQueue.h"
 
 class Texture;
-class ShadowMap;
-class MeshThumbnail;
 
 class Graphics
 {
@@ -16,11 +14,11 @@ public:
 	void PreRenderBegin();
 	void RenderBegin();
 	void PostRenderBegin();
-
 	void RenderEnd();
 
 	ComPtr<ID3D11Device> GetDevice() { return _device; }
 	ComPtr<ID3D11DeviceContext> GetDeviceContext() { return _deviceContext; }
+	ComPtr<ID3D11DepthStencilView> GetDsv() { return _depthStencilView; }
 
 	//-- 그림자 , 썸네일 , 프리뷰 등 필요한 일감들은 앞으로 JobQueue에 넣어 관리합니다. -- // 
 	shared_ptr<JobQueue>& GetPreRenderJobQueue() { return _preRenderJobQueue;  }

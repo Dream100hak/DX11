@@ -1,6 +1,8 @@
 #pragma once
 #include <filesystem>
 
+class MeshThumbnail;
+
 class FolderContents : public EditorWindow
 {
 
@@ -54,7 +56,6 @@ public:
 		int count = 0;
 		std::filesystem::path finalPath = std::filesystem::path(folder) / (finalName + extension);
 
-		// 파일이 이미 존재하는지 확인
 		while (std::filesystem::exists(finalPath)) {
 			finalName = baseName + L" (" + std::to_wstring(++count) + L")";
 			finalPath = std::filesystem::path(folder) / (finalName + extension);

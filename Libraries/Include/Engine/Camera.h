@@ -55,6 +55,7 @@ public:
 	float GetHeight() { return _height; }
 
 	float GetFov() { return _fov; }
+	float GetFar() { return _far; }
 
 private:
 	ProjectionType _type = ProjectionType::Perspective;

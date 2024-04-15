@@ -275,10 +275,11 @@ void Inspector::ShowInfoProject()
 	// 매터리얼 파일 처리
 	else if (metaData->metaType == MetaType::MATERIAL)
 	{
+		ImGui::Separator();
 		ImGui::Dummy(ImVec2(0, 50.f));
 		ImGui::SeparatorText("Material Preview");
-
-		ImGui::Image(icon, ImVec2(373, 400));
+		ImGui::Image(icon, ImVec2(400, 250));
+		ImGui::Separator();
 
 		auto folderContents = static_pointer_cast<FolderContents>(TOOL->GetEditorWindow(Utils::GetClassNameEX<FolderContents>()));
 
@@ -302,13 +303,19 @@ void Inspector::ShowInfoProject()
 		if (ImGui::ColorEdit3("Emissive", (float*)&desc.emissive)) { changed = true; }
 		if (ImGui::ColorEdit3("Specular", (float*)&desc.specular)) { changed = true; }
 
+		PickMaterialTexture("Diffuse", changed);
+		ImGui::SameLine(0.f, -2.f); 
+		PickMaterialTexture("Normal", changed);
+		ImGui::SameLine();
+		PickMaterialTexture("Specular", changed);
+		ImGui::SameLine(); 
+
 		if (changed)
 		{
 			JOB_POST_RENDER->DoPush([=]()
 			{
 				InstancingData data;
 				data.world = obj->GetTransform()->GetWorldMatrix();
-				data.isPicked = obj->GetUIPicked() ? 1 : 0;
 				shared_ptr<InstancingBuffer> buffer = make_shared<InstancingBuffer>();
 				buffer->AddData(data);
 
@@ -322,13 +329,86 @@ void Inspector::ShowInfoProject()
 	{
 		ImGui::Dummy(ImVec2(0, 50.f));
 		ImGui::SeparatorText("Mesh Preview");
-
 		ImGui::Image(icon, ImVec2(373, 400));
 
 	}
 
 	ImGui::Separator();
 
+}
+
+
+void Inspector::PickMaterialTexture(string textureType , OUT bool& changed)
+{
+	shared_ptr<MetaData> metaData = SELECTED_P;
+
+	auto folderContents = static_pointer_cast<FolderContents>(TOOL->GetEditorWindow(Utils::GetClassNameEX<FolderContents>()));
+
+	auto& previewsMeshObjs = folderContents->GetMeshPreviewObjs();
+	auto& obj = previewsMeshObjs[metaData->fileFullPath + L'/' + metaData->fileName];
+
+	auto& previewsThumbnails = folderContents->GetMeshPreviewThumbnails();
+	auto& thumbnail = previewsThumbnails[metaData->fileFullPath + L'/' + metaData->fileName];
+
+	auto cam = folderContents->GetCamera();
+	auto light = folderContents->GetLight();
+
+	shared_ptr<Material>& material = obj->GetMeshRenderer()->GetMaterial();
+	MaterialDesc& desc = material->GetMaterialDesc();
+	ImVec4 color = ImVec4(0.85f, 0.94f, 0.f, 1.f);
+
+	ImGui::BeginGroup();
+	ImGui::TextColored(color, textureType.c_str());
+
+	ID3D11ShaderResourceView* srv = nullptr;
+
+	if (textureType == "Diffuse")
+		srv = material->GetDiffuseMap() != nullptr ? material->GetDiffuseMap()->GetComPtr().Get() : RESOURCES->Get<Texture>(L"Grid")->GetComPtr().Get();
+	else if (textureType == "Normal")
+		srv = material->GetNormalMap() != nullptr ? material->GetNormalMap()->GetComPtr().Get() : RESOURCES->Get<Texture>(L"Grid")->GetComPtr().Get();
+	else if (textureType == "Specular")
+		srv = material->GetSpecularMap() != nullptr ? material->GetSpecularMap()->GetComPtr().Get() : RESOURCES->Get<Texture>(L"Grid")->GetComPtr().Get();
+
+	string popupName = "Select " + textureType + " Texture"; 
+
+	if (ImGui::ImageButton(srv, ImVec2(75, 75)))
+	{
+		ImGui::OpenPopup(popupName.c_str());
+	}
+
+	if (ImGui::BeginPopup(popupName.c_str()))
+	{
+		for (auto& textureFile : CASHE_FILE_LIST)
+		{
+			if (textureFile.second->metaType != MetaType::IMAGE)
+				continue;
+
+			// 텍스처 미리보기를 위한 SRV 로드
+			auto previewTexture = RESOURCES->GetOrAddTexture(L"FILE_" + textureFile.second->fileName, textureFile.second->fileFullPath + L"\\" + textureFile.second->fileName);
+			ID3D11ShaderResourceView* previewSRV = previewTexture->GetComPtr().Get();
+
+			if (ImGui::ImageButton(previewSRV, ImVec2(50, 50)))
+			{
+				if(textureType == "Diffuse")
+					material->SetDiffuseMap(previewTexture);
+				else if(textureType == "Normal")
+					material->SetNormalMap(previewTexture);
+				else if (textureType == "Specular")
+					material->SetSpecularMap(previewTexture);
+
+				obj->GetMeshRenderer()->SetTechnique(0);
+				changed = true;
+
+			}
+
+			// 텍스처 파일 이름 표시
+			ImGui::Text("%s", Utils::ToString(textureFile.second->fileName).c_str());
+		}
+
+		ImGui::EndPopup();
+	}
+
+	ImGui::EndGroup();
 }
 
 ID3D11ShaderResourceView* Inspector::GetMetaFileIcon()
@@ -347,7 +427,7 @@ ID3D11ShaderResourceView* Inspector::GetMetaFileIcon()
 		case SOUND:
 			break;
 		case IMAGE:
-			srv = RESOURCES->Load<Texture>(L"FILE_" + metaData->fileName, metaData->fileFullPath + L"\\" + metaData->fileName)->GetComPtr().Get();
+			srv = RESOURCES->GetOrAddTexture(L"FILE_" + metaData->fileName, metaData->fileFullPath + L"\\" + metaData->fileName)->GetComPtr().Get();
 			break;
 		case MATERIAL:
 		case MESH:		

@@ -11,7 +11,6 @@ void PS(MeshOutput pin)
     clip(diffuse.a - 0.15f);
 }
 
-
 RasterizerState Depth
 {
 	// [From MSDN]

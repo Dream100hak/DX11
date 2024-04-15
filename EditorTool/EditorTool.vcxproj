@@ -26,6 +26,7 @@
     <ClInclude Include="GameEditorWindow.h" />
     <ClInclude Include="LogWindow.h" />
     <ClInclude Include="MainMenuBar.h" />
+    <ClInclude Include="MeshThumbnail.h" />
     <ClInclude Include="Project.h" />
     <ClInclude Include="SceneCamera.h" />
     <ClInclude Include="Define.h" />
@@ -38,7 +39,11 @@
     <ClInclude Include="SceneDemo.h" />
     <ClInclude Include="SceneGrid.h" />
     <ClInclude Include="SceneWindow.h" />
+    <ClInclude Include="ShadowMap.h" />
     <ClInclude Include="ShortcutManager.h" />
+    <ClInclude Include="Ssao.h" />
+    <ClInclude Include="TextureManager.h" />
+    <ClInclude Include="TextureRenderer.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AsConverter.cpp" />
@@ -48,6 +53,7 @@
     <ClCompile Include="GameEditorWindow.cpp" />
     <ClCompile Include="LogWindow.cpp" />
     <ClCompile Include="MainMenuBar.cpp" />
+    <ClCompile Include="MeshThumbnail.cpp" />
     <ClCompile Include="Project.cpp" />
     <ClCompile Include="SceneCamera.cpp" />
     <ClCompile Include="EditorTool.cpp" />
@@ -63,7 +69,11 @@
     <ClCompile Include="SceneDemo.cpp" />
     <ClCompile Include="SceneGrid.cpp" />
     <ClCompile Include="SceneWindow.cpp" />
+    <ClCompile Include="ShadowMap.cpp" />
     <ClCompile Include="ShortcutManager.cpp" />
+    <ClCompile Include="Ssao.cpp" />
+    <ClCompile Include="TextureManager.cpp" />
+    <ClCompile Include="TextureRenderer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\Shaders\00. Global.fx">
@@ -84,6 +94,30 @@
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
     </FxCompile>
+    <FxCompile Include="..\Shaders\00. Ssao.fx">
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+      </EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\00. Ssao2.fx">
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+      </EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\00. SsaoBlur.fx">
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+      </EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\00. SsaoNormalDepth.fx">
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+      </EntryPointName>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
+    </FxCompile>
     <FxCompile Include="..\Shaders\01. DebugTexture.fx">
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
       </EntryPointName>
@@ -96,7 +130,7 @@
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
     </FxCompile>
-    <FxCompile Include="..\Shaders\01. ShadowMap.fx">
+    <FxCompile Include="..\Shaders\00. ShadowMap.fx">
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
       </EntryPointName>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>

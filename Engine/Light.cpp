@@ -7,13 +7,11 @@ Matrix Light::S_Shadow = Matrix::Identity;
 
 Light::Light() : Component(ComponentType::Light)
 {
-	_sceneBounds.Center = Vec3::Zero;
-	_sceneBounds.Radius = sqrtf(100.f + 100.f * 150.f + 150.f);
+	SetShadowBoundingSphere();
 }
 
 Light::~Light()
 {
-
 }
 
 void Light::Start()
@@ -43,31 +41,35 @@ void Light::UpdateMatrix()
 	Vec3 targetPos = _sceneBounds.Center;
 	Vec3 up = Vec3::Up;
 
-	XMMATRIX V = ::XMMatrixLookAtLH(lightPos, targetPos, upDirection);
+	Matrix V = ::XMMatrixLookAtLH(lightPos, targetPos, upDirection);
 	
 	S_MatView = V;
 	// Transform bounding sphere to light space.
 
-	Vec3 sphereCenterLS = Vec3::Transform(targetPos, V);
+	Vec3 sphereCenter = Vec3::Transform(targetPos, V);
 
 	// Ortho frustum in light space encloses scene.
-	float l = sphereCenterLS.x - _sceneBounds.Radius;
-	float b = sphereCenterLS.y - _sceneBounds.Radius;
-	float n = sphereCenterLS.z - _sceneBounds.Radius;
-	float r = sphereCenterLS.x + _sceneBounds.Radius;
-	float t = sphereCenterLS.y + _sceneBounds.Radius;
-	float f = sphereCenterLS.z + _sceneBounds.Radius;
-	XMMATRIX P = ::XMMatrixOrthographicOffCenterLH(l, r, b, t, n, f);
+	float l = sphereCenter.x - _sceneBounds.Radius;
+	float b = sphereCenter.y - _sceneBounds.Radius;
+	float n = sphereCenter.z - _sceneBounds.Radius;
+	float r = sphereCenter.x + _sceneBounds.Radius;
+	float t = sphereCenter.y + _sceneBounds.Radius;
+	float f = sphereCenter.z + _sceneBounds.Radius;
+	Matrix P = ::XMMatrixOrthographicOffCenterLH(l, r, b, t, n, f);
 	S_MatProjection = P;
 
 	// Transform NDC space [-1,+1]^2 to texture space [0,1]^2
-	XMMATRIX T(
+	Matrix T(
 		0.5f, 0.0f, 0.0f, 0.0f,
 		0.0f, -0.5f, 0.0f, 0.0f,
 		0.0f, 0.0f, 1.0f, 0.0f,
 		0.5f, 0.5f, 0.0f, 1.0f);
 
 	S_Shadow = V * P * T;
+}
 
-
+void Light::SetShadowBoundingSphere()
+{
+	_sceneBounds.Center = _center;
+	_sceneBounds.Radius = max(1.0f, _radius);
 }

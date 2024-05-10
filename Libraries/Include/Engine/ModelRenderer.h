@@ -22,7 +22,7 @@ public:
 
 	void ThumbnailRender(shared_ptr<Camera> cam , shared_ptr<Light> light, shared_ptr<class InstancingBuffer>& buffer);
 
-	void RenderInstancing(shared_ptr<Shader> shader , Matrix V, Matrix P, shared_ptr<Light> light,  shared_ptr<class InstancingBuffer>& buffer);
+	void RenderInstancing(int32 tech , shared_ptr<Shader> shader , Matrix V, Matrix P, shared_ptr<Light> light,  shared_ptr<class InstancingBuffer>& buffer);
 	void PushData(uint8 technique, shared_ptr<Light>& light, shared_ptr<class InstancingBuffer>& buffer);
 
 	void TransformBoundingBox();
@@ -34,11 +34,17 @@ public:
 
 	bool Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& distance);
 
+	// 임시 코드 //
+	void SetShadowMap(shared_ptr<Texture> tex);
+	void SetSsaoMap(ComPtr<ID3D11ShaderResourceView> srv);
+	// ------- //
+
+	void SetShaderUnChanged(bool on) { _shaderUnchanged = on; }
+
 private:
 	shared_ptr<Shader>	_shader;
 	uint8				_pass = 0;
 	shared_ptr<Model>	_model;
-
 
 	shared_ptr<Geometry<VertexColorData>> _geometry;
 	shared_ptr<VertexBuffer> _vertexBuffer;
@@ -48,6 +54,8 @@ private:
 	BoundingBox _boundingBox;
 
 	bool _once = false;
+
+	bool _shaderUnchanged = false;
 
 };
 

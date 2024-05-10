@@ -37,6 +37,7 @@ private:
 	void CreateOutlineShader();
 	void CreateThumbnailShader();
 	void CreateSSAOShader();
+	void CreateTerrainShader();
 
 private:
 	wstring _resourcePath;

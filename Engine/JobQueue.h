@@ -1,6 +1,5 @@
 #pragma once
 #include "Job.h"
-#include "JobTimer.h"
 
 /*--------------
 	JobQueue

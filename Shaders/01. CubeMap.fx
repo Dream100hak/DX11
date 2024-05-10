@@ -1,10 +1,7 @@
 #include "00. Global.fx"
 #include "00. Light.fx"
 
-struct VertexIn
-{
-    float3 PosL : POSITION;
-};
+
 struct VS_OUT
 {
     float4 PosH : SV_POSITION;
@@ -36,7 +33,6 @@ technique11 T0
     pass P0
     {
         SetVertexShader(CompileShader(vs_5_0, VS()));
-        SetGeometryShader(NULL);
         SetPixelShader(CompileShader(ps_5_0, PS()));
 
         SetRasterizerState(NoCull);

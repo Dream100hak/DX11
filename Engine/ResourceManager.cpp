@@ -15,6 +15,7 @@ void ResourceManager::Init()
 	CreateOutlineShader();
 	CreateThumbnailShader();
 	CreateSSAOShader();
+	CreateTerrainShader();
 }
 
 std::shared_ptr<Texture> ResourceManager::GetOrAddTexture(const wstring& key, const wstring& path)
@@ -103,4 +104,10 @@ void ResourceManager::CreateSSAOShader()
 		shared_ptr<Shader> shader = make_shared<Shader>(L"00. SsaoBlur.fx");
 		RESOURCES->Add(L"SsaoBlur", shader);
 	}
+}
+
+void ResourceManager::CreateTerrainShader()
+{
+	shared_ptr<Shader> shader = make_shared<Shader>(L"01. Terrain.fx");
+	RESOURCES->Add(L"Terrain", shader);
 }

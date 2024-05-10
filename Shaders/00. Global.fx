@@ -12,7 +12,7 @@ cbuffer GlobalBuffer
     matrix VP;
     matrix VInv;
     matrix Shadow;
-
+    matrix T; // Texture
 };
 
 cbuffer TransformBuffer
@@ -82,6 +82,7 @@ struct VertexOutput
     float2 uv : TEXCOORD;
     float3 normal : NORMAL;
     float4 shadow : TEXCOORD1;
+    float4 ssao : TEXCOORD2;
 };
 
 struct MeshOutput
@@ -93,6 +94,8 @@ struct MeshOutput
     float3 normal : NORMAL;
     float3 tangent : TANGENT;
     float4 shadow : TEXCOORD1;
+    float4 ssao : TEXCOORD2;
+    
 };
 
 //////////////////
@@ -237,7 +240,7 @@ pass name											\
 {													\
     SetRasterizerState(rs);							\
     SetVertexShader(CompileShader(vs_5_0, vs()));	\
-    SetPixelShader(CompileShader(ps_5_0, ps()));	\
+    SetPixelShader(CompileShader(ps_5_0, ps(3,true,true)));	\
 }
 
 #define PASS_BS_VP(name, bs, vs, ps)				\

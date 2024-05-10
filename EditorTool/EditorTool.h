@@ -1,5 +1,6 @@
 #pragma once
 #include "EditorWindow.h"
+#include "TesTerrain.h"
 
 class EditorTool : public IExecute
 {
@@ -10,7 +11,7 @@ public:
 
 	void OnMouseWheel(int32 scrollAmount) override;
 
-	void DrawShadowMap(); 
+	void DrawRenderTextures(); 
 
 private:
 

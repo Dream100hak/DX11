@@ -371,7 +371,6 @@ void FolderContents::CreateModelPreviewObj(shared_ptr<MetaData>& meta)
 	auto model = RESOURCES->Get<Model>(meta->fileFullPath + L'/' + meta->fileName);
 	
 	BoundingBox box = model->CalculateModelBoundingBox();
-
 	auto obj = make_shared<GameObject>();
 
 	float modelScale = max(max(box.Extents.x, box.Extents.y), box.Extents.z) * 2.0f;
@@ -401,7 +400,6 @@ void FolderContents::CreateMeshPreviewThumbnail(shared_ptr<MetaData>& meta , sha
 
 	InstancingData data;
 	data.world = obj->GetTransform()->GetWorldMatrix();
-	//data.worldInvTransposeView = MathUtils::InverseTranspose(data.world) * V;
 	data.isPicked = obj->GetUIPicked() ? 1 : 0;
 	shared_ptr<InstancingBuffer> buffer = make_shared<InstancingBuffer>();
 	buffer->AddData(data);

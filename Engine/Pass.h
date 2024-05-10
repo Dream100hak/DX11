@@ -29,6 +29,7 @@ struct Pass
 	void DrawInstanced(UINT vertexCountPerInstance, UINT instanceCount, UINT startVertexLocation = 0, UINT startInstanceLocation = 0);
 	void DrawIndexedInstanced(UINT indexCountPerInstance, UINT instanceCount, UINT startIndexLocation = 0, INT baseVertexLocation = 0, UINT startInstanceLocation = 0);
 
+	void DrawTerrainIndexed(UINT indexCount, UINT startIndexLocation = 0, INT baseVertexLocation = 0);
 	void DrawLineIndexed(UINT indexCount, UINT startIndexLocation = 0, INT baseVertexLocation = 0);
 
 	void BeginDraw();

@@ -26,10 +26,9 @@ public:
 	virtual void Update() override;
 
 	void UpdateTweenData();
-	void PreRenderInstancing(shared_ptr<class InstancingBuffer>& buffer);
-	void RenderInstancing(shared_ptr<class InstancingBuffer>& buffer);
+	void RenderInstancing(int32 tech, shared_ptr<class InstancingBuffer>& buffer);
 
-	void PushData(shared_ptr<class InstancingBuffer>& buffer);
+	void PushData(int32 tech, shared_ptr<class InstancingBuffer>& buffer);
 
 	InstanceID GetInstanceID();
 	TweenDesc& GetTweenDesc() { return _tweenDesc; }

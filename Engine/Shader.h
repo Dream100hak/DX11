@@ -26,6 +26,8 @@ public:
 	void DrawInstanced(UINT technique, UINT pass, UINT vertexCountPerInstance, UINT instanceCount, UINT startVertexLocation = 0, UINT startInstanceLocation = 0);
 	void DrawIndexedInstanced(UINT technique, UINT pass, UINT indexCountPerInstance, UINT instanceCount, UINT startIndexLocation = 0, INT baseVertexLocation = 0, UINT startInstanceLocation = 0);
 
+
+	void DrawTerrainIndexed(UINT technique, UINT pass,  UINT indexCount, UINT startIndexLocation = 0, INT baseVertexLocation = 0);
 	void DrawLineIndexed(UINT technique, UINT pass,  UINT indexCount, UINT startIndexLocation = 0, INT baseVertexLocation = 0);
 
 	void Dispatch(UINT technique, UINT pass, UINT x, UINT y, UINT z);

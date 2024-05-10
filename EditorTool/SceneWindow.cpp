@@ -143,7 +143,9 @@ void SceneWindow::EditTransform()
 		_currentGizmoOperation = ROTATE;
 	if (ImGui::IsKeyPressed(ImGuiKey_R)) // r Key
 		_currentGizmoOperation = SCALE;
-	if (ImGui::RadioButton("Translate", _currentGizmoOperation == TRANSLATE))
+	
+	
+	/*if (ImGui::RadioButton("Translate", _currentGizmoOperation == TRANSLATE))
 		_currentGizmoOperation = TRANSLATE;
 	ImGui::SameLine();
 	if (ImGui::RadioButton("Rotate", _currentGizmoOperation == ROTATE))
@@ -158,7 +160,7 @@ void SceneWindow::EditTransform()
 	uint32 fps = GET_SINGLE(TimeManager)->GetFps();
 	char tmps[64];
 	ImFormatString(tmps, sizeof(tmps),"FPS : %d", fps);
-	ImGui::Text(tmps);
+	ImGui::Text(tmps);*/
 
 
 

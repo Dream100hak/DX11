@@ -44,7 +44,14 @@ public:
 			_type = static_cast<LightType>(selected);
 		}
 
+		ImGui::Text("Shadow Radius	");
+		ImGui::DragFloat3("Center", (float*) & _center);
+		ImGui::DragFloat("Radius" , &_radius);
+
+
 		SetLightDirection();
+	
+		SetShadowBoundingSphere();
 	}
 
 public:
@@ -63,6 +70,7 @@ public:
 	}
 	void SetIntensity(float intensity){  _desc.intensity = _intensity; }
 
+	void SetShadowBoundingSphere();
 
 private:
 	LightDesc _desc;
@@ -71,12 +79,12 @@ private:
 	float _intensity = 1.f;  
 
 	BoundingSphere _sceneBounds;
-
+	Vec3 _center = Vec3::Zero;
+	float _radius = 15.f;
 public:
 	static Matrix S_MatView;
 	static Matrix S_MatProjection;
 	static Matrix S_Shadow;
-	
 
 };
 

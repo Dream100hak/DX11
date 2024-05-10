@@ -77,6 +77,7 @@ Texture2D DiffuseMap;
 Texture2D SpecularMap;
 Texture2D NormalMap;
 Texture2D ShadowMap;
+Texture2D SsaoMap;
 TextureCube CubeMap;
 
 //////////////
@@ -100,6 +101,7 @@ void ComputeDirectionalLight(float3 normal, float3 toEye,
 	// Add ambient term.
     ambient = Material.ambient * GlobalLight.ambient * GlobalLight.intensity;
     
+    
     float diffuseFactor = dot(lightVec, normal);
 
 	// Flatten to avoid dynamic branching.
@@ -110,7 +112,7 @@ void ComputeDirectionalLight(float3 normal, float3 toEye,
         float specFactor = pow(max(dot(v, toEye), 0.0f), Material.specular.w);
 					
         diffuse = diffuseFactor * Material.diffuse * GlobalLight.diffuse * GlobalLight.intensity;
-       // spec = specFactor * Material.specular * GlobalLight.specular * GlobalLight.intensity;
+        spec = specFactor * Material.specular * GlobalLight.specular * GlobalLight.intensity;
     }
 }
 

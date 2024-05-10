@@ -36,6 +36,14 @@ public:										\
 #define JOB_RENDER		GRAPHICS->GetPreRenderJobQueue()
 #define JOB_POST_RENDER	GRAPHICS->GetPreRenderJobQueue()
 
+
+#define TECH_TEXTURE	0;
+#define TECH_OUTLINE	1;
+#define TECH_COLOR		2;
+#define TECH_WIREFRAME	3;
+#define TECH_CLOCKWISE	4;
+
+
 enum LayerMask
 {
 	Default = 0,

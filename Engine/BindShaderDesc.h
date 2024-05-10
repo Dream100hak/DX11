@@ -10,13 +10,13 @@ struct GlobalDesc
 	Matrix VP = Matrix::Identity;
 	Matrix VInv = Matrix::Identity;
 	Matrix Shadow = Matrix::Identity;
+	Matrix T = Matrix::Identity;
 
 };
 
 struct TransformDesc
 {
 	Matrix W = Matrix::Identity;
-	Matrix WInvTransposeV = Matrix::Identity;
 };
 
 // Light

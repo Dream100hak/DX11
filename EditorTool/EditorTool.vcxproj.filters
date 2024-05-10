@@ -107,6 +107,9 @@
     <ClInclude Include="MeshThumbnail.h">
       <Filter>Textures</Filter>
     </ClInclude>
+    <ClInclude Include="TesTerrain.h">
+      <Filter>Components</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -177,6 +180,9 @@
     <ClCompile Include="MeshThumbnail.cpp">
       <Filter>Textures</Filter>
     </ClCompile>
+    <ClCompile Include="TesTerrain.cpp">
+      <Filter>Components</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\Shaders\24. RawBufferDemo.fx">
@@ -242,8 +248,11 @@
     <FxCompile Include="..\Shaders\00. SsaoBlur.fx">
       <Filter>Shaders\Common</Filter>
     </FxCompile>
-    <FxCompile Include="..\Shaders\00. Ssao2.fx">
-      <Filter>Shaders\Common</Filter>
+    <FxCompile Include="..\Shaders\01. Terrain.fx">
+      <Filter>Shaders\Contents</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\06. Terrain.fx">
+      <Filter>Shaders\Contents</Filter>
     </FxCompile>
   </ItemGroup>
 </Project>

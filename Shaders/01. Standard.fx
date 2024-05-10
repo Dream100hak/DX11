@@ -87,10 +87,8 @@ float4 PS_Default(MeshOutput input,
             uniform bool alphaClip) : SV_TARGET
 {
 
-     // Interpolating normal can unnormalize it, so normalize it.
     input.normal = normalize(input.normal);
 
-    // The toEye vector is used in lighting.
     float3 toEye = normalize(CameraPosition() - input.worldPosition);
     // Cache the distance to the eye from this surface point.
     float distToEye = length(toEye);
@@ -98,18 +96,13 @@ float4 PS_Default(MeshOutput input,
     toEye /= distToEye;
 
     // Default to multiplicative identity.
-    //float4 texColor = float4(1, 1, 1, 1);
     float4 texColor = Material.diffuse;
     if (useTexture)
     {
-        // Sample texture.
         texColor = DiffuseMap.Sample(LinearSampler, input.uv);
-
+      
         if (alphaClip)
         {
-            // Discard pixel if texture alpha < 0.1.  Note that we do this
-            // test as soon as possible so that we can potentially exit the shader 
-            // early, thereby skipping the rest of the shader code.
             clip(texColor.a - 0.1f);
         }
     }
@@ -130,6 +123,11 @@ float4 PS_Default(MeshOutput input,
         float3 shadow = float3(1.0f, 1.0f, 1.0f);
         shadow[0] = CalcShadowFactor(ShadowSampler, ShadowMap, input.shadow);
 
+        
+        // Finish texture projection and sample SSAO map.
+        input.ssao /= input.ssao.w;
+        float ambientAccess = SsaoMap.SampleLevel(LinearSampler, input.ssao.xy, 0.0f).r;
+        
         // Sum the light contribution from each light source.  
         [unroll]
         for (int i = 0; i < lightCount; ++i)
@@ -137,7 +135,7 @@ float4 PS_Default(MeshOutput input,
             float4 A, D, S;
             ComputeDirectionalLight(input.normal, toEye, A, D, S);
 
-            ambient += A;
+            ambient += ambientAccess * A;
             diffuse += shadow[i] * D;
             spec += shadow[i] * S;
         }
@@ -172,4 +170,18 @@ technique11 T2
 	PASS_VP_COLOR(P0, VS_Mesh, PS_Default)
 	PASS_VP_COLOR(P1, VS_Model, PS_Default)
 	PASS_VP_COLOR(P2, VS_Animation, PS_Default)
+};
+
+technique11 T3
+{
+	PASS_RS_VP(P0, FillModeWireFrame, VS_Mesh, PS_Default)
+	PASS_RS_VP(P1, FillModeWireFrame, VS_Model, PS_Default)
+	PASS_RS_VP(P2, FillModeWireFrame, VS_Animation, PS_Default)
+};
+
+technique11 T4
+{
+	PASS_RS_VP(P0, FrontCounterClockwiseTrue, VS_Mesh, PS_Default)
+	PASS_RS_VP(P1, FrontCounterClockwiseTrue, VS_Model, PS_Default)
+	PASS_RS_VP(P2, FrontCounterClockwiseTrue, VS_Animation, PS_Default)
 };

@@ -13,15 +13,15 @@ class InstancingManager
 
 public:
 	
-	void Render(shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, vector<shared_ptr<GameObject>>& gameObjects);
+	void Render(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, vector<shared_ptr<GameObject>>& gameObjects);
 	void Clear() { _buffers.clear(); }
 	void ClearData();
 
 public:
 
-	void RenderMeshRenderer(shared_ptr<Shader> shader, Matrix V , Matrix P,  shared_ptr<Light> light, vector<shared_ptr<GameObject>>& gameObjects);
-	void RenderModelRenderer(shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, vector<shared_ptr<GameObject>>& gameObjects);
-	void RenderAnimRenderer(shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, vector<shared_ptr<GameObject>>& gameObjects);
+	void RenderMeshRenderer(int32 tech, shared_ptr<Shader> shader, Matrix V , Matrix P,  shared_ptr<Light> light, vector<shared_ptr<GameObject>>& gameObjects);
+	void RenderModelRenderer(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, vector<shared_ptr<GameObject>>& gameObjects);
+	void RenderAnimRenderer(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, vector<shared_ptr<GameObject>>& gameObjects);
 
 
 private:

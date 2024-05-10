@@ -57,5 +57,6 @@ public:
 
 		return ss.str();
 	}
+
 };
 

@@ -42,6 +42,7 @@
     <ClInclude Include="ShadowMap.h" />
     <ClInclude Include="ShortcutManager.h" />
     <ClInclude Include="Ssao.h" />
+    <ClInclude Include="TesTerrain.h" />
     <ClInclude Include="TextureManager.h" />
     <ClInclude Include="TextureRenderer.h" />
   </ItemGroup>
@@ -72,6 +73,7 @@
     <ClCompile Include="ShadowMap.cpp" />
     <ClCompile Include="ShortcutManager.cpp" />
     <ClCompile Include="Ssao.cpp" />
+    <ClCompile Include="TesTerrain.cpp" />
     <ClCompile Include="TextureManager.cpp" />
     <ClCompile Include="TextureRenderer.cpp" />
   </ItemGroup>
@@ -95,12 +97,6 @@
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
     </FxCompile>
     <FxCompile Include="..\Shaders\00. Ssao.fx">
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-      </EntryPointName>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\00. Ssao2.fx">
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
       </EntryPointName>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
@@ -142,9 +138,19 @@
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
     </FxCompile>
+    <FxCompile Include="..\Shaders\01. Terrain.fx">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+      </EntryPointName>
+    </FxCompile>
     <FxCompile Include="..\Shaders\01. Thumbnail.fx">
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
       </EntryPointName>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\06. Terrain.fx">
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
     </FxCompile>

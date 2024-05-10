@@ -2,14 +2,13 @@
 #include "00. Light.fx"
 #include "00. Render.fx"
 
-float4 PS(MeshOutput input, uniform bool gAlphaClip) : SV_Target
+float4 PS(MeshOutput input, uniform bool alphaClip) : SV_Target
 {
     input.normal = normalize(input.normal);
 
-    if (gAlphaClip)
+    if (alphaClip)
     {
-        float4 texColor = DiffuseMap.Sample(LinearSampler, input.uv);
-		 
+        float4 texColor = DiffuseMap.Sample(LinearSampler, input.uv);	 
         clip(texColor.a - 0.1f);
     }
 	

@@ -223,6 +223,11 @@ void Shader::DrawIndexedInstanced(UINT technique, UINT pass, UINT indexCountPerI
 	_techniques[technique].passes[pass].DrawIndexedInstanced(indexCountPerInstance, instanceCount, startIndexLocation, baseVertexLocation, startInstanceLocation);
 }
 
+void Shader::DrawTerrainIndexed(UINT technique, UINT pass, UINT indexCount, UINT startIndexLocation /*= 0*/, INT baseVertexLocation /*= 0*/)
+{
+	_techniques[technique].passes[pass].DrawTerrainIndexed(indexCount, startIndexLocation, baseVertexLocation);
+}
+
 void Shader::DrawLineIndexed(UINT technique, UINT pass, UINT indexCount, UINT startIndexLocation /*= 0*/, INT baseVertexLocation /*= 0*/)
 {
 	_techniques[technique].passes[pass].DrawLineIndexed(indexCount, startIndexLocation, baseVertexLocation);
@@ -317,15 +322,21 @@ void Shader::PushGlobalData(const Matrix& view, const Matrix& projection)
 		_globalEffectBuffer = GetConstantBuffer("GlobalBuffer");
 	}
 
+	Matrix T(
+		0.5f, 0.0f, 0.0f, 0.0f,
+		0.0f, -0.5f, 0.0f, 0.0f,
+		0.0f, 0.0f, 1.0f, 0.0f,
+		0.5f, 0.5f, 0.0f, 1.0f);
+
 	_globalDesc.V = view;
 	_globalDesc.P = projection;
 	_globalDesc.VP = view * projection;
 	_globalDesc.VInv = view.Invert();
 	_globalDesc.Shadow = Light::S_Shadow;
+	_globalDesc.T =  T;
 
 	_globalBuffer->CopyData(_globalDesc);
 	_globalEffectBuffer->SetConstantBuffer(_globalBuffer->GetComPtr().Get());
-
 }
 
 void Shader::PushTransformData(const TransformDesc& desc)

@@ -79,11 +79,15 @@ void ShadowMap::Draw()
 			&& gameObject->GetModelAnimator() == nullptr)
 			continue;
 
+		if (gameObject->GetSkyBox())
+			continue;
+
+
 		vecForward.push_back(gameObject);
 	}
 	
 	Matrix V = Light::S_MatView;
 	Matrix P = Light::S_MatProjection;
 
-	INSTANCING->Render(shader , V , P , light , vecForward);
+	INSTANCING->Render(0, shader , V , P , light , vecForward);
 }

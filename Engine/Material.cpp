@@ -45,6 +45,7 @@ void Material::SetShader(shared_ptr<Shader> shader)
 	_specularEffectBuffer = shader->GetSRV("SpecularMap");
 	_cubeMapEffectBuffer = shader->GetSRV("CubeMap");
 	_shadowMapEffectBuffer = shader->GetSRV("ShadowMap");
+	_ssaoMapEffectBuffer = shader->GetSRV("SsaoMap");
 }
 
 void Material::Update()
@@ -68,6 +69,9 @@ void Material::Update()
 
 	if (_shadowMap)
 		_shadowMapEffectBuffer->SetResource(_shadowMap->GetComPtr().Get());
+
+	if (_ssaoMap)
+		_ssaoMapEffectBuffer->SetResource(_ssaoMap.Get());
 }
 
 std::shared_ptr<Material> Material::Clone()
@@ -90,6 +94,7 @@ std::shared_ptr<Material> Material::Clone()
 	material->_specularEffectBuffer = _specularEffectBuffer;
 	material->_cubeMapEffectBuffer = _cubeMapEffectBuffer;
 	material->_shadowMapEffectBuffer = _shadowMapEffectBuffer;
+	material->_ssaoMapEffectBuffer = _ssaoMapEffectBuffer;
 
 	return material;
 }

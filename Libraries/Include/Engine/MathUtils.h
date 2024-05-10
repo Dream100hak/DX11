@@ -4,6 +4,18 @@ class MathUtils
 {
 public:
 
+	template<typename T>
+	static T Min(const T& a, const T& b)
+	{
+		return a < b ? a : b;
+	}
+
+	template<typename T>
+	static T Max(const T& a, const T& b)
+	{
+		return a > b ? a : b;
+	}
+
 	static float Random();
 	static float Random(float r1, float r2);
 	static Vec2 RandomVec2(float r1, float r2);
@@ -23,6 +35,9 @@ public:
 		XMVECTOR det = ::XMMatrixDeterminant(A);
 		return ::XMMatrixTranspose(XMMatrixInverse(&det, A));
 	}
+
+	static uint16_t ConvertFloatToHalf(float value);
+	static void ExtractFrustumPlanes(Vec4 planes[6], CXMMATRIX CM);
 
 	static const float INF;
 	static const float PI;

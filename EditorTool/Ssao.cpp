@@ -3,6 +3,7 @@
 #include "MathUtils.h"
 #include "Camera.h"
 #include "GeometryHelper.h"
+#include "ModelRenderer.h"
 
 Ssao::Ssao(int32 width, int32 height, float fovy, float farZ)
 {
@@ -44,6 +45,7 @@ void Ssao::CreateBuffer()
 	_geometry->SetVertices(vtx);
 
 	vector<uint32> idx = { 0, 1, 2, 0, 2, 3 };
+
 	_geometry->SetIndices(idx);
 
 	_vertexBuffer = make_shared<VertexBuffer>();
@@ -58,9 +60,7 @@ void Ssao::OnSize(int32 width, int32 height, float fovy, float farZ)
 	_height = height;
 
 	_vp.Set(width / 2  , height / 2 , 0.f , 0.f , 0.f, 1.0f);
-
 	SetFrustumFarCorners(fovy, farZ);
-
 }
 
 void Ssao::SetShader()
@@ -210,7 +210,6 @@ void Ssao::CreateTwoAmbientTexture()
 	CHECK(hr);
 	hr = DEVICE->CreateRenderTargetView(ambientTex1.Get(), 0, _ambientRTV1.GetAddressOf());
 	CHECK(hr);
-
 }
 
 void Ssao::CreateRandomVectorTexture()
@@ -255,10 +254,6 @@ void Ssao::CreateRandomVectorTexture()
 
 void Ssao::ComputeSsao(Matrix& P)
 {
-	// Bind the ambient map as the render target.  Observe that this pass does not bind 
-	// a depth/stencil buffer--it does not need it, and without one, no depth test is
-	// performed, which is what we want.
-
 	if(_ssaoShader == nullptr)
 		return;
 
@@ -269,7 +264,6 @@ void Ssao::ComputeSsao(Matrix& P)
 	DCT->ClearRenderTargetView(_ambientRTV0.Get(), (float*)(&black));
 	_vp.RSSetViewport();
 
-	// Transform NDC space [-1,+1]^2 to texture space [0,1]^2
 	Matrix T(
 		0.5f, 0.0f, 0.0f, 0.0f,
 		0.0f, -0.5f, 0.0f, 0.0f,
@@ -341,12 +335,7 @@ void Ssao::BlurAmbientMap(ComPtr<ID3D11ShaderResourceView> inputSRV, ComPtr<ID3D
 	_indexBuffer->PushData();
 
 	_ssaoBlurShader->DrawIndexed(horzBlur, 0, 6, 0, 0);
-	
-	DCT->RSSetState(0);
-	DCT->OMSetDepthStencilState(0, 0);
 
-	ID3D11ShaderResourceView* nullSRV[16] = { 0 };
-	DCT->PSSetShaderResources(0, 16, nullSRV);
 }
 
 void Ssao::Draw()
@@ -369,6 +358,9 @@ void Ssao::Draw()
 			&& gameObject->GetModelAnimator() == nullptr)
 			continue;
 
+		if(gameObject->GetSkyBox())
+			continue;
+
 		vecForward.push_back(gameObject);
 	}
 
@@ -377,10 +369,12 @@ void Ssao::Draw()
 	
 	auto shader = RESOURCES->Get<Shader>(L"SsaoNormalDepth");
 	//Draw To Normal Depth
+	
 	SetNormalDepthRenderTarget(GRAPHICS->GetDsv());
-	INSTANCING->Render(shader, V, P, light, vecForward);
+	INSTANCING->Render(0, shader, V, P, light, vecForward);
 
 	/////////////////////////////////////////////////////////
 	ComputeSsao(P);
 	BlurAmbientMap(4);
+	
 }

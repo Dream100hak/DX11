@@ -25,10 +25,16 @@ void Camera::SortGameObject()
 void Camera::Render_Forward()
 {
 	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
-	auto shader = RESOURCES->Get<Shader>(L"Standard");
 	auto light = SCENE->GetCurrentScene()->GetLight()->GetLight();
 
-	GET_SINGLE(InstancingManager)->Render(shader, cam->GetViewMatrix() , cam->GetProjectionMatrix(), light, _vecForward);
+	int32 tech = 0;
+
+	if (INPUT->GetButton(KEY_TYPE::KEY_1))
+		tech = TECH_WIREFRAME;
+	if (INPUT->GetButton(KEY_TYPE::KEY_2))
+		tech = TECH_CLOCKWISE;
+
+	GET_SINGLE(InstancingManager)->Render(tech, nullptr, cam->GetViewMatrix() , cam->GetProjectionMatrix(), light, _vecForward);
 }
 
 Camera::Camera() : Super(ComponentType::Camera)

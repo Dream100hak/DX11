@@ -10,17 +10,17 @@
 #include "MathUtils.h"
 
 
-void InstancingManager::Render(shared_ptr<Shader> shader , Matrix V, Matrix P, shared_ptr<Light> light,  vector<shared_ptr<GameObject>>& gameObjects)
+void InstancingManager::Render(int32 tech, shared_ptr<Shader> shader , Matrix V, Matrix P, shared_ptr<Light> light,  vector<shared_ptr<GameObject>>& gameObjects)
 {
 	ClearData();
 
-	RenderMeshRenderer(shader , V , P , light,  gameObjects);
-	RenderModelRenderer(shader, V, P, light,  gameObjects);
-	RenderAnimRenderer(shader, V, P, light,  gameObjects);
+	RenderMeshRenderer(tech, shader , V , P , light,  gameObjects);
+	RenderModelRenderer(tech, shader, V, P, light,  gameObjects);
+	RenderAnimRenderer(tech, shader, V, P, light,  gameObjects);
 
 }
 
-void InstancingManager::RenderMeshRenderer(shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light,  vector<shared_ptr<GameObject>>& gameObjects)
+void InstancingManager::RenderMeshRenderer(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light,  vector<shared_ptr<GameObject>>& gameObjects)
 {
 	map<InstanceID, vector<shared_ptr<GameObject>>> cache;
 
@@ -28,7 +28,12 @@ void InstancingManager::RenderMeshRenderer(shared_ptr<Shader> shader, Matrix V, 
 	{
 		if (gameObject->GetMeshRenderer() == nullptr)
 			continue;
-
+			
+		if (gameObject->GetSkyBox() != nullptr)
+		{
+			tech = 0; 
+		}
+	
 		const InstanceID instanceId = gameObject->GetMeshRenderer()->GetInstanceID();
 		cache[instanceId].push_back(gameObject);
 	}
@@ -44,19 +49,18 @@ void InstancingManager::RenderMeshRenderer(shared_ptr<Shader> shader, Matrix V, 
 				const shared_ptr<GameObject>& gameObject = vec[i];
 				InstancingData data;
 				data.world = gameObject->GetTransform()->GetWorldMatrix();
-				//data.worldInvTransposeView = MathUtils::InverseTranspose(data.world) * V;	
 				data.isPicked = gameObject->GetUIPicked() ? 1 : 0;
 				AddData(instanceId, data);
 			}
 
 			shared_ptr<InstancingBuffer>& buffer = _buffers[instanceId];
-			vec[0]->GetMeshRenderer()->RenderInstancing(shader, V, P, light, buffer);
+			vec[0]->GetMeshRenderer()->RenderInstancing(tech , shader, V, P, light, buffer);
 		}
 	}
 }
 
 
-void InstancingManager::RenderModelRenderer(shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light,  vector<shared_ptr<GameObject>>& gameObjects)
+void InstancingManager::RenderModelRenderer(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light,  vector<shared_ptr<GameObject>>& gameObjects)
 {
 
 	map<InstanceID, vector<shared_ptr<GameObject>>> cache;
@@ -81,19 +85,18 @@ void InstancingManager::RenderModelRenderer(shared_ptr<Shader> shader, Matrix V,
 				const shared_ptr<GameObject>& gameObject = vec[i];
 				InstancingData data;
 				data.world = gameObject->GetTransform()->GetWorldMatrix();
-				//data.worldInvTransposeView = MathUtils::InverseTranspose(data.world) * V;
 				data.isPicked = gameObject->GetUIPicked() ? 1 : 0;
 				AddData(instanceId, data);
 			}
 
 			shared_ptr<InstancingBuffer>& buffer = _buffers[instanceId];
-			vec[0]->GetModelRenderer()->RenderInstancing(shader,V , P ,light, buffer);
+			vec[0]->GetModelRenderer()->RenderInstancing(tech, shader,V , P ,light, buffer);
 		
 		}
 	}
 }
 
-void InstancingManager::RenderAnimRenderer(shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light,  vector<shared_ptr<GameObject>>& gameObjects)
+void InstancingManager::RenderAnimRenderer(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light,  vector<shared_ptr<GameObject>>& gameObjects)
 {
 	map<InstanceID, vector<shared_ptr<GameObject>>> cache;
 
@@ -120,7 +123,6 @@ void InstancingManager::RenderAnimRenderer(shared_ptr<Shader> shader, Matrix V, 
 				const shared_ptr<GameObject>& gameObject = vec[i];
 				InstancingData data;
 				data.world = gameObject->GetTransform()->GetWorldMatrix();
-				//data.worldInvTransposeView = MathUtils::InverseTranspose(data.world) * V;
 				data.isPicked = gameObject->GetUIPicked() ? 1 : 0;
 				AddData(instanceId, data);
 
@@ -132,7 +134,7 @@ void InstancingManager::RenderAnimRenderer(shared_ptr<Shader> shader, Matrix V, 
 			vec[0]->GetModelAnimator()->GetShader()->PushTweenData(*tweenDesc.get());
 
 			shared_ptr<InstancingBuffer>& buffer = _buffers[instanceId];
-			vec[0]->GetModelAnimator()->RenderInstancing(buffer);
+			vec[0]->GetModelAnimator()->RenderInstancing(tech, buffer);
 		}
 	}
 }

@@ -6,12 +6,10 @@
 
 SkyBox::SkyBox() : Super(ComponentType::SkyBox)
 {
-
 }
 
 SkyBox::~SkyBox()
 {
-	
 }
 
 void SkyBox::Init(SkyType type)
@@ -25,7 +23,7 @@ void SkyBox::Init(SkyType type)
 
 		shared_ptr<Material> material = make_shared<Material>();
 		material->SetShader(shader);
-		auto texture = RESOURCES->Load<Texture>(L"Sky", L"../Resources/Textures/Sky01.jpg");
+		auto texture = RESOURCES->Load<Texture>(L"Sky", L"../Resources/Assets/Textures/Sky.jpg");
 
 		material->SetDiffuseMap(texture);
 		MaterialDesc& desc = material->GetMaterialDesc();
@@ -47,6 +45,7 @@ void SkyBox::Init(SkyType type)
 		{
 			auto material = RESOURCES->Get<Material>(L"Sky");
 			GetGameObject()->GetMeshRenderer()->SetMaterial(material);
+			GetGameObject()->GetMeshRenderer()->SetShaderUnChanged(true);
 		}
 	}
 	else if(type == SkyType::CubeMap)
@@ -77,6 +76,7 @@ void SkyBox::Init(SkyType type)
 		{
 			auto material = RESOURCES->Get<Material>(L"Sky");
 			GetGameObject()->GetMeshRenderer()->SetMaterial(material);
+			GetGameObject()->GetMeshRenderer()->SetShaderUnChanged(true);
 		}
 	}
 

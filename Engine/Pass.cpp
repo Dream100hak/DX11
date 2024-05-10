@@ -42,6 +42,17 @@ void Pass::DrawIndexedInstanced(UINT indexCountPerInstance, UINT instanceCount, 
 	EndDraw();
 }
 
+
+void Pass::DrawTerrainIndexed(UINT indexCount, UINT startIndexLocation /*= 0*/, INT baseVertexLocation /*= 0*/)
+{
+	BeginDraw();
+	{
+		DCT->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_4_CONTROL_POINT_PATCHLIST);
+		DCT->DrawIndexed(indexCount, startIndexLocation, baseVertexLocation);
+	}
+	EndDraw();
+}
+
 void Pass::DrawLineIndexed(UINT indexCount, UINT startIndexLocation /*= 0*/, INT baseVertexLocation /*= 0*/)
 {
 	BeginDraw();

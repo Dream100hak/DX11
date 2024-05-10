@@ -4,7 +4,6 @@
 #include "Game.h"
 #include "Mesh.h"
 #include "Shader.h"
-#include "Material.h"
 #include "Light.h"
 #include "MathUtils.h"
 
@@ -82,30 +81,25 @@ void MeshRenderer::OnInspectorGUI()
 	}
 }
 
-void MeshRenderer::RenderInstancing(shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<class InstancingBuffer>& buffer)
+void MeshRenderer::RenderInstancing(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<class InstancingBuffer>& buffer)
 {
 	if (_mesh == nullptr || _material == nullptr)
 		return;
 
-	if(shader == nullptr)
-		return;
-
-	_material->SetShader(shader);
-	// GlobalData
-	shader->PushGlobalData(V, P);
-
-	Matrix W = GetTransform()->GetWorldMatrix();
-	Matrix WInvTransposeV = MathUtils::InverseTranspose(W) * V;
-
-	TransformDesc trDesc = {};
-	trDesc.W = W;
-	trDesc.WInvTransposeV = WInvTransposeV;
-	shader->PushTransformData(trDesc);
+	wstring wname = GetGameObject()->GetObjectName();
 	
-	//DCT->OMSetDepthStencilState(nullptr, 1);
+	auto prevShader = _material->GetShader();
+
+	if(shader)
+		_material->SetShader(shader);
+
+	auto curShader = _material->GetShader();
+
+	// GlobalData
+	curShader->PushGlobalData(V, P);
 
 	if (light)
-		shader->PushLightData(light->GetLightDesc());
+		curShader->PushLightData(light->GetLightDesc());
 
 	_material->Update();
 	// IA
@@ -113,7 +107,9 @@ void MeshRenderer::RenderInstancing(shared_ptr<Shader> shader, Matrix V, Matrix 
 	_mesh->GetIndexBuffer()->PushData();
 
 	buffer->PushData();
-	shader->DrawIndexedInstanced(_teq, _pass, _mesh->GetIndexBuffer()->GetCount(), buffer->GetCount());
+	curShader->DrawIndexedInstanced(tech, _pass, _mesh->GetIndexBuffer()->GetCount(), buffer->GetCount());
+
+	_material->SetShader(prevShader);
 }
 
 void MeshRenderer::ThumbnailRender(shared_ptr<Camera> cam, shared_ptr<Light> light, shared_ptr<class InstancingBuffer>& buffer)

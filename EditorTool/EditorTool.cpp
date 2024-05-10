@@ -32,6 +32,7 @@
 #include "TextureRenderer.h"
 
 #include "Ssao.h"
+#include "TesTerrain.h"
 
 void EditorTool::Init()
 {
@@ -102,27 +103,29 @@ void EditorTool::Init()
 	}
 	{		
 		//// Sky
-/*		auto obj = make_shared<GameObject>();
+		auto obj = make_shared<GameObject>();
 		obj->SetObjectName(L"SkyBox");
 		obj->GetOrAddTransform();
 		obj->AddComponent(make_shared<SkyBox>());
 		obj->GetSkyBox()->Init(SkyType::CubeMap);
-		CUR_SCENE->Add(obj);*/		
+		CUR_SCENE->Add(obj);		
 	}
 
+
+	vector<Vec3> pos = { {-10,0,-10} , {0,0,0} , {25,0,25} };
+
+	/*for(int32 i = 0 ; i < 1 ; i++)
 	{
 		auto obj = make_shared<GameObject>();
-		obj->SetObjectName(L"Terrain");
+		obj->SetObjectName(L"Terrain" +  i);
 		obj->GetOrAddTransform();
-		obj->GetOrAddTransform()->SetPosition(Vec3(-75.f, 0.f, -75.f));
+		obj->GetOrAddTransform()->SetPosition(pos[i]);
 		obj->AddComponent(make_shared<Terrain>());
 
 		auto mat = RESOURCES->Get<Material>(L"DefaultMaterial");
-		obj->GetTerrain()->Create(200, 200, mat->Clone());
+		obj->GetTerrain()->Create(25, 25, mat->Clone());
 		CUR_SCENE->Add(obj);
-	}
-
-
+	}*/
 
 /*	auto collider = make_shared<OBBBoxCollider>();
 		collider->GetBoundingBox().Extents = Vec3(1.f);
@@ -162,11 +165,17 @@ void EditorTool::Init()
 			obj->SetObjectName(name);
 
 			obj->GetOrAddTransform()->SetPosition(Vec3(rand() % 10, 0, rand() % 10));
-			obj->GetOrAddTransform()->SetScale(Vec3(1.0f));
+			obj->GetOrAddTransform()->SetScale(Vec3(3.0f));
 
 			obj->AddComponent(make_shared<ModelRenderer>(shader));
 			obj->GetModelRenderer()->SetModel(m2);
 			obj->GetModelRenderer()->SetPass(1);
+
+			auto& shadow = TEXTURE->GetShadowMap();
+			auto ssao = TEXTURE->GetSsao()->GetAmbientPtr();
+
+			obj->GetModelRenderer()->SetShadowMap(static_pointer_cast<Texture>(shadow));
+			obj->GetModelRenderer()->SetSsaoMap(ssao);
 
 			CUR_SCENE->Add(obj);
 		}
@@ -242,8 +251,7 @@ void EditorTool::Update()
 
 	ImGui::ShowDemoWindow(&_showWindow);
 
-	DrawShadowMap();
-
+	DrawRenderTextures();
 }
 
 void EditorTool::Render()
@@ -261,14 +269,21 @@ void EditorTool::OnMouseWheel(int32 scrollAmount)
 	}
 }
 
-void EditorTool::DrawShadowMap()
+void EditorTool::DrawRenderTextures()
 {
 	auto tex1 = TEXTURE->GetShadowMap()->GetComPtr().Get();
 	auto tex2 = TEXTURE->GetSsao()->GetAmbientPtr().Get();
 	auto tex3 = TEXTURE->GetSsao()->GetNormalDepthPtr().Get();
+	auto tex4 = TEXTURE->GetTerrain()->GetLayerSRV().Get();
 
 	ImGui::Begin("RenderTextures");
-	ImGui::Image(tex2, ImVec2(256, 200));
-	ImGui::Image(tex3, ImVec2(256, 200));
+	ImGui::Image(tex1, ImVec2(200, 150));
+	ImGui::Text("shadow");
+	ImGui::Image(tex2, ImVec2(200, 150));
+	ImGui::Text("ssao");
+	ImGui::Image(tex3, ImVec2(200, 150));
+	ImGui::Text("depthNormal");
+	ImGui::Image(tex4, ImVec2(200, 150));
+	ImGui::Text("layer");
 	ImGui::End();
 }

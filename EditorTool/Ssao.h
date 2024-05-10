@@ -96,6 +96,5 @@ private:
 	shared_ptr<Geometry<VertexSsao>> _geometry;
 	shared_ptr<VertexBuffer> _vertexBuffer;
 	shared_ptr<IndexBuffer> _indexBuffer;
-
 };
 

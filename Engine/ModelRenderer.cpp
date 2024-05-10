@@ -103,8 +103,6 @@ void ModelRenderer::ChangeShader(shared_ptr<Shader> shader)
 	for (auto& material : materials)
 	{
 		material->SetShader(shader);
-	//	auto shadowMap = GRAPHICS->GetShadowMap();
-	//	material->SetShadowMap(static_pointer_cast<Texture>(shadowMap));
 	}
 }
 
@@ -116,28 +114,24 @@ void ModelRenderer::ThumbnailRender(shared_ptr<Camera> cam , shared_ptr<Light> l
 	PushData(0, light, buffer);
 }
 
-void ModelRenderer::RenderInstancing(shared_ptr<Shader> shader , Matrix V, Matrix P, shared_ptr<Light> light,  shared_ptr<InstancingBuffer>& buffer)
+void ModelRenderer::RenderInstancing(int32 tech, shared_ptr<Shader> shader , Matrix V, Matrix P, shared_ptr<Light> light,  shared_ptr<InstancingBuffer>& buffer)
 {
-
 	if (_model == nullptr)
 		return;
 
-	ChangeShader(shader);
-	// GlobalData
-	shader->PushGlobalData(V , P);
+	//ssao shadow 등 덮어씌우는 경우가 있어, 기존 걸 원복시키기 위해 별도로 추가
+	auto prevShader = _shader;
 
-	Matrix W = GetTransform()->GetWorldMatrix();
-	Matrix WInvTransposeV = MathUtils::InverseTranspose(W) * V;
+	if(shader)
+		ChangeShader(shader);
 
-	TransformDesc trDesc = {};
-	trDesc.W = W;
-	trDesc.WInvTransposeV = WInvTransposeV;
-	_shader->PushTransformData(trDesc);
+	_shader->PushGlobalData(V, P);
+		
+	wstring wname = GetGameObject()->GetObjectName();
 
-	//	DCT->OMSetDepthStencilState(GRAPHICS->GetDSStateOutline().Get(), 1);
-	//	PushData(1, light, buffer);
-	//	DCT->OMSetDepthStencilState(GRAPHICS->GetDSStateStandard().Get(), 0);
-	PushData(0, light, buffer );	
+	PushData(tech, light, buffer );
+
+	ChangeShader(prevShader);
 }
 
 void ModelRenderer::PushData(uint8 technique, shared_ptr<Light>& light, shared_ptr<class InstancingBuffer>& buffer)
@@ -169,7 +163,6 @@ void ModelRenderer::PushData(uint8 technique, shared_ptr<Light>& light, shared_p
 		mesh->vertexBuffer->PushData();
 		mesh->indexBuffer->PushData();
 		
-
 		buffer->PushData();
 
 		_shader->DrawIndexedInstanced(technique, _pass, mesh->indexBuffer->GetCount(), buffer->GetCount());
@@ -234,6 +227,25 @@ bool ModelRenderer::Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& dis
 
 	return false;
 }
+
+void ModelRenderer::SetShadowMap(shared_ptr<Texture> tex)
+{
+	const auto& materials = _model->GetMaterials();
+	for (auto& material : materials)
+	{
+		material->SetShadowMap(tex);
+	}
+}	
+
+void ModelRenderer::SetSsaoMap(ComPtr<ID3D11ShaderResourceView> srv)
+{
+	const auto& materials = _model->GetMaterials();
+	for (auto& material : materials)
+	{
+		material->SetSsaoMap(srv);
+	}
+}
+
 void ModelRenderer::TransformBoundingBox()
 {
 	Matrix W = GetTransform()->GetWorldMatrix();

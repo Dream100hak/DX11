@@ -1,9 +1,10 @@
 #pragma once
 #include "Component.h"
+#include "Material.h"
 
 class Mesh;
 class Shader;
-class Material;
+
 
 #define MAX_MESH_INSTANCE 500
 
@@ -21,13 +22,18 @@ public:
 	void SetPass(uint8 pass) { _pass = pass; }
 	void SetTechnique(uint8 teq) { _teq = teq; }
 
-	void RenderInstancing(shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<class InstancingBuffer>& buffer);
+	void RenderInstancing(int32 tech, shared_ptr<Shader> shader , Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<class InstancingBuffer>& buffer);
 
 	void ThumbnailRender(shared_ptr<Camera> cam, shared_ptr<Light> light, shared_ptr<class InstancingBuffer>& buffer);
 
 	void TransformBoundingBox();
 
 	bool Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& distance);
+
+	void ChangeShader(shared_ptr<Shader> shader) { _material->SetShader(shader); }
+
+public:
+	void SetShaderUnChanged(bool on) { _shaderUnchanged = on; }
 
 	InstanceID GetInstanceID();
 	shared_ptr<Material>& GetMaterial() { return _material;}
@@ -41,4 +47,6 @@ private:
 	uint8 _teq = 0;
 
 	BoundingBox _boundingBox;
+
+	bool _shaderUnchanged = false;
 };

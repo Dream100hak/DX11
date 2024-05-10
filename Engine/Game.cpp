@@ -109,7 +109,7 @@ LRESULT CALLBACK Game::WndProc(HWND handle, UINT message, WPARAM wParam, LPARAM 
 	case WM_MOUSEWHEEL:
 
 		wheelDelta = GET_WHEEL_DELTA_WPARAM(wParam);
-		scrollAmount = wheelDelta / 120;
+		scrollAmount = wheelDelta / 60;
 
 		_gameDesc.app->OnMouseWheel(scrollAmount);
 		break;

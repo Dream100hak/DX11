@@ -92,20 +92,8 @@ void ModelAnimator::UpdateTweenData()
 	}
 }
 
-void ModelAnimator::PreRenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
-{
-	if (_model == nullptr)
-		return;
-	if (_texture == nullptr)
-		CreateTexture();
 
-	// GlobalData
-	_shader->PushGlobalData(Light::S_MatView, Light::S_MatProjection);
-
-	PushData(buffer);
-}
-
-void ModelAnimator::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
+void ModelAnimator::RenderInstancing(int32 tech, shared_ptr<class InstancingBuffer>& buffer)
 {
 	if (_model == nullptr)
 		return;
@@ -116,18 +104,10 @@ void ModelAnimator::RenderInstancing(shared_ptr<class InstancingBuffer>& buffer)
 	// GlobalData
 	_shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
 
-	Matrix W = GetTransform()->GetWorldMatrix();
-	Matrix WInvTransposeV = MathUtils::InverseTranspose(W) * cam->GetViewMatrix();
-
-	TransformDesc trDesc = {};
-	trDesc.W = W;
-	trDesc.WInvTransposeV = WInvTransposeV;
-	_shader->PushTransformData(trDesc);
-
-	PushData(buffer);
+	PushData(tech, buffer);
 }
 
-void ModelAnimator::PushData(shared_ptr<class InstancingBuffer>& buffer)
+void ModelAnimator::PushData(int32 tech, shared_ptr<class InstancingBuffer>& buffer)
 {
 	// Light
 	auto lightObj = SCENE->GetCurrentScene()->GetLight();
@@ -162,7 +142,7 @@ void ModelAnimator::PushData(shared_ptr<class InstancingBuffer>& buffer)
 
 		buffer->PushData();
 
-		_shader->DrawIndexedInstanced(0, _pass, mesh->indexBuffer->GetCount(), buffer->GetCount());
+		_shader->DrawIndexedInstanced(tech, _pass, mesh->indexBuffer->GetCount(), buffer->GetCount());
 	}
 }
 

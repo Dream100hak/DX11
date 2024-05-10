@@ -7,8 +7,8 @@ void PS(MeshOutput pin)
 {
     float4 diffuse = DiffuseMap.Sample(LinearSampler, pin.uv);
 
-	// Don't write transparent pixels to the shadow map.
     clip(diffuse.a - 0.15f);
+    
 }
 
 RasterizerState Depth
@@ -27,7 +27,7 @@ RasterizerState Depth
 	// Example: DepthBias = 100000 ==> Actual DepthBias = 100000/2^24 = .006
 
 	// You need to experiment with these values for your scene.
-    DepthBias = 200000;
+    DepthBias = 100000;
     DepthBiasClamp = 0.0f;
     SlopeScaledDepthBias = 1.0f;
 };

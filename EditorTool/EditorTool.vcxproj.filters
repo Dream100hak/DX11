@@ -107,7 +107,7 @@
     <ClInclude Include="MeshThumbnail.h">
       <Filter>Textures</Filter>
     </ClInclude>
-    <ClInclude Include="TesTerrain.h">
+    <ClInclude Include="SimpleGrid.h">
       <Filter>Components</Filter>
     </ClInclude>
   </ItemGroup>
@@ -180,7 +180,7 @@
     <ClCompile Include="MeshThumbnail.cpp">
       <Filter>Textures</Filter>
     </ClCompile>
-    <ClCompile Include="TesTerrain.cpp">
+    <ClCompile Include="SimpleGrid.cpp">
       <Filter>Components</Filter>
     </ClCompile>
   </ItemGroup>

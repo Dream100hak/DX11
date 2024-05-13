@@ -223,6 +223,9 @@
     <ClInclude Include="JobTimer.h">
       <Filter>08. Job</Filter>
     </ClInclude>
+    <ClInclude Include="TerrainMesh.h">
+      <Filter>00. Engine\Resource</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -437,6 +440,9 @@
     </ClCompile>
     <ClCompile Include="JobTimer.cpp">
       <Filter>08. Job</Filter>
+    </ClCompile>
+    <ClCompile Include="TerrainMesh.cpp">
+      <Filter>00. Engine\Resource</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -41,8 +41,8 @@
     <ClInclude Include="SceneWindow.h" />
     <ClInclude Include="ShadowMap.h" />
     <ClInclude Include="ShortcutManager.h" />
+    <ClInclude Include="SimpleGrid.h" />
     <ClInclude Include="Ssao.h" />
-    <ClInclude Include="TesTerrain.h" />
     <ClInclude Include="TextureManager.h" />
     <ClInclude Include="TextureRenderer.h" />
   </ItemGroup>
@@ -72,8 +72,8 @@
     <ClCompile Include="SceneWindow.cpp" />
     <ClCompile Include="ShadowMap.cpp" />
     <ClCompile Include="ShortcutManager.cpp" />
+    <ClCompile Include="SimpleGrid.cpp" />
     <ClCompile Include="Ssao.cpp" />
-    <ClCompile Include="TesTerrain.cpp" />
     <ClCompile Include="TextureManager.cpp" />
     <ClCompile Include="TextureRenderer.cpp" />
   </ItemGroup>

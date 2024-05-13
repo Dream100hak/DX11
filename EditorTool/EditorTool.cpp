@@ -32,7 +32,7 @@
 #include "TextureRenderer.h"
 
 #include "Ssao.h"
-#include "TesTerrain.h"
+
 
 void EditorTool::Init()
 {
@@ -52,8 +52,8 @@ void EditorTool::Init()
 
 	shared_ptr<GameObject> sceneCamera = make_shared<GameObject>();
 	sceneCamera->SetObjectName(L"Scene Camera");
-	sceneCamera->GetOrAddTransform()->SetPosition(Vec3{ -7.102f, 5.f, -9.f });
-	sceneCamera->GetOrAddTransform()->SetRotation(Vec3{ 0.346f, 0.56f, 0.f });
+	sceneCamera->GetOrAddTransform()->SetPosition(Vec3{ -161.f, 43.521f, 58.332f });
+	sceneCamera->GetOrAddTransform()->SetRotation(Vec3{ 0.325f, -3.304f, 0.f });
 	sceneCamera->AddComponent(make_shared<Camera>());
 	sceneCamera->GetCamera()->SetCullingMaskLayerOnOff(LayerMask::UI, true);
 	sceneCamera->AddComponent(_sceneCam);
@@ -88,6 +88,7 @@ void EditorTool::Init()
 	}
 	
 	{
+		//// Light
 		auto light = make_shared<GameObject>();
 		light->SetObjectName(L"Direction Light");
 		light->GetOrAddTransform()->SetRotation(Vec3(-0.57735f, -0.57735f, 0.57735f));
@@ -102,30 +103,42 @@ void EditorTool::Init()
 		CUR_SCENE->Add(light);
 	}
 	{		
-		//// Sky
+		//// Sky 
 		auto obj = make_shared<GameObject>();
 		obj->SetObjectName(L"SkyBox");
 		obj->GetOrAddTransform();
 		obj->AddComponent(make_shared<SkyBox>());
-		obj->GetSkyBox()->Init(SkyType::CubeMap);
+		obj->GetSkyBox()->Init(SkyType::SkyBox);
 		CUR_SCENE->Add(obj);		
 	}
-
-
-	vector<Vec3> pos = { {-10,0,-10} , {0,0,0} , {25,0,25} };
-
-	/*for(int32 i = 0 ; i < 1 ; i++)
 	{
 		auto obj = make_shared<GameObject>();
-		obj->SetObjectName(L"Terrain" +  i);
-		obj->GetOrAddTransform();
-		obj->GetOrAddTransform()->SetPosition(pos[i]);
+		obj->SetObjectName(L"Terrain");
+		obj->GetOrAddTransform()->SetPosition(Vec3::Zero);
 		obj->AddComponent(make_shared<Terrain>());
 
-		auto mat = RESOURCES->Get<Material>(L"DefaultMaterial");
-		obj->GetTerrain()->Create(25, 25, mat->Clone());
+		TerrainInfo info{};
+
+		info.heightMapFilename = L"../Resources/Assets/Textures/Terrain/terrain.raw";
+		info.blendMapFilename = L"../Resources/Assets/Textures/Terrain/blend.dds";
+		info.layerMapFilenames.push_back(L"../Resources/Assets/Textures/Terrain/grass.dds");
+		info.layerMapFilenames.push_back(L"../Resources/Assets/Textures/Terrain/darkdirt.dds");
+		info.layerMapFilenames.push_back(L"../Resources/Assets/Textures/Terrain/stone.dds");
+		info.layerMapFilenames.push_back(L"../Resources/Assets/Textures/Terrain/lightdirt.dds");
+		info.layerMapFilenames.push_back(L"../Resources/Assets/Textures/Terrain/snow.dds");
+		info.heightScale = 50.0f;
+		info.heightmapWidth = 2049;
+		info.heightmapHeight = 2049;
+		info.cellSpacing = 0.5f;
+		
+		obj->GetComponent<Terrain>()->Init(info);
+		
 		CUR_SCENE->Add(obj);
-	}*/
+	
+	}
+
+	//auto mat = RESOURCES->Get<Material>(L"DefaultMaterial");
+	//obj->GetTerrain()->Create(25, 25, mat->Clone());
 
 /*	auto collider = make_shared<OBBBoxCollider>();
 		collider->GetBoundingBox().Extents = Vec3(1.f);
@@ -274,7 +287,7 @@ void EditorTool::DrawRenderTextures()
 	auto tex1 = TEXTURE->GetShadowMap()->GetComPtr().Get();
 	auto tex2 = TEXTURE->GetSsao()->GetAmbientPtr().Get();
 	auto tex3 = TEXTURE->GetSsao()->GetNormalDepthPtr().Get();
-	auto tex4 = TEXTURE->GetTerrain()->GetLayerSRV().Get();
+//	auto tex4 = TEXTURE->GetTerrain()->GetLayerSRV().Get();
 
 	ImGui::Begin("RenderTextures");
 	ImGui::Image(tex1, ImVec2(200, 150));
@@ -283,7 +296,5 @@ void EditorTool::DrawRenderTextures()
 	ImGui::Text("ssao");
 	ImGui::Image(tex3, ImVec2(200, 150));
 	ImGui::Text("depthNormal");
-	ImGui::Image(tex4, ImVec2(200, 150));
-	ImGui::Text("layer");
 	ImGui::End();
 }

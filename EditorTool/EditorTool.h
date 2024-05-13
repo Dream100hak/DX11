@@ -1,6 +1,5 @@
 #pragma once
 #include "EditorWindow.h"
-#include "TesTerrain.h"
 
 class EditorTool : public IExecute
 {
@@ -18,6 +17,4 @@ private:
 	bool _showWindow = true;
 	shared_ptr<class SceneCamera> _sceneCam;
 	shared_ptr<class Button> _btn; 
-
-
 };

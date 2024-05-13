@@ -179,22 +179,22 @@ std::shared_ptr<class GameObject> Scene::Pick(int32 screenX, int32 screenY)
 		}
 	}
 
-	for (auto& gameObject : gameObjects)
-	{
-		if (gameObject->GetTerrain() == nullptr)
-			continue;
+	//for (auto& gameObject : gameObjects)
+	//{
+	//	if (gameObject->GetTerrain() == nullptr)
+	//		continue;
 
-		Vec3 pickPos;
-		float distance = 0.f;
-		if (gameObject->GetTerrain()->Pick(screenX, screenY, OUT pickPos, OUT distance) == false)
-			continue;
+	//	Vec3 pickPos;
+	//	float distance = 0.f;
+	//	if (gameObject->GetTerrain()->Pick(screenX, screenY, OUT pickPos, OUT distance) == false)
+	//		continue;
 
-		if (distance < minDistance)
-		{
-			minDistance = distance;
-			picked = gameObject;
-		}
-	}
+	//	if (distance < minDistance)
+	//	{
+	//		minDistance = distance;
+	//		picked = gameObject;
+	//	}
+	//}
 
 	return picked;
 }
@@ -281,23 +281,23 @@ std::shared_ptr<class GameObject> Scene::MeshPick(int32 screenX, int32 screenY)
 		}		
 	}
 
-	for (auto& gameObject : gameObjects)
-	{
-		if (gameObject->GetTerrain() == nullptr)
-			continue;
+	//for (auto& gameObject : gameObjects)
+	//{
+	//	if (gameObject->GetTerrain() == nullptr)
+	//		continue;
 
-		Vec3 pickPos;
+	//	Vec3 pickPos;
 
-		float distance = 0.f;
-		if (gameObject->GetTerrain()->Pick(screenX, screenY, OUT pickPos, OUT distance) == false)
-			continue;
+	//	float distance = 0.f;
+	//	if (gameObject->GetTerrain()->Pick(screenX, screenY, OUT pickPos, OUT distance) == false)
+	//		continue;
 
-		if (distance < minDistance)
-		{
-			minDistance = distance;
-			picked = gameObject;
-		}
-	}
+	//	if (distance < minDistance)
+	//	{
+	//		minDistance = distance;
+	//		picked = gameObject;
+	//	}
+	//}
 
 	return picked;
 }

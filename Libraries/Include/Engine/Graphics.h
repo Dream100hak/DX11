@@ -30,10 +30,13 @@ public:
 	ComPtr <ID3D11DepthStencilState> GetDSStateStandard() { return _dsStateStandard; }
 	ComPtr <ID3D11DepthStencilState> GetDSStateOutline() { return _dsStateOutline; }
 
+	ComPtr<ID3D11RasterizerState> GetWireframeRS() { return _wireframeRS ;}
+
 private:
 	void CreateDeviceAndSwapChain();
 	void CreateRenderTargetView();
 	void CreateDepthStencilView();
+	void CreateRasterizer();
 
 public:
 	void SetViewport(float width, float height, float x = 0, float y = 0, float minDepth = 0, float maxDepth = 1);
@@ -69,4 +72,6 @@ private:
 	shared_ptr<JobQueue> _renderJobQueue = nullptr;
 	shared_ptr<JobQueue> _postRenderJobQueue = nullptr;
 
+	//RS ¸ðÀ½
+	ComPtr<ID3D11RasterizerState> _wireframeRS;
 };

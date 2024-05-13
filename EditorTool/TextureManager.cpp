@@ -4,7 +4,7 @@
 #include "ShadowMap.h"
 #include "Ssao.h"
 #include "Camera.h"
-#include "TesTerrain.h"
+
 
 void TextureManager::Init()
 {
@@ -27,37 +27,6 @@ void TextureManager::Init()
 	_ssaoNormalDebugTexture->SetShader(debugShader);
 	_ssaoNormalDebugTexture->SetDiffuseMap(_ssao->GetNormalDepthPtr().Get());
 
-	_tesTerrain = make_shared<TesTerrain>();
-	TesTerrain::InitInfo tii;
-
-	tii.heightMapFilename = L"../Resources/Assets/Textures/Terrain/terrain.raw";
-
-	tii.layerMapFilename0 = L"../Resources/Assets/Textures/Terrain/grass.dds";
-	tii.layerMapFilename1 = L"../Resources/Assets/Textures/Terrain/darkdirt.dds";
-	tii.layerMapFilename2 = L"../Resources/Assets/Textures/Terrain/stone.dds";
-	tii.layerMapFilename3 = L"../Resources/Assets/Textures/Terrain/lightdirt.dds";
-	tii.layerMapFilename4 = L"../Resources/Assets/Textures/Terrain/snow.dds";
-
-	tii.blendMapFilename = L"../Resources/Assets/Textures/Terrain/blend.dds";
-	tii.heightScale = 50.0f;
-	tii.heightmapWidth = 2049;
-	tii.heightmapHeight = 2049;
-	tii.cellSpacing = 0.5f;
-
-	_tesTerrain->Init(tii);
-
-
-	D3D11_RASTERIZER_DESC wireframeDesc;
-	ZeroMemory(&wireframeDesc, sizeof(D3D11_RASTERIZER_DESC));
-	wireframeDesc.FillMode = D3D11_FILL_WIREFRAME;
-	wireframeDesc.CullMode = D3D11_CULL_BACK;
-	wireframeDesc.FrontCounterClockwise = false;
-	wireframeDesc.DepthClipEnable = true;
-
-	HRESULT hr = {};
-
-	hr = DEVICE->CreateRasterizerState(&wireframeDesc, _wireframeRS.GetAddressOf());
-	CHECK(hr);
 }
 
 void TextureManager::Update()
@@ -98,11 +67,11 @@ void TextureManager::DrawTextureMap()
 	//if (_ssaoNormalDebugTexture)
 		//_ssaoNormalDebugTexture->Update(W2);
 
-	if (GetAsyncKeyState('1') & 0x8000)
-		DCT->RSSetState(_wireframeRS.Get());
+	//if (GetAsyncKeyState('1') & 0x8000)
+	//	DCT->RSSetState(_wireframeRS.Get());
 
-	_tesTerrain->Draw();
+	////_tesTerrain->Draw();
 
-	DCT->RSSetState(0);
+	//DCT->RSSetState(0);
 }
 

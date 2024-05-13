@@ -72,8 +72,6 @@ void Texture::Load(const wstring& path)
 	_path = path;
 }
 
-
-
 Microsoft::WRL::ComPtr<ID3D11Texture2D> Texture::GetTexture2D()
 {
 	Microsoft::WRL::ComPtr<ID3D11Resource> resource;
@@ -85,13 +83,6 @@ Microsoft::WRL::ComPtr<ID3D11Texture2D> Texture::GetTexture2D()
 
 Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> Texture::CreateTexture2DArraySRV(std::vector<std::wstring>& filenames)
 {
-	//
-// Load the texture elements individually from file.  These textures
-// won't be used by the GPU (0 bind flags), they are just used to 
-// load the image data from file.  We use the STAGING usage so the
-// CPU can read the resource.
-//
-
 	uint32 size = filenames.size();
 
 	std::vector<ComPtr<ID3D11Texture2D>> srcTex(size);
@@ -99,9 +90,17 @@ Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> Texture::CreateTexture2DArraySR
 	for (uint32 i = 0; i < size; ++i)
 	{
 		DirectX::TexMetadata md = {};
-
 		DirectX::ScratchImage img;
-		HRESULT hr = ::LoadFromDDSFile(filenames[i].c_str(), DDS_FLAGS_NONE, &md, img);
+		HRESULT hr; 
+
+		wstring ext = std::filesystem::path(filenames[i]).extension();
+		
+		if (ext == L".dds" || ext == L".DDS")
+			hr = ::LoadFromDDSFile(filenames[i].c_str(), DDS_FLAGS_NONE, &md, img);
+		else if (ext == L".tga" || ext == L".TGA")
+			hr = ::LoadFromTGAFile(filenames[i].c_str(), &md, img);
+		else // png, jpg, jpeg, bmp
+			hr = ::LoadFromWICFile(filenames[i].c_str(), WIC_FLAGS_NONE, &md, img);
 		CHECK(hr);
 
 		hr = ::CreateTextureEx(DEVICE.Get(), img.GetImages(), img.GetImageCount(), md,
@@ -114,16 +113,8 @@ Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> Texture::CreateTexture2DArraySR
 	// Create the texture array.  Each element in the texture 
 	// array has the same format/dimensions.
 	//
-
 	D3D11_TEXTURE2D_DESC texElementDesc;
 	srcTex[0]->GetDesc(&texElementDesc);
-	//D3D11_TEXTURE2D_DESC texElementDesc1;
-	//srcTex[1]->GetDesc(&texElementDesc1);
-	//D3D11_TEXTURE2D_DESC texElementDesc2;
-	//srcTex[2]->GetDesc(&texElementDesc2);
-	//D3D11_TEXTURE2D_DESC texElementDesc3;
-	//srcTex[3]->GetDesc(&texElementDesc3);
-
 
 	D3D11_TEXTURE2D_DESC texArrayDesc;
 	texArrayDesc.Width = texElementDesc.Width;

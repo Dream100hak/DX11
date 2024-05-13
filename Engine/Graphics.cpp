@@ -12,6 +12,8 @@ void Graphics::Init(HWND hwnd)
 	CreateDeviceAndSwapChain();
 	CreateRenderTargetView();
 	CreateDepthStencilView();
+	CreateRasterizer();
+
 }
 
 void Graphics::PreRenderBegin()
@@ -149,6 +151,21 @@ void Graphics::CreateDepthStencilView()
 		CHECK(hr);
 	}
 
+}
+
+void Graphics::CreateRasterizer()
+{
+	D3D11_RASTERIZER_DESC wireframeDesc;
+	ZeroMemory(&wireframeDesc, sizeof(D3D11_RASTERIZER_DESC));
+	wireframeDesc.FillMode = D3D11_FILL_WIREFRAME;
+	wireframeDesc.CullMode = D3D11_CULL_BACK;
+	wireframeDesc.FrontCounterClockwise = false;
+	wireframeDesc.DepthClipEnable = true;
+
+	HRESULT hr = {};
+
+	hr = DEVICE->CreateRasterizerState(&wireframeDesc, _wireframeRS.GetAddressOf());
+	CHECK(hr);
 }
 
 void Graphics::SetViewport(float width, float height, float x /*= 0*/, float y /*= 0*/, float minDepth /*= 0*/, float maxDepth /*= 1*/)

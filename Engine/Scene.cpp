@@ -179,23 +179,6 @@ std::shared_ptr<class GameObject> Scene::Pick(int32 screenX, int32 screenY)
 		}
 	}
 
-	//for (auto& gameObject : gameObjects)
-	//{
-	//	if (gameObject->GetTerrain() == nullptr)
-	//		continue;
-
-	//	Vec3 pickPos;
-	//	float distance = 0.f;
-	//	if (gameObject->GetTerrain()->Pick(screenX, screenY, OUT pickPos, OUT distance) == false)
-	//		continue;
-
-	//	if (distance < minDistance)
-	//	{
-	//		minDistance = distance;
-	//		picked = gameObject;
-	//	}
-	//}
-
 	return picked;
 }
 std::shared_ptr<class GameObject> Scene::MeshPick(int32 screenX, int32 screenY)
@@ -280,24 +263,6 @@ std::shared_ptr<class GameObject> Scene::MeshPick(int32 screenX, int32 screenY)
 			picked = gameObject;
 		}		
 	}
-
-	//for (auto& gameObject : gameObjects)
-	//{
-	//	if (gameObject->GetTerrain() == nullptr)
-	//		continue;
-
-	//	Vec3 pickPos;
-
-	//	float distance = 0.f;
-	//	if (gameObject->GetTerrain()->Pick(screenX, screenY, OUT pickPos, OUT distance) == false)
-	//		continue;
-
-	//	if (distance < minDistance)
-	//	{
-	//		minDistance = distance;
-	//		picked = gameObject;
-	//	}
-	//}
 
 	return picked;
 }

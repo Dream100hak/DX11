@@ -55,8 +55,8 @@ void TextureManager::DrawTextureMap()
 	//if (_smapDebugTexture)
 	//	_smapDebugTexture->Update(W1);
 
-	if (_ssaoAmbientDebugTexture)
-		_ssaoAmbientDebugTexture->Update(W1);
+//	if (_ssaoAmbientDebugTexture)
+	//	_ssaoAmbientDebugTexture->Update(W1);
 
 	Matrix W2(
 		2.0f, 0.0f, 0.0f, 0.0f,
@@ -67,11 +67,5 @@ void TextureManager::DrawTextureMap()
 	//if (_ssaoNormalDebugTexture)
 		//_ssaoNormalDebugTexture->Update(W2);
 
-	//if (GetAsyncKeyState('1') & 0x8000)
-	//	DCT->RSSetState(_wireframeRS.Get());
-
-	////_tesTerrain->Draw();
-
-	//DCT->RSSetState(0);
 }
 

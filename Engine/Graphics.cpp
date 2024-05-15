@@ -166,6 +166,7 @@ void Graphics::CreateRasterizer()
 
 	hr = DEVICE->CreateRasterizerState(&wireframeDesc, _wireframeRS.GetAddressOf());
 	CHECK(hr);
+
 }
 
 void Graphics::SetViewport(float width, float height, float x /*= 0*/, float y /*= 0*/, float minDepth /*= 0*/, float maxDepth /*= 1*/)

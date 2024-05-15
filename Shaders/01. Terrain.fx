@@ -5,6 +5,10 @@
 
 cbuffer TerrainBuffer
 {
+    
+    float FogStart;
+    float FogRange;
+    float4 FogColor;
 
 	// When distance is minimum, the tessellation is maximum.
 	// When distance is maximum, the tessellation is minimum.
@@ -32,21 +36,6 @@ Texture2DArray LayerMapArray;
 Texture2D BlendMap;
 Texture2D HeightMap;
 
-SamplerState samHeightmap
-{
-    Filter = MIN_MAG_LINEAR_MIP_POINT;
-
-    AddressU = CLAMP;
-    AddressV = CLAMP;
-};
-
-struct VertexIn
-{
-    float3 PosL : POS;
-    float2 Tex : TEXCOORD;
-    float2 BoundsY : TEXCOORD1;
-};
-
 struct VertexOut
 {
     float3 PosW : POS;
@@ -54,7 +43,7 @@ struct VertexOut
     float2 BoundsY : TEXCOORD1;
 };
 
-VertexOut VS(VertexIn vin)
+VertexOut VS(VertexTerrain vin)
 {
     VertexOut vout;
 
@@ -63,7 +52,7 @@ VertexOut VS(VertexIn vin)
 
 	// Displace the patch corners to world space.  This is to make 
 	// the eye to patch distance calculation more accurate.
-    vout.PosW.y = HeightMap.SampleLevel(samHeightmap, vin.Tex, 0).r;
+    vout.PosW.y = HeightMap.SampleLevel(HeightmapSampler, vin.Tex, 0).r;
 
 	// Output vertex attributes to next stage.
     vout.Tex = vin.Tex;
@@ -214,6 +203,7 @@ struct DomainOut
     float3 PosW : POS;
     float2 Tex : TEXCOORD;
     float2 TiledTex : TEXCOORD1;
+    float4 Shadow : TEXCOORD2;
 };
 
 // The domain shader is called for every vertex created by the tessellator.  
@@ -240,7 +230,7 @@ DomainOut DS(PatchTess patchTess,
     dout.TiledTex = dout.Tex * TexScale;
 
 	// Displacement mapping
-    dout.PosW.y = HeightMap.SampleLevel(samHeightmap, dout.Tex, 0).r;
+    dout.PosW.y = HeightMap.SampleLevel(HeightmapSampler, dout.Tex, 0).r;
 
 	// NOTE: We tried computing the normal in the shader using finite difference, 
 	// but the vertices move continuously with fractional_even which creates
@@ -249,13 +239,15 @@ DomainOut DS(PatchTess patchTess,
 
 	// Project to homogeneous clip space.
     dout.PosH = mul(float4(dout.PosW, 1.0f), VP);
-
+  
+    dout.Shadow = mul(float4(dout.PosW, 1.0f), Shadow);
+    
     return dout;
 }
 
 float4 PS(DomainOut pin,
-	uniform int gLightCount,
-	uniform bool gFogEnabled) : SV_Target
+	uniform int LightCount
+	) : SV_Target
 {
 	//
 	// Estimate normal and tangent using central differences.
@@ -265,10 +257,10 @@ float4 PS(DomainOut pin,
     float2 bottomTex = pin.Tex + float2(0.0f, TexelCellSpaceV);
     float2 topTex = pin.Tex + float2(0.0f, -TexelCellSpaceV);
 
-    float leftY = HeightMap.SampleLevel(samHeightmap, leftTex, 0).r;
-    float rightY = HeightMap.SampleLevel(samHeightmap, rightTex, 0).r;
-    float bottomY = HeightMap.SampleLevel(samHeightmap, bottomTex, 0).r;
-    float topY = HeightMap.SampleLevel(samHeightmap, topTex, 0).r;
+    float leftY = HeightMap.SampleLevel(HeightmapSampler, leftTex, 0).r;
+    float rightY = HeightMap.SampleLevel(HeightmapSampler, rightTex, 0).r;
+    float bottomY = HeightMap.SampleLevel(HeightmapSampler, bottomTex, 0).r;
+    float topY = HeightMap.SampleLevel(HeightmapSampler, topTex, 0).r;
 
     float3 tangent = normalize(float3(2.0f * WorldCellSpace, rightY - leftY, 0.0f));
     float3 bitan = normalize(float3(0.0f, bottomY - topY, -2.0f * WorldCellSpace));
@@ -310,29 +302,40 @@ float4 PS(DomainOut pin,
 	//
 
     float4 litColor = texColor;
-    if (gLightCount > 0)
+    if (LightCount > 0)
     {
 		// Start with a sum of zero. 
         float4 ambient = float4(0.0f, 0.0f, 0.0f, 0.0f);
         float4 diffuse = float4(0.0f, 0.0f, 0.0f, 0.0f);
         float4 spec = float4(0.0f, 0.0f, 0.0f, 0.0f);
+        
+          // Only the first light casts a shadow.
+        float3 shadow = float3(1.0f, 1.0f, 1.0f);
+        shadow[0] = CalcShadowFactor(ShadowSampler, ShadowMap, pin.Shadow);
+
 
 		// Sum the light contribution from each light source.  
 		[unroll]
-        for (int i = 0; i < gLightCount; ++i)
+        for (int i = 0; i < LightCount; ++i)
         {
             float4 A, D, S;
             ComputeDirectionalLight(normalW, toEye, A, D, S);
 				
             ambient += A;
-            diffuse += D;
-            spec += S;
+            diffuse += shadow[i] * D;
+            //diffuse += D;
+            spec += shadow[i] * S;
+           // spec +=  S;
         }
 
         litColor = texColor * (ambient + diffuse) + spec;
     }
 
+   // float fogLerp = saturate((distToEye - FogStart) / FogRange);
 
+	// Blend the fog color and the lit color.
+    //litColor = lerp(litColor, FogColor, fogLerp);
+    
     return litColor;
 }
 
@@ -344,7 +347,7 @@ technique11 T0
         SetHullShader(CompileShader(hs_5_0, HS()));
         SetDomainShader(CompileShader(ds_5_0, DS()));
         SetGeometryShader(NULL);
-        SetPixelShader(CompileShader(ps_5_0, PS(1, false)));
+        SetPixelShader(CompileShader(ps_5_0, PS(1)));
     }
 }
 

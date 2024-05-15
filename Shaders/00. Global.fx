@@ -66,6 +66,13 @@ struct VertexTextureNormalTangentBlend
     float4 blendWeights : BLEND_WEIGHTS;
 };
 
+struct VertexTerrain
+{
+    float3 PosL : POS;
+    float2 Tex : TEXCOORD;
+    float2 BoundsY : TEXCOORD1;
+};
+
 //////////////////
 // VertexOutput //
 //////////////////
@@ -125,6 +132,15 @@ SamplerComparisonState ShadowSampler
 
     ComparisonFunc = LESS;
 };
+
+SamplerState HeightmapSampler
+{
+    Filter = MIN_MAG_LINEAR_MIP_POINT;
+
+    AddressU = CLAMP;
+    AddressV = CLAMP;
+};
+
 /////////////////////
 // RasterizerState //
 /////////////////////

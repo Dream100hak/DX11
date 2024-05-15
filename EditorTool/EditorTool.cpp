@@ -30,6 +30,7 @@
 
 #include "MeshThumbnail.h"
 #include "TextureRenderer.h"
+#include "SimpleGrid.h"
 
 #include "Ssao.h"
 
@@ -52,8 +53,8 @@ void EditorTool::Init()
 
 	shared_ptr<GameObject> sceneCamera = make_shared<GameObject>();
 	sceneCamera->SetObjectName(L"Scene Camera");
-	sceneCamera->GetOrAddTransform()->SetPosition(Vec3{ -161.f, 43.521f, 58.332f });
-	sceneCamera->GetOrAddTransform()->SetRotation(Vec3{ 0.325f, -3.304f, 0.f });
+	sceneCamera->GetOrAddTransform()->SetPosition(Vec3{ 181.f, 26.521f, -25.599f });
+	sceneCamera->GetOrAddTransform()->SetRotation(Vec3{ 0.381f, -0.784f, 0.f });
 	sceneCamera->AddComponent(make_shared<Camera>());
 	sceneCamera->GetCamera()->SetCullingMaskLayerOnOff(LayerMask::UI, true);
 	sceneCamera->AddComponent(_sceneCam);
@@ -112,29 +113,15 @@ void EditorTool::Init()
 		CUR_SCENE->Add(obj);		
 	}
 	{
-		auto obj = make_shared<GameObject>();
-		obj->SetObjectName(L"Terrain");
-		obj->GetOrAddTransform()->SetPosition(Vec3::Zero);
-		obj->AddComponent(make_shared<Terrain>());
+		//auto obj = make_shared<GameObject>();
+		//obj->SetObjectName(L"Simple Grid");
+		//obj->GetOrAddTransform()->SetPosition(Vec3(-15.f, 0.f, -15.f));
+		//obj->AddComponent(make_shared<SimpleGrid>());
 
-		TerrainInfo info{};
+		//auto mat = RESOURCES->Get<Material>(L"DefaultMaterial");
 
-		info.heightMapFilename = L"../Resources/Assets/Textures/Terrain/terrain.raw";
-		info.blendMapFilename = L"../Resources/Assets/Textures/Terrain/blend.dds";
-		info.layerMapFilenames.push_back(L"../Resources/Assets/Textures/Terrain/grass.dds");
-		info.layerMapFilenames.push_back(L"../Resources/Assets/Textures/Terrain/darkdirt.dds");
-		info.layerMapFilenames.push_back(L"../Resources/Assets/Textures/Terrain/stone.dds");
-		info.layerMapFilenames.push_back(L"../Resources/Assets/Textures/Terrain/lightdirt.dds");
-		info.layerMapFilenames.push_back(L"../Resources/Assets/Textures/Terrain/snow.dds");
-		info.heightScale = 50.0f;
-		info.heightmapWidth = 2049;
-		info.heightmapHeight = 2049;
-		info.cellSpacing = 0.5f;
-		
-		obj->GetComponent<Terrain>()->Init(info);
-		
-		CUR_SCENE->Add(obj);
-	
+		//obj->GetComponent<SimpleGrid>()->Create(50,50 ,mat->Clone());
+		//CUR_SCENE->Add(obj);
 	}
 
 	//auto mat = RESOURCES->Get<Material>(L"DefaultMaterial");
@@ -166,6 +153,35 @@ void EditorTool::Init()
 	//}
 	// Model
 	 {
+		auto terrainObj = make_shared<GameObject>();
+		terrainObj->SetObjectName(L"Terrain");
+		terrainObj->GetOrAddTransform()->SetPosition(Vec3::Zero);
+		terrainObj->AddComponent(make_shared<Terrain>());
+
+		TerrainInfo info{};
+
+		info.heightMapFilename = L"../Resources/Assets/Textures/Terrain/terrain.raw";
+		info.blendMapFilename = L"../Resources/Assets/Textures/Terrain/blend.dds";
+		info.layerMapFilenames.push_back(L"../Resources/Assets/Textures/Terrain/grass.dds");
+		info.layerMapFilenames.push_back(L"../Resources/Assets/Textures/Terrain/darkdirt.dds");
+		info.layerMapFilenames.push_back(L"../Resources/Assets/Textures/Terrain/stone.dds");
+		info.layerMapFilenames.push_back(L"../Resources/Assets/Textures/Terrain/lightdirt.dds");
+		info.layerMapFilenames.push_back(L"../Resources/Assets/Textures/Terrain/snow.dds");
+
+		info.heightScale = 50.0f;
+		info.heightmapWidth = 2049;
+		info.heightmapHeight = 2049;
+		info.cellSpacing = 0.5f;
+
+		auto mat = RESOURCES->Get<Material>(L"DefaultMaterial");
+		shared_ptr<Material> matClone = mat->Clone();
+
+		auto& shadow = TEXTURE->GetShadowMap();
+		matClone->SetShadowMap(static_pointer_cast<Texture>(shadow));
+		terrainObj->GetComponent<Terrain>()->Init(info, matClone);
+
+		CUR_SCENE->Add(terrainObj);
+
 
 		shared_ptr<class Model> m2 = make_shared<Model>();
 		m2->ReadModel(L"Kachujin/Kachujin");
@@ -177,14 +193,23 @@ void EditorTool::Init()
 			wstring name = L"Model_" + to_wstring(i);
 			obj->SetObjectName(name);
 
-			obj->GetOrAddTransform()->SetPosition(Vec3(rand() % 10, 0, rand() % 10));
-			obj->GetOrAddTransform()->SetScale(Vec3(3.0f));
+			float randX = MathUtils::Random(100.f,200.f);
+			float randZ = MathUtils::Random(-20.f, 20.f);
+			float y = 0.f;
+
+			if (terrainObj->GetComponent<Terrain>() != nullptr)
+			{
+				y = terrainObj->GetComponent<Terrain>()->GetHeight(randX, randZ);
+			}
+
+			obj->GetOrAddTransform()->SetPosition(Vec3(randX, y, randZ));
+			obj->GetOrAddTransform()->SetScale(Vec3(6.0f));
 
 			obj->AddComponent(make_shared<ModelRenderer>(shader));
 			obj->GetModelRenderer()->SetModel(m2);
 			obj->GetModelRenderer()->SetPass(1);
 
-			auto& shadow = TEXTURE->GetShadowMap();
+			//auto& shadow = TEXTURE->GetShadowMap();
 			auto ssao = TEXTURE->GetSsao()->GetAmbientPtr();
 
 			obj->GetModelRenderer()->SetShadowMap(static_pointer_cast<Texture>(shadow));

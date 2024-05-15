@@ -5,6 +5,7 @@
 #include "Camera.h"
 #include "Light.h"
 #include "TerrainMesh.h"
+#include "Material.h"
 
 
 Terrain::Terrain() : Super(ComponentType::Terrain)
@@ -18,6 +19,20 @@ Terrain::~Terrain()
 void Terrain::OnInspectorGUI()
 {
 	Super::OnInspectorGUI();
+
+	ImGui::DragFloat("Fog Start", (float*)&_fogStart, 0.1f);
+	ImGui::DragFloat("Fog Range", (float*)&_fogRange, 0.1f);
+	ImGui::ColorEdit4("Fog Color",(float*)&_fogColor);
+
+	if (_mat != nullptr)
+	{
+		MaterialDesc& desc = _mat->GetMaterialDesc();
+
+		if (ImGui::ColorEdit3("Diffuse", (float*)&desc.diffuse)) {}
+		if (ImGui::ColorEdit3("Ambient", (float*)&desc.ambient)) {}
+		if (ImGui::ColorEdit3("Emissive", (float*)&desc.emissive)) {}
+		if (ImGui::ColorEdit3("Specular", (float*)&desc.specular)) {}
+	}
 
 	ImVec4 color = ImVec4(0.85f, 0.94f, 0.f, 1.f);
 
@@ -53,36 +68,30 @@ void Terrain::OnInspectorGUI()
 	ImGui::EndGroup();
 }
 
-void Terrain::SetShader()
+void Terrain::ChangeShader(shared_ptr<Shader> shader)
 {
-	auto shader = RESOURCES->Get<Shader>(L"Terrain");
-
 	_layerMapArrayEffectBuffer = shader->GetSRV("LayerMapArray");
 	_blendMapBuffer = shader->GetSRV("BlendMap");
 	_heightMapBuffer = shader->GetSRV("HeightMap");
-
-	if (_terrainEffectBuffer == nullptr)
-	{
-		_terrainBuffer = make_shared<ConstantBuffer<TerrainBuffer>>();
-		_terrainBuffer->Create();
-		_terrainEffectBuffer = shader->GetConstantBuffer("TerrainBuffer");
-	}
-
-	_mat = {};
-	_mat.ambient = Color(1.0f, 1.0f, 1.0f, 1.0f);
-	_mat.diffuse = Color(1.0f, 1.0f, 1.0f, 1.0f);
-	_mat.specular = Color(0.1f, 0.1f, 0.1f, 64.0f);
-	_mat.emissive = Color(0.0f, 0.0f, 0.0f, 0.f);
+	_terrainEffectBuffer = shader->GetConstantBuffer("TerrainBuffer");
 }
 
-void Terrain::Init(const TerrainInfo& initInfo)
+float Terrain::GetHeight(float x, float z) const
+{
+	 return _mesh->GetHeight(x, z);
+}
+
+void Terrain::Init(const TerrainInfo& initInfo , shared_ptr<Material> mat)
 {
 	_info = initInfo;
+	_mat = mat;
 
 	_mesh = make_shared<class TerrainMesh>();
 	_mesh->CreateTerrain(initInfo);
 
-	SetShader();
+	_terrainBuffer = make_shared<ConstantBuffer<TerrainBuffer>>();
+	_terrainBuffer->Create();
+
 	CreateHeightmapSRV();
 	CreateInspectorLayerViews();
 
@@ -93,8 +102,19 @@ void Terrain::Init(const TerrainInfo& initInfo)
 
 void Terrain::Update()
 {
-	auto shader = RESOURCES->Get<Shader>(L"Terrain");
+	if (INPUT->GetButton(KEY_TYPE::KEY_1))
+		DCT->RSSetState(GRAPHICS->GetWireframeRS().Get());
 
+	auto shader = RESOURCES->Get<Shader>(L"Terrain");
+	TerrainRenderer(shader);
+
+	DCT->RSSetState(0);
+}
+
+void Terrain::TerrainRenderer(shared_ptr<Shader> shader)
+{
+
+	ChangeShader(shader);
 	shared_ptr<Scene> scene = CUR_SCENE;
 	shared_ptr<Camera> camera = scene->GetMainCamera()->GetCamera();
 
@@ -104,15 +124,18 @@ void Terrain::Update()
 
 	MathUtils::ExtractFrustumPlanes(worldPlanes, viewProj);
 
-	//// Set per frame constants.
-	Color silver = { 0.75f, 0.75f, 0.75f, 1.0f };
-
 	// GlobalData
-	shader->PushMaterialData(_mat);
+	_mat->SetShader(shader);
+	_mat->Update();
+
 	shader->PushGlobalData(camera->GetViewMatrix(), camera->GetProjectionMatrix());
 	shader->PushLightData(scene->GetLight()->GetLight()->GetLightDesc());
 
 	TerrainBuffer terrainDesc = TerrainBuffer{};
+
+	terrainDesc.FogStart = _fogStart;
+	terrainDesc.FogRange = _fogRange;
+	terrainDesc.FogColor = _fogColor;
 
 	terrainDesc.MinDist = _minDist;
 	terrainDesc.MaxDist = _maxDist;
@@ -138,12 +161,40 @@ void Terrain::Update()
 	_mesh->GetVertexBuffer()->PushData();
 	_mesh->GetIndexBuffer()->PushData();
 
-	if(INPUT->GetButton(KEY_TYPE::KEY_1))
-		DCT->RSSetState(GRAPHICS->GetWireframeRS().Get());
-
 	shader->DrawTerrainIndexed(0, 0, _mesh->GetIndexBuffer()->GetCount() * 4, 0, 0);
+}
 
-	DCT->RSSetState(0);
+void Terrain::TerrainRendererNotPS(shared_ptr<Shader> shader)
+{
+	ChangeShader(shader);
+
+	shared_ptr<Scene> scene = CUR_SCENE;
+	shared_ptr<Light> light = scene->GetLight()->GetLight();
+	shared_ptr<Camera> camera = scene->GetMainCamera()->GetCamera();
+
+	Matrix V = light->S_MatView;
+	Matrix P = light->S_MatProjection;
+
+	// GlobalData
+	shader->PushGlobalData(V, P);
+	TerrainBuffer terrainDesc = TerrainBuffer{};
+
+	terrainDesc.MinDist = _minDist;
+	terrainDesc.MaxDist = _maxDist;
+	terrainDesc.MinTess = _minTess;
+	terrainDesc.MaxTess = _maxTess;
+
+	_terrainDesc = terrainDesc;
+
+	_terrainBuffer->CopyData(_terrainDesc);
+	_terrainEffectBuffer->SetConstantBuffer(_terrainBuffer->GetComPtr().Get());
+
+	_heightMapBuffer->SetResource(_heightMapSRV.Get());
+
+	_mesh->GetVertexBuffer()->PushData();
+	_mesh->GetIndexBuffer()->PushData();
+
+	shader->DrawTerrainIndexed(1, 0, _mesh->GetIndexBuffer()->GetCount() * 4, 0, 0);
 }
 
 void Terrain::CreateInspectorLayerViews()

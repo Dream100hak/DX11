@@ -71,5 +71,22 @@ void Light::UpdateMatrix()
 void Light::SetShadowBoundingSphere()
 {
 	_sceneBounds.Center = _center;
-	_sceneBounds.Radius = max(1.0f, _radius);
+	_sceneBounds.Radius = _radius;
+}
+
+void Light::CreateRasterizer()
+{
+	D3D11_RASTERIZER_DESC depthDesc;
+	ZeroMemory(&depthDesc, sizeof(D3D11_RASTERIZER_DESC));
+
+	depthDesc.FillMode = D3D11_FILL_SOLID;
+	depthDesc.CullMode = D3D11_CULL_BACK;
+	depthDesc.FrontCounterClockwise = false;
+	depthDesc.DepthBias = static_cast<INT>(_depthBias);
+	depthDesc.DepthBiasClamp = _depthBiasClamp;
+	depthDesc.SlopeScaledDepthBias = _slopeScaledDepthBias;
+	depthDesc.DepthClipEnable = true;
+
+	HRESULT hr = DEVICE->CreateRasterizerState(&depthDesc, &_depthRS);
+	CHECK(hr);
 }

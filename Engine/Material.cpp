@@ -6,12 +6,10 @@
 
 Material::Material() : Super(ResourceType::Material)
 {
-
 }
 
 Material::~Material()
 {
-
 }
 
 void Material::Load(const wstring& path)

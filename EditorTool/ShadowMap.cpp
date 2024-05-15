@@ -5,6 +5,7 @@
 #include "ModelAnimator.h"
 #include "Camera.h"
 #include "Light.h"
+#include "Terrain.h"
 
 ShadowMap::ShadowMap(uint32 width, uint32 height) : _width(width) , _height(height)
 {
@@ -69,8 +70,13 @@ void ShadowMap::Draw()
 
 	vector<shared_ptr<GameObject>> vecForward;
 
+	shared_ptr<Terrain> terrain = nullptr; 
+
 	for (auto& gameObject : gameObjects)
 	{
+		if(gameObject->GetTerrain() != nullptr)
+			terrain = gameObject->GetTerrain();
+
 		if (camera->IsCulled(gameObject->GetLayerIndex()))
 			continue;
 
@@ -82,12 +88,17 @@ void ShadowMap::Draw()
 		if (gameObject->GetSkyBox())
 			continue;
 
-
 		vecForward.push_back(gameObject);
 	}
 	
 	Matrix V = Light::S_MatView;
 	Matrix P = Light::S_MatProjection;
 
+	DCT->RSSetState(light->GetDepthRS().Get()); 
+
 	INSTANCING->Render(0, shader , V , P , light , vecForward);
+	terrain->TerrainRendererNotPS(shader);
+
+	DCT->RSSetState(0);
+
 }

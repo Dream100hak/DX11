@@ -44,10 +44,17 @@ public:
 			_type = static_cast<LightType>(selected);
 		}
 
-		ImGui::Text("Shadow Radius	");
+		ImGui::Text("Shadow Bounding Box	");
 		ImGui::DragFloat3("Center", (float*) & _center);
 		ImGui::DragFloat("Radius" , &_radius);
 
+
+		ImGui::Text("Depth Bias Settings");
+		ImGui::DragFloat("DepthBias", &_depthBias, 1000.0f, 0.0f, FLT_MAX, "%.0f");
+		ImGui::DragFloat("Slope Scaled Depth Bias", &_slopeScaledDepthBias, 0.1f, 0.0f, FLT_MAX, "%.3f");
+		ImGui::DragFloat("Depth Bias Clamp", &_depthBiasClamp, 0.01f, 0.0f, FLT_MAX, "%.5f");
+
+		CreateRasterizer();
 
 		SetLightDirection();
 	
@@ -56,6 +63,7 @@ public:
 
 public:
 	LightDesc& GetLightDesc() { return _desc; }
+	ComPtr<ID3D11RasterizerState> GetDepthRS() { return _depthRS; }
 
 	void SetLightDesc(LightDesc& desc) { _desc = desc; }
 
@@ -73,6 +81,10 @@ public:
 	void SetShadowBoundingSphere();
 
 private:
+	void CreateRasterizer();
+
+
+private:
 	LightDesc _desc;
 	LightType _type = Directional;
 
@@ -80,7 +92,14 @@ private:
 
 	BoundingSphere _sceneBounds;
 	Vec3 _center = Vec3::Zero;
-	float _radius = 15.f;
+	float _radius = 150.f;
+
+	float _depthBias = 100000;
+	float _slopeScaledDepthBias = 1.0f;
+	float _depthBiasClamp = 0.0f;
+
+	ComPtr<ID3D11RasterizerState> _depthRS;
+
 public:
 	static Matrix S_MatView;
 	static Matrix S_MatProjection;

@@ -14,6 +14,11 @@ struct TerrainInfo
 
 struct TerrainBuffer
 {
+	float FogStart;
+	float FogRange;
+	Color FogColor;
+	Vec2 dummy0;
+
 	float MinDist;
 	float MaxDist;
 	float MinTess;
@@ -42,10 +47,14 @@ public:
 	virtual void OnInspectorGUI() override;
 	void Update() override;
 
-	void Init(const TerrainInfo& initInfo);
-	void SetShader();
+	void Init(const TerrainInfo& initInfo , shared_ptr<Material> mat);
+	void ChangeShader(shared_ptr<Shader> shader);
 
+	float GetHeight(float x, float z) const;
 	ComPtr<ID3D11ShaderResourceView> GetLayerSRV() { return _layerMapArraySRV; }
+
+	void TerrainRenderer(shared_ptr<Shader> shader);
+	void TerrainRendererNotPS(shared_ptr<Shader> shader);
 
 private:
 	
@@ -73,13 +82,17 @@ private:
 	shared_ptr<ConstantBuffer<TerrainBuffer>> _terrainBuffer;
 	ComPtr<ID3DX11EffectConstantBuffer> _terrainEffectBuffer;
 
-	MaterialDesc _mat;
+	shared_ptr<Material> _mat;
 
 private:
+
+	float _fogStart = 100.f;
+	float _fogRange = 300.f; 
+	Color _fogColor = { 0.69f, 0.77f, 0.87f, 0.0f };
+
 
 	float _minDist = 20.f;
 	float _maxDist = 500.f;
 	float _minTess = 0.f;
 	float _maxTess = 6.f; 
-
 };

@@ -13,7 +13,7 @@ public:
 	uint32 GetSlot() { return _slot; }
 
 	template<typename T>
-	void Create(const vector<T>& vertices, uint32 slot = 0, bool cpuWrite = false, bool gpuWrite = false)
+	void Create(const vector<T>& vertices, uint32 slot = 0, bool cpuWrite = false, bool gpuWrite = false , bool streamOutput = false)
 	{
 		_stride = sizeof(T);
 		_count = static_cast<uint32>(vertices.size());
@@ -24,7 +24,11 @@ public:
 
 		D3D11_BUFFER_DESC desc;
 		ZeroMemory(&desc, sizeof(desc));
-		desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+		if(streamOutput)
+			desc.BindFlags = D3D11_BIND_VERTEX_BUFFER | D3D11_BIND_STREAM_OUTPUT;
+		else
+			desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+		
 		desc.ByteWidth = (uint32)(_stride * _count);
 
 		if (cpuWrite == false && gpuWrite == false)
@@ -57,6 +61,10 @@ public:
 	void PushData()
 	{
 		DCT->IASetVertexBuffers(_slot, 1, _vertexBuffer.GetAddressOf(), &_stride, &_offset);
+	}
+	void PushSO()
+	{
+		DCT->SOSetTargets(1, _vertexBuffer.GetAddressOf(), &_offset);
 	}
 
 private:

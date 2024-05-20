@@ -33,6 +33,7 @@
 #include "SimpleGrid.h"
 
 #include "Ssao.h"
+#include "ParticleSystem.h"
 
 
 void EditorTool::Init()
@@ -47,13 +48,13 @@ void EditorTool::Init()
 	GET_SINGLE(ShortcutManager)->Init();
 	GET_SINGLE(EditorToolManager)->Init();
 
-
 	_sceneCam = make_shared<SceneCamera>();
 	auto shader = RESOURCES->Get<Shader>(L"Standard");
 
 	shared_ptr<GameObject> sceneCamera = make_shared<GameObject>();
 	sceneCamera->SetObjectName(L"Scene Camera");
 	sceneCamera->GetOrAddTransform()->SetPosition(Vec3{ 181.f, 26.521f, -25.599f });
+
 	sceneCamera->GetOrAddTransform()->SetRotation(Vec3{ 0.381f, -0.784f, 0.f });
 	sceneCamera->AddComponent(make_shared<Camera>());
 	sceneCamera->GetCamera()->SetCullingMaskLayerOnOff(LayerMask::UI, true);
@@ -61,23 +62,22 @@ void EditorTool::Init()
 
 	CUR_SCENE->Add(sceneCamera);
 
-
 	GET_SINGLE(TextureManager)->Init();
 
 	// UI_Camera
 	{
-		auto uiCamera = make_shared<GameObject>();
-		uiCamera->SetObjectName(L"UI Camera");
-		uiCamera->GetOrAddTransform()->SetPosition(Vec3{ 0.f, 0.f, -10.f });
-		uiCamera->AddComponent(make_shared<Camera>());
-		uiCamera->GetCamera()->SetProjectionType(ProjectionType::Orthographic);
-		uiCamera->GetCamera()->SetNear(1.f);
-		uiCamera->GetCamera()->SetFar(100);
-		
-		uiCamera->GetCamera()->SetCullingMaskAll();
-		uiCamera->GetCamera()->SetCullingMaskLayerOnOff(LayerMask::UI, false);
+		/*	auto uiCamera = make_shared<GameObject>();
+			uiCamera->SetObjectName(L"UI Camera");
+			uiCamera->GetOrAddTransform()->SetPosition(Vec3{ 0.f, 0.f, -10.f });
+			uiCamera->AddComponent(make_shared<Camera>());
+			uiCamera->GetCamera()->SetProjectionType(ProjectionType::Orthographic);
+			uiCamera->GetCamera()->SetNear(1.f);
+			uiCamera->GetCamera()->SetFar(100);
 
-		CUR_SCENE->Add(uiCamera);
+			uiCamera->GetCamera()->SetCullingMaskAll();
+			uiCamera->GetCamera()->SetCullingMaskLayerOnOff(LayerMask::UI, false);
+
+			CUR_SCENE->Add(uiCamera);*/
 	}
 
 	{
@@ -111,6 +111,41 @@ void EditorTool::Init()
 		obj->AddComponent(make_shared<SkyBox>());
 		obj->GetSkyBox()->Init(SkyType::SkyBox);
 		CUR_SCENE->Add(obj);		
+	}
+	{
+
+		shared_ptr<GameObject> rainDrop = make_shared<GameObject>();
+		_rainDrop = make_shared<class ParticleSystem>();
+		rainDrop->SetObjectName(L"RainDrop");
+		rainDrop->GetOrAddTransform()->SetPosition(Vec3::Zero);
+		rainDrop->AddComponent(_rainDrop);
+
+		shared_ptr<Shader> shader = make_shared<Shader>(L"01. Rain.fx");
+		RESOURCES->Add(L"RainDrop", shader);
+
+		shared_ptr<Texture> raindropTex = make_shared<Texture>();
+		std::vector<wstring> names = { L"../Resources/Assets/Textures/raindrop.dds" };
+		raindropTex->CreateTexture2DArraySRV(names);
+		rainDrop->GetComponent<ParticleSystem>()->Init(1, shader,  raindropTex, 10000);
+
+		CUR_SCENE->Add(rainDrop);
+
+		shared_ptr<GameObject> fire = make_shared<GameObject>();
+		_fire = make_shared<class ParticleSystem>();
+		fire->SetObjectName(L"Fire");
+		fire->GetOrAddTransform()->SetPosition(Vec3(107.f, 1.f, -28.f));
+		fire->AddComponent(_fire);
+
+		shader = make_shared<Shader>(L"01. Fire.fx");
+		RESOURCES->Add(L"Fire", shader);
+
+		shared_ptr<Texture> fireTex = make_shared<Texture>();
+		names = { L"../Resources/Assets/Textures/flare0.dds" };
+		fireTex->CreateTexture2DArraySRV(names);
+
+		fire->GetComponent<ParticleSystem>()->Init(2, shader, fireTex, 500);
+
+		CUR_SCENE->Add(fire);
 	}
 	{
 		//auto obj = make_shared<GameObject>();
@@ -152,7 +187,7 @@ void EditorTool::Init()
 	//	}
 	//}
 	// Model
-	 {
+	 //{
 		auto terrainObj = make_shared<GameObject>();
 		terrainObj->SetObjectName(L"Terrain");
 		terrainObj->GetOrAddTransform()->SetPosition(Vec3::Zero);
@@ -217,7 +252,7 @@ void EditorTool::Init()
 
 			CUR_SCENE->Add(obj);
 		}
-	 }
+	 //}
 	//{
 
 	//	shared_ptr<class Model> m2 = make_shared<Model>();
@@ -249,7 +284,7 @@ void EditorTool::Init()
 	//}
 	//{
 
-	{
+	//{
 		//shared_ptr<class Model> m2 = make_shared<Model>();
 		//m2->ReadModel(L"Naru/Naru");
 		//m2->ReadMaterial(L"Naru/Naru");
@@ -278,7 +313,9 @@ void EditorTool::Init()
 
 		//	CUR_SCENE->Add(obj);
 		//}
-	}
+//	}
+
+
 }
 
 void EditorTool::Update()
@@ -290,6 +327,7 @@ void EditorTool::Update()
 	ImGui::ShowDemoWindow(&_showWindow);
 
 	DrawRenderTextures();
+
 }
 
 void EditorTool::Render()

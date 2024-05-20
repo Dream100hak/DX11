@@ -3,17 +3,25 @@
 
 void TimeManager::Init()
 {
-	::QueryPerformanceFrequency(reinterpret_cast<LARGE_INTEGER*>(&_frequency));
-	::QueryPerformanceCounter(reinterpret_cast<LARGE_INTEGER*>(&_prevCount)); // CPU Å¬·°
+	LARGE_INTEGER frequency;
+	::QueryPerformanceFrequency(&frequency);
+	_frequency = static_cast<double>(frequency.QuadPart);
+
+	LARGE_INTEGER prevCount;
+	::QueryPerformanceCounter(&prevCount);
+	_prevCount = prevCount.QuadPart;
+
+	_baseTime = _prevCount;
 }
 
 void TimeManager::Update()
 {
-	uint64 currentCount;
-	::QueryPerformanceCounter(reinterpret_cast<LARGE_INTEGER*>(&currentCount));
+	LARGE_INTEGER currentCount;
+	::QueryPerformanceCounter(&currentCount);
+	_currTime = currentCount.QuadPart;
 
-	_deltaTime = (currentCount - _prevCount) / static_cast<float>(_frequency);
-	_prevCount = currentCount;
+	_deltaTime = (_currTime - _prevCount) / static_cast<float>(_frequency);
+	_prevCount = _currTime;
 
 	_frameCount++;
 	_frameTime += _deltaTime;
@@ -25,4 +33,13 @@ void TimeManager::Update()
 		_frameTime = 0.f;
 		_frameCount = 0;
 	}
+}
+
+void TimeManager::Reset()
+{
+	LARGE_INTEGER prevCount;
+	::QueryPerformanceCounter(&prevCount);
+	_prevCount = prevCount.QuadPart;
+
+	_baseTime = _prevCount;
 }

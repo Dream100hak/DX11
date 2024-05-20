@@ -51,7 +51,7 @@ public:
 	void ChangeShader(shared_ptr<Shader> shader);
 
 	float GetHeight(float x, float z) const;
-	ComPtr<ID3D11ShaderResourceView> GetLayerSRV() { return _layerMapArraySRV; }
+	shared_ptr<Texture> GetLayerMap() { return _layerMapArray; }
 
 	void TerrainRenderer(shared_ptr<Shader> shader);
 	void TerrainRendererNotPS(shared_ptr<Shader> shader);
@@ -65,7 +65,7 @@ private:
 
 	shared_ptr<Texture> _blendMap;
 
-	ComPtr<ID3D11ShaderResourceView> _layerMapArraySRV;
+	shared_ptr<Texture> _layerMapArray;
 	ComPtr<ID3D11ShaderResourceView> _heightMapSRV;
 
 	std::vector<shared_ptr<Texture>> _layerViews; // °ü»ó¿ë

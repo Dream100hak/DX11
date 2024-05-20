@@ -3,6 +3,17 @@
 #include "GameObject.h"
 #include "Camera.h"
 #include "Transform.h"
+#include "Utils.h"
+
+SceneCamera::SceneCamera()
+{
+	SetBehaviorName(Utils::ToWString(Utils::GetClassNameEX<SceneCamera>()));
+}
+
+SceneCamera::~SceneCamera()
+{
+
+}
 
 void SceneCamera::Start()
 {

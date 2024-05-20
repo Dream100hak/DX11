@@ -95,9 +95,10 @@ void Terrain::Init(const TerrainInfo& initInfo , shared_ptr<Material> mat)
 	CreateHeightmapSRV();
 	CreateInspectorLayerViews();
 
-	_layerMapArraySRV = Texture::CreateTexture2DArraySRV(_info.layerMapFilenames);
-	_blendMap = RESOURCES->Load<Texture>(_info.blendMapFilename, _info.blendMapFilename);
+	_layerMapArray = make_shared<Texture>();
+	_layerMapArray->CreateTexture2DArraySRV(_info.layerMapFilenames);
 
+	_blendMap = RESOURCES->Load<Texture>(_info.blendMapFilename, _info.blendMapFilename);
 }
 
 void Terrain::Update()
@@ -154,7 +155,7 @@ void Terrain::TerrainRenderer(shared_ptr<Shader> shader)
 	_terrainBuffer->CopyData(_terrainDesc);
 	_terrainEffectBuffer->SetConstantBuffer(_terrainBuffer->GetComPtr().Get());
 
-	_layerMapArrayEffectBuffer->SetResource(_layerMapArraySRV.Get());
+	_layerMapArrayEffectBuffer->SetResource(_layerMapArray->GetComPtr().Get());
 	_blendMapBuffer->SetResource(_blendMap->GetComPtr().Get());
 	_heightMapBuffer->SetResource(_heightMapSRV.Get());
 

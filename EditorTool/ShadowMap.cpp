@@ -94,11 +94,12 @@ void ShadowMap::Draw()
 	Matrix V = Light::S_MatView;
 	Matrix P = Light::S_MatProjection;
 
-	DCT->RSSetState(light->GetDepthRS().Get()); 
+	//DCT->RSSetState(light->GetDepthRS().Get()); 
 
 	INSTANCING->Render(0, shader , V , P , light , vecForward);
-	terrain->TerrainRendererNotPS(shader);
+	if(terrain)
+		terrain->TerrainRendererNotPS(shader);
 
-	DCT->RSSetState(0);
+//	DCT->RSSetState(0);
 
 }

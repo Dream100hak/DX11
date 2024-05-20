@@ -30,6 +30,9 @@ public:
 	void DrawTerrainIndexed(UINT technique, UINT pass,  UINT indexCount, UINT startIndexLocation = 0, INT baseVertexLocation = 0);
 	void DrawLineIndexed(UINT technique, UINT pass,  UINT indexCount, UINT startIndexLocation = 0, INT baseVertexLocation = 0);
 
+	void DrawParticle(UINT technique, UINT pass, UINT vertexCount, UINT startVertexLocation = 0);
+	void DrawParticleAuto(UINT technique, UINT pass);
+
 	void Dispatch(UINT technique, UINT pass, UINT x, UINT y, UINT z);
 
 	ComPtr<ID3DX11EffectVariable> GetVariable(string name);

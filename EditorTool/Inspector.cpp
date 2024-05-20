@@ -166,8 +166,6 @@ void Inspector::ShowInfoHiearchy()
 
 		if (open)
 		{
-			
-
 			comp->OnInspectorGUI();
 
 			ImGui::TreePop();
@@ -176,16 +174,57 @@ void Inspector::ShowInfoHiearchy()
 		ImGui::PopID();
 		ImGui::Separator();
 	}
+
+
 	const auto& monoBehaviors = go->GetMonoBehaviours();
 	for (auto& behaviors : monoBehaviors)
 	{
 		wstring rawName = behaviors->GetBehaviorName();
 		string name = string(rawName.begin(), rawName.end());
+		ImGui::PushID(behaviors.get()); // 고유한 ID 사용
 
-		if (ImGui::TreeNodeEx(name.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+		bool open = ImGui::TreeNodeEx(name.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_AllowItemOverlap | ImGuiTreeNodeFlags_DefaultOpen);
+
+		float spacing = ImGui::GetStyle().ItemInnerSpacing.x + 5.f;
+		ImGui::SameLine(ImGui::GetWindowWidth() - spacing - ImGui::CalcTextSize("Delete").x - ImGui::GetScrollX() - spacing);
+
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1.0f, 0.0f, 0.0f, 1.0f)); // 빨간색
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.3f, 0.3f, 1.0f)); // 마우스 오버 시 색상
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.8f, 0.0f, 0.0f, 1.0f)); // 버튼 클릭 시 색상
+
+		if (ImGui::Button("Delete"))
 		{
+			ImGui::OpenPopup("Confirm Delete");
+		}
+
+		ImGui::PopStyleColor(3);
+
+		if (ImGui::BeginPopupModal("Confirm Delete", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+		{
+			ImGui::Text("Are you sure you want to delete this component?");
+			ImGui::Separator();
+			if (ImGui::Button("Yes", ImVec2(120, 0)))
+			{
+				ImGui::CloseCurrentPopup();
+			}
+			ImGui::SetItemDefaultFocus();
+			ImGui::SameLine();
+			if (ImGui::Button("No", ImVec2(120, 0)))
+			{
+				ImGui::CloseCurrentPopup();
+			}
+			ImGui::EndPopup();
+		}
+
+		if (open)
+		{
+			behaviors->OnInspectorGUI();
+
 			ImGui::TreePop();
 		}
+
+		ImGui::PopID();
+		ImGui::Separator();
 	}
 
 	if (ImGui::Button("Add Component", ImVec2(-1, 0)))

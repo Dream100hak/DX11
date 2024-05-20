@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "MonoBehaviour.h"
+#include "Utils.h"
 
 MonoBehaviour::MonoBehaviour() : Super(ComponentType::Script)
 {

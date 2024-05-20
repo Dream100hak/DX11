@@ -22,11 +22,13 @@
     <ClInclude Include="AsConverter.h" />
     <ClInclude Include="AsType.h" />
     <ClInclude Include="EditorWindow.h" />
+    <ClInclude Include="Effects.h" />
     <ClInclude Include="FolderContents.h" />
     <ClInclude Include="GameEditorWindow.h" />
     <ClInclude Include="LogWindow.h" />
     <ClInclude Include="MainMenuBar.h" />
     <ClInclude Include="MeshThumbnail.h" />
+    <ClInclude Include="ParticleSystem.h" />
     <ClInclude Include="Project.h" />
     <ClInclude Include="SceneCamera.h" />
     <ClInclude Include="Define.h" />
@@ -50,11 +52,13 @@
     <ClCompile Include="AsConverter.cpp" />
     <ClCompile Include="AsType.cpp" />
     <ClCompile Include="EditorWindow.cpp" />
+    <ClCompile Include="Effects.cpp" />
     <ClCompile Include="FolderContents.cpp" />
     <ClCompile Include="GameEditorWindow.cpp" />
     <ClCompile Include="LogWindow.cpp" />
     <ClCompile Include="MainMenuBar.cpp" />
     <ClCompile Include="MeshThumbnail.cpp" />
+    <ClCompile Include="ParticleSystem.cpp" />
     <ClCompile Include="Project.cpp" />
     <ClCompile Include="SceneCamera.cpp" />
     <ClCompile Include="EditorTool.cpp" />
@@ -120,6 +124,12 @@
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
     </FxCompile>
+    <FxCompile Include="..\Shaders\01. Fire.fx">
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+      </EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
+    </FxCompile>
     <FxCompile Include="..\Shaders\01. Outline.fx">
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
       </EntryPointName>
@@ -131,6 +141,12 @@
       </EntryPointName>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\01. Rain.fx">
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+      </EntryPointName>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
     </FxCompile>
     <FxCompile Include="..\Shaders\01. Sky.fx">
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -147,10 +163,6 @@
     <FxCompile Include="..\Shaders\01. Thumbnail.fx">
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
       </EntryPointName>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\06. Terrain.fx">
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
     </FxCompile>

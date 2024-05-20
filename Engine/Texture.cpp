@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Texture.h"
 #include <filesystem>
+#include "MathUtils.h"
 
 Texture::Texture() : Super(ResourceType::Texture)
 {
@@ -81,7 +82,7 @@ Microsoft::WRL::ComPtr<ID3D11Texture2D> Texture::GetTexture2D()
 	return texture;
 }
 
-Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> Texture::CreateTexture2DArraySRV(std::vector<std::wstring>& filenames)
+void Texture::CreateTexture2DArraySRV(std::vector<std::wstring>& filenames)
 {
 	uint32 size = filenames.size();
 
@@ -170,9 +171,61 @@ Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> Texture::CreateTexture2DArraySR
 	viewDesc.Texture2DArray.FirstArraySlice = 0;
 	viewDesc.Texture2DArray.ArraySize = size;
 
-	ComPtr<ID3D11ShaderResourceView> texArraySRV;
-	hr = DEVICE->CreateShaderResourceView(texArray.Get(), &viewDesc, texArraySRV.GetAddressOf());
+	hr = DEVICE->CreateShaderResourceView(texArray.Get(), &viewDesc, _shaderResourveView.GetAddressOf());
 	CHECK(hr);
 
-	return texArraySRV;
+}
+
+void Texture::CreateRandomTexture1DSRV()
+{
+	// 
+	// Create the random data.
+	//
+	vector<XMFLOAT4> randomValues(1024);
+
+	for (int32 i = 0; i < 1024; ++i)
+	{
+		randomValues[i].x = MathUtils::Random(-1.0f, 1.0f);
+		randomValues[i].y = MathUtils::Random(-1.0f, 1.0f);
+		randomValues[i].z = MathUtils::Random(-1.0f, 1.0f);
+		randomValues[i].w = MathUtils::Random(-1.0f, 1.0f);
+	}
+
+	D3D11_SUBRESOURCE_DATA initData;
+	initData.pSysMem = randomValues.data();
+	initData.SysMemPitch = 1024 * sizeof(XMFLOAT4);
+	initData.SysMemSlicePitch = 0;
+
+	//
+	// Create the texture.
+	//
+	D3D11_TEXTURE1D_DESC texDesc;
+	texDesc.Width = 1024;
+	texDesc.MipLevels = 1;
+	texDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	texDesc.Usage = D3D11_USAGE_IMMUTABLE;
+	texDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	texDesc.CPUAccessFlags = 0;
+	texDesc.MiscFlags = 0;
+	texDesc.ArraySize = 1;
+
+	ComPtr<ID3D11Texture1D> randomTex;
+	
+	HRESULT hr; 
+
+	hr = DEVICE->CreateTexture1D(&texDesc, &initData, randomTex.GetAddressOf());
+	CHECK(hr);
+
+	//
+	// Create the resource view.
+	//
+	D3D11_SHADER_RESOURCE_VIEW_DESC viewDesc;
+	viewDesc.Format = texDesc.Format;
+	viewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE1D;
+	viewDesc.Texture1D.MipLevels = texDesc.MipLevels;
+	viewDesc.Texture1D.MostDetailedMip = 0;
+
+	hr = DEVICE->CreateShaderResourceView(randomTex.Get(), &viewDesc, _shaderResourveView.GetAddressOf());
+	CHECK(hr);
+
 }

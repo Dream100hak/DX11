@@ -156,11 +156,11 @@ void SceneWindow::EditTransform()
 
 	int32 mouse[2] = { io.MousePos.x , io.MousePos.y };
 	ImGui::InputInt2("Mouse Pos : ", mouse);
-
+	*/
 	uint32 fps = GET_SINGLE(TimeManager)->GetFps();
 	char tmps[64];
 	ImFormatString(tmps, sizeof(tmps),"FPS : %d", fps);
-	ImGui::Text(tmps);*/
+	ImGui::Text(tmps);
 
 
 

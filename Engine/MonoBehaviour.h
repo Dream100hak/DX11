@@ -12,14 +12,8 @@ public:
 	virtual void Awake() override;
 	virtual void Update() override;
 
-	wstring GetBehaviorName()
-	{
-		if (_name.empty())
-		{
-			_name = L"Cam Test";
-		}
-		return _name;
-	}
+	void SetBehaviorName(const std::wstring& name) { _name = name; }
+	std::wstring GetBehaviorName() const { return _name; }
 
 private:
 	wstring _name = L"";

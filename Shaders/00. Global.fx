@@ -229,6 +229,22 @@ BlendState AdditiveBlendAlphaToCoverageEnable
     RenderTargetWriteMask[0] = 15;
 };
 
+///////////////////////
+//  DepthStancilState //
+///////////////////////
+DepthStencilState DisableDepth
+{
+    DepthEnable = FALSE;
+    DepthWriteMask = ZERO;
+};
+
+DepthStencilState NoDepthWrites
+{
+    DepthEnable = TRUE;
+    DepthWriteMask = ZERO;
+};
+
+
 ///////////
 // Macro //
 ///////////

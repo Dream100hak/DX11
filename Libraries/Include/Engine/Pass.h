@@ -32,6 +32,9 @@ struct Pass
 	void DrawTerrainIndexed(UINT indexCount, UINT startIndexLocation = 0, INT baseVertexLocation = 0);
 	void DrawLineIndexed(UINT indexCount, UINT startIndexLocation = 0, INT baseVertexLocation = 0);
 
+	void DrawParticle(UINT vertexCount, UINT startVertexLocation = 0);
+	void DrawParticleAuto();
+
 	void BeginDraw();
 	void EndDraw();
 

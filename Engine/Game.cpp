@@ -137,13 +137,10 @@ void Game::Update()
 	SCENE->Update();
 	GUI->Update();
 
-	
-
 	ImGui::SetNextWindowPos(ImVec2(_sceneDesc.x, _sceneDesc.y), ImGuiCond_Appearing);
 	ImGui::SetNextWindowSize(ImVec2(_sceneDesc.width, _sceneDesc.height), ImGuiCond_Appearing);
 	
 	ImGui::Begin("Scene", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground);
-	
 	
 	string s = ImGui::GetCurrentWindow()->Name;
 	

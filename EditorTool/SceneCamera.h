@@ -4,6 +4,9 @@
 class SceneCamera : public MonoBehaviour
 {
 public:
+	SceneCamera();
+	virtual ~SceneCamera();
+	
 	virtual void Start() override;
 	virtual void Update() override;
 

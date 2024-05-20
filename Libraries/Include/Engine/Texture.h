@@ -10,20 +10,16 @@ public:
 
 	shared_ptr<Texture> Clone();
 
-	ComPtr<ID3D11ShaderResourceView> GetComPtr() { return _shaderResourveView; }
 
 	virtual void Load(const wstring& path) override;
+	void CreateRandomTexture1DSRV();
+	void CreateTexture2DArraySRV(std::vector<std::wstring>& filenames);
 
-	static ComPtr<ID3D11ShaderResourceView> CreateTexture2DArraySRV(std::vector<std::wstring>& filenames);
-
-////////////////////////////////////////////////////////////
-
-	ComPtr<ID3D11Texture2D> GetTexture2D();
-	void SetSRV(ComPtr<ID3D11ShaderResourceView> srv) { _shaderResourveView = srv; }
-
-	Vec2 GetSize() { return _size; }
-
-	const DirectX::ScratchImage& GetInfo() { return _img; }
+	void							 SetSRV(ComPtr<ID3D11ShaderResourceView> srv) { _shaderResourveView = srv; }
+	ComPtr<ID3D11ShaderResourceView> GetComPtr() { return _shaderResourveView; }
+	ComPtr<ID3D11Texture2D>			 GetTexture2D();
+	Vec2							 GetSize() { return _size; }
+	const DirectX::ScratchImage&	 GetInfo() { return _img; }
 
 protected :
 

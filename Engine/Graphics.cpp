@@ -32,6 +32,7 @@ void Graphics::RenderBegin()
 	_deviceContext->ClearDepthStencilView(_depthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1, 0);
 
 	_vp.RSSetViewport();
+
 }
 
 void Graphics::PostRenderBegin()

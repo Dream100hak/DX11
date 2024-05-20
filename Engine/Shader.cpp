@@ -16,12 +16,10 @@ Shader::Shader(wstring file) : Super(ResourceType::Shader), _file(file)
 	}
 
 	CreateEffect();
-
 }
 
 Shader::~Shader()
 {
-
 }
 
 void Shader::Load(const wstring& path)
@@ -231,6 +229,16 @@ void Shader::DrawTerrainIndexed(UINT technique, UINT pass, UINT indexCount, UINT
 void Shader::DrawLineIndexed(UINT technique, UINT pass, UINT indexCount, UINT startIndexLocation /*= 0*/, INT baseVertexLocation /*= 0*/)
 {
 	_techniques[technique].passes[pass].DrawLineIndexed(indexCount, startIndexLocation, baseVertexLocation);
+}
+
+void Shader::DrawParticle(UINT technique, UINT pass, UINT vertexCount, UINT startVertexLocation /*= 0*/)
+{
+	_techniques[technique].passes[pass].DrawParticle(vertexCount, startVertexLocation);
+}
+
+void Shader::DrawParticleAuto(UINT technique, UINT pass)
+{
+	_techniques[technique].passes[pass].DrawParticleAuto();
 }
 
 void Shader::Dispatch(UINT technique, UINT pass, UINT x, UINT y, UINT z)

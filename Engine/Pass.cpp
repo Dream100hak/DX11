@@ -63,12 +63,33 @@ void Pass::DrawLineIndexed(UINT indexCount, UINT startIndexLocation /*= 0*/, INT
 	EndDraw();
 }
 
+void Pass::DrawParticle(UINT vertexCount, UINT startVertexLocation /*= 0*/)
+{
+	BeginDraw();
+	{
+		DCT->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
+		DCT->Draw(vertexCount, startVertexLocation);
+	}
+	EndDraw();
+}
+
+void Pass::DrawParticleAuto()
+{
+	BeginDraw();
+	{
+		DCT->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
+		DCT->DrawAuto();
+	}
+	EndDraw();
+}
+
 void Pass::BeginDraw()
 {
 	pass->ComputeStateBlockMask(&stateblockMask);
 
 	DCT->IASetInputLayout(inputLayout.Get());
 	pass->Apply(0, DCT.Get());
+
 }
 
 void Pass::EndDraw()
@@ -86,6 +107,7 @@ void Pass::EndDraw()
 	DCT->DSSetShader(NULL, NULL, 0);
 	DCT->GSSetShader(NULL, NULL, 0);
 }
+
 
 void Pass::Dispatch(UINT x, UINT y, UINT z)
 {

@@ -110,6 +110,12 @@
     <ClInclude Include="SimpleGrid.h">
       <Filter>Components</Filter>
     </ClInclude>
+    <ClInclude Include="ParticleSystem.h">
+      <Filter>Components</Filter>
+    </ClInclude>
+    <ClInclude Include="Effects.h">
+      <Filter>Components</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -183,6 +189,12 @@
     <ClCompile Include="SimpleGrid.cpp">
       <Filter>Components</Filter>
     </ClCompile>
+    <ClCompile Include="ParticleSystem.cpp">
+      <Filter>Components</Filter>
+    </ClCompile>
+    <ClCompile Include="Effects.cpp">
+      <Filter>Components</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\Shaders\24. RawBufferDemo.fx">
@@ -251,7 +263,10 @@
     <FxCompile Include="..\Shaders\01. Terrain.fx">
       <Filter>Shaders\Contents</Filter>
     </FxCompile>
-    <FxCompile Include="..\Shaders\06. Terrain.fx">
+    <FxCompile Include="..\Shaders\01. Rain.fx">
+      <Filter>Shaders\Contents</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\01. Fire.fx">
       <Filter>Shaders\Contents</Filter>
     </FxCompile>
   </ItemGroup>

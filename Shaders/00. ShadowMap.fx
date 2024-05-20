@@ -196,7 +196,7 @@ technique11 T0
         SetGeometryShader(NULL);
         SetPixelShader(NULL);
 
-     //   SetRasterizerState(Depth);
+        SetRasterizerState(Depth);
     }
 
     pass P1
@@ -205,7 +205,7 @@ technique11 T0
         SetGeometryShader(NULL);
         SetPixelShader(NULL);
 
-      //  SetRasterizerState(Depth);
+        SetRasterizerState(Depth);
     }
 };
 
@@ -219,6 +219,6 @@ technique11 T1
         SetGeometryShader(NULL);
         SetPixelShader(NULL); // No pixel shader needed
 
-      //  SetRasterizerState(Depth);
+        SetRasterizerState(Depth);
     }
 };

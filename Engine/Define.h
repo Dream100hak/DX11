@@ -33,8 +33,8 @@ public:										\
 #define MODEL_GLOBAL_SCALE 	2.07744789f;
 
 #define JOB_PRE_RENDER	GRAPHICS->GetPreRenderJobQueue()
-#define JOB_RENDER		GRAPHICS->GetPreRenderJobQueue()
-#define JOB_POST_RENDER	GRAPHICS->GetPreRenderJobQueue()
+#define JOB_RENDER		GRAPHICS->GetRenderJobQueue()
+#define JOB_POST_RENDER	GRAPHICS->GetPostRenderJobQueue()
 
 
 #define TECH_TEXTURE	0;

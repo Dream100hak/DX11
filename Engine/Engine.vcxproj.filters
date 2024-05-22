@@ -190,9 +190,6 @@
     <ClInclude Include="Button.h">
       <Filter>07. UI &amp; Effect</Filter>
     </ClInclude>
-    <ClInclude Include="SnowBillboard.h">
-      <Filter>07. UI &amp; Effect</Filter>
-    </ClInclude>
     <ClInclude Include="MeshRenderer.h">
       <Filter>05. Component</Filter>
     </ClInclude>
@@ -409,9 +406,6 @@
       <Filter>07. UI &amp; Effect</Filter>
     </ClCompile>
     <ClCompile Include="Button.cpp">
-      <Filter>07. UI &amp; Effect</Filter>
-    </ClCompile>
-    <ClCompile Include="SnowBillboard.cpp">
       <Filter>07. UI &amp; Effect</Filter>
     </ClCompile>
     <ClCompile Include="MeshRenderer.cpp">

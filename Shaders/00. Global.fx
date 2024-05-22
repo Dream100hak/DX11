@@ -258,13 +258,13 @@ pass name											\
 pass name											\
 {													\
 	SetVertexShader(CompileShader(vs_5_0, vs()));	\
-	SetPixelShader(CompileShader(ps_5_0, ps(3,false,false)));	\
+	SetPixelShader(CompileShader(ps_5_0, ps()));	\
 }
 #define PASS_VP_TEXTURE(name, vs, ps)						\
 pass name											\
 {													\
 	SetVertexShader(CompileShader(vs_5_0, vs()));	\
-	SetPixelShader(CompileShader(ps_5_0, ps(3,true,true)));	\
+	SetPixelShader(CompileShader(ps_5_0, ps()));	\
 }
 
 #define PASS_RS_VP(name, rs, vs, ps)				\
@@ -272,7 +272,7 @@ pass name											\
 {													\
     SetRasterizerState(rs);							\
     SetVertexShader(CompileShader(vs_5_0, vs()));	\
-    SetPixelShader(CompileShader(ps_5_0, ps(3,true,true)));	\
+    SetPixelShader(CompileShader(ps_5_0, ps()));	\
 }
 
 #define PASS_BS_VP(name, bs, vs, ps)				\
@@ -290,6 +290,7 @@ pass name											\
     SetGeometryShader(CompileShader(gs_5_0, GS())); \
     SetPixelShader(CompileShader(ps_5_0, ps()));	\
 }
+
 //////////////
 // Function //
 //////////////

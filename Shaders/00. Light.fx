@@ -27,7 +27,6 @@ struct PointLightDesc
     float Range;
 
     float3 Att;
-    float pad;
 };
 
 struct SpotLightDesc
@@ -43,7 +42,6 @@ struct SpotLightDesc
     float Spot;
 
     float3 Att;
-    float pad;
 };
 
 struct MaterialDesc
@@ -52,7 +50,9 @@ struct MaterialDesc
 	float4 diffuse;
 	float4 specular;
 	float4 emissive;
-
+    int lightCount;
+    int useTexture;
+    int useAlphaclip;
 };
 
 /////////////////

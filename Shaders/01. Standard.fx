@@ -81,10 +81,7 @@ MeshOutput VS_AnimationOutline(VertexModel input)
 }
 
 
-float4 PS_Default(MeshOutput input, 
-            uniform int lightCount,
-            uniform bool useTexture,
-            uniform bool alphaClip) : SV_TARGET
+float4 PS_Default(MeshOutput input) : SV_TARGET
 {
 
     input.normal = normalize(input.normal);
@@ -97,11 +94,11 @@ float4 PS_Default(MeshOutput input,
 
     // Default to multiplicative identity.
     float4 texColor = Material.diffuse;
-    if (useTexture)
+    if (Material.useTexture)
     {
         texColor = DiffuseMap.Sample(LinearSampler, input.uv);
       
-        if (alphaClip)
+        if (Material.useAlphaclip)
         {
             clip(texColor.a - 0.1f);
         }
@@ -112,7 +109,7 @@ float4 PS_Default(MeshOutput input,
     //
 
     float4 litColor = texColor;
-    if (lightCount > 0)
+    if (Material.lightCount > 0)
     {
         // Start with a sum of zero. 
         float4 ambient = float4(0.0f, 0.0f, 0.0f, 0.0f);
@@ -130,7 +127,7 @@ float4 PS_Default(MeshOutput input,
         
         // Sum the light contribution from each light source.  
         [unroll]
-        for (int i = 0; i < lightCount; ++i)
+        for (int i = 0; i < Material.lightCount; ++i)
         {
             float4 A, D, S;
             ComputeDirectionalLight(input.normal, toEye, A, D, S);

@@ -23,7 +23,7 @@ public:
 	void ThumbnailRender(shared_ptr<Camera> cam , shared_ptr<Light> light, shared_ptr<class InstancingBuffer>& buffer);
 
 	void RenderInstancing(int32 tech , shared_ptr<Shader> shader , Matrix V, Matrix P, shared_ptr<Light> light,  shared_ptr<class InstancingBuffer>& buffer);
-	void PushData(uint8 technique, shared_ptr<Light>& light, shared_ptr<class InstancingBuffer>& buffer);
+	void PushData(uint8 technique, uint8 pass ,  shared_ptr<Light>& light, shared_ptr<class InstancingBuffer>& buffer);
 
 	void TransformBoundingBox();
 

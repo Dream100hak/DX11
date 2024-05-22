@@ -13,7 +13,7 @@
 #include "ModelAnimator.h"
 #include "Terrain.h"
 #include "Billboard.h"
-#include "SnowBillboard.h"
+
 #include "Button.h"
 #include "OBBBoxCollider.h"
 #include "SkyBox.h"
@@ -32,7 +32,6 @@ Inspector::Inspector(Vec2 pos, Vec2 size)
 
 Inspector::~Inspector()
 {
-
 }
 
 void Inspector::Init()
@@ -90,7 +89,7 @@ void Inspector::ShowInfoHiearchy()
 
 	ImGui::SameLine();
 
-	ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * 0.7f); // 남은 너비의 절반만큼
+	ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * 0.7f);
 	ImGui::InputText(" ", modifiedName, sizeof(modifiedName));
 	go->SetObjectName(wstring(modifiedName, modifiedName + strlen(modifiedName)));
 
@@ -99,7 +98,9 @@ void Inspector::ShowInfoHiearchy()
 	static bool staticObj = false;
 	ImGui::Checkbox("Static", &staticObj);
 
-	//레이어 변경
+	///////////////////////////////////////////////////
+	//					 LAYER                       //
+	///////////////////////////////////////////////////
 
 	ImVec2 textPosition = ImVec2(layerPos.x , layerPos.y + 25.f );
 	ImGui::GetWindowDrawList()->AddText(textPosition, ImGui::GetColorU32(ImGuiCol_Text), "Layer");
@@ -118,6 +119,9 @@ void Inspector::ShowInfoHiearchy()
 	ImGui::Spacing();
 	ImGui::Separator();
 
+	///////////////////////////////////////////////////
+	//               COMPONENT                      //
+	///////////////////////////////////////////////////
 
 	for (int i = 0; i < (int)ComponentType::End - 1; i++)
 	{
@@ -127,104 +131,22 @@ void Inspector::ShowInfoHiearchy()
 		if (comp == nullptr)
 			continue;
 
-		string s = GUI->EnumToString(componentType);
-		ImGui::PushID(comp.get()); // 고유한 ID 사용
-
-		bool open = ImGui::TreeNodeEx(s.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_AllowItemOverlap | ImGuiTreeNodeFlags_DefaultOpen);
-
-		float spacing = ImGui::GetStyle().ItemInnerSpacing.x + 5.f;
-		ImGui::SameLine(ImGui::GetWindowWidth() - spacing - ImGui::CalcTextSize("Delete").x - ImGui::GetScrollX() - spacing);
-
-		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1.0f, 0.0f, 0.0f, 1.0f)); // 빨간색
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.3f, 0.3f, 1.0f)); // 마우스 오버 시 색상
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.8f, 0.0f, 0.0f, 1.0f)); // 버튼 클릭 시 색상
-
-		if (ImGui::Button("Delete"))
-		{
-			ImGui::OpenPopup("Confirm Delete");
-		}
-
-		ImGui::PopStyleColor(3);
-
-		if (ImGui::BeginPopupModal("Confirm Delete", NULL, ImGuiWindowFlags_AlwaysAutoResize))
-		{
-			ImGui::Text("Are you sure you want to delete this component?");
-			ImGui::Separator();
-			if (ImGui::Button("Yes", ImVec2(120, 0)))
-			{
-				//go->RemoveComponent(comp);
-				ImGui::CloseCurrentPopup();
-			}
-			ImGui::SetItemDefaultFocus();
-			ImGui::SameLine();
-			if (ImGui::Button("No", ImVec2(120, 0)))
-			{
-				ImGui::CloseCurrentPopup();
-			}
-			ImGui::EndPopup();
-		}
-
-		if (open)
-		{
-			comp->OnInspectorGUI();
-
-			ImGui::TreePop();
-		}
-
-		ImGui::PopID();
-		ImGui::Separator();
+		string name = GUI->EnumToString(componentType);
+		ImGui::PushID(comp.get());
+		ShowComponentInfo(comp, name);
 	}
 
+	///////////////////////////////////////////////////
+	//               MONOBEHAVIOUR                   //
+	///////////////////////////////////////////////////
 
 	const auto& monoBehaviors = go->GetMonoBehaviours();
 	for (auto& behaviors : monoBehaviors)
 	{
 		wstring rawName = behaviors->GetBehaviorName();
 		string name = string(rawName.begin(), rawName.end());
-		ImGui::PushID(behaviors.get()); // 고유한 ID 사용
-
-		bool open = ImGui::TreeNodeEx(name.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_AllowItemOverlap | ImGuiTreeNodeFlags_DefaultOpen);
-
-		float spacing = ImGui::GetStyle().ItemInnerSpacing.x + 5.f;
-		ImGui::SameLine(ImGui::GetWindowWidth() - spacing - ImGui::CalcTextSize("Delete").x - ImGui::GetScrollX() - spacing);
-
-		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1.0f, 0.0f, 0.0f, 1.0f)); // 빨간색
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.3f, 0.3f, 1.0f)); // 마우스 오버 시 색상
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.8f, 0.0f, 0.0f, 1.0f)); // 버튼 클릭 시 색상
-
-		if (ImGui::Button("Delete"))
-		{
-			ImGui::OpenPopup("Confirm Delete");
-		}
-
-		ImGui::PopStyleColor(3);
-
-		if (ImGui::BeginPopupModal("Confirm Delete", NULL, ImGuiWindowFlags_AlwaysAutoResize))
-		{
-			ImGui::Text("Are you sure you want to delete this component?");
-			ImGui::Separator();
-			if (ImGui::Button("Yes", ImVec2(120, 0)))
-			{
-				ImGui::CloseCurrentPopup();
-			}
-			ImGui::SetItemDefaultFocus();
-			ImGui::SameLine();
-			if (ImGui::Button("No", ImVec2(120, 0)))
-			{
-				ImGui::CloseCurrentPopup();
-			}
-			ImGui::EndPopup();
-		}
-
-		if (open)
-		{
-			behaviors->OnInspectorGUI();
-
-			ImGui::TreePop();
-		}
-
-		ImGui::PopID();
-		ImGui::Separator();
+		ImGui::PushID(behaviors.get());
+		ShowComponentInfo(behaviors, name);
 	}
 
 	if (ImGui::Button("Add Component", ImVec2(-1, 0)))
@@ -239,55 +161,98 @@ void Inspector::ShowInfoHiearchy()
 	{
 		if (ImGui::BeginMenu("FixedComponent"))
 		{
-			for (int i = 0; i < (int)ComponentType::End - 1; i++)
+			std::vector<ComponentType> compTypes = {
+				ComponentType::MeshRenderer,
+				ComponentType::Camera, 
+				ComponentType::Light,
+				ComponentType::Collider,
+				ComponentType::Button,
+				ComponentType::BillBoard,
+				};
+
+			for (auto componentType : compTypes)
 			{
-				ComponentType componentType = static_cast<ComponentType>(i);
 				string fixedCompName = GUI->EnumToString(componentType);
+
+				if (go->GetFixedComponent(componentType))
+					continue;
 
 				if (ImGui::MenuItem(fixedCompName.c_str()))
 				{
-					if (go->GetFixedComponent(componentType))
-						continue;
-
 					switch (componentType)
 					{
-					case ComponentType::Transform: go->AddComponent(make_shared<Transform>());
-						break;
-					case ComponentType::MeshRenderer: go->AddComponent(make_shared<MeshRenderer>());
-						break;
-						//	case ComponentType::ModelRenderer: go->AddComponent(make_shared<ModelRenderer>());
-						//		break;
-					case ComponentType::Camera: go->AddComponent(make_shared<Camera>());
-						break;
-						//	case ComponentType::Animator: go->AddComponent(make_shared<ModelAnimator>());
-						//		break;
-					case ComponentType::Light: go->AddComponent(make_shared<Light>());
-						break;
-					case ComponentType::Collider: go->AddComponent(make_shared<OBBBoxCollider>());
-						break;
-					case ComponentType::Terrain: go->AddComponent(make_shared<Terrain>());
-						break;
-					case ComponentType::Button: go->AddComponent(make_shared<Button>());
-						break;
-					case ComponentType::BillBoard: go->AddComponent(make_shared<Billboard>());
-						break;
-						//case ComponentType::SnowBillBoard: go->AddComponent(make_shared<SnowBillboard>());
-						//	break;
-
+						case ComponentType::MeshRenderer: go->AddComponent(make_shared<MeshRenderer>());
+							break;
+						case ComponentType::Camera: go->AddComponent(make_shared<Camera>());
+							break;
+						case ComponentType::Light: go->AddComponent(make_shared<Light>());
+							break;
+						case ComponentType::Collider: go->AddComponent(make_shared<OBBBoxCollider>());
+							break;
+						case ComponentType::Button: go->AddComponent(make_shared<Button>());
+							break;
+						case ComponentType::BillBoard: go->AddComponent(make_shared<Billboard>());
+							break;
 					}
-					//	go->AddComponent( GUI->CreateComponentByType(componentType) ) ;
-						//shared_ptr<type_id(*this)> comp = make_shared<Component>(); // 이걸 어떻게 ComponentType에 맞게 바꾸냐고
-					//	go->AddComponent("여기다가 componentType에 맞게 추가");
 				}
 			}
 
 			ImGui::EndMenu();
 		}
-
-
 		ImGui::EndPopup();
 	}
 }
+
+void Inspector::ShowComponentInfo(shared_ptr<Component> component, string name)
+{
+	shared_ptr<GameObject> go = CUR_SCENE->GetCreatedObject(SELECTED_H);
+
+	bool open = ImGui::TreeNodeEx(name.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_AllowItemOverlap | ImGuiTreeNodeFlags_DefaultOpen);
+
+	float spacing = ImGui::GetStyle().ItemInnerSpacing.x + 5.f;
+	ImGui::SameLine(ImGui::GetWindowWidth() - spacing - ImGui::CalcTextSize("Delete").x - ImGui::GetScrollX() - spacing);
+
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1.0f, 0.0f, 0.0f, 1.0f)); // 빨간색
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.3f, 0.3f, 1.0f)); // 마우스 오버 시 색상
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.8f, 0.0f, 0.0f, 1.0f)); // 버튼 클릭 시 색상
+
+	if (ImGui::Button("Delete"))
+	{
+		ImGui::OpenPopup("Confirm Delete");
+	}
+
+	ImGui::PopStyleColor(3);
+
+	if (ImGui::BeginPopupModal("Confirm Delete", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+	{
+		ImGui::Text("Are you sure you want to delete this component?");
+		ImGui::Separator();
+		if (ImGui::Button("Yes", ImVec2(120, 0)))
+		{
+			//go->RemoveComponent(comp);
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::SetItemDefaultFocus();
+		ImGui::SameLine();
+		if (ImGui::Button("No", ImVec2(120, 0)))
+		{
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
+
+	if (open)
+	{
+		component->OnInspectorGUI();
+
+		ImGui::TreePop();
+	}
+
+	ImGui::PopID();
+	ImGui::Separator();
+	
+}
+
 
 void Inspector::ShowInfoProject()
 {
@@ -350,7 +315,7 @@ void Inspector::ShowInfoProject()
 		ImGui::Separator();
 		ImGui::Dummy(ImVec2(0, 50.f));
 		ImGui::SeparatorText("Material Preview");
-		ImGui::Image(icon, ImVec2(400, 250));
+		ImGui::Image(icon, ImVec2(300, 300));
 		ImGui::Separator();
 
 		auto folderContents = static_pointer_cast<FolderContents>(TOOL->GetEditorWindow(Utils::GetClassNameEX<FolderContents>()));
@@ -367,6 +332,11 @@ void Inspector::ShowInfoProject()
 		shared_ptr<Material>& material = obj->GetMeshRenderer()->GetMaterial();
 		MaterialDesc& desc = material->GetMaterialDesc();
 		ImVec4 color = ImVec4(0.85f, 0.94f, 0.f, 1.f);
+
+		shared_ptr<Shader> shader = material->GetShader();
+		std::string shaderName = Utils::ToString(shader->GetName());
+
+		ImGui::Text(shaderName.c_str());
 
 		bool changed = false;
 
@@ -408,7 +378,6 @@ void Inspector::ShowInfoProject()
 	ImGui::Separator();
 
 }
-
 
 void Inspector::PickMaterialTexture(string textureType , OUT bool& changed)
 {
@@ -529,3 +498,5 @@ class shared_ptr<MeshThumbnail>& Inspector::GetMeshThumbnail()
 	return previewsThumbnails[metaData->fileFullPath + L'/' + metaData->fileName];
 	
 }
+
+

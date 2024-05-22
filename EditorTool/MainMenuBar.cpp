@@ -4,6 +4,7 @@
 #include "EditorToolManager.h"
 #include "LogWindow.h"
 
+
 MainMenuBar::MainMenuBar()
 {
 

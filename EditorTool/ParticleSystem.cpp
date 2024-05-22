@@ -30,7 +30,7 @@ void ParticleSystem::OnInspectorGUI()
 
 }
 
-void ParticleSystem::Init(int32 type, shared_ptr<Shader> shader, shared_ptr<Texture> texArray, uint32 maxParticles)
+void ParticleSystem::Init(int32 type, shared_ptr<Shader> shader, std::vector<wstring> names , uint32 maxParticles)
 {
 	_type = type;
 
@@ -40,7 +40,9 @@ void ParticleSystem::Init(int32 type, shared_ptr<Shader> shader, shared_ptr<Text
 
 	_randomTex = make_shared<Texture>();
 	_randomTex->CreateRandomTexture1DSRV();
-	_texArray = texArray;
+
+	 _texArray = make_shared<Texture>();
+	 _texArray->CreateTexture2DArraySRV(names);
 
 	CreateBuffer();
 }

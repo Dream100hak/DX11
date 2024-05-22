@@ -210,7 +210,6 @@
     <ClInclude Include="Shader.h" />
     <ClInclude Include="SimpleMath.h" />
     <ClInclude Include="SkyBox.h" />
-    <ClInclude Include="SnowBillboard.h" />
     <ClInclude Include="SphereCollider.h" />
     <ClInclude Include="StructuredBuffer.h" />
     <ClInclude Include="Technique.h" />
@@ -306,7 +305,6 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="SkyBox.cpp" />
-    <ClCompile Include="SnowBillboard.cpp" />
     <ClCompile Include="SphereCollider.cpp" />
     <ClCompile Include="StructuredBuffer.cpp" />
     <ClCompile Include="Technique.cpp" />

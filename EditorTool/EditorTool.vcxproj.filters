@@ -42,7 +42,6 @@
     <ClInclude Include="Main.h">
       <Filter>Main</Filter>
     </ClInclude>
-    <ClInclude Include="SceneCamera.h" />
     <ClInclude Include="SceneDemo.h">
       <Filter>EditorTools</Filter>
     </ClInclude>
@@ -116,6 +115,9 @@
     <ClInclude Include="Effects.h">
       <Filter>Components</Filter>
     </ClInclude>
+    <ClInclude Include="SceneCamera.h">
+      <Filter>Components</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -124,7 +126,6 @@
     <ClCompile Include="Main.cpp">
       <Filter>Main</Filter>
     </ClCompile>
-    <ClCompile Include="SceneCamera.cpp" />
     <ClCompile Include="SceneDemo.cpp">
       <Filter>EditorTools</Filter>
     </ClCompile>
@@ -193,6 +194,9 @@
       <Filter>Components</Filter>
     </ClCompile>
     <ClCompile Include="Effects.cpp">
+      <Filter>Components</Filter>
+    </ClCompile>
+    <ClCompile Include="SceneCamera.cpp">
       <Filter>Components</Filter>
     </ClCompile>
   </ItemGroup>

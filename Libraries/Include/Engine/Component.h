@@ -17,7 +17,6 @@ enum class ComponentType : uint8
 	Terrain,
 	Button,
 	BillBoard,
-	SnowBillBoard,
 	SkyBox,
 	// ...
 	Script,
@@ -25,7 +24,7 @@ enum class ComponentType : uint8
 	End,
 };
 
-BOOST_DESCRIBE_ENUM(ComponentType , Transform , MeshRenderer , ModelRenderer, Camera, Animator, Light , Collider , Terrain, Button, BillBoard, SnowBillBoard , SkyBox)
+BOOST_DESCRIBE_ENUM(ComponentType , Transform , MeshRenderer , ModelRenderer, Camera, Animator, Light , Collider , Terrain, Button, BillBoard, SkyBox)
 
 enum
 {
@@ -52,12 +51,17 @@ public:
 	virtual void FixedUpdate() { }
 
 public:
-	
 
+	void HideInspectorInfo(bool on) { _hideInspectorInfo = on; }
+
+public:
+	
 	ComponentType GetType() { return _type; }
 
 	shared_ptr<GameObject> GetGameObject();
 	shared_ptr<Transform> GetTransform();
+
+	bool GetHideInspector() { return _hideInspectorInfo; }
 
 private:
 	friend class GameObject;
@@ -67,5 +71,6 @@ protected:
 	ComponentType _type;
 	weak_ptr<GameObject> _gameObject;
 
+	bool _hideInspectorInfo = false;
 };
 

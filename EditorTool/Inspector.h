@@ -14,10 +14,15 @@ public:
 	void ShowInfoHiearchy();
 	void ShowInfoProject();
 
-	void PickMaterialTexture(string textureType , OUT bool& changed);
+	void PickMaterialTexture(string textureType, OUT bool& changed);
+
+public:
 
 	ID3D11ShaderResourceView* GetMetaFileIcon();
-
 	shared_ptr<class MeshThumbnail>& GetMeshThumbnail();
-	
+
+private:
+
+	void ShowComponentInfo(shared_ptr<Component> component,  string name);
+
 };

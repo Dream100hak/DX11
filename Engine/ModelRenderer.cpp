@@ -6,7 +6,7 @@
 #include "Camera.h"
 #include "Light.h"
 #include "MathUtils.h"
-#include "BVH.h"
+#include "Utils.h"
 
 ModelRenderer::ModelRenderer(shared_ptr<Shader> shader)
 	: Super(ComponentType::ModelRenderer), _shader(shader)
@@ -23,13 +23,20 @@ void ModelRenderer::OnInspectorGUI()
 {
 	Super::OnInspectorGUI();
 
+	
+
 	auto mats = _model->GetMaterials();
 	ImVec4 color = ImVec4(0.85f, 0.94f, 0.f, 1.f);
 
 	for (int i = 0; i < mats.size(); i++)
 	{
+
 		auto& mat = mats[i];
 		MaterialDesc& desc = mat->GetMaterialDesc();
+
+		shared_ptr<Shader> shader = mat->GetShader();
+		std::string name = Utils::ToString(shader->GetName());
+		ImGui::Text(name.c_str());
 
 		// 매터리얼 노드
 		if (ImGui::TreeNodeEx(("Material " + std::to_string(i)).c_str(), ImGuiTreeNodeFlags_DefaultOpen))
@@ -111,7 +118,8 @@ void ModelRenderer::ThumbnailRender(shared_ptr<Camera> cam , shared_ptr<Light> l
 	_shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
 	_shader->PushLightData(light->GetLightDesc());
 
-	PushData(0, light, buffer);
+	PushData(0, _pass, light, buffer);
+	PushData(0, _pass + 3, light, buffer);
 }
 
 void ModelRenderer::RenderInstancing(int32 tech, shared_ptr<Shader> shader , Matrix V, Matrix P, shared_ptr<Light> light,  shared_ptr<InstancingBuffer>& buffer)
@@ -129,12 +137,12 @@ void ModelRenderer::RenderInstancing(int32 tech, shared_ptr<Shader> shader , Mat
 		
 	wstring wname = GetGameObject()->GetObjectName();
 
-	PushData(tech, light, buffer );
+	PushData(tech, _pass,  light, buffer );
 
 	ChangeShader(prevShader);
 }
 
-void ModelRenderer::PushData(uint8 technique, shared_ptr<Light>& light, shared_ptr<class InstancingBuffer>& buffer)
+void ModelRenderer::PushData(uint8 technique, uint8 pass, shared_ptr<Light>& light, shared_ptr<class InstancingBuffer>& buffer)
 {
 	if (light)
 		_shader->PushLightData(light->GetLightDesc());
@@ -165,7 +173,7 @@ void ModelRenderer::PushData(uint8 technique, shared_ptr<Light>& light, shared_p
 		
 		buffer->PushData();
 
-		_shader->DrawIndexedInstanced(technique, _pass, mesh->indexBuffer->GetCount(), buffer->GetCount());
+		_shader->DrawIndexedInstanced(technique, pass, mesh->indexBuffer->GetCount(), buffer->GetCount());
 	}
 }
 

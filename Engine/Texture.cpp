@@ -22,7 +22,6 @@ std::shared_ptr<Texture> Texture::Clone()
 	D3D11_TEXTURE2D_DESC textureDesc;
 	srcTexture2D->GetDesc(&textureDesc);
 
-	// Shader Resource View 생성을 위해 BindFlags 수정
 	textureDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 
 	ComPtr<ID3D11Texture2D> newTexture2D;

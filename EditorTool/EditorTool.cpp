@@ -11,7 +11,7 @@
 #include "ModelAnimator.h"
 #include "Terrain.h"
 #include "Billboard.h"
-#include "SnowBillboard.h"
+
 #include "Button.h"
 #include "OBBBoxCollider.h"
 #include "SkyBox.h"
@@ -35,34 +35,38 @@
 #include "Ssao.h"
 #include "ParticleSystem.h"
 
+#include "Hiearchy.h"
 
 void EditorTool::Init()
 {
 	
 	shared_ptr<AsConverter> converter = make_shared<AsConverter>();
 
-	//converter->ReadAssetFile(L"Kachujin/Mesh.fbx");
-	//converter->ExportMaterialDataByXml(L"Kachujin/Kachujin");
-	//converter->ExportModelData(L"Kachujin/Kachujin");
+	converter->ReadAssetFile(L"Kachujin/Mesh.fbx");
+	converter->ExportMaterialDataByXml(L"Kachujin/Kachujin");
+	converter->ExportModelData(L"Kachujin/Kachujin");
 
 	GET_SINGLE(ShortcutManager)->Init();
 	GET_SINGLE(EditorToolManager)->Init();
+
 
 	_sceneCam = make_shared<SceneCamera>();
 	auto shader = RESOURCES->Get<Shader>(L"Standard");
 
 	shared_ptr<GameObject> sceneCamera = make_shared<GameObject>();
-	sceneCamera->SetObjectName(L"Scene Camera");
+	sceneCamera->SetObjectName(L"Game Camera");
 	sceneCamera->GetOrAddTransform()->SetPosition(Vec3{ 181.f, 26.521f, -25.599f });
 
 	sceneCamera->GetOrAddTransform()->SetRotation(Vec3{ 0.381f, -0.784f, 0.f });
 	sceneCamera->AddComponent(make_shared<Camera>());
 	sceneCamera->GetCamera()->SetCullingMaskLayerOnOff(LayerMask::UI, true);
 	sceneCamera->AddComponent(_sceneCam);
-
 	CUR_SCENE->Add(sceneCamera);
 
 	GET_SINGLE(TextureManager)->Init();
+
+
+	shared_ptr<Hiearchy> hieachy = static_pointer_cast<Hiearchy>(TOOL->GetEditorWindow(Utils::GetClassNameEX<Hiearchy>()));
 
 	// UI_Camera
 	{
@@ -103,50 +107,12 @@ void EditorTool::Init()
 		light->GetLight()->SetLightDesc(lightDesc);
 		CUR_SCENE->Add(light);
 	}
+
 	{		
-		//// Sky 
-		auto obj = make_shared<GameObject>();
-		obj->SetObjectName(L"SkyBox");
-		obj->GetOrAddTransform();
-		obj->AddComponent(make_shared<SkyBox>());
-		obj->GetSkyBox()->Init(SkyType::SkyBox);
-		CUR_SCENE->Add(obj);		
+		//SKY
+		hieachy->CreateSky();
 	}
-	{
 
-		shared_ptr<GameObject> rainDrop = make_shared<GameObject>();
-		_rainDrop = make_shared<class ParticleSystem>();
-		rainDrop->SetObjectName(L"RainDrop");
-		rainDrop->GetOrAddTransform()->SetPosition(Vec3::Zero);
-		rainDrop->AddComponent(_rainDrop);
-
-		shared_ptr<Shader> shader = make_shared<Shader>(L"01. Rain.fx");
-		RESOURCES->Add(L"RainDrop", shader);
-
-		shared_ptr<Texture> raindropTex = make_shared<Texture>();
-		std::vector<wstring> names = { L"../Resources/Assets/Textures/raindrop.dds" };
-		raindropTex->CreateTexture2DArraySRV(names);
-		rainDrop->GetComponent<ParticleSystem>()->Init(1, shader,  raindropTex, 10000);
-
-		CUR_SCENE->Add(rainDrop);
-
-		shared_ptr<GameObject> fire = make_shared<GameObject>();
-		_fire = make_shared<class ParticleSystem>();
-		fire->SetObjectName(L"Fire");
-		fire->GetOrAddTransform()->SetPosition(Vec3(107.f, 1.f, -28.f));
-		fire->AddComponent(_fire);
-
-		shader = make_shared<Shader>(L"01. Fire.fx");
-		RESOURCES->Add(L"Fire", shader);
-
-		shared_ptr<Texture> fireTex = make_shared<Texture>();
-		names = { L"../Resources/Assets/Textures/flare0.dds" };
-		fireTex->CreateTexture2DArraySRV(names);
-
-		fire->GetComponent<ParticleSystem>()->Init(2, shader, fireTex, 500);
-
-		CUR_SCENE->Add(fire);
-	}
 	{
 		//auto obj = make_shared<GameObject>();
 		//obj->SetObjectName(L"Simple Grid");
@@ -159,35 +125,8 @@ void EditorTool::Init()
 		//CUR_SCENE->Add(obj);
 	}
 
-	//auto mat = RESOURCES->Get<Material>(L"DefaultMaterial");
-	//obj->GetTerrain()->Create(25, 25, mat->Clone());
-
-/*	auto collider = make_shared<OBBBoxCollider>();
-		collider->GetBoundingBox().Extents = Vec3(1.f);
-		obj->AddComponent(collider);*/
-
-	//	for (int i = 100; i < 110; i++)
-	//	{
-	//		auto obj = make_shared<GameObject>();
-	//		wstring name = L"Model_" + to_wstring(i);
-	//		obj->SetObjectName(name);
-
-	//		obj->GetOrAddTransform()->SetPosition(Vec3(rand() % 100, 0, rand() % 100));
-	//		obj->GetOrAddTransform()->SetScale(Vec3(0.1f));
-
-	//		obj->AddComponent(make_shared<ModelRenderer>(shader));
-	//		obj->GetModelRenderer()->SetModel(m2);
-	//		obj->GetModelRenderer()->SetPass(1);
-
-	///*	auto collider = make_shared<OBBBoxCollider>();
-	//		collider->GetBoundingBox().Extents = Vec3(1.f);
-	//		obj->AddComponent(collider);*/
-
-	//		CUR_SCENE->Add(obj);
-	//	}
-	//}
 	// Model
-	 //{
+
 		auto terrainObj = make_shared<GameObject>();
 		terrainObj->SetObjectName(L"Terrain");
 		terrainObj->GetOrAddTransform()->SetPosition(Vec3::Zero);
@@ -216,7 +155,6 @@ void EditorTool::Init()
 		terrainObj->GetComponent<Terrain>()->Init(info, matClone);
 
 		CUR_SCENE->Add(terrainObj);
-
 
 		shared_ptr<class Model> m2 = make_shared<Model>();
 		m2->ReadModel(L"Kachujin/Kachujin");
@@ -253,69 +191,39 @@ void EditorTool::Init()
 			CUR_SCENE->Add(obj);
 		}
 	 //}
-	//{
+		{
 
-	//	shared_ptr<class Model> m2 = make_shared<Model>();
-	//	m2->ReadModel(L"Kachujin/Kachujin");
-	//	m2->ReadMaterial(L"Kachujin/Kachujin");
-	//	m2->ReadAnimation(L"Kachujin/Idle");
-	//	m2->ReadAnimation(L"Kachujin/Run");
-	//	m2->ReadAnimation(L"Kachujin/Slash");
+			shared_ptr<class Model> m2 = make_shared<Model>();
+			m2->ReadModel(L"Kachujin/Kachujin");
+			m2->ReadMaterial(L"Kachujin/Kachujin");
+			m2->ReadAnimation(L"Kachujin/Idle");
+			m2->ReadAnimation(L"Kachujin/Run");
+			m2->ReadAnimation(L"Kachujin/Slash");
 
-	//	for (int i = 130; i < 140; i++)
-	//	{
-	//		auto obj = make_shared<GameObject>();
-	//		wstring name = L"Model_" + to_wstring(i);
-	//		obj->SetObjectName(name);
+			for (int i = 200; i < 210; i++)
+			{
+				auto obj = make_shared<GameObject>();
+				wstring name = L"Ani_" + to_wstring(i);
+				obj->SetObjectName(name);
 
-	//		obj->GetOrAddTransform()->SetPosition(Vec3(rand() % 100, 0, rand() % 100));
-	//		obj->GetOrAddTransform()->SetScale(Vec3(0.1f));
+				float randX = MathUtils::Random(100.f, 200.f);
+				float randZ = MathUtils::Random(-20.f, 20.f);
 
-	//		obj->AddComponent(make_shared<ModelAnimator>(shader));
-	//		obj->GetModelAnimator()->SetModel(m2);
-	//		obj->GetModelAnimator()->SetPass(2);
+				obj->GetOrAddTransform()->SetPosition(Vec3(randX, 0, randZ));
+				obj->GetOrAddTransform()->SetScale(Vec3(0.1f));
 
-	//		auto collider = make_shared<OBBBoxCollider>();
-	//		collider->GetBoundingBox().Extents = Vec3(1.f);
-	//		obj->AddComponent(collider);
+				obj->AddComponent(make_shared<ModelAnimator>(shader));
+				obj->GetModelAnimator()->SetModel(m2);
+				obj->GetModelAnimator()->SetPass(2);
 
-	//		CUR_SCENE->Add(obj);
-	//	}
-	//}
-	//{
+				auto collider = make_shared<OBBBoxCollider>();
+				collider->GetBoundingBox().Extents = Vec3(1.f);
+				obj->AddComponent(collider);
 
-	//{
-		//shared_ptr<class Model> m2 = make_shared<Model>();
-		//m2->ReadModel(L"Naru/Naru");
-		//m2->ReadMaterial(L"Naru/Naru");
-
-		//for (int i = 10; i < 11; i++)
-		//{
-		//	auto obj = make_shared<GameObject>();
-		//	wstring name = L"Model_" + to_wstring(i);
-		//	obj->SetObjectName(name);
-
-		//	if(i == 10)
-		//		obj->GetOrAddTransform()->SetPosition(Vec3(3,0,5));
-		//	else
-		//		obj->GetOrAddTransform()->SetPosition(Vec3(rand() % 100, 0, rand() % 100));
-
-		//	obj->GetOrAddTransform()->SetScale(Vec3(10.f));
-
-		//	obj->AddComponent(make_shared<ModelRenderer>(shader));
-		//	obj->GetModelRenderer()->SetModel(m2);
-		//	obj->GetModelRenderer()->SetPass(1);
-
-		////	auto collider = make_shared<OBBBoxCollider>();
-		////	collider->SetOffset(Vec3(0.f, 8.f, 0.f));
-		////	collider->GetBoundingBox().Extents = Vec3(1.5f, 2.8f, 1.5f);		
-		////	obj->AddComponent(collider);
-
-		//	CUR_SCENE->Add(obj);
-		//}
-//	}
-
-
+				CUR_SCENE->Add(obj);
+			}
+		}
+	
 }
 
 void EditorTool::Update()

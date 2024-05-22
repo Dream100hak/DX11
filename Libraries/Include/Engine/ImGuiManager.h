@@ -13,7 +13,7 @@ class BaseCollider;
 class Terrain;
 class Button;
 class Billboard;
-class SnowBillboard;
+
 
 class Model;
 
@@ -27,9 +27,10 @@ enum CreatedObjType
 	GRID,
 	MODEL,
 	TERRAIN,
+	PARTICLE
 };
 
-BOOST_DESCRIBE_ENUM(CreatedObjType, GAMEOBJ, QUAD, CUBE, SPHERE, GRID, MODEL, TERRAIN)
+BOOST_DESCRIBE_ENUM(CreatedObjType, GAMEOBJ, QUAD, CUBE, SPHERE, GRID, MODEL, TERRAIN, PARTICLE)
 
 class ImGuiManager
 {
@@ -40,7 +41,7 @@ public:
 	void Update();
 	void Render();
 
-	int32 CreateEmptyGameObject();
+	int32 CreateEmptyGameObject(CreatedObjType type = CreatedObjType::GAMEOBJ);
 	void RemoveGameObject(int32 id);
 
 	wstring FindEmptyName(CreatedObjType type);

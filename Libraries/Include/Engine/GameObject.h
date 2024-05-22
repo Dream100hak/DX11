@@ -11,7 +11,6 @@ class BaseCollider;
 class Terrain;
 class Button;
 class Billboard;
-class SnowBillboard;
 class SkyBox;
 
 class GameObject : public enable_shared_from_this<GameObject>
@@ -64,7 +63,6 @@ public:
 	shared_ptr<Terrain> GetTerrain();
 	shared_ptr<Button> GetButton();
 	shared_ptr<Billboard> GetBillboard();
-	shared_ptr<SnowBillboard> GetSnowBillboard();
 	shared_ptr<SkyBox> GetSkyBox();
 
 	const vector<shared_ptr<MonoBehaviour>>& GetMonoBehaviours() { return _scripts; }

@@ -21,9 +21,11 @@ public:
 		return nullptr;
 	}
 
-	shared_ptr<GameObject> FindCreatedObjectByName(wstring name) {
+	shared_ptr<GameObject> FindCreatedObjectByName(wstring name) 
+	{
 		auto it = _createdObjectsByName.find(name);
-		if (it != _createdObjectsByName.end()) {
+		if (it != _createdObjectsByName.end()) 
+		{
 			return it->second;
 		}
 		else {
@@ -34,6 +36,7 @@ public:
 	shared_ptr<GameObject> GetMainCamera();
 	shared_ptr<GameObject> GetUICamera();
 	shared_ptr<GameObject> GetLight() { return _lights.empty() ? nullptr : *_lights.begin(); }
+	shared_ptr<GameObject> GetTerrain() { return _terrains.empty() ? nullptr : *_terrains.begin(); }
 
 	void PickUI();
 	shared_ptr<class GameObject> Pick(int32 screenX, int32 screenY);
@@ -49,6 +52,8 @@ private:
 	unordered_set<shared_ptr<GameObject>> _cameras;
 	// Cache Light
 	unordered_set<shared_ptr<GameObject>> _lights;
+	// Cache Terrain
+	unordered_set<shared_ptr<GameObject>> _terrains;
 	
 	// Cache Sorted by Time 
 	map<int64, shared_ptr<GameObject>> _createdObjectsById;

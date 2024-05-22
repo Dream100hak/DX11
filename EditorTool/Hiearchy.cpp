@@ -3,8 +3,10 @@
 #include "ShortcutManager.h"
 #include "EditorToolManager.h"
 #include "LogWindow.h"
+#include "ParticleSystem.h"
+#include "SkyBox.h"
 
-
+#include "Utils.h"
 #include "Model.h"
 
 Hiearchy::Hiearchy(Vec2 pos, Vec2 size)
@@ -33,8 +35,6 @@ void Hiearchy::ShowHiearchy()
 	ImGui::SetNextWindowSize(GetEWinSize());
 
 	ImGuiIO& io = ImGui::GetIO();
-	//if (io.NavActive == 0)
-	//	TOOL->SetSelectedObjH(-1);
 
 	ImGui::Begin("Hiearchy", nullptr);
 
@@ -116,31 +116,72 @@ void Hiearchy::ShowHiearchy()
 	{
 		int32 id = -1;
 
-		if (ImGui::MenuItem("Add GameObject"))
-		{	
-			id = GUI->CreateEmptyGameObject(); 
-			TOOL->SetSelectedObjH(id);
-			ADDLOG("Create GameObject", LogFilter::Info);
+		if (ImGui::BeginMenu("GameObject"))
+		{
+			if (ImGui::MenuItem("Add Empty GameObject"))
+			{
+				id = GUI->CreateEmptyGameObject();
+				TOOL->SetSelectedObjH(id);
+				ADDLOG("Create Empty GameObject", LogFilter::Info);
+			}
+
+			if (ImGui::MenuItem("Create Cube"))
+			{
+				id = GUI->CreateMesh(CreatedObjType::CUBE);
+				TOOL->SetSelectedObjH(id);
+				ADDLOG("Create Cube", LogFilter::Info);
+			}
+			if (ImGui::MenuItem("Create Quad"))
+			{
+				id = GUI->CreateMesh(CreatedObjType::QUAD);
+				TOOL->SetSelectedObjH(id);
+				ADDLOG("Create Quad", LogFilter::Info);
+			}
+			if (ImGui::MenuItem("Create Sphere"))
+			{
+				id = GUI->CreateMesh(CreatedObjType::SPHERE);
+				TOOL->SetSelectedObjH(id);
+				ADDLOG("Create Sphere", LogFilter::Info);
+			}
+
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Particle"))
+		{
+			if (ImGui::MenuItem("Create Fire"))
+			{
+				id = CreateFire();
+			}
+
+			if (ImGui::MenuItem("Create Rain"))
+			{
+				id = CreateRain();
+			}
+
+			ImGui::EndMenu();
 		}
 
-		if (ImGui::MenuItem("Create Cube"))
-		{
-			id = GUI->CreateMesh(CreatedObjType::CUBE);
-			TOOL->SetSelectedObjH(id);
-			ADDLOG("Create Cube", LogFilter::Info);
+		if (ImGui::BeginMenu("Environment"))
+		{	
+			if (ImGui::MenuItem("Create Sky"))
+			{
+				id = CreateSky();
+			}
+
+			if (ImGui::MenuItem("Create Terrain"))
+			{
+				id = GUI->CreateEmptyGameObject();
+				TOOL->SetSelectedObjH(id);
+
+
+
+
+				ADDLOG("Create Terrain", LogFilter::Info);
+			}
+	
+			ImGui::EndMenu();
 		}
-		if (ImGui::MenuItem("Create Quad"))
-		{
-			id = GUI->CreateMesh(CreatedObjType::QUAD);
-			TOOL->SetSelectedObjH(id);
-			ADDLOG("Create Quad", LogFilter::Info);
-		}	
-		if (ImGui::MenuItem("Create Sphere"))
-		{
-			id = GUI->CreateMesh(CreatedObjType::SPHERE);
-			TOOL->SetSelectedObjH(id);
-			ADDLOG("Create Sphere", LogFilter::Info);
-		}
+
 
 		if (id != -1)
 		{
@@ -154,4 +195,71 @@ void Hiearchy::ShowHiearchy()
 	ImGui::EndChild();
 
 	ImGui::End();
+}
+
+int32 Hiearchy::CreateFire()
+{
+	int32 id = GUI->CreateEmptyGameObject(PARTICLE);
+	TOOL->SetSelectedObjH(id);
+
+	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetTransform();
+	float distance = 30.0f;
+	Vec3 pos = cam->GetLocalPosition() + (cam->GetLook() * distance);
+
+	shared_ptr<GameObject> fire = CUR_SCENE->GetCreatedObject(id);
+	fire->SetObjectName(L"Fire " + GUI->FindEmptyName(PARTICLE));
+	//fire->GetOrAddTransform()->SetPosition(Vec3(107.f, 1.f, -28.f));
+	fire->GetOrAddTransform()->SetPosition(pos);
+	fire->AddComponent(make_shared<class ParticleSystem>());
+
+	shared_ptr<Shader> shader = make_shared<Shader>(L"01. Fire.fx");
+	RESOURCES->Add(L"Fire", shader);
+
+	std::vector<wstring> names = { L"../Resources/Assets/Textures/flare0.dds" };
+
+	fire->GetComponent<ParticleSystem>()->Init(2, shader, names, 500);
+	ADDLOG("Create Fire", LogFilter::Info);
+	
+	return id;
+}
+
+int32 Hiearchy::CreateRain()
+{
+	int32 id = GUI->CreateEmptyGameObject();
+	TOOL->SetSelectedObjH(id);
+
+	shared_ptr<GameObject> rainDrop = CUR_SCENE->GetCreatedObject(id);
+	rainDrop->SetObjectName(L"Rain " + GUI->FindEmptyName(PARTICLE));
+	rainDrop->GetOrAddTransform()->SetPosition(Vec3::Zero);
+	rainDrop->AddComponent(make_shared<class ParticleSystem>());
+
+	shared_ptr<Shader> shader = make_shared<Shader>(L"01. Rain.fx");
+	RESOURCES->Add(L"RainDrop", shader);
+
+	std::vector<wstring> names = { L"../Resources/Assets/Textures/raindrop.dds" };
+	rainDrop->GetComponent<ParticleSystem>()->Init(1, shader, names, 10000);
+
+	ADDLOG("Create Rain", LogFilter::Info);
+
+	return id;
+}
+
+int32 Hiearchy::CreateSky()
+{
+	int32 id = GUI->CreateEmptyGameObject();
+	TOOL->SetSelectedObjH(id);
+
+	auto obj = CUR_SCENE->GetCreatedObject(id);
+	obj->SetObjectName(L"SkyBox");
+	obj->AddComponent(make_shared<SkyBox>());
+	obj->GetSkyBox()->Init(SkyType::SkyBox);
+
+	ADDLOG("Create Sky", LogFilter::Info);
+
+	return id;
+}
+
+int32 Hiearchy::CreateTerrain()
+{
+	return 0;
 }

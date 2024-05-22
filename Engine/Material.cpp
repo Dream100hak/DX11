@@ -51,12 +51,15 @@ void Material::Update()
 	if (_shader == nullptr)
 		return;
 
-	_shader->PushMaterialData(_desc);
+	bool useTexture = 0;
 
 	if (_diffuseMap)
+	{
 		_diffuseEffectBuffer->SetResource(_diffuseMap->GetComPtr().Get());
+		useTexture = 1;
+	}
 
-	if (_normalMap)
+	if(_normalMap)
 		_normalEffectBuffer->SetResource(_normalMap->GetComPtr().Get());
 
 	if (_specularMap)
@@ -70,11 +73,26 @@ void Material::Update()
 
 	if (_ssaoMap)
 		_ssaoMapEffectBuffer->SetResource(_ssaoMap.Get());
+
+	_desc.useTexture = useTexture;
+
+	_shader->PushMaterialData(_desc);
+}
+
+void Material::Refresh()
+{
+	_diffuseEffectBuffer->SetResource(nullptr);
+	_normalEffectBuffer->SetResource(nullptr);
+	_specularEffectBuffer->SetResource(nullptr);
+	_cubeMapEffectBuffer->SetResource(nullptr);
+	_shadowMapEffectBuffer->SetResource(nullptr);
+	_ssaoMapEffectBuffer->SetResource(nullptr);
 }
 
 std::shared_ptr<Material> Material::Clone()
 {
 	shared_ptr<Material> material = make_shared<Material>();
+//	shared_ptr<Shader> shader = make_shared<Shader>(_shader);
 
 	material->_shader = _shader;
 	material->_diffuseMap = _diffuseMap ? _diffuseMap->Clone() : nullptr;
@@ -87,12 +105,16 @@ std::shared_ptr<Material> Material::Clone()
 	material->_diffuseMap = _diffuseMap;
 	material->_normalMap = _normalMap;
 	material->_specularMap = _specularMap;
+	material->_cubeMap = _cubeMap;
+	material->_shadowMap = _shadowMap;
 	material->_diffuseEffectBuffer = _diffuseEffectBuffer;
 	material->_normalEffectBuffer = _normalEffectBuffer;
 	material->_specularEffectBuffer = _specularEffectBuffer;
 	material->_cubeMapEffectBuffer = _cubeMapEffectBuffer;
 	material->_shadowMapEffectBuffer = _shadowMapEffectBuffer;
 	material->_ssaoMapEffectBuffer = _ssaoMapEffectBuffer;
+
+	Refresh();
 
 	return material;
 }

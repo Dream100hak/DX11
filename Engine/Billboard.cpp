@@ -35,6 +35,14 @@ Billboard::~Billboard()
 
 void Billboard::Update()
 {
+	if(_material == nullptr)
+		return;
+
+	auto shader = _material->GetShader();
+
+	if(shader == nullptr)
+		return;
+
 	if (_drawCount != _prevCount)
 	{
 		_prevCount = _drawCount;
@@ -46,8 +54,6 @@ void Billboard::Update()
 		}
 		DCT->Unmap(_vertexBuffer->GetComPtr().Get(), 0);
 	}
-
-	auto shader = _material->GetShader();
 
 	// Transform
 	auto world = GetTransform()->GetWorldMatrix();

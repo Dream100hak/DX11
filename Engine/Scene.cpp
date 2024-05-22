@@ -63,9 +63,11 @@ void Scene::Add(shared_ptr<GameObject> object)
 	if (object->GetCamera() != nullptr)
 		_cameras.insert(object);
 	
-
 	if (object->GetLight() != nullptr)
 		_lights.insert(object);
+
+	if (object->GetTerrain() != nullptr)
+		_terrains.insert(object);
 	
 	_createdObjectsById[object->GetId()] = object;
 	_createdObjectsByName[object->GetObjectName()] = object;
@@ -79,6 +81,7 @@ void Scene::Remove(shared_ptr<GameObject> object)
 	_objects.erase(object);
 	_cameras.erase(object);
 	_lights.erase(object);
+	_terrains.erase(object);
 	_createdObjectsById.erase(object->GetId());
 	_createdObjectsByName.erase(object->GetObjectName());
 }

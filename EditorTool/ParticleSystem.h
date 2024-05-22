@@ -24,7 +24,7 @@ public:
 	void OnInspectorGUI() override;
 
 	void Init(int32 type , shared_ptr<Shader> shader,
-		shared_ptr<Texture> texArray,
+		std::vector<wstring> names,
 		uint32 maxParticles);
 
 	void Reset();

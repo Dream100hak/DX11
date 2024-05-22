@@ -6,15 +6,14 @@
 #include "Shader.h"
 #include "Light.h"
 #include "MathUtils.h"
+#include "Utils.h"
 
 MeshRenderer::MeshRenderer() : Super(ComponentType::MeshRenderer)
-{
-	
+{	
 }
 
 MeshRenderer::~MeshRenderer()
 {
-
 }
 
 void MeshRenderer::OnInspectorGUI()
@@ -23,6 +22,11 @@ void MeshRenderer::OnInspectorGUI()
 
 	if (_material != nullptr)
 	{
+		shared_ptr<Shader> shader = _material->GetShader();
+		std::string name = Utils::ToString(shader->GetName());
+
+		ImGui::Text(name.c_str());
+
 		MaterialDesc& desc = _material->GetMaterialDesc();
 		ImVec4 color = ImVec4(0.85f, 0.94f, 0.f, 1.f);
 

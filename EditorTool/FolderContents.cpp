@@ -22,7 +22,7 @@
 #include "FileUtils.h"
 
 #include "InstancingBuffer.h"
-
+#include "terrain.h"
 
 #include "Light.h"
 
@@ -56,7 +56,6 @@ void FolderContents::Init()
 		LightDesc lightDesc;
 
 		lightDesc.ambient = Vec4(1.f, 1.0f, 1.0f, 1.0f);
-	//	lightDesc.diffuse = Vec4(0.8f, 0.8f, 0.7f, 1.0f);
 		lightDesc.diffuse = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
 		lightDesc.specular = Vec4(0.8f, 0.8f, 0.7f, 1.0f);
 		lightDesc.direction = _meshPreviewLight->GetTransform()->GetRotation();
@@ -224,6 +223,8 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 		ImVec2 hiearchyPos = TOOL->GetEditorWindow(Utils::GetClassNameEX<Hiearchy>())->GetEWinPos();
 		ImVec2 hiearchySize = TOOL->GetEditorWindow(Utils::GetClassNameEX<Hiearchy>())->GetEWinSize();
 
+		Vec3 prevScale = obj->GetTransform()->GetLocalScale();
+
 		if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
 		{
 			MetaData* metaRawPtr = meta.get();
@@ -253,19 +254,30 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 				float rayLength = 1000.0f; 
 				float t = -start.y / direction.y; // y=0
 
-				if (t > 0 && t < rayLength) {
-					Vec3 hitPoint = start + direction * t; // 교차 지점
+				if (t > 0 && t < rayLength) 
+				{				
+					Vec3 hitPoint = start + direction * t;
+					
+					shared_ptr<GameObject> terrain = CUR_SCENE->GetTerrain();
+					
+					if(terrain)
+						hitPoint.y = terrain->GetTerrain()->GetHeight(hitPoint.x, hitPoint.z);	
+
+					obj->GetTransform()->SetScale(Vec3(6,6,6));
 					obj->GetTransform()->SetPosition(hitPoint);
 				}
+
 			}
 			else if (IsMouseInGUIWindow(hiearchyPos, hiearchySize))
 			{
 				CUR_SCENE->Remove(obj);
+				obj->GetTransform()->SetScale(prevScale);
 				::SetCursor(LoadCursor(NULL, IDC_HAND));
 			}
 			else
 			{
 				CUR_SCENE->Remove(obj);
+				obj->GetTransform()->SetScale(prevScale);
 				::SetCursor(LoadCursor(NULL, IDC_NO));
 			}
 
@@ -340,7 +352,6 @@ void FolderContents::CreateMaterial()
 
 	string logStr = Utils::ToString(L"Create Material : " + finalPath);
 	ADDLOG(logStr, LogFilter::Info);
-
 }
 
 void FolderContents::CreateMeshPreviewObj(shared_ptr<MetaData>& meta)

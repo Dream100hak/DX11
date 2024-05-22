@@ -37,7 +37,7 @@ public:										\
 #define JOB_POST_RENDER	GRAPHICS->GetPostRenderJobQueue()
 
 
-#define TECH_TEXTURE	0;
+#define TECH_NORMAL		0;
 #define TECH_OUTLINE	1;
 #define TECH_COLOR		2;
 #define TECH_WIREFRAME	3;

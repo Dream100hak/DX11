@@ -29,8 +29,10 @@ public:
 	void SetSsaoMap(ComPtr<ID3D11ShaderResourceView> ssaoMap) { _ssaoMap = ssaoMap; }
 
 	void Update();
+	void Refresh();
 
 	shared_ptr<Material> Clone();
+
 
 private:
 	friend class MeshRenderer;

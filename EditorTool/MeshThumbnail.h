@@ -31,6 +31,7 @@ void MeshThumbnail::Draw(shared_ptr<T> renderer, shared_ptr<Camera> camera, shar
 	if (renderer == nullptr && camera == nullptr && light == nullptr)
 		return;
 
+
 	_vp.RSSetViewport();
 
 	DCT->OMSetRenderTargets(1, _colorMapRTV.GetAddressOf(), _depthMapDSV.Get());

@@ -67,7 +67,11 @@ void SceneWindow::ShowSceneWindow()
 			int32 id = GUI->CreateModelMesh(model , obj->GetTransform()->GetPosition());
 			CUR_SCENE->UnPickAll();
 			TOOL->SetSelectedObjH(id);
+			
+			shared_ptr<GameObject> makeObj = CUR_SCENE->GetCreatedObject(id);
 			CUR_SCENE->GetCreatedObject(id)->SetUIPicked(true);
+
+			CUR_SCENE->GetCreatedObject(id)->GetTransform()->SetScale(Vec3(6,6,6));
 
 			ADDLOG("Create Object : " + Utils::ToString(droppedMesh->fileName) , LogFilter::Warn);
 			SetCursor(LoadCursor(NULL, IDC_ARROW));

@@ -11,5 +11,14 @@ public:
 	virtual void Update() override;
 
 	void ShowHiearchy();
+
+
+public:
+	
+	int32 CreateFire();
+	int32 CreateRain();
+	int32 CreateSky();
+	int32 CreateTerrain();
+
 };
 

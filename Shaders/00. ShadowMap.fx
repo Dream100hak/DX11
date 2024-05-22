@@ -33,8 +33,6 @@ struct HullOut
     float2 Tex : TEXCOORD;
 };
 
-
-
 VertexOut VS_Terrain(VertexTerrain vin)
 {
     VertexOut vout;
@@ -164,7 +162,6 @@ void TessPS(DomainOut pin)
 	// Don't write transparent pixels to the shadow map.
     clip(diffuse.a - 0.15f);
 }
-
 
 
 RasterizerState Depth

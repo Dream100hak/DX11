@@ -189,13 +189,17 @@ MeshOutput VS_Animation(VertexModel input)
 	output.position = mul(input.position, m);
 	output.position = mul(output.position, input.world); // W
 	output.worldPosition = output.position;
+	
+    output.shadow = mul(output.position, Shadow);
+	
     output.worldViewPosition = mul(output.position, V);
 	output.position = mul(output.position, VP);
+	
 	output.uv = input.uv;
 	output.normal = mul(input.normal, (float3x3)input.world);
 	output.tangent = mul(input.tangent, (float3x3)input.world);
 
-    output.shadow = mul(input.position, Shadow);	
+  
     output.ssao = mul(output.position, T);
 	
 	return output;

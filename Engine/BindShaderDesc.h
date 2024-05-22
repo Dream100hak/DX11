@@ -32,7 +32,6 @@ struct LightDesc
 };
 struct PointLightDesc
 {
-
 	Color ambient = Color(1.f, 1.f, 1.f, 1.f);
 	Color diffuse = Color(1.f, 1.f, 1.f, 1.f);
 	Color specular = Color(1.f, 1.f, 1.f, 1.f);
@@ -47,7 +46,6 @@ struct PointLightDesc
 
 struct SpotLightDesc
 {
-
 	Color ambient = Color(1.f, 1.f, 1.f, 1.f);
 	Color diffuse = Color(1.f, 1.f, 1.f, 1.f);
 	Color specular = Color(1.f, 1.f, 1.f, 1.f);
@@ -72,6 +70,10 @@ struct MaterialDesc
 	Color diffuse = Color(1.f, 1.f, 1.f, 1.f);
 	Color specular = Color(0.f, 0.f, 0.f, 1.f);
 	Color emissive = Color(0.f, 0.f, 0.f, 1.f);
+	int lightCount = 3;
+	int useTexture = 1;
+	int useAlphaclip = 1;
+	int dummy = 0;
 };
 
 // Bone
@@ -125,19 +127,5 @@ struct TweenDesc
 struct InstancedTweenDesc
 {
 	TweenDesc tweens[MAX_MODEL_INSTANCE];
-};
-
-struct SnowBillboardDesc
-{
-	Color color = Color(1, 1, 1, 1);
-
-	Vec3 velocity = Vec3(0, -5, 0);
-	float drawDistance = 0;
-
-	Vec3 origin = Vec3(0, 0, 0);
-	float turbulence = 5;
-
-	Vec3 extent = Vec3(0, 0, 0);
-	float time;
 };
 

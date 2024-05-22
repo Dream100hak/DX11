@@ -41,17 +41,18 @@ void ImGuiManager::Render()
 
 }
 
-int32 ImGuiManager::CreateEmptyGameObject()
+
+int32 ImGuiManager::CreateEmptyGameObject(CreatedObjType type /*= CreatedObjType::GAMEOBJ*/)
 {
 	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetTransform();
-	float distance = 10.0f; 
-	Vec3 objectPosition = cam->GetLocalPosition() + (cam->GetLook() * distance);
+	float distance = 10.0f;
+	Vec3 pos = cam->GetLocalPosition() + (cam->GetLook() * distance);
 
 	shared_ptr<GameObject> obj = make_shared<GameObject>();
 
-	wstring name = FindEmptyName(CreatedObjType::GAMEOBJ);
+	wstring name = FindEmptyName(type);
 	obj->SetObjectName(name);
-	obj->GetOrAddTransform()->SetPosition(objectPosition);
+	obj->GetOrAddTransform()->SetPosition(pos);
 	obj->GetOrAddTransform()->SetLocalScale(Vec3{ 0.01f, 0.01f, 0.01f });
 	CUR_SCENE->Add(obj);
 
@@ -100,6 +101,7 @@ int32 ImGuiManager::CreateMesh(CreatedObjType type)
 
 	shared_ptr<Mesh> mesh = make_shared<Mesh>();
 	auto mat = RESOURCES->Get<Material>(L"DefaultMaterial")->Clone();
+	mat->GetMaterialDesc().lightCount = 1;
 
 	wstring name;
 

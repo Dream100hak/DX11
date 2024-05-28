@@ -876,20 +876,19 @@ Vec4 Multiply(const Matrix& mat, const Vec4& vec)
 }
 
 
-void GeometryHelper::CreateSceneGrid(shared_ptr<Geometry<VertexColorData>> geometry, Color color)
+void GeometryHelper::CreateSceneGrid(shared_ptr<Geometry<VertexTextureData>> geometry, int32 gridCount , float gridSize)
 {
 
-	int32 _gridCount = 100;
-	float _gridSize = 2.f;
 
-	vector<VertexColorData> vtx;
+	vector<VertexTextureData> vtx;
 
-	for (int i = -_gridCount / 2; i <= _gridCount / 2; i++)
+	for (int i = -gridCount / 2; i <= gridCount / 2; i++)
 	{
-		for (int j = -_gridCount / 2; j <= _gridCount / 2; j++)
+		for (int j = -gridCount / 2; j <= gridCount / 2; j++)
 		{
-			Vec3 pos = Vec3(i * _gridSize, 0, j * _gridSize);
-			vtx.push_back(VertexColorData{ pos ,color });
+			Vec3 pos = Vec3(i * gridSize, 0, j * gridSize);
+			Vec2 uv = Vec2((float)i / gridCount, (float)j / gridCount);
+			vtx.push_back(VertexTextureData{ pos ,uv });
 		}
 	}
 
@@ -897,17 +896,17 @@ void GeometryHelper::CreateSceneGrid(shared_ptr<Geometry<VertexColorData>> geome
 
 	// 인덱스 데이터 계산
 	std::vector<uint32_t> idx;
-	for (int i = 0; i < _gridCount; i++)
+	for (int i = 0; i < gridCount; i++)
 	{
-		for (int j = 0; j < _gridCount; j++)
+		for (int j = 0; j < gridCount; j++)
 		{
-			int baseIndex = i * (_gridCount + 1) + j;
+			int baseIndex = i * (gridCount + 1) + j;
 
 			idx.push_back(baseIndex);
 			idx.push_back(baseIndex + 1);
 
 			idx.push_back(baseIndex);
-			idx.push_back(baseIndex + (_gridCount + 1));
+			idx.push_back(baseIndex + (gridCount + 1));
 		}
 	}
 

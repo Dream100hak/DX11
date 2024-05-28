@@ -107,30 +107,28 @@ void Terrain::Update()
 		DCT->RSSetState(GRAPHICS->GetWireframeRS().Get());
 
 	auto shader = RESOURCES->Get<Shader>(L"Terrain");
-	TerrainRenderer(shader);
+	shared_ptr<Camera> camera = MAIN_CAM;
+
+	TerrainRenderer(shader, camera->GetViewMatrix() , camera->GetProjectionMatrix());
 
 	DCT->RSSetState(0);
 }
 
-void Terrain::TerrainRenderer(shared_ptr<Shader> shader)
+void Terrain::TerrainRenderer(shared_ptr<Shader> shader, Matrix V, Matrix P)
 {
 
 	ChangeShader(shader);
-	shared_ptr<Scene> scene = CUR_SCENE;
-	shared_ptr<Camera> camera = scene->GetMainCamera()->GetCamera();
-
-	Matrix viewProj = camera->GetViewMatrix() * camera->GetProjectionMatrix();
 
 	Vec4 worldPlanes[6];
 
-	MathUtils::ExtractFrustumPlanes(worldPlanes, viewProj);
+	MathUtils::ExtractFrustumPlanes(worldPlanes, V * P);
 
 	// GlobalData
 	_mat->SetShader(shader);
 	_mat->Update();
 
-	shader->PushGlobalData(camera->GetViewMatrix(), camera->GetProjectionMatrix());
-	shader->PushLightData(scene->GetLight()->GetLight()->GetLightDesc());
+	shader->PushGlobalData(V , P);
+	shader->PushLightData(CUR_SCENE->GetLight()->GetLight()->GetLightDesc());
 
 	TerrainBuffer terrainDesc = TerrainBuffer{};
 
@@ -165,16 +163,9 @@ void Terrain::TerrainRenderer(shared_ptr<Shader> shader)
 	shader->DrawTerrainIndexed(0, 0, _mesh->GetIndexBuffer()->GetCount() * 4, 0, 0);
 }
 
-void Terrain::TerrainRendererNotPS(shared_ptr<Shader> shader)
+void Terrain::TerrainRendererNotPS(shared_ptr<Shader> shader, Matrix V, Matrix P)
 {
 	ChangeShader(shader);
-
-	shared_ptr<Scene> scene = CUR_SCENE;
-	shared_ptr<Light> light = scene->GetLight()->GetLight();
-	shared_ptr<Camera> camera = scene->GetMainCamera()->GetCamera();
-
-	Matrix V = light->S_MatView;
-	Matrix P = light->S_MatProjection;
 
 	// GlobalData
 	shader->PushGlobalData(V, P);

@@ -23,15 +23,6 @@ public:
 	void AddIndices(const vector<uint32>& indices) { _indices.insert(_indices.end(), indices.begin(), indices.end()); }
 	void SetIndices(const vector<uint32>& indices) { _indices = indices; }
 
-	void NormalizeVertices(const Vec3& center, float scale)
-	{
-		for (auto& vertex : _vertices) {
-			Vec3 pos = vertex.position;
-			pos = (pos - center) * scale;
-			vertex.position = pos;
-		}
-	}
-
 private:
 	vector<T> _vertices;
 	vector<uint32> _indices;

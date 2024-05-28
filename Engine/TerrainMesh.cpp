@@ -67,9 +67,10 @@ void TerrainMesh::CreateTerrain(const TerrainInfo& initInfo)
 		}
 	}
 
+	// Calculate normals
+	CalcNormals(vtx);
 
 	_geometry->SetVertices(vtx);
-
 
 	///////////////////////////////////////////////////
 
@@ -233,4 +234,40 @@ void TerrainMesh::CalcPatchBoundsY(uint32 i, uint32 j)
 
 	uint32 patchID = i * (_cols - 1) + j;
 	_patchBoundsY[patchID] = Vec2(minY, maxY);
+}
+
+void TerrainMesh::CalcNormals(vector<VertexTerrain>& vertices)
+{
+	for (uint32 i = 0; i < _rows - 1; ++i)
+	{
+		for (uint32 j = 0; j < _cols - 1; ++j)
+		{
+			uint32 index0 = i * _cols + j;
+			uint32 index1 = i * _cols + j + 1;
+			uint32 index2 = (i + 1) * _cols + j;
+			uint32 index3 = (i + 1) * _cols + j + 1;
+
+			Vec3 v0 = vertices[index0].PosL;
+			Vec3 v1 = vertices[index1].PosL;
+			Vec3 v2 = vertices[index2].PosL;
+			Vec3 v3 = vertices[index3].PosL;
+
+			Vec3 normal0 = v1 - v0;
+			normal0.Cross(v2 - v0);
+
+			Vec3 normal1 = v2 - v1;
+			normal1.Cross(v3 - v1);
+
+			vertices[index0].Normal += normal0;
+			vertices[index1].Normal += normal0 + normal1;
+			vertices[index2].Normal += normal0 + normal1;
+			vertices[index3].Normal += normal1;
+		}
+	}
+
+	// Normalize all normals
+	for (auto& vertex : vertices)
+	{
+		vertex.Normal.Normalize();
+	}
 }

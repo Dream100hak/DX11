@@ -71,6 +71,7 @@ struct VertexTerrain
     float3 PosL : POS;
     float2 Tex : TEXCOORD;
     float2 BoundsY : TEXCOORD1;
+    float3 Normal : NORMAL;
 };
 
 //////////////////
@@ -236,6 +237,7 @@ DepthStencilState DisableDepth
 {
     DepthEnable = FALSE;
     DepthWriteMask = ZERO;
+    DepthFunc = ALWAYS;
 };
 
 DepthStencilState NoDepthWrites

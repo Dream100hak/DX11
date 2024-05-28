@@ -3,6 +3,7 @@
 class MonoBehaviour;
 class Transform;
 class Camera;
+class Renderer;
 class MeshRenderer;
 class ModelRenderer;
 class ModelAnimator;
@@ -55,6 +56,7 @@ public:
 	shared_ptr<Component> GetFixedComponent(ComponentType type);
 	shared_ptr<Transform> GetTransform();
 	shared_ptr<Camera> GetCamera();
+	shared_ptr<Renderer> GetRenderer();
 	shared_ptr<MeshRenderer> GetMeshRenderer();
 	shared_ptr<ModelRenderer> GetModelRenderer();
 	shared_ptr<ModelAnimator> GetModelAnimator();

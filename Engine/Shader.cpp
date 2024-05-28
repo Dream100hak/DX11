@@ -223,6 +223,11 @@ void Shader::DrawIndexedInstanced(UINT technique, UINT pass, UINT indexCountPerI
 	_techniques[technique].passes[pass].DrawIndexedInstanced(indexCountPerInstance, instanceCount, startIndexLocation, baseVertexLocation, startInstanceLocation);
 }
 
+void Shader::DrawTess(UINT technique, UINT pass, UINT vertexCount, UINT startVertexLocation /*= 0*/)
+{
+	_techniques[technique].passes[pass].DrawTess(vertexCount, startVertexLocation);
+}
+
 void Shader::DrawTerrainIndexed(UINT technique, UINT pass, UINT indexCount, UINT startIndexLocation /*= 0*/, INT baseVertexLocation /*= 0*/)
 {
 	_techniques[technique].passes[pass].DrawTerrainIndexed(indexCount, startIndexLocation, baseVertexLocation);

@@ -4,18 +4,11 @@
 
 cbuffer TerrainBuffer
 {
-	// When distance is minimum, the tessellation is maximum.
-	// When distance is maximum, the tessellation is minimum.
     float MinDist;
     float MaxDist;
 
-	// Exponents for power of 2 tessellation.  The tessellation
-	// range is [2^(gMinTess), 2^(gMaxTess)].  Since the maximum
-	// tessellation is 64, this means gMaxTess can be at most 6
-	// since 2^6 = 64.
     float MinTess;
     float MaxTess;
-    float2 TexScale;
 };
 
 Texture2D HeightMap;
@@ -25,6 +18,7 @@ struct VertexOut
     float3 PosW : POS;
     float2 Tex : TEXCOORD;
     float2 BoundsY : TEXCOORD1;
+    
 };
 
 struct HullOut
@@ -90,10 +84,22 @@ struct PatchTess
 PatchTess ConstantHS(InputPatch<VertexOut, 4> patch, uint patchID : SV_PrimitiveID)
 {
     PatchTess pt;
-    float3 center = 0.25f * (patch[0].PosW + patch[1].PosW + patch[2].PosW + patch[3].PosW);
-    float tessFactor = CalcTessFactor(center); // Simplified tessellation factor calculation
-    pt.EdgeTess[0] = pt.EdgeTess[1] = pt.EdgeTess[2] = pt.EdgeTess[3] = tessFactor;
-    pt.InsideTess[0] = pt.InsideTess[1] = tessFactor;
+   
+    // Compute midpoint on edges, and patch center
+    float3 e0 = 0.5f * (patch[0].PosW + patch[2].PosW);
+    float3 e1 = 0.5f * (patch[0].PosW + patch[1].PosW);
+    float3 e2 = 0.5f * (patch[1].PosW + patch[3].PosW);
+    float3 e3 = 0.5f * (patch[2].PosW + patch[3].PosW);
+    float3 c = 0.25f * (patch[0].PosW + patch[1].PosW + patch[2].PosW + patch[3].PosW);
+
+    pt.EdgeTess[0] = CalcTessFactor(e0);
+    pt.EdgeTess[1] = CalcTessFactor(e1);
+    pt.EdgeTess[2] = CalcTessFactor(e2);
+    pt.EdgeTess[3] = CalcTessFactor(e3);
+
+    pt.InsideTess[0] = CalcTessFactor(c);
+    pt.InsideTess[1] = pt.InsideTess[0];
+
     return pt;
 }
 
@@ -102,8 +108,6 @@ struct DomainOut
     float4 PosH : SV_POSITION;
     float3 PosW : POS;
     float2 Tex : TEXCOORD;
-    float2 TiledTex : TEXCOORD1;
-    float4 Shadow : TEXCOORD2;
 };
 
 // Domain Shader for shadow mapping
@@ -114,7 +118,6 @@ DomainOut DS(PatchTess patchTess,
 {
     DomainOut dout;
 
-	// Bilinear interpolation.
     dout.PosW = lerp(
 		lerp(quad[0].PosW, quad[1].PosW, uv.x),
 		lerp(quad[2].PosW, quad[3].PosW, uv.x),
@@ -125,22 +128,9 @@ DomainOut DS(PatchTess patchTess,
 		lerp(quad[2].Tex, quad[3].Tex, uv.x),
 		uv.y);
 
-	// Tile layer textures over terrain.
-    dout.TiledTex = dout.Tex * TexScale;
-
 	// Displacement mapping
     dout.PosW.y = HeightMap.SampleLevel(HeightmapSampler, dout.Tex, 0).r;
-
-	// NOTE: We tried computing the normal in the shader using finite difference, 
-	// but the vertices move continuously with fractional_even which creates
-	// noticable light shimmering artifacts as the normal changes.  Therefore,
-	// we moved the calculation to the pixel shader.  
-
-	// Project to homogeneous clip space.
     dout.PosH = mul(float4(dout.PosW, 1.0f), VP);
-    
-    dout.Shadow = mul(float4(dout.PosW, 1.0f), Shadow);
-    
     return dout;
 }
 
@@ -152,9 +142,6 @@ void PS(VertexOut pin)
     clip(diffuse.a - 0.15f);
 }
 
-// This is only used for alpha cut out geometry, so that shadows 
-// show up correctly.  Geometry that does not need to sample a
-// texture can use a NULL pixel shader for depth pass.
 void TessPS(DomainOut pin)
 {
     float4 diffuse = DiffuseMap.Sample(LinearSampler, pin.Tex);
@@ -162,7 +149,6 @@ void TessPS(DomainOut pin)
 	// Don't write transparent pixels to the shadow map.
     clip(diffuse.a - 0.15f);
 }
-
 
 RasterizerState Depth
 {
@@ -199,6 +185,14 @@ technique11 T0
     pass P1
     {
         SetVertexShader(CompileShader(vs_5_0, VS_Model()));
+        SetGeometryShader(NULL);
+        SetPixelShader(NULL);
+
+        SetRasterizerState(Depth);
+    }
+    pass P2
+    {
+        SetVertexShader(CompileShader(vs_5_0, VS_Animation()));
         SetGeometryShader(NULL);
         SetPixelShader(NULL);
 

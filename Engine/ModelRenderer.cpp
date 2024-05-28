@@ -9,7 +9,7 @@
 #include "Utils.h"
 
 ModelRenderer::ModelRenderer(shared_ptr<Shader> shader)
-	: Super(ComponentType::ModelRenderer), _shader(shader)
+	: Super(RendererType::Model), _shader(shader)
 {
 
 }
@@ -23,7 +23,6 @@ void ModelRenderer::OnInspectorGUI()
 {
 	Super::OnInspectorGUI();
 
-	
 
 	auto mats = _model->GetMaterials();
 	ImVec4 color = ImVec4(0.85f, 0.94f, 0.f, 1.f);
@@ -100,6 +99,7 @@ void ModelRenderer::SetModel(shared_ptr<Model> model)
 {
 	_model = model;
 	ChangeShader(_shader);
+
 }
 
 void ModelRenderer::ChangeShader(shared_ptr<Shader> shader)
@@ -107,19 +107,52 @@ void ModelRenderer::ChangeShader(shared_ptr<Shader> shader)
 	_shader = shader;
 
 	const auto& materials = _model->GetMaterials();
+
 	for (auto& material : materials)
 	{
 		material->SetShader(shader);
+		material->SetShadowMap(_shadowMap);
+		material->SetSsaoMap(_ssaoMap);
 	}
 }
 
-void ModelRenderer::ThumbnailRender(shared_ptr<Camera> cam , shared_ptr<Light> light, shared_ptr<class InstancingBuffer>& buffer)
+void ModelRenderer::Render(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light)
 {
-	_shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
+	if (_model == nullptr)
+		return;
+
+	//ssao shadow 등 덮어씌우는 경우가 있어, 기존 걸 원복시키기 위해 별도로 추가
+	auto prevShader = _shader;
+
+	if (shader)
+		ChangeShader(shader);
+
+	_shader->PushGlobalData(V, P);
+
+	if (light)
+		_shader->PushLightData(light->GetLightDesc());
+
+	PushBuffer(tech, _pass, light);
+
+	ChangeShader(prevShader);
+}
+
+
+void ModelRenderer::RenderThumbnail(int32 tech, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer)
+{
+	_shader->PushGlobalData(V, P);
 	_shader->PushLightData(light->GetLightDesc());
 
-	PushData(0, _pass, light, buffer);
-	PushData(0, _pass + 3, light, buffer);
+	if (buffer == nullptr)
+	{
+		PushBuffer(0, _pass, light);
+	}
+	else
+	{
+		PushBufferInstancing(0, _pass, light, buffer);
+	}
+
+//	PushBufferInstancing(0, _pass + 3, light, buffer);
 }
 
 void ModelRenderer::RenderInstancing(int32 tech, shared_ptr<Shader> shader , Matrix V, Matrix P, shared_ptr<Light> light,  shared_ptr<InstancingBuffer>& buffer)
@@ -134,20 +167,50 @@ void ModelRenderer::RenderInstancing(int32 tech, shared_ptr<Shader> shader , Mat
 		ChangeShader(shader);
 
 	_shader->PushGlobalData(V, P);
-		
-	wstring wname = GetGameObject()->GetObjectName();
 
-	PushData(tech, _pass,  light, buffer );
+	if (light)
+		_shader->PushLightData(light->GetLightDesc());
+	
 
+	PushBufferInstancing(tech, _pass,  light, buffer );
 	ChangeShader(prevShader);
 }
 
-void ModelRenderer::PushData(uint8 technique, uint8 pass, shared_ptr<Light>& light, shared_ptr<class InstancingBuffer>& buffer)
+void ModelRenderer::PushBuffer(uint8 technique, uint8 pass, shared_ptr<Light> light)
 {
-	if (light)
-		_shader->PushLightData(light->GetLightDesc());
+	BoneDesc boneDesc;
 
-	// Bones
+	const uint32 boneCount = _model->GetBoneCount();
+	for (uint32 i = 0; i < boneCount; i++)
+	{
+		shared_ptr<ModelBone> bone = _model->GetBoneByIndex(i);
+		boneDesc.transforms[i] = bone->transform;
+	}
+	_shader->PushBoneData(boneDesc);
+
+	// Transform
+	auto world = GetTransform()->GetWorldMatrix();
+	_shader->PushTransformData(TransformDesc{ world });
+
+	const auto& meshes = _model->GetMeshes();
+	for (auto& mesh : meshes)
+	{
+		if (mesh->material)
+			mesh->material->Update();
+
+		// BoneIndex
+		_shader->GetScalar("BoneIndex")->SetInt(mesh->boneIndex);
+
+		// IA
+		mesh->vertexBuffer->PushData();
+		mesh->indexBuffer->PushData();
+
+		_shader->DrawIndexed(0, _pass, mesh->indexBuffer->GetCount(), 0, 0);
+	}
+}
+
+void ModelRenderer::PushBufferInstancing(uint8 technique, uint8 pass, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer)
+{
 	BoneDesc boneDesc;
 
 	const uint32 boneCount = _model->GetBoneCount();
@@ -161,22 +224,20 @@ void ModelRenderer::PushData(uint8 technique, uint8 pass, shared_ptr<Light>& lig
 	const auto& meshes = _model->GetMeshes();
 	for (auto& mesh : meshes)
 	{
-		if (mesh->material)	
+		if (mesh->material)
 			mesh->material->Update();
-		
+
 		// BoneIndex
 		_shader->GetScalar("BoneIndex")->SetInt(mesh->boneIndex);
 
 		// IA
 		mesh->vertexBuffer->PushData();
 		mesh->indexBuffer->PushData();
-		
 		buffer->PushData();
 
 		_shader->DrawIndexedInstanced(technique, pass, mesh->indexBuffer->GetCount(), buffer->GetCount());
 	}
 }
-
 
 InstanceID ModelRenderer::GetInstanceID()
 {
@@ -185,6 +246,8 @@ InstanceID ModelRenderer::GetInstanceID()
 
 bool ModelRenderer::Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& distance)
 {
+	Super::Pick(screenX, screenY, pickPos, distance);
+
 	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
 	Matrix V = cam->GetViewMatrix();
 	Matrix P = cam->GetProjectionMatrix();
@@ -236,45 +299,3 @@ bool ModelRenderer::Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& dis
 	return false;
 }
 
-void ModelRenderer::SetShadowMap(shared_ptr<Texture> tex)
-{
-	const auto& materials = _model->GetMaterials();
-	for (auto& material : materials)
-	{
-		material->SetShadowMap(tex);
-	}
-}	
-
-void ModelRenderer::SetSsaoMap(ComPtr<ID3D11ShaderResourceView> srv)
-{
-	const auto& materials = _model->GetMaterials();
-	for (auto& material : materials)
-	{
-		material->SetSsaoMap(srv);
-	}
-}
-
-void ModelRenderer::TransformBoundingBox()
-{
-	Matrix W = GetTransform()->GetWorldMatrix();
-
-	Vec3 vMin = Vec3(MathUtils::INF, MathUtils::INF, MathUtils::INF);
-	Vec3 vMax = Vec3(-MathUtils::INF, -MathUtils::INF, -MathUtils::INF);
-
-	Vec3 corners[8];
-	BoundingBox modelBox;
-	modelBox.Center = Vec3(0.f,1.0f,0.f);
-	modelBox.Extents = Vec3(1.0f,1.0f,1.0f);
-	modelBox.GetCorners(corners);
-
-	for (int i = 0; i < 8; ++i) {
-		corners[i] = XMVector3TransformCoord(corners[i], W);
-	}
-	for (const Vec3& corner : corners) {
-		vMin = ::XMVectorMin(vMin, corner);
-		vMax = ::XMVectorMax(vMax, corner);
-	}
-	_boundingBox.Center = 0.5f * (vMin + vMax);
-	_boundingBox.Extents = 0.5f * (vMax - vMin);
-
-}

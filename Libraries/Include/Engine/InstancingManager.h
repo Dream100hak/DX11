@@ -19,10 +19,8 @@ public:
 
 public:
 
-	void RenderMeshRenderer(int32 tech, shared_ptr<Shader> shader, Matrix V , Matrix P,  shared_ptr<Light> light, vector<shared_ptr<GameObject>>& gameObjects);
-	void RenderModelRenderer(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, vector<shared_ptr<GameObject>>& gameObjects);
+	void RenderStaticObject(int32 tech, shared_ptr<Shader> shader, Matrix V , Matrix P,  shared_ptr<Light> light, vector<shared_ptr<GameObject>>& gameObjects);
 	void RenderAnimRenderer(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, vector<shared_ptr<GameObject>>& gameObjects);
-
 
 private:
 	void AddData(InstanceID instanceId, InstancingData& data);

@@ -78,7 +78,6 @@ Texture2D SpecularMap;
 Texture2D NormalMap;
 Texture2D ShadowMap;
 Texture2D SsaoMap;
-TextureCube CubeMap;
 
 //////////////
 // Function //

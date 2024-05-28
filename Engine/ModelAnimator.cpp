@@ -9,7 +9,7 @@
 #include "MathUtils.h"
 
 ModelAnimator::ModelAnimator(shared_ptr<Shader> shader)
-	: Super(ComponentType::Animator), _shader(shader)
+	: Super(RendererType::Animator), _shader(shader)
 {
 	// TEST
 	_tweenDesc.next.animIndex = rand() % 3;
@@ -17,6 +17,16 @@ ModelAnimator::ModelAnimator(shared_ptr<Shader> shader)
 }
 
 ModelAnimator::~ModelAnimator()
+{
+
+}
+
+void ModelAnimator::OnInspectorGUI()
+{
+	
+}
+
+void ModelAnimator::Render(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light)
 {
 
 }
@@ -29,12 +39,9 @@ void ModelAnimator::SetModel(shared_ptr<Model> model)
 	for (auto& material : materials)
 	{
 		material->SetShader(_shader);
+		material->SetShadowMap(_shadowMap);
+		material->SetSsaoMap(_ssaoMap);
 	}
-}
-
-void ModelAnimator::Update()
-{
-
 }
 
 void ModelAnimator::UpdateTweenData()
@@ -93,28 +100,41 @@ void ModelAnimator::UpdateTweenData()
 }
 
 
-void ModelAnimator::RenderInstancing(int32 tech, shared_ptr<class InstancingBuffer>& buffer)
+void ModelAnimator::RenderInstancing(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer)
 {
 	if (_model == nullptr)
 		return;
 	if (_texture == nullptr)
 		CreateTexture();
 
-	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
 	// GlobalData
-	_shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
+	_shader->PushGlobalData(V, P);
 
-	PushData(tech, buffer);
+	PushBufferInstancing(tech, _pass, light, buffer);
 }
 
-void ModelAnimator::PushData(int32 tech, shared_ptr<class InstancingBuffer>& buffer)
+void ModelAnimator::RenderThumbnail(int32 tech, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer)
+{
+
+}
+
+bool ModelAnimator::Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& distance)
+{
+	return false; 
+}
+
+
+void ModelAnimator::PushBuffer(uint8 technique, uint8 pass, shared_ptr<Light> light)
+{
+
+}
+
+void ModelAnimator::PushBufferInstancing(uint8 technique, uint8 pass, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer)
 {
 	// Light
-	auto lightObj = SCENE->GetCurrentScene()->GetLight();
-	if (lightObj)
-		_shader->PushLightData(lightObj->GetLight()->GetLightDesc());
+	if (light)
+		_shader->PushLightData(light->GetLightDesc());
 
-	// SRV를 통해 정보 전달
 	_shader->GetSRV("TransformMap")->SetResource(_srv.Get());
 
 	// Bones
@@ -142,7 +162,7 @@ void ModelAnimator::PushData(int32 tech, shared_ptr<class InstancingBuffer>& buf
 
 		buffer->PushData();
 
-		_shader->DrawIndexedInstanced(tech, _pass, mesh->indexBuffer->GetCount(), buffer->GetCount());
+		_shader->DrawIndexedInstanced(technique, pass, mesh->indexBuffer->GetCount(), buffer->GetCount());
 	}
 }
 

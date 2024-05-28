@@ -71,6 +71,7 @@ public:
 public:
 	 unordered_map<wstring, shared_ptr<GameObject>>& GetMeshPreviewObjs() { return _meshPreviewObjs; }
 	 unordered_map<wstring, shared_ptr<MeshThumbnail>>& GetMeshPreviewThumbnails() { return _meshPreviewthumbnails; }
+	 unordered_map<wstring, float>& GetMeshScales() { return _meshScales; }
 
 	 shared_ptr<class Camera> GetCamera() { return _meshPreviewCamera->GetCamera(); }
 	 shared_ptr<class Light> GetLight() { return _meshPreviewLight->GetLight(); }
@@ -81,6 +82,8 @@ private:
 	shared_ptr<GameObject> _meshPreviewLight = nullptr;
 	unordered_map<wstring,  shared_ptr<GameObject>> _meshPreviewObjs;
 	unordered_map<wstring,  shared_ptr<MeshThumbnail>> _meshPreviewthumbnails;
+
+	unordered_map<wstring, float> _meshScales;
 
 private:
 

@@ -63,6 +63,16 @@ void Pass::DrawLineIndexed(UINT indexCount, UINT startIndexLocation /*= 0*/, INT
 	EndDraw();
 }
 
+void Pass::DrawTess(UINT vertexCount, UINT startVertexLocation /*= 0*/)
+{
+	BeginDraw();
+	{
+		DCT->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_4_CONTROL_POINT_PATCHLIST);
+		DCT->Draw(vertexCount, startVertexLocation);
+	}
+	EndDraw();
+}
+
 void Pass::DrawParticle(UINT vertexCount, UINT startVertexLocation /*= 0*/)
 {
 	BeginDraw();

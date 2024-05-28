@@ -3,6 +3,7 @@
 #include "TextureRenderer.h"
 #include "ShadowMap.h"
 #include "Ssao.h"
+#include "Material.h"
 #include "Camera.h"
 
 
@@ -12,6 +13,11 @@ void TextureManager::Init()
 
 	_smap = make_shared<ShadowMap>(2048, 2048);
 	_ssao = make_shared<Ssao>(GAME->GetSceneDesc().width, GAME->GetSceneDesc().height, camera->GetFov(), camera->GetFar());
+
+	auto mat = RESOURCES->Get<Material>(L"DefaultMaterial");
+
+	mat->SetShadowMap(_smap);
+	mat->SetSsaoMap(_ssao->GetAmbientPtr());
 
 	shared_ptr<Shader> debugShader = make_shared<Shader>(L"01. DebugTexture.fx");
 

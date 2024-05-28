@@ -1,16 +1,17 @@
 #include "pch.h"
 #include "MeshRenderer.h"
+#include "Mesh.h"
 #include "Camera.h"
 #include "Game.h"
-#include "Mesh.h"
 #include "Shader.h"
 #include "Light.h"
 #include "MathUtils.h"
 #include "Utils.h"
 
-MeshRenderer::MeshRenderer() : Super(ComponentType::MeshRenderer)
-{	
+MeshRenderer::MeshRenderer() : Super(RendererType::Mesh)
+{
 }
+
 
 MeshRenderer::~MeshRenderer()
 {
@@ -18,7 +19,6 @@ MeshRenderer::~MeshRenderer()
 
 void MeshRenderer::OnInspectorGUI()
 {
-	Super::OnInspectorGUI();
 
 	if (_material != nullptr)
 	{
@@ -85,13 +85,45 @@ void MeshRenderer::OnInspectorGUI()
 	}
 }
 
-void MeshRenderer::RenderInstancing(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<class InstancingBuffer>& buffer)
+
+void MeshRenderer::Render(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light)
 {
 	if (_mesh == nullptr || _material == nullptr)
 		return;
 
-	wstring wname = GetGameObject()->GetObjectName();
-	
+	auto prevShader = _material->GetShader();
+
+	if (shader)
+		_material->SetShader(shader);
+
+	auto curShader = _material->GetShader();
+	// GlobalData
+	curShader->PushGlobalData(V, P);
+
+	auto world = GetTransform()->GetWorldMatrix();
+	curShader->PushTransformData(TransformDesc{ world });
+
+	//LIGHT 
+	if (light)
+		curShader->PushLightData(light->GetLightDesc());
+
+	_material->Update();
+	// IA
+	_mesh->GetVertexBuffer()->PushData();
+	_mesh->GetIndexBuffer()->PushData();
+
+	//DRAW 
+	curShader->DrawIndexed(tech, _pass, _mesh->GetIndexBuffer()->GetCount(), 0, 0);
+
+	//RESTORE 
+	_material->SetShader(prevShader);
+}
+
+void MeshRenderer::RenderInstancing(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer)
+{
+	if (_mesh == nullptr || _material == nullptr)
+		return;
+
 	auto prevShader = _material->GetShader();
 
 	if(shader)
@@ -102,6 +134,7 @@ void MeshRenderer::RenderInstancing(int32 tech, shared_ptr<Shader> shader, Matri
 	// GlobalData
 	curShader->PushGlobalData(V, P);
 
+	//LIGHT 
 	if (light)
 		curShader->PushLightData(light->GetLightDesc());
 
@@ -109,20 +142,22 @@ void MeshRenderer::RenderInstancing(int32 tech, shared_ptr<Shader> shader, Matri
 	// IA
 	_mesh->GetVertexBuffer()->PushData();
 	_mesh->GetIndexBuffer()->PushData();
-
 	buffer->PushData();
-	curShader->DrawIndexedInstanced(tech, _pass, _mesh->GetIndexBuffer()->GetCount(), buffer->GetCount());
 
+	//DRAW 
+	curShader->DrawIndexedInstanced(tech, _pass, _mesh->GetIndexBuffer()->GetCount(), buffer->GetCount());
+	
+	//RESTORE 
 	_material->SetShader(prevShader);
 }
 
-void MeshRenderer::ThumbnailRender(shared_ptr<Camera> cam, shared_ptr<Light> light, shared_ptr<class InstancingBuffer>& buffer)
+void MeshRenderer::RenderThumbnail(int32 tech, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer)
 {
 	auto shader = _material->GetShader();
 
 	DCT->OMSetDepthStencilState(nullptr, 1);
 
-	shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
+	shader->PushGlobalData(V, P);
 	shader->PushLightData(light->GetLightDesc());
 
 	_material->Update();
@@ -130,42 +165,24 @@ void MeshRenderer::ThumbnailRender(shared_ptr<Camera> cam, shared_ptr<Light> lig
 	_mesh->GetVertexBuffer()->PushData();
 	_mesh->GetIndexBuffer()->PushData();
 
-	buffer->PushData();
-	shader->DrawIndexedInstanced(_teq, _pass, _mesh->GetIndexBuffer()->GetCount(), buffer->GetCount());
-}
-
-void MeshRenderer::TransformBoundingBox()
-{
-	Matrix W = GetTransform()->GetWorldMatrix();
-
-	Vec3 vMin = Vec3(MathUtils::INF, MathUtils::INF, MathUtils::INF);
-	Vec3 vMax = Vec3(-MathUtils::INF, -MathUtils::INF, -MathUtils::INF);
-
-	Vec3 corners[8];
-	BoundingBox& meshBox = GetMesh()->GetMeshBox();
-
-	meshBox.GetCorners(corners);
-
-	for (int i = 0; i < 8; ++i) {
-		corners[i] = XMVector3TransformCoord(corners[i], W);
+	if (buffer == nullptr)
+	{
+		auto world = GetTransform()->GetWorldMatrix();
+		shader->PushTransformData(TransformDesc{ world });
+		shader->DrawIndexed(tech, _pass, _mesh->GetIndexBuffer()->GetCount(), 0, 0);
 	}
-
-	for (const Vec3& corner : corners) {
-		vMin = ::XMVectorMin(vMin, corner);
-		vMax = ::XMVectorMax(vMax, corner);
+	else
+	{
+		buffer->PushData();
+		shader->DrawIndexedInstanced(tech, _pass, _mesh->GetIndexBuffer()->GetCount(), buffer->GetCount());
 	}
-
-	_boundingBox.Center = 0.5f * (vMin + vMax);
-	_boundingBox.Extents = 0.5f * (vMax - vMin);
 }
 
-InstanceID MeshRenderer::GetInstanceID()
-{
-	return make_pair((uint64)_mesh.get(), (uint64)_material.get());
-}
 
 bool MeshRenderer::Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& distance)
 {
+	Super::Pick(screenX, screenY, pickPos, distance);
+	
 	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
 	Matrix V = cam->GetViewMatrix();
 	Matrix P = cam->GetProjectionMatrix();
@@ -208,4 +225,10 @@ bool MeshRenderer::Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& dist
 
 	return false;
 
+}
+
+
+InstanceID MeshRenderer::GetInstanceID()
+{
+	return make_pair((uint64)_mesh.get(), (uint64)_material.get());
 }

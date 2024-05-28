@@ -41,6 +41,7 @@ struct VertexOut
     float3 PosW : POS;
     float2 Tex : TEXCOORD;
     float2 BoundsY : TEXCOORD1;
+    float3 Normal : NORMAL;
 };
 
 VertexOut VS(VertexTerrain vin)
@@ -204,6 +205,7 @@ struct DomainOut
     float2 Tex : TEXCOORD;
     float2 TiledTex : TEXCOORD1;
     float4 Shadow : TEXCOORD2;
+    float3 Normal : NORMAL;
 };
 
 // The domain shader is called for every vertex created by the tessellator.  
@@ -231,6 +233,8 @@ DomainOut DS(PatchTess patchTess,
 
 	// Displacement mapping
     dout.PosW.y = HeightMap.SampleLevel(HeightmapSampler, dout.Tex, 0).r;
+    
+    dout.Normal = normalize(cross(quad[1].PosW - quad[0].PosW, quad[2].PosW - quad[0].PosW));
 
 	// NOTE: We tried computing the normal in the shader using finite difference, 
 	// but the vertices move continuously with fractional_even which creates

@@ -42,9 +42,6 @@
     <ClInclude Include="Main.h">
       <Filter>Main</Filter>
     </ClInclude>
-    <ClInclude Include="SceneDemo.h">
-      <Filter>EditorTools</Filter>
-    </ClInclude>
     <ClInclude Include="EditorTool.h">
       <Filter>EditorTools</Filter>
     </ClInclude>
@@ -72,7 +69,6 @@
     <ClInclude Include="LogWindow.h">
       <Filter>EditorWindow</Filter>
     </ClInclude>
-    <ClInclude Include="SceneGrid.h" />
     <ClInclude Include="AsConverter.h">
       <Filter>Utils</Filter>
     </ClInclude>
@@ -118,6 +114,12 @@
     <ClInclude Include="SceneCamera.h">
       <Filter>Components</Filter>
     </ClInclude>
+    <ClInclude Include="SceneGrid.h">
+      <Filter>Components</Filter>
+    </ClInclude>
+    <ClInclude Include="SkyCubeMap.h">
+      <Filter>Components</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -125,9 +127,6 @@
     </ClCompile>
     <ClCompile Include="Main.cpp">
       <Filter>Main</Filter>
-    </ClCompile>
-    <ClCompile Include="SceneDemo.cpp">
-      <Filter>EditorTools</Filter>
     </ClCompile>
     <ClCompile Include="EditorTool.cpp">
       <Filter>EditorTools</Filter>
@@ -153,7 +152,6 @@
     <ClCompile Include="LogWindow.cpp">
       <Filter>EditorWindow</Filter>
     </ClCompile>
-    <ClCompile Include="SceneGrid.cpp" />
     <ClCompile Include="AsConverter.cpp">
       <Filter>Utils</Filter>
     </ClCompile>
@@ -199,6 +197,12 @@
     <ClCompile Include="SceneCamera.cpp">
       <Filter>Components</Filter>
     </ClCompile>
+    <ClCompile Include="SkyCubeMap.cpp">
+      <Filter>Components</Filter>
+    </ClCompile>
+    <ClCompile Include="SceneGrid.cpp">
+      <Filter>Components</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="..\Shaders\24. RawBufferDemo.fx">
@@ -214,9 +218,6 @@
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="..\Shaders\28. BillBoardDemo.fx">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\29. SnowDemo.fx">
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="..\Shaders\00. Render.fx">

@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "MeshThumbnail.h"
 
+
 MeshThumbnail::MeshThumbnail(uint32 width, uint32 height)
 	: _width(width), _height(height)
 {
@@ -14,6 +15,26 @@ MeshThumbnail::MeshThumbnail(uint32 width, uint32 height)
 MeshThumbnail::~MeshThumbnail()
 {
 
+}
+
+void MeshThumbnail::Draw(vector<shared_ptr<Renderer>> renderers, Matrix V, Matrix P, shared_ptr<Light> light, vector<shared_ptr<class InstancingBuffer>> buffers)
+{
+	if (renderers.size() == 0 && light == nullptr)
+		return;
+
+	_vp.RSSetViewport();
+
+	Color color = Color(0.3f, 0.3f, 0.3f, 0.7f);
+
+	DCT->OMSetRenderTargets(1, _colorMapRTV.GetAddressOf(), _depthMapDSV.Get());
+	//	DCT->ClearRenderTargetView(_colorMapRTV.Get(), (float*)(&GAME->GetGameDesc().clearColor));
+	DCT->ClearRenderTargetView(_colorMapRTV.Get(), (float*)&color);
+	DCT->ClearDepthStencilView(_depthMapDSV.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1, 0);
+
+	for (int32 i = 0; i < renderers.size(); ++i)
+	{
+		renderers[i]->RenderThumbnail(0, V, P, light, buffers[i]);
+	}
 }
 
 void MeshThumbnail::CreateColorTexture()

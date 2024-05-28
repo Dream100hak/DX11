@@ -210,7 +210,7 @@ std::shared_ptr<class GameObject> Scene::MeshPick(int32 screenX, int32 screenY)
 		if (camera->IsCulled(gameObject->GetLayerIndex()))
 			continue;
 
-		if (gameObject->GetMeshRenderer() == nullptr)
+		if (gameObject->GetRenderer() == nullptr)
 			continue;
 
 		if(gameObject->GetSkyBox() != nullptr)
@@ -227,7 +227,8 @@ std::shared_ptr<class GameObject> Scene::MeshPick(int32 screenX, int32 screenY)
 
 		Vec3 pickPos;
 		float distance = 0.f;
-		if (gameObject->GetMeshRenderer()->Pick(screenX, screenY, OUT pickPos, OUT distance) == false)
+	
+		if (gameObject->GetRenderer()->Pick(screenX, screenY, OUT pickPos, OUT distance) == false)
 			continue;
 
 		if (distance < minDistance)
@@ -235,36 +236,6 @@ std::shared_ptr<class GameObject> Scene::MeshPick(int32 screenX, int32 screenY)
 			minDistance = distance;
 			picked = gameObject;
 		}
-	}
-
-	//MODEL 
-	for (auto& gameObject : gameObjects)
-	{
-		if (camera->IsCulled(gameObject->GetLayerIndex()))
-			continue;
-
-		if (gameObject->GetModelRenderer() == nullptr)
-			continue;
-
-		Vec4 rayOrigin = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
-		Vec4 rayDir = Vec4(viewX, viewY, 1.0f, 0.0f);
-
-		Vec3 worldRayOrigin = XMVector3TransformCoord(rayOrigin, viewMatrixInv);
-		Vec3 worldRayDir = XMVector3TransformNormal(rayDir, viewMatrixInv);
-		worldRayDir.Normalize();
-
-		Ray ray = Ray(worldRayOrigin, worldRayDir);
-
-		Vec3 pickPos;
-		float distance = 0.f;
-		if (gameObject->GetModelRenderer()->Pick(screenX, screenY, OUT pickPos, OUT distance) == false)
-			continue;
-
-		if (distance < minDistance)
-		{
-			minDistance = distance;
-			picked = gameObject;
-		}		
 	}
 
 	return picked;

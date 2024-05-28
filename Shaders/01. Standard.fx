@@ -2,85 +2,6 @@
 #include "00. Light.fx"
 #include "00. Render.fx"
 
-MeshOutput VS_MeshOutline(VertexMesh input)
-{
-    MeshOutput output;
-    
-    float outlineThickness = 0.4f;
-    
-    output.position = mul(input.position, input.world); // W
-    output.worldPosition = output.position;
-    output.position = mul(output.position, VP);
-    
-    if (input.isPicked == 1)
-    {
-        output.position.xy += outlineThickness * normalize(input.normal.xy);
-        float depthOffset = 0.001; // 적당한 깊이 오프셋 값 설정
-        output.position.z += depthOffset; // 깊이 오프셋 적용
-    }
-
-    
-    output.uv = input.uv;
-    output.normal = input.normal;
-    
-    return output;
-}
-
-MeshOutput VS_ModelOutline(VertexModel input)
-{
-   
-    MeshOutput output;
-    
-    float outlineThickness = 0.02f;
-
-    // 모델의 월드 공간에서 정점 위치 계산
-    float4 worldPosition = mul(input.position, BoneTransforms[BoneIndex]); // Bone Transform
-    worldPosition = mul(worldPosition, input.world); // Model's World Transform
-
-    // 아웃라인을 적용할 경우 월드 공간에서 두께 조절
-    if (input.isPicked == 1)
-    {
-        float3 normalWorld = normalize(mul(input.normal, (float3x3) input.world)); // World space normal
-        worldPosition.xyz += normalWorld * outlineThickness;
-    }
-
-    // 최종 화면 좌표계로 변환
-    output.position = mul(worldPosition, VP);
-
-    // 기타 속성 설정
-    output.uv = input.uv;
-    output.normal = input.normal;
-
-    return output;
-}
-
-MeshOutput VS_AnimationOutline(VertexModel input)
-{
-    MeshOutput output;
-    
-    float outlineThickness = 0.4f;
-
-    matrix m = GetAnimationMatrix(input);
-
-    output.position = mul(input.position, m);
-    output.position = mul(output.position, input.world); // W
-    output.worldPosition = output.position;
-    output.position = mul(output.position, VP);
-    
-    if (input.isPicked == 1)
-    {
-        output.position.xy += outlineThickness * normalize(input.normal.xy);
-    }
-
-    
-    output.uv = input.uv;
-    output.normal = mul(input.normal, (float3x3) input.world);
-    output.tangent = mul(input.tangent, (float3x3) input.world);
-
-    return output;
-}
-
-
 float4 PS_Default(MeshOutput input) : SV_TARGET
 {
 
@@ -145,10 +66,6 @@ float4 PS_Default(MeshOutput input) : SV_TARGET
     return litColor;
 }
 
-float4 PS_Outline(MeshOutput input) : SV_TARGET
-{
-    return float4(1.0f, 0.271f, 0.0f, 0.5f);
-}
 
 technique11 T0
 {
@@ -158,9 +75,9 @@ technique11 T0
 };
 technique11 T1
 {
-    PASS_VP(P0, VS_MeshOutline, PS_Outline)
-	PASS_VP(P1 , VS_ModelOutline, PS_Outline)
-	PASS_VP(P2, VS_AnimationOutline, PS_Outline)
+    PASS_VP(P0, VS_Mesh, PS_Default)
+	PASS_VP(P1, VS_Model, PS_Default)
+	PASS_VP(P2, VS_Animation, PS_Default)
 };
 technique11 T2
 {

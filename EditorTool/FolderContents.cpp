@@ -41,11 +41,11 @@ void FolderContents::Init()
 	if (_meshPreviewCamera == nullptr)
 	{
 		_meshPreviewCamera = make_shared<GameObject>();
-		_meshPreviewCamera->SetObjectName(L"Preview Cam");
 		_meshPreviewCamera->AddComponent(make_shared<Camera>());
 		_meshPreviewCamera->GetOrAddTransform()->SetPosition(Vec3(-1.5f, 1.f, -4.f));
 		_meshPreviewCamera->GetOrAddTransform()->SetRotation(Vec3(0.f, 0.35f, 0.f));
 		_meshPreviewCamera->GetCamera()->UpdateMatrix();
+
 	}
 
 	if(_meshPreviewLight == nullptr)
@@ -223,7 +223,8 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 		ImVec2 hiearchyPos = TOOL->GetEditorWindow(Utils::GetClassNameEX<Hiearchy>())->GetEWinPos();
 		ImVec2 hiearchySize = TOOL->GetEditorWindow(Utils::GetClassNameEX<Hiearchy>())->GetEWinSize();
 
-		Vec3 prevScale = obj->GetTransform()->GetLocalScale();
+		float prevScale = _meshScales[meta->fileFullPath + L'/' + meta->fileName];
+		float scaleRatio = prevScale * 6;
 
 		if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
 		{
@@ -263,7 +264,7 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 					if(terrain)
 						hitPoint.y = terrain->GetTerrain()->GetHeight(hitPoint.x, hitPoint.z);	
 
-					obj->GetTransform()->SetScale(Vec3(6,6,6));
+					obj->GetTransform()->SetScale(Vec3(scaleRatio));
 					obj->GetTransform()->SetPosition(hitPoint);
 				}
 
@@ -271,13 +272,13 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 			else if (IsMouseInGUIWindow(hiearchyPos, hiearchySize))
 			{
 				CUR_SCENE->Remove(obj);
-				obj->GetTransform()->SetScale(prevScale);
+				obj->GetTransform()->SetScale(Vec3(prevScale));
 				::SetCursor(LoadCursor(NULL, IDC_HAND));
 			}
 			else
 			{
 				CUR_SCENE->Remove(obj);
-				obj->GetTransform()->SetScale(prevScale);
+				obj->GetTransform()->SetScale(Vec3(prevScale));
 				::SetCursor(LoadCursor(NULL, IDC_NO));
 			}
 
@@ -401,11 +402,27 @@ void FolderContents::CreateModelPreviewObj(shared_ptr<MetaData>& meta)
 	obj->GetModelRenderer()->SetPass(1);
 
 	_meshPreviewObjs.insert(make_pair(meta->fileFullPath + L'/' + meta->fileName, obj));
+	_meshScales.insert(make_pair(meta->fileFullPath + L'/' + meta->fileName , scale));
 
 }
 
 void FolderContents::CreateMeshPreviewThumbnail(shared_ptr<MetaData>& meta , shared_ptr<GameObject>& obj)
 {
+	std::vector<shared_ptr<Renderer>> renderers;
+	std::vector<shared_ptr<InstancingBuffer>> buffers;
+
+	switch (meta->metaType)
+	{
+	case MATERIAL:
+		
+		renderers.push_back(obj->GetMeshRenderer());
+		break;
+	case MESH:
+
+		renderers.push_back(obj->GetModelRenderer());
+		break;
+	}
+
 	shared_ptr<MeshThumbnail> thumbnail = nullptr;
 	thumbnail = make_shared<MeshThumbnail>(1024, 1024);
 
@@ -415,23 +432,15 @@ void FolderContents::CreateMeshPreviewThumbnail(shared_ptr<MetaData>& meta , sha
 	shared_ptr<InstancingBuffer> buffer = make_shared<InstancingBuffer>();
 	buffer->AddData(data);
 
-	switch (meta->metaType)
+	buffers.push_back(buffer);
+
+	Matrix V = _meshPreviewCamera->GetCamera()->GetViewMatrix();
+	Matrix P = _meshPreviewCamera->GetCamera()->GetProjectionMatrix();
+
+	JOB_POST_RENDER->DoPush([=]()
 	{
-		case MATERIAL:
-
-			JOB_POST_RENDER->DoPush([=]()
-			{		
-				thumbnail->Draw(obj->GetMeshRenderer(), _meshPreviewCamera->GetCamera(), _meshPreviewLight->GetLight() , buffer);
-			});
-			break;
-		case MESH:
-
-			JOB_POST_RENDER->DoPush([=]()
-			{
-				thumbnail->Draw(obj->GetModelRenderer(), _meshPreviewCamera->GetCamera(), _meshPreviewLight->GetLight(),  buffer);
-			});
-			break;
-	}
+		thumbnail->Draw(renderers, V , P , _meshPreviewLight->GetLight(), buffers);
+	});
 
 	_meshPreviewthumbnails.insert(make_pair(meta->fileFullPath + L'/' + meta->fileName, thumbnail));
 

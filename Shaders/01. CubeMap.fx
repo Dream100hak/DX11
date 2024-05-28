@@ -1,6 +1,7 @@
 #include "00. Global.fx"
 #include "00. Light.fx"
 
+TextureCube CubeMap;
 
 struct VS_OUT
 {

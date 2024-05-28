@@ -26,7 +26,7 @@ public:
 	static void CreateAABB(shared_ptr<Geometry<VertexColorData>> geometry, Color color, const BoundingBox& aabb);
 	static void CreateOBB(shared_ptr<Geometry<VertexColorData>> geometry , Color color , const BoundingOrientedBox& obb);
 	
-	static void CreateSceneGrid(shared_ptr<Geometry<VertexColorData>> geometry, Color color );
+	static void CreateSceneGrid(shared_ptr<Geometry<VertexTextureData>> geometry, int32 gridCount = 100, float gridSize = 2.f);
 };
 
                                            

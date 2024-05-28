@@ -149,7 +149,7 @@ int32 ImGuiManager::CreateModelMesh(shared_ptr<Model> model, Vec3 position /*= V
 	if (modelScale > 10.f)
 		modelScale = globalScale;
 
-	float scale = globalScale / modelScale;
+	float scale = (globalScale / modelScale) * 6;
 
 	wstring name;
 	name = FindEmptyName(CreatedObjType::MODEL);

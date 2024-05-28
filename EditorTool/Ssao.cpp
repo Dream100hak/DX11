@@ -4,6 +4,7 @@
 #include "Camera.h"
 #include "GeometryHelper.h"
 #include "ModelRenderer.h"
+#include "Terrain.h"
 
 Ssao::Ssao(int32 width, int32 height, float fovy, float farZ)
 {
@@ -348,14 +349,17 @@ void Ssao::Draw()
 
 	vector<shared_ptr<GameObject>> vecForward;
 
+	shared_ptr<Terrain> terrain = nullptr;
+
 	for (auto& gameObject : gameObjects)
 	{
+		if (gameObject->GetTerrain() != nullptr)
+			terrain = gameObject->GetTerrain();
+
 		if (camera->IsCulled(gameObject->GetLayerIndex()))
 			continue;
 
-		if (gameObject->GetMeshRenderer() == nullptr
-			&& gameObject->GetModelRenderer() == nullptr
-			&& gameObject->GetModelAnimator() == nullptr)
+		if (gameObject->GetRenderer() == nullptr)
 			continue;
 
 		if(gameObject->GetSkyBox())
@@ -372,6 +376,9 @@ void Ssao::Draw()
 	
 	SetNormalDepthRenderTarget(GRAPHICS->GetDsv());
 	INSTANCING->Render(0, shader, V, P, light, vecForward);
+
+	if (terrain)
+		terrain->TerrainRendererNotPS(shader , V , P);
 
 	/////////////////////////////////////////////////////////
 	ComputeSsao(P);

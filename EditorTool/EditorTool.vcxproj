@@ -38,12 +38,12 @@
     <ClInclude Include="Inspector.h" />
     <ClInclude Include="Main.h" />
     <ClInclude Include="pch.h" />
-    <ClInclude Include="SceneDemo.h" />
     <ClInclude Include="SceneGrid.h" />
     <ClInclude Include="SceneWindow.h" />
     <ClInclude Include="ShadowMap.h" />
     <ClInclude Include="ShortcutManager.h" />
     <ClInclude Include="SimpleGrid.h" />
+    <ClInclude Include="SkyCubeMap.h" />
     <ClInclude Include="Ssao.h" />
     <ClInclude Include="TextureManager.h" />
     <ClInclude Include="TextureRenderer.h" />
@@ -71,12 +71,12 @@
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="SceneDemo.cpp" />
     <ClCompile Include="SceneGrid.cpp" />
     <ClCompile Include="SceneWindow.cpp" />
     <ClCompile Include="ShadowMap.cpp" />
     <ClCompile Include="ShortcutManager.cpp" />
     <ClCompile Include="SimpleGrid.cpp" />
+    <ClCompile Include="SkyCubeMap.cpp" />
     <ClCompile Include="Ssao.cpp" />
     <ClCompile Include="TextureManager.cpp" />
     <ClCompile Include="TextureRenderer.cpp" />
@@ -191,12 +191,6 @@
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
     </FxCompile>
     <FxCompile Include="..\Shaders\28. BillBoardDemo.fx">
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-      </EntryPointName>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\29. SnowDemo.fx">
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
       </EntryPointName>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>

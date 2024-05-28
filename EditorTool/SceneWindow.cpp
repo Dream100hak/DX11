@@ -49,6 +49,9 @@ void SceneWindow::ShowSceneWindow()
 	auto& prviewObjs = 
 		static_pointer_cast<FolderContents>(TOOL->GetEditorWindow(Utils::GetClassNameEX<FolderContents>()))->GetMeshPreviewObjs();
 
+	auto& scales =
+		static_pointer_cast<FolderContents>(TOOL->GetEditorWindow(Utils::GetClassNameEX<FolderContents>()))->GetMeshScales();
+
 	ImVec2 scenePos(GAME->GetSceneDesc().x, GAME->GetSceneDesc().y);
 	ImVec2 sceneSize(GAME->GetSceneDesc().width, GAME->GetSceneDesc().height);
 
@@ -62,7 +65,10 @@ void SceneWindow::ShowSceneWindow()
 			shared_ptr<GameObject> obj =  prviewObjs[droppedMesh->fileFullPath + L"/" + droppedMesh->fileName];
 			CUR_SCENE->Remove(obj);
 		
-			auto model = RESOURCES->Get<Model>(droppedMesh->fileFullPath + L"/" + droppedMesh->fileName);
+			shared_ptr<Model> model = make_shared<Model>();
+			wstring modelName = droppedMesh->fileName.substr(0, droppedMesh->fileName.find('.'));
+			model->ReadModel(modelName + L'/' + modelName);
+			model->ReadMaterial(modelName + L'/' + modelName);
 
 			int32 id = GUI->CreateModelMesh(model , obj->GetTransform()->GetPosition());
 			CUR_SCENE->UnPickAll();
@@ -71,7 +77,8 @@ void SceneWindow::ShowSceneWindow()
 			shared_ptr<GameObject> makeObj = CUR_SCENE->GetCreatedObject(id);
 			CUR_SCENE->GetCreatedObject(id)->SetUIPicked(true);
 
-			CUR_SCENE->GetCreatedObject(id)->GetTransform()->SetScale(Vec3(6,6,6));
+			//float scale = scales[droppedMesh->fileFullPath + L"/" + droppedMesh->fileName];
+			//CUR_SCENE->GetCreatedObject(id)->GetTransform()->SetScale(Vec3(scale * 6));
 
 			ADDLOG("Create Object : " + Utils::ToString(droppedMesh->fileName) , LogFilter::Warn);
 			SetCursor(LoadCursor(NULL, IDC_ARROW));

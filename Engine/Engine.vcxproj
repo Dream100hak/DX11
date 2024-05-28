@@ -164,10 +164,8 @@
     <ClInclude Include="EnginePch.h" />
     <ClInclude Include="Job.h" />
     <ClInclude Include="JobQueue.h" />
-    <ClInclude Include="JobTimer.h" />
     <ClInclude Include="ProjectManager.h" />
     <ClInclude Include="FileUtils.h" />
-    <ClInclude Include="Frustum.h" />
     <ClInclude Include="Game.h" />
     <ClInclude Include="GameObject.h" />
     <ClInclude Include="Geometry.h" />
@@ -203,6 +201,7 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="Primitive3D.h" />
     <ClInclude Include="RawBuffer.h" />
+    <ClInclude Include="Renderer.h" />
     <ClInclude Include="ResourceBase.h" />
     <ClInclude Include="ResourceManager.h" />
     <ClInclude Include="Scene.h" />
@@ -239,10 +238,8 @@
     <ClCompile Include="Engine.cpp" />
     <ClCompile Include="Job.cpp" />
     <ClCompile Include="JobQueue.cpp" />
-    <ClCompile Include="JobTimer.cpp" />
     <ClCompile Include="ProjectManager.cpp" />
     <ClCompile Include="FileUtils.cpp" />
-    <ClCompile Include="Frustum.cpp" />
     <ClCompile Include="Game.cpp" />
     <ClCompile Include="GameObject.cpp" />
     <ClCompile Include="Geometry.cpp" />
@@ -296,6 +293,7 @@
     </ClCompile>
     <ClCompile Include="Primitive3D.cpp" />
     <ClCompile Include="RawBuffer.cpp" />
+    <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="ResourceBase.cpp" />
     <ClCompile Include="ResourceManager.cpp" />
     <ClCompile Include="Scene.cpp" />

@@ -53,8 +53,8 @@ public:
 	float GetHeight(float x, float z) const;
 	shared_ptr<Texture> GetLayerMap() { return _layerMapArray; }
 
-	void TerrainRenderer(shared_ptr<Shader> shader);
-	void TerrainRendererNotPS(shared_ptr<Shader> shader);
+	void TerrainRenderer(shared_ptr<Shader> shader , Matrix V , Matrix P);
+	void TerrainRendererNotPS(shared_ptr<Shader> shader, Matrix V, Matrix P);
 
 private:
 	

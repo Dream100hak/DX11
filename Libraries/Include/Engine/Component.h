@@ -8,8 +8,7 @@ class Transform;
 enum class ComponentType : uint8
 {
 	Transform,
-	MeshRenderer,
-	ModelRenderer,
+	Renderer,
 	Camera,
 	Animator,
 	Light,
@@ -24,7 +23,7 @@ enum class ComponentType : uint8
 	End,
 };
 
-BOOST_DESCRIBE_ENUM(ComponentType , Transform , MeshRenderer , ModelRenderer, Camera, Animator, Light , Collider , Terrain, Button, BillBoard, SkyBox)
+BOOST_DESCRIBE_ENUM(ComponentType , Transform , Renderer, Camera, Animator, Light , Collider , Terrain, Button, BillBoard, SkyBox)
 
 enum
 {
@@ -37,10 +36,8 @@ public:
 	Component(ComponentType type);
 	virtual ~Component();
 
-	virtual void OnInspectorGUI()
-	{
-		
-	}
+	virtual void OnInspectorGUI() {}
+
 
 public:
 

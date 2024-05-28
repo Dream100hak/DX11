@@ -14,27 +14,29 @@ void InstancingManager::Render(int32 tech, shared_ptr<Shader> shader , Matrix V,
 {
 	ClearData();
 
-	RenderMeshRenderer(tech, shader , V , P , light,  gameObjects);
-	RenderModelRenderer(tech, shader, V, P, light,  gameObjects);
+	RenderStaticObject(tech, shader, V, P, light, gameObjects);
 	RenderAnimRenderer(tech, shader, V, P, light,  gameObjects);
-
 }
 
-void InstancingManager::RenderMeshRenderer(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light,  vector<shared_ptr<GameObject>>& gameObjects)
+
+void InstancingManager::RenderStaticObject(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, vector<shared_ptr<GameObject>>& gameObjects)
 {
 	map<InstanceID, vector<shared_ptr<GameObject>>> cache;
 
 	for (shared_ptr<GameObject>& gameObject : gameObjects)
 	{
-		if (gameObject->GetMeshRenderer() == nullptr)
+		if (gameObject->GetRenderer() == nullptr)
 			continue;
-			
+
+		if (gameObject->GetRenderer()->GetRenderType() == RendererType::Animator)
+			continue;
+
 		if (gameObject->GetSkyBox() != nullptr)
 		{
-			tech = 0; 
+			tech = 0;
 		}
-	
-		const InstanceID instanceId = gameObject->GetMeshRenderer()->GetInstanceID();
+
+		const InstanceID instanceId = gameObject->GetRenderer()->GetInstanceID();
 		cache[instanceId].push_back(gameObject);
 	}
 
@@ -54,47 +56,11 @@ void InstancingManager::RenderMeshRenderer(int32 tech, shared_ptr<Shader> shader
 			}
 
 			shared_ptr<InstancingBuffer>& buffer = _buffers[instanceId];
-			vec[0]->GetMeshRenderer()->RenderInstancing(tech , shader, V, P, light, buffer);
+			vec[0]->GetRenderer()->RenderInstancing(tech, shader, V, P, light, buffer);
 		}
 	}
 }
 
-
-void InstancingManager::RenderModelRenderer(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light,  vector<shared_ptr<GameObject>>& gameObjects)
-{
-
-	map<InstanceID, vector<shared_ptr<GameObject>>> cache;
-
-	for (shared_ptr<GameObject>& gameObject : gameObjects)
-	{
-		if (gameObject->GetModelRenderer() == nullptr)
-			continue;
-
-		const InstanceID instanceId = gameObject->GetModelRenderer()->GetInstanceID();
-		cache[instanceId].push_back(gameObject);
-	}
-
-	for (auto& pair : cache)
-	{
-		const vector<shared_ptr<GameObject>>& vec = pair.second;
-		{
-			const InstanceID instanceId = pair.first;
-
-			for (int32 i = 0; i < vec.size(); i++)
-			{
-				const shared_ptr<GameObject>& gameObject = vec[i];
-				InstancingData data;
-				data.world = gameObject->GetTransform()->GetWorldMatrix();
-				data.isPicked = gameObject->GetUIPicked() ? 1 : 0;
-				AddData(instanceId, data);
-			}
-
-			shared_ptr<InstancingBuffer>& buffer = _buffers[instanceId];
-			vec[0]->GetModelRenderer()->RenderInstancing(tech, shader,V , P ,light, buffer);
-		
-		}
-	}
-}
 
 void InstancingManager::RenderAnimRenderer(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light,  vector<shared_ptr<GameObject>>& gameObjects)
 {
@@ -102,7 +68,10 @@ void InstancingManager::RenderAnimRenderer(int32 tech, shared_ptr<Shader> shader
 
 	for (shared_ptr<GameObject>& gameObject : gameObjects)
 	{
-		if (gameObject->GetModelAnimator() == nullptr)
+		if (gameObject->GetRenderer() == nullptr)
+			continue;
+
+		if(gameObject->GetRenderer()->GetRenderType() != RendererType::Animator)
 			continue;
 
 		const InstanceID instanceId = gameObject->GetModelAnimator()->GetInstanceID();
@@ -134,7 +103,7 @@ void InstancingManager::RenderAnimRenderer(int32 tech, shared_ptr<Shader> shader
 			vec[0]->GetModelAnimator()->GetShader()->PushTweenData(*tweenDesc.get());
 
 			shared_ptr<InstancingBuffer>& buffer = _buffers[instanceId];
-			vec[0]->GetModelAnimator()->RenderInstancing(tech, buffer);
+			vec[0]->GetModelAnimator()->RenderInstancing(tech, shader, V, P, light, buffer);
 		}
 	}
 }

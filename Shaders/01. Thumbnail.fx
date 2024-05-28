@@ -6,7 +6,7 @@ float4 PS(MeshOutput input) : SV_TARGET
 {
     float3 lightDirection = normalize(float3(0.0, -1.0, 0.0)); // 상단에서 아래로
     float3 lightColor = float3(0.3f, 0.3f, 0.3f); // 흰색 광원
-    float lightIntensity = 1.0;
+    float lightIntensity = 1.0f;
 
     float3 normal = normalize(input.normal);
 
@@ -24,7 +24,7 @@ float4 PS_TEX(MeshOutput input) : SV_TARGET
 {
     float3 lightDirection = normalize(float3(0.0, -1.0, 0.0)); // 상단에서 아래로
     float3 lightColor = float3(0.3f, 0.3f, 0.3f); // 흰색 광원
-    float lightIntensity = 1.0;
+    float lightIntensity = 1.0f;
 
     float3 normal = normalize(input.normal);
 

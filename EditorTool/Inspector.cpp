@@ -20,10 +20,13 @@
 #include "Material.h"
 #include "MeshThumbnail.h"
 
+#include "SimpleGrid.h"
+
 #include "FolderContents.h"
 #include "Utils.h"
 
 #include "SceneGrid.h"
+#include "SkyCubeMap.h"
 
 Inspector::Inspector(Vec2 pos, Vec2 size)
 {
@@ -36,8 +39,63 @@ Inspector::~Inspector()
 
 void Inspector::Init()
 {
-	auto grid = RESOURCES->Load<Texture>(L"Grid", L"..\\Resources\\Assets\\Textures\\Grid.png");
-	auto obj = RESOURCES->Load<Texture>(L"ObjIcon", L"..\\Resources\\Assets\\Textures\\Obj.png");
+	RESOURCES->Load<Texture>(L"Grid", L"..\\Resources\\Assets\\Textures\\Grid.png");
+	RESOURCES->Load<Texture>(L"ObjIcon", L"..\\Resources\\Assets\\Textures\\Obj.png");
+
+	if (_meshPreviewCamera == nullptr)
+	{
+		_meshPreviewCamera = make_shared<GameObject>();
+		_meshPreviewCamera->AddComponent(make_shared<Camera>());
+		_meshPreviewCamera->GetOrAddTransform()->SetPosition(Vec3(-1.5f, 1.f, -4.f));
+		_meshPreviewCamera->GetOrAddTransform()->SetRotation(Vec3(0.f, 0.35f, 0.f));
+		_meshPreviewCamera->GetCamera()->UpdateMatrix();
+
+	}
+
+	if (_meshPreviewLight == nullptr)
+	{
+		_meshPreviewLight = make_shared<GameObject>();
+		_meshPreviewLight->GetOrAddTransform()->SetRotation(Vec3(-0.57735f, -0.57735f, 0.57735f));
+		_meshPreviewLight->AddComponent(make_shared<Light>());
+		LightDesc lightDesc;
+
+		lightDesc.ambient = Vec4(1.f, 1.0f, 1.0f, 1.0f);
+		lightDesc.diffuse = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+		lightDesc.specular = Vec4(0.8f, 0.8f, 0.7f, 1.0f);
+		lightDesc.direction = _meshPreviewLight->GetTransform()->GetRotation();
+		_meshPreviewLight->GetLight()->SetLightDesc(lightDesc);
+	}
+
+	if (_simpleGrid == nullptr)
+	{
+		_simpleGrid = make_shared<GameObject>();
+		_simpleGrid->AddComponent(make_shared<SimpleGrid>());
+		_simpleGrid->GetOrAddTransform()->SetPosition(Vec3(-10.f, 0 , -10.f));
+		auto mat = RESOURCES->Get<Material>(L"DefaultMaterial");
+		mat->GetMaterialDesc().useTexture = false;
+		mat->GetMaterialDesc().diffuse = Color(0.7f, 0.7f, 0.7f , 0.7f);
+		_simpleGrid->GetComponent<SimpleGrid>()->Create(50,50 ,mat->Clone());
+
+	}
+
+	if(_sceneGrid == nullptr)
+	{
+		_sceneGrid = make_shared<GameObject>();
+		_sceneGrid->GetOrAddTransform()->SetPosition(Vec3{ 0.f, 0.f, 0.f });
+		_sceneGrid->GetOrAddTransform()->SetRotation(Vec3{ 0.f, 0.25f, 0.f });
+		_sceneGrid->AddComponent(make_shared<SceneGrid>());
+		_sceneGrid->GetComponent<SceneGrid>()->Init();
+	}
+
+	if (_skyBox == nullptr)
+	{
+		_skyBox = make_shared<GameObject>();
+		_skyBox->GetOrAddTransform()->SetPosition(Vec3::Zero);
+		_skyBox->AddComponent(make_shared<SkyCubeMap>());
+		_skyBox->GetComponent<SkyCubeMap>()->Init(L"../Resources/Assets/Textures/desertcube1024.dds");
+	}
+
+
 }
 
 void Inspector::Update()
@@ -162,7 +220,7 @@ void Inspector::ShowInfoHiearchy()
 		if (ImGui::BeginMenu("FixedComponent"))
 		{
 			std::vector<ComponentType> compTypes = {
-				ComponentType::MeshRenderer,
+				ComponentType::Renderer,
 				ComponentType::Camera, 
 				ComponentType::Light,
 				ComponentType::Collider,
@@ -181,7 +239,7 @@ void Inspector::ShowInfoHiearchy()
 				{
 					switch (componentType)
 					{
-						case ComponentType::MeshRenderer: go->AddComponent(make_shared<MeshRenderer>());
+						case ComponentType::Renderer: go->AddComponent(make_shared<MeshRenderer>());
 							break;
 						case ComponentType::Camera: go->AddComponent(make_shared<Camera>());
 							break;
@@ -252,6 +310,8 @@ void Inspector::ShowComponentInfo(shared_ptr<Component> component, string name)
 	ImGui::Separator();
 	
 }
+
+
 
 
 void Inspector::ShowInfoProject()
@@ -354,14 +414,23 @@ void Inspector::ShowInfoProject()
 
 		if (changed)
 		{
+			std::vector<shared_ptr<Renderer>> renderers;
+			std::vector<shared_ptr<InstancingBuffer>> buffers;
+
+			renderers.push_back(obj->GetMeshRenderer());
+
+			InstancingData data;
+			data.world = obj->GetTransform()->GetWorldMatrix();
+			shared_ptr<InstancingBuffer> buffer = make_shared<InstancingBuffer>();
+			buffer->AddData(data);
+			buffers.push_back(buffer);
+
+			Matrix V = cam->GetViewMatrix();
+			Matrix P = cam->GetProjectionMatrix();
+
 			JOB_POST_RENDER->DoPush([=]()
 			{
-				InstancingData data;
-				data.world = obj->GetTransform()->GetWorldMatrix();
-				shared_ptr<InstancingBuffer> buffer = make_shared<InstancingBuffer>();
-				buffer->AddData(data);
-
-				thumbnail->Draw(obj->GetMeshRenderer(), cam, light, buffer);
+				thumbnail->Draw(renderers, V , P, light, buffers);
 			});
 		}
 	}
@@ -369,14 +438,89 @@ void Inspector::ShowInfoProject()
 	// 메시 파일 처리
 	else if (metaData->metaType == MetaType::MESH)
 	{
+
+		//TODO : DRAW Inspector Mesh 
+		if (_previewObjName != metaData->fileName)
+		{
+			CreateMeshPreviewObj();
+			DrawInspectorMesh();
+			_previewObjName = metaData->fileName;
+		}
+
 		ImGui::Dummy(ImVec2(0, 50.f));
 		ImGui::SeparatorText("Mesh Preview");
-		ImGui::Image(icon, ImVec2(373, 400));
-
+		ImGui::Image(_meshthumbnail->GetComPtr().Get(), ImVec2(373, 373));
 	}
 
 	ImGui::Separator();
 
+}
+
+void Inspector::CreateMeshPreviewObj()
+{
+	shared_ptr<MetaData> metaData = SELECTED_P;
+
+	auto shader = RESOURCES->Get<Shader>(L"Thumbnail");
+	auto model = RESOURCES->Get<Model>(metaData->fileFullPath + L'/' + metaData->fileName);
+
+	BoundingBox box = model->CalculateModelBoundingBox();
+	_meshPreviewObj = make_shared<GameObject>();
+
+	float modelScale = max(max(box.Extents.x, box.Extents.y), box.Extents.z) * 2.0f;
+	float globalScale = MODEL_GLOBAL_SCALE;
+
+	if (modelScale > 10.f)
+		modelScale = globalScale;
+
+	float scale = globalScale / modelScale;
+
+	_meshPreviewObj->GetOrAddTransform()->SetPosition(Vec3::Zero);
+	_meshPreviewObj->GetOrAddTransform()->SetRotation(Vec3(0.f, 0.f, 0.f));
+	_meshPreviewObj->GetOrAddTransform()->SetScale(Vec3(scale, scale, scale));
+
+	_meshPreviewObj->AddComponent(make_shared<ModelRenderer>(shader));
+	_meshPreviewObj->GetModelRenderer()->SetModel(model);
+	_meshPreviewObj->GetModelRenderer()->SetPass(1);
+
+}
+
+
+void Inspector::DrawInspectorMesh()
+{
+	shared_ptr<MetaData> metaData = SELECTED_P;
+	
+	_meshthumbnail = make_shared<MeshThumbnail>(512, 512);
+
+	std::vector<shared_ptr<Renderer>> renderers;
+	std::vector<shared_ptr<InstancingBuffer>> buffers;
+
+	renderers.push_back(_meshPreviewObj->GetRenderer());
+	//renderers.push_back(_simpleGrid->GetRenderer());
+
+	renderers.push_back(_sceneGrid->GetRenderer());
+	//renderers.push_back(_skyBox->GetRenderer());
+
+	for (int32 i = 0; i < renderers.size() ; i++)
+	{
+		InstancingData data;
+		data.world = renderers[i]->GetTransform()->GetWorldMatrix();
+		data.isPicked = renderers[i]->GetGameObject()->GetUIPicked() ? 1 : 0;
+		shared_ptr<InstancingBuffer> buffer = make_shared<InstancingBuffer>();
+		buffer->AddData(data);
+		buffers.push_back(buffer);
+	}
+
+	//SKy는 그냥 인스턴싱 없이 렌더링
+//	shared_ptr<InstancingBuffer> buffer = nullptr;
+//	buffers.push_back(buffer);
+
+	Matrix V = _meshPreviewCamera->GetCamera()->GetViewMatrix();
+	Matrix P = _meshPreviewCamera->GetCamera()->GetProjectionMatrix();
+
+	JOB_POST_RENDER->DoPush([=]()
+	{
+		_meshthumbnail->Draw(renderers, V ,P, _meshPreviewLight->GetLight(), buffers);
+	});
 }
 
 void Inspector::PickMaterialTexture(string textureType , OUT bool& changed)
@@ -452,6 +596,7 @@ void Inspector::PickMaterialTexture(string textureType , OUT bool& changed)
 	ImGui::EndGroup();
 }
 
+
 ID3D11ShaderResourceView* Inspector::GetMetaFileIcon()
 {	
 	shared_ptr<MetaData> metaData = SELECTED_P;
@@ -471,7 +616,10 @@ ID3D11ShaderResourceView* Inspector::GetMetaFileIcon()
 			srv = RESOURCES->GetOrAddTexture(L"FILE_" + metaData->fileName, metaData->fileFullPath + L"\\" + metaData->fileName)->GetComPtr().Get();
 			break;
 		case MATERIAL:
+			srv = GetMeshThumbnail()->GetComPtr().Get();
+			break;
 		case MESH:		
+			
 			srv = GetMeshThumbnail()->GetComPtr().Get();
 			break;
 		case TEXT:

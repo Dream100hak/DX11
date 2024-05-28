@@ -34,6 +34,7 @@
 
 #include "Ssao.h"
 #include "ParticleSystem.h"
+#include "SkyCubeMap.h"
 
 #include "Hiearchy.h"
 
@@ -42,22 +43,23 @@ void EditorTool::Init()
 	
 	shared_ptr<AsConverter> converter = make_shared<AsConverter>();
 
-	converter->ReadAssetFile(L"Kachujin/Mesh.fbx");
-	converter->ExportMaterialDataByXml(L"Kachujin/Kachujin");
-	converter->ExportModelData(L"Kachujin/Kachujin");
+	//converter->ReadAssetFile(L"Kachujin/Mesh.fbx");
+	//converter->ExportMaterialDataByXml(L"Kachujin/Kachujin");
+	//converter->ExportModelData(L"Kachujin/Kachujin");
 
 	GET_SINGLE(ShortcutManager)->Init();
 	GET_SINGLE(EditorToolManager)->Init();
 
-
 	_sceneCam = make_shared<SceneCamera>();
-	auto shader = RESOURCES->Get<Shader>(L"Standard");
 
 	shared_ptr<GameObject> sceneCamera = make_shared<GameObject>();
 	sceneCamera->SetObjectName(L"Game Camera");
 	sceneCamera->GetOrAddTransform()->SetPosition(Vec3{ 181.f, 26.521f, -25.599f });
-
 	sceneCamera->GetOrAddTransform()->SetRotation(Vec3{ 0.381f, -0.784f, 0.f });
+
+	//sceneCamera->GetOrAddTransform()->SetPosition(Vec3(-1.5f, 1.f, -4.f));
+	//sceneCamera->GetOrAddTransform()->SetRotation(Vec3(0.f, 0.35f, 0.f));
+
 	sceneCamera->AddComponent(make_shared<Camera>());
 	sceneCamera->GetCamera()->SetCullingMaskLayerOnOff(LayerMask::UI, true);
 	sceneCamera->AddComponent(_sceneCam);
@@ -65,6 +67,51 @@ void EditorTool::Init()
 
 	GET_SINGLE(TextureManager)->Init();
 
+	auto shader = RESOURCES->Get<Shader>(L"Standard");
+
+	{
+		//auto simpleGrid = make_shared<GameObject>();
+		//simpleGrid->SetObjectName(L"grid");
+		//simpleGrid->AddComponent(make_shared<SimpleGrid>());
+		//simpleGrid->GetOrAddTransform()->SetPosition(Vec3(-10.f, 0, -10.f));
+		//auto mat = RESOURCES->Get<Material>(L"DefaultMaterial");
+		//mat->GetMaterialDesc().useTexture = false;
+		//simpleGrid->GetComponent<SimpleGrid>()->Create(50, 50, mat->Clone());
+		//CUR_SCENE->Add(simpleGrid);
+	}
+	{
+
+		/*shared_ptr<class Model> m2 = make_shared<Model>();
+		m2->ReadModel(L"Kachujin/Kachujin");
+		m2->ReadMaterial(L"Kachujin/Kachujin");
+
+		int32 cnt = 1;
+		
+		auto obj = make_shared<GameObject>();
+		wstring name = L"Ani_" + to_wstring(cnt++);
+		obj->SetObjectName(name);
+
+		obj->AddComponent(make_shared<ModelRenderer>(shader));
+		BoundingBox box = m2->CalculateModelBoundingBox();
+
+		float modelScale = max(max(box.Extents.x, box.Extents.y), box.Extents.z) * 2.0f;
+		float globalScale = MODEL_GLOBAL_SCALE;
+
+		if (modelScale > 10.f)
+			modelScale = globalScale;
+
+		float scale = (globalScale / modelScale) * 0.1f;
+
+		obj->GetOrAddTransform()->SetPosition(Vec3(150.f, 0.f, -20.f));
+		obj->GetOrAddTransform()->SetRotation(Vec3::Zero);
+		obj->GetOrAddTransform()->SetScale(Vec3(scale, scale, scale));
+
+		obj->AddComponent(make_shared<ModelRenderer>(shader));
+		obj->GetModelRenderer()->SetModel(m2);
+		obj->GetModelRenderer()->SetPass(1);
+
+		CUR_SCENE->Add(obj);*/
+	}
 
 	shared_ptr<Hiearchy> hieachy = static_pointer_cast<Hiearchy>(TOOL->GetEditorWindow(Utils::GetClassNameEX<Hiearchy>()));
 
@@ -84,14 +131,6 @@ void EditorTool::Init()
 			CUR_SCENE->Add(uiCamera);*/
 	}
 
-	{
-	/*	shared_ptr<GameObject> grid = make_shared<GameObject>();
-		grid->SetObjectName(L"Scene Grid");
-		grid->GetOrAddTransform()->SetPosition(Vec3{ 0.f, 0.f, 0.f });
-		grid->AddComponent(make_shared<SceneGrid>(MAIN_CAM));
-		CUR_SCENE->Add(grid);*/
-	}
-	
 	{
 		//// Light
 		auto light = make_shared<GameObject>();
@@ -113,24 +152,12 @@ void EditorTool::Init()
 		hieachy->CreateSky();
 	}
 
-	{
-		//auto obj = make_shared<GameObject>();
-		//obj->SetObjectName(L"Simple Grid");
-		//obj->GetOrAddTransform()->SetPosition(Vec3(-15.f, 0.f, -15.f));
-		//obj->AddComponent(make_shared<SimpleGrid>());
-
-		//auto mat = RESOURCES->Get<Material>(L"DefaultMaterial");
-
-		//obj->GetComponent<SimpleGrid>()->Create(50,50 ,mat->Clone());
-		//CUR_SCENE->Add(obj);
-	}
-
 	// Model
 
 		auto terrainObj = make_shared<GameObject>();
 		terrainObj->SetObjectName(L"Terrain");
-		terrainObj->GetOrAddTransform()->SetPosition(Vec3::Zero);
 		terrainObj->AddComponent(make_shared<Terrain>());
+
 
 		TerrainInfo info{};
 
@@ -148,48 +175,41 @@ void EditorTool::Init()
 		info.cellSpacing = 0.5f;
 
 		auto mat = RESOURCES->Get<Material>(L"DefaultMaterial");
-		shared_ptr<Material> matClone = mat->Clone();
 
-		auto& shadow = TEXTURE->GetShadowMap();
-		matClone->SetShadowMap(static_pointer_cast<Texture>(shadow));
+		shared_ptr<Material> matClone = mat->Clone();
+		//matClone->SetShadowMap(static_pointer_cast<Texture>(shadow));
 		terrainObj->GetComponent<Terrain>()->Init(info, matClone);
 
 		CUR_SCENE->Add(terrainObj);
 
-		shared_ptr<class Model> m2 = make_shared<Model>();
-		m2->ReadModel(L"Kachujin/Kachujin");
-		m2->ReadMaterial(L"Kachujin/Kachujin");
+		//shared_ptr<class Model> m2 = make_shared<Model>();
+		//m2->ReadModel(L"Kachujin/Kachujin");
+		//m2->ReadMaterial(L"Kachujin/Kachujin");
 
-		for (int i = 130; i < 140; i++)
-		{
-			auto obj = make_shared<GameObject>();
-			wstring name = L"Model_" + to_wstring(i);
-			obj->SetObjectName(name);
+		//for (int i = 130; i < 140; i++)
+		//{
+		//	auto obj = make_shared<GameObject>();
+		//	wstring name = L"Model_" + to_wstring(i);
+		//	obj->SetObjectName(name);
 
-			float randX = MathUtils::Random(100.f,200.f);
-			float randZ = MathUtils::Random(-20.f, 20.f);
-			float y = 0.f;
+		//	float randX = MathUtils::Random(100.f,200.f);
+		//	float randZ = MathUtils::Random(-20.f, 20.f);
+		//	float y = 0.f;
 
-			if (terrainObj->GetComponent<Terrain>() != nullptr)
-			{
-				y = terrainObj->GetComponent<Terrain>()->GetHeight(randX, randZ);
-			}
+		//	if (terrainObj->GetComponent<Terrain>() != nullptr)
+		//	{
+		//		y = terrainObj->GetComponent<Terrain>()->GetHeight(randX, randZ);
+		//	}
 
-			obj->GetOrAddTransform()->SetPosition(Vec3(randX, y, randZ));
-			obj->GetOrAddTransform()->SetScale(Vec3(6.0f));
+		//	obj->GetOrAddTransform()->SetPosition(Vec3(randX, y, randZ));
+		//	obj->GetOrAddTransform()->SetScale(Vec3(6.0f));
 
-			obj->AddComponent(make_shared<ModelRenderer>(shader));
-			obj->GetModelRenderer()->SetModel(m2);
-			obj->GetModelRenderer()->SetPass(1);
+		//	obj->AddComponent(make_shared<ModelRenderer>(shader));
+		//	obj->GetModelRenderer()->SetModel(m2);
+		//	obj->GetModelRenderer()->SetPass(1);
 
-			//auto& shadow = TEXTURE->GetShadowMap();
-			auto ssao = TEXTURE->GetSsao()->GetAmbientPtr();
-
-			obj->GetModelRenderer()->SetShadowMap(static_pointer_cast<Texture>(shadow));
-			obj->GetModelRenderer()->SetSsaoMap(ssao);
-
-			CUR_SCENE->Add(obj);
-		}
+		//	CUR_SCENE->Add(obj);
+		//}
 	 //}
 		{
 
@@ -200,13 +220,13 @@ void EditorTool::Init()
 			m2->ReadAnimation(L"Kachujin/Run");
 			m2->ReadAnimation(L"Kachujin/Slash");
 
-			for (int i = 200; i < 210; i++)
+			for (int i = 200; i < 201; i++)
 			{
 				auto obj = make_shared<GameObject>();
 				wstring name = L"Ani_" + to_wstring(i);
 				obj->SetObjectName(name);
 
-				float randX = MathUtils::Random(100.f, 200.f);
+				float randX = MathUtils::Random(100.f, 150.f);
 				float randZ = MathUtils::Random(-20.f, 20.f);
 
 				obj->GetOrAddTransform()->SetPosition(Vec3(randX, 0, randZ));

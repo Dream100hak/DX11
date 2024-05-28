@@ -80,9 +80,7 @@ void ShadowMap::Draw()
 		if (camera->IsCulled(gameObject->GetLayerIndex()))
 			continue;
 
-		if (gameObject->GetMeshRenderer() == nullptr
-			&& gameObject->GetModelRenderer() == nullptr
-			&& gameObject->GetModelAnimator() == nullptr)
+		if (gameObject->GetRenderer() == nullptr)
 			continue;
 
 		if (gameObject->GetSkyBox())
@@ -98,7 +96,7 @@ void ShadowMap::Draw()
 
 	INSTANCING->Render(0, shader , V , P , light , vecForward);
 	if(terrain)
-		terrain->TerrainRendererNotPS(shader);
+		terrain->TerrainRendererNotPS(shader, V, P);
 
 //	DCT->RSSetState(0);
 

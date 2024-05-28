@@ -252,7 +252,7 @@ int32 Hiearchy::CreateSky()
 	auto obj = CUR_SCENE->GetCreatedObject(id);
 	obj->SetObjectName(L"SkyBox");
 	obj->AddComponent(make_shared<SkyBox>());
-	obj->GetSkyBox()->Init(SkyType::SkyBox);
+	obj->GetComponent<SkyBox>()->Init();
 
 	ADDLOG("Create Sky", LogFilter::Info);
 

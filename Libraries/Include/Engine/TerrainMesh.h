@@ -80,6 +80,7 @@ private:
 	bool  InBounds(int32 i, int32 j);
 	void  CalcAllPatchBoundsY();
 	void  CalcPatchBoundsY(uint32 i, uint32 j);
+	void  CalcNormals(vector<VertexTerrain>& vertices);
 
 private:
 	// Divide heightmap into patches such that each patch has CellsPerPatch cells

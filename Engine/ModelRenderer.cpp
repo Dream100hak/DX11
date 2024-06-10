@@ -23,6 +23,30 @@ void ModelRenderer::OnInspectorGUI()
 {
 	Super::OnInspectorGUI();
 
+	string modelName = Utils::ToString(_model->GetName());
+
+	ImGui::Dummy(ImVec2(0, 20.f));
+
+	string modelPanel = "Model";
+	ImGui::Text(modelPanel.c_str());
+
+	ImGui::SameLine();
+	float space = ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(modelPanel.c_str()).x - ImGui::GetStyle().ItemSpacing.x;
+	ImGui::Dummy(ImVec2(space - 80, 0)); // Fill the space
+	ImGui::SameLine();
+	
+	// Push style color and variable to customize button
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));  // Gray color
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));  // Slightly lighter gray when hovered
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.4f, 0.4f, 0.4f, 1.0f));  // Slightly darker gray when clicked
+	ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);  // Rounded corners
+	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 5));  // Padding inside button
+
+	ImGui::Button(modelName.c_str());
+
+	// Pop style color and variable to revert to default
+	ImGui::PopStyleColor(3);
+	ImGui::PopStyleVar(2);
 
 	auto mats = _model->GetMaterials();
 	ImVec4 color = ImVec4(0.85f, 0.94f, 0.f, 1.f);
@@ -33,12 +57,8 @@ void ModelRenderer::OnInspectorGUI()
 		auto& mat = mats[i];
 		MaterialDesc& desc = mat->GetMaterialDesc();
 
-		shared_ptr<Shader> shader = mat->GetShader();
-		std::string name = Utils::ToString(shader->GetName());
-		ImGui::Text(name.c_str());
-
 		// 매터리얼 노드
-		if (ImGui::TreeNodeEx(("Material " + std::to_string(i)).c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+		if (ImGui::TreeNodeEx( Utils::ToString(mat->GetName()).c_str() , ImGuiTreeNodeFlags_DefaultOpen))
 		{
 	
 			if (ImGui::ColorEdit3("Diffuse", (float*)&desc.diffuse)) {}

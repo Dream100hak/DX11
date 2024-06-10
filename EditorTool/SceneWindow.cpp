@@ -68,7 +68,7 @@ void SceneWindow::ShowSceneWindow()
 			shared_ptr<Model> model = make_shared<Model>();
 			wstring modelName = droppedMesh->fileName.substr(0, droppedMesh->fileName.find('.'));
 			model->ReadModel(modelName + L'/' + modelName);
-			model->ReadMaterial(modelName + L'/' + modelName);
+			model->ReadMaterialByXml(modelName + L'/' + modelName);
 
 			int32 id = GUI->CreateModelMesh(model , obj->GetTransform()->GetPosition());
 			CUR_SCENE->UnPickAll();

@@ -21,7 +21,9 @@ enum MetaType
 	SOUND,
 	IMAGE,
 	MESH,
+	CLIP,
 	MATERIAL,
+	MODEL_MAT,
 	XML,
 	Unknown,
 };

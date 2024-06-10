@@ -1,4 +1,4 @@
-#include "pch.h"
+Ôªø#include "pch.h"
 #include "Inspector.h"
 #include "ShortcutManager.h"
 #include "EditorToolManager.h"
@@ -27,10 +27,11 @@
 
 #include "SceneGrid.h"
 #include "SkyCubeMap.h"
+#include "ModelAnimation.h"
 
 Inspector::Inspector(Vec2 pos, Vec2 size)
 {
-	SetWinPosAndSize(pos , size);
+	SetWinPosAndSize(pos, size);
 }
 
 Inspector::~Inspector()
@@ -49,7 +50,7 @@ void Inspector::Init()
 		_meshPreviewCamera->GetOrAddTransform()->SetPosition(Vec3(-1.5f, 1.f, -4.f));
 		_meshPreviewCamera->GetOrAddTransform()->SetRotation(Vec3(0.f, 0.35f, 0.f));
 		_meshPreviewCamera->GetCamera()->UpdateMatrix();
-
+		_meshPreviewCamera->GetCamera()->SetFOV(0.65f);
 	}
 
 	if (_meshPreviewLight == nullptr)
@@ -70,21 +71,31 @@ void Inspector::Init()
 	{
 		_simpleGrid = make_shared<GameObject>();
 		_simpleGrid->AddComponent(make_shared<SimpleGrid>());
-		_simpleGrid->GetOrAddTransform()->SetPosition(Vec3(-10.f, 0 , -10.f));
-		auto mat = RESOURCES->Get<Material>(L"DefaultMaterial");
+		_simpleGrid->GetOrAddTransform()->SetPosition(Vec3(-10.f, -0.5f, -10.f));
+		auto mat = RESOURCES->Get<Material>(L"DefaultMaterial")->Clone();
 		mat->GetMaterialDesc().useTexture = false;
-		mat->GetMaterialDesc().diffuse = Color(0.7f, 0.7f, 0.7f , 0.7f);
-		_simpleGrid->GetComponent<SimpleGrid>()->Create(50,50 ,mat->Clone());
+		mat->GetMaterialDesc().diffuse = Color(0.1f, 0.1f, 0.1f, 0.5f);
+		_simpleGrid->GetComponent<SimpleGrid>()->Create(50, 50, mat->Clone());
 
 	}
 
-	if(_sceneGrid == nullptr)
+	if (_sceneGrids.size() == 0)
 	{
-		_sceneGrid = make_shared<GameObject>();
-		_sceneGrid->GetOrAddTransform()->SetPosition(Vec3{ 0.f, 0.f, 0.f });
-		_sceneGrid->GetOrAddTransform()->SetRotation(Vec3{ 0.f, 0.25f, 0.f });
-		_sceneGrid->AddComponent(make_shared<SceneGrid>());
-		_sceneGrid->GetComponent<SceneGrid>()->Init();
+		vector<pair<int32,float>> gridSamples = { {100, 5} , {100,3} ,{100,2} };
+
+		for (int32 i = 0; i < 3; i++)
+		{
+			shared_ptr<GameObject> sceneGrid = make_shared<GameObject>();
+			sceneGrid->GetOrAddTransform()->SetPosition(Vec3{ 0.f, 0.001f, 0.f });
+			sceneGrid->GetOrAddTransform()->SetRotation(Vec3{ 0.f, 0.25f, 0.f });
+			sceneGrid->AddComponent(make_shared<SceneGrid>());
+
+			int32 gridCount = gridSamples[i].first;
+			float gridSize = gridSamples[i].second;
+
+			sceneGrid->GetComponent<SceneGrid>()->Init(gridCount, gridSize );
+			_sceneGrids.push_back(sceneGrid);
+		}
 	}
 
 	if (_skyBox == nullptr)
@@ -105,12 +116,12 @@ void Inspector::Update()
 
 void Inspector::ShowInspector()
 {
-	ImGui::SetNextWindowPos(GetEWinPos() , ImGuiCond_Appearing);
-	ImGui::SetNextWindowSize(GetEWinSize() , ImGuiCond_Appearing);
+	ImGui::SetNextWindowPos(GetEWinPos(), ImGuiCond_Appearing);
+	ImGui::SetNextWindowSize(GetEWinSize(), ImGuiCond_Appearing);
 
 	ImGui::Begin("Inspector");
 
-	//«œ¿ÃæÓ∂Û≈∞ º≥¡§
+	//ÌïòÏù¥Ïñ¥ÎùºÌÇ§ ÏÑ§Ï†ï
 	shared_ptr<MetaData> metaData = SELECTED_P;
 
 	if (SELECTED_H > -1)
@@ -151,7 +162,7 @@ void Inspector::ShowInfoHiearchy()
 	ImGui::InputText(" ", modifiedName, sizeof(modifiedName));
 	go->SetObjectName(wstring(modifiedName, modifiedName + strlen(modifiedName)));
 
-	ImGui::SameLine(0.f , 1.f);
+	ImGui::SameLine(0.f, 1.f);
 
 	static bool staticObj = false;
 	ImGui::Checkbox("Static", &staticObj);
@@ -160,10 +171,10 @@ void Inspector::ShowInfoHiearchy()
 	//					 LAYER                       //
 	///////////////////////////////////////////////////
 
-	ImVec2 textPosition = ImVec2(layerPos.x , layerPos.y + 25.f );
+	ImVec2 textPosition = ImVec2(layerPos.x, layerPos.y + 25.f);
 	ImGui::GetWindowDrawList()->AddText(textPosition, ImGui::GetColorU32(ImGuiCol_Text), "Layer");
 
-	ImGui::Dummy(ImVec2(40,10));
+	ImGui::Dummy(ImVec2(40, 10));
 	ImGui::SameLine();
 
 	int selectedLayer = static_cast<int>(go->GetLayerIndex());
@@ -173,7 +184,7 @@ void Inspector::ShowInfoHiearchy()
 	}
 
 	ImGui::EndGroup();
-	
+
 	ImGui::Spacing();
 	ImGui::Separator();
 
@@ -219,14 +230,42 @@ void Inspector::ShowInfoHiearchy()
 	{
 		if (ImGui::BeginMenu("FixedComponent"))
 		{
-			std::vector<ComponentType> compTypes = {
-				ComponentType::Renderer,
-				ComponentType::Camera, 
+			std::vector<ComponentType> compTypes = 
+			{
+				ComponentType::Camera,
 				ComponentType::Light,
 				ComponentType::Collider,
 				ComponentType::Button,
 				ComponentType::BillBoard,
-				};
+			};
+
+			std::vector<string> renderTypes = 
+			{
+				Utils::GetClassNameEX<MeshRenderer>(),
+				Utils::GetClassNameEX<ModelRenderer>(),
+				Utils::GetClassNameEX<ModelAnimator>(),
+			};
+
+			for (int32 i = 0 ; i < renderTypes.size(); i++)
+			{
+				if (go->GetFixedComponent(ComponentType::Renderer))
+					continue;
+
+				if (ImGui::MenuItem(renderTypes[i].c_str()))
+				{
+					/*		switch (i)
+							{
+							case 0:
+								go->AddComponent(make_shared<MeshRenderer>());
+
+							case 1:
+								go->AddComponent(make_shared<ModelRenderer>());
+
+							case 2:
+								go->AddComponent(make_shared<ModelAnimator>());
+							}*/
+				}
+			}
 
 			for (auto componentType : compTypes)
 			{
@@ -239,18 +278,16 @@ void Inspector::ShowInfoHiearchy()
 				{
 					switch (componentType)
 					{
-						case ComponentType::Renderer: go->AddComponent(make_shared<MeshRenderer>());
-							break;
-						case ComponentType::Camera: go->AddComponent(make_shared<Camera>());
-							break;
-						case ComponentType::Light: go->AddComponent(make_shared<Light>());
-							break;
-						case ComponentType::Collider: go->AddComponent(make_shared<OBBBoxCollider>());
-							break;
-						case ComponentType::Button: go->AddComponent(make_shared<Button>());
-							break;
-						case ComponentType::BillBoard: go->AddComponent(make_shared<Billboard>());
-							break;
+					case ComponentType::Camera: go->AddComponent(make_shared<Camera>());
+						break;
+					case ComponentType::Light: go->AddComponent(make_shared<Light>());
+						break;
+					case ComponentType::Collider: go->AddComponent(make_shared<OBBBoxCollider>());
+						break;
+					case ComponentType::Button: go->AddComponent(make_shared<Button>());
+						break;
+					case ComponentType::BillBoard: go->AddComponent(make_shared<Billboard>());
+						break;
 					}
 				}
 			}
@@ -270,9 +307,9 @@ void Inspector::ShowComponentInfo(shared_ptr<Component> component, string name)
 	float spacing = ImGui::GetStyle().ItemInnerSpacing.x + 5.f;
 	ImGui::SameLine(ImGui::GetWindowWidth() - spacing - ImGui::CalcTextSize("Delete").x - ImGui::GetScrollX() - spacing);
 
-	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1.0f, 0.0f, 0.0f, 1.0f)); // ª°∞£ªˆ
-	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.3f, 0.3f, 1.0f)); // ∏∂øÏΩ∫ ø¿πˆ Ω√ ªˆªÛ
-	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.8f, 0.0f, 0.0f, 1.0f)); // πˆ∆∞ ≈¨∏Ø Ω√ ªˆªÛ
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1.0f, 0.0f, 0.0f, 1.0f)); // Îπ®Í∞ÑÏÉâ
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.3f, 0.3f, 1.0f)); // ÎßàÏö∞Ïä§ Ïò§Î≤Ñ Ïãú ÏÉâÏÉÅ
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.8f, 0.0f, 0.0f, 1.0f)); // Î≤ÑÌäº ÌÅ¥Î¶≠ Ïãú ÏÉâÏÉÅ
 
 	if (ImGui::Button("Delete"))
 	{
@@ -308,11 +345,23 @@ void Inspector::ShowComponentInfo(shared_ptr<Component> component, string name)
 
 	ImGui::PopID();
 	ImGui::Separator();
-	
+
 }
 
+void Inspector::ShowMeshModelInfo()
+{
 
+}
 
+void Inspector::ShowMeshAnimationInfo()
+{
+
+}
+
+void Inspector::ShowMeshMaterialInfo()
+{
+
+}
 
 void Inspector::ShowInfoProject()
 {
@@ -324,20 +373,19 @@ void Inspector::ShowInfoProject()
 
 	auto icon = GetMetaFileIcon();
 
-	ImGui::Image(icon, ImVec2(50,50));
+	ImGui::Image(icon, ImVec2(50, 50));
 	ImGui::SameLine();
 
 	ImVec2 buttonSize(40.f, 40.f);
 
 	ImVec2 buttonPos = ImGui::GetItemRectMin();
-	ImVec2 textPosition = ImVec2(buttonPos.x  + ( buttonSize.x  * 1.5f ) , buttonPos.y + (buttonSize.y * 0.5f));
+	ImVec2 textPosition = ImVec2(buttonPos.x + (buttonSize.x * 1.5f), buttonPos.y + (buttonSize.y * 0.5f));
 	ImGui::GetWindowDrawList()->AddText(textPosition, ImGui::GetColorU32(ImGuiCol_Text), objName.c_str());
-	
+
 	ImGui::Separator();
 	ImGui::Spacing();
 
-
-	// ¿ÃπÃ¡ˆ ∆ƒ¿œ √≥∏Æ
+	// Ïù¥ÎØ∏ÏßÄ ÌååÏùº Ï≤òÎ¶¨
 	if (metaData->metaType == MetaType::IMAGE)
 	{
 		auto tex = RESOURCES->Get<Texture>(L"FILE_" + metaData->fileName);
@@ -354,22 +402,22 @@ void Inspector::ShowInfoProject()
 		ImGui::Dummy(ImVec2(0, 50.f));
 		ImGui::SeparatorText("Texture Preview");
 		ImGui::BeginGroup();
-		
+
 		ImGui::Button("RGB"); ImGui::SameLine();
 		ImGui::Button("R"); ImGui::SameLine();
 		ImGui::Button("G"); ImGui::SameLine();
 		ImGui::Button("B");
 		ImGui::EndGroup();
-	
-		float width =  min(tex->GetSize().x , ImGui::GetCurrentWindow()->Size.x);
+
+		float width = min(tex->GetSize().x, ImGui::GetCurrentWindow()->Size.x);
 		ImGui::Image(icon, ImVec2(width, width));
-	
+
 		string texInfo = "Size : %.0f X %.0f";
 		char tmps[512];
-		ImFormatString(tmps, sizeof(tmps), texInfo.c_str(), tex->GetSize().x , tex->GetSize().y);
+		ImFormatString(tmps, sizeof(tmps), texInfo.c_str(), tex->GetSize().x, tex->GetSize().y);
 		ImGui::Text(tmps);
 	}
-	// ∏≈≈Õ∏ÆæÛ ∆ƒ¿œ √≥∏Æ
+	// Îß§ÌÑ∞Î¶¨Ïñº ÌååÏùº Ï≤òÎ¶¨
 	else if (metaData->metaType == MetaType::MATERIAL)
 	{
 		ImGui::Separator();
@@ -405,12 +453,18 @@ void Inspector::ShowInfoProject()
 		if (ImGui::ColorEdit3("Emissive", (float*)&desc.emissive)) { changed = true; }
 		if (ImGui::ColorEdit3("Specular", (float*)&desc.specular)) { changed = true; }
 
+		if (ImGui::InputInt("Light Count", &desc.lightCount)) { changed = true; }
+		if (ImGui::Checkbox("Use Texture", (bool*)&desc.useTexture)) { changed = true; }
+		if (ImGui::Checkbox("Use Alpha Clip", (bool*)&desc.useAlphaclip)) { changed = true; }
+		if (ImGui::Checkbox("Use SSAO", (bool*)&desc.useSsao)) { changed = true; }
+
+
 		PickMaterialTexture("Diffuse", changed);
-		ImGui::SameLine(0.f, -2.f); 
+		ImGui::SameLine(0.f, -2.f);
 		PickMaterialTexture("Normal", changed);
 		ImGui::SameLine();
 		PickMaterialTexture("Specular", changed);
-		ImGui::SameLine(); 
+		ImGui::SameLine();
 
 		if (changed)
 		{
@@ -430,15 +484,14 @@ void Inspector::ShowInfoProject()
 
 			JOB_POST_RENDER->DoPush([=]()
 			{
-				thumbnail->Draw(renderers, V , P, light, buffers);
+				thumbnail->Draw(renderers, V, P, light, buffers);
 			});
 		}
 	}
 
-	// ∏ﬁΩ√ ∆ƒ¿œ √≥∏Æ
+	// Î©îÏãú ÌååÏùº Ï≤òÎ¶¨
 	else if (metaData->metaType == MetaType::MESH)
 	{
-
 		//TODO : DRAW Inspector Mesh 
 		if (_previewObjName != metaData->fileName)
 		{
@@ -447,9 +500,211 @@ void Inspector::ShowInfoProject()
 			_previewObjName = metaData->fileName;
 		}
 
+		shared_ptr<Model> model = _meshPreviewObj->GetModelRenderer()->GetModel();
+
+		ImGui::Dummy(ImVec2(0, 20.f));
+
+		// Add buttons at the top
+		if (ImGui::Button("Model")) {}
+		ImGui::SameLine();
+		if (ImGui::Button("Animation")) {}
+		ImGui::SameLine();
+		if (ImGui::Button("Material")) {}
+
+
 		ImGui::Dummy(ImVec2(0, 50.f));
 		ImGui::SeparatorText("Mesh Preview");
 		ImGui::Image(_meshthumbnail->GetComPtr().Get(), ImVec2(373, 373));
+
+		ImGui::Dummy(ImVec2(0, 30.f));
+
+		// Textures section
+		ImGui::Text("Textures");
+		ImGui::SameLine();
+		float spaceTextures = ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize("Extract Textures...").x - ImGui::GetStyle().ItemSpacing.x;
+		ImGui::Dummy(ImVec2(spaceTextures - 15, 0)); // Fill the space
+		ImGui::SameLine();
+		if (ImGui::Button("Extract Textures..."))
+		{
+			// Handle Extract Textures button click
+		}
+
+		// Materials section
+		ImGui::Text("Materials");
+		ImGui::SameLine();
+		float spaceMaterials = ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize("Extract Materials...").x - ImGui::GetStyle().ItemSpacing.x;
+		ImGui::Dummy(ImVec2(spaceMaterials - 10, 0)); // Fill the space
+		ImGui::SameLine();
+		if (ImGui::Button("Extract Materials..."))
+		{
+			// Handle Extract Materials button click
+		}
+
+		auto& materials = model->GetMaterials();
+		auto& animations = model->GetAnimations();
+
+		for (auto& mat : materials)
+		{
+			string matName = Utils::ToString(mat->GetName());
+			ImGui::Text(matName.c_str());
+			ImGui::SameLine();
+			float space = ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(matName.c_str()).x - ImGui::GetStyle().ItemSpacing.x;
+			ImGui::Dummy(ImVec2(space - 20, 0)); // Fill the space
+			ImGui::SameLine();
+
+			// Push style color and variable to customize button
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));  // Gray color
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));  // Slightly lighter gray when hovered
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.4f, 0.4f, 0.4f, 1.0f));  // Slightly darker gray when clicked
+			ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);  // Rounded corners
+			ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 5));  // Padding inside button
+
+			ImGui::Button(Utils::ToString(mat->GetName()).c_str());
+
+			// Pop style color and variable to revert to default
+			ImGui::PopStyleColor(3);
+			ImGui::PopStyleVar(2);
+		}
+
+		ImGui::Dummy(ImVec2(0, 20.f));
+
+		for (auto& ani : animations)
+		{
+			string aniName = Utils::ToString(ani->fileName).c_str();
+			ImGui::Text(aniName.c_str());
+			ImGui::SameLine();
+			float space = ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(aniName.c_str()).x - ImGui::GetStyle().ItemSpacing.x;
+			ImGui::Dummy(ImVec2(space - 20, 0)); // Fill the space
+			ImGui::SameLine();
+
+			// Push style color and variable to customize button
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));  // Gray color
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));  // Slightly lighter gray when hovered
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.4f, 0.4f, 0.4f, 1.0f));  // Slightly darker gray when clicked
+			ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);  // Rounded corners
+			ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 5));  // Padding inside button
+
+			ImGui::Button(Utils::ToString(ani->fileName).c_str());
+
+			// Pop style color and variable to revert to default
+			ImGui::PopStyleColor(3);
+			ImGui::PopStyleVar(2);
+		}
+
+	}
+	// ÌÅ¥Î¶Ω ÌååÏùº Ï≤òÎ¶¨
+	else if (metaData->metaType == MetaType::CLIP)
+	{
+		//TODO : DRAW Inspector Mesh 
+		if (_previewObjName != metaData->fileName)
+		{
+			CreateAniPreviewObj();
+			_previewObjName = metaData->fileName;
+			_meshthumbnail = make_shared<MeshThumbnail>(512, 512);
+		}
+
+		DrawInspectorClip();
+
+		shared_ptr<ModelAnimator> animator = _meshPreviewObj->GetModelAnimator();
+		TweenDesc& desc = animator->GetTweenDesc();
+		shared_ptr<ModelAnimation> animation = animator->GetModel()->GetAnimationByFileName(metaData->fileName);
+
+		desc.curr.animIndex = animator->GetModel()->GetAnimIndexByFileName(metaData->fileName);
+
+		std::string frameStr = "Frame : " + Utils::ToString((int32)desc.curr.currFrame);
+
+		ImGui::Dummy(ImVec2(0, 50.f));
+		ImGui::SeparatorText("Clip Preview");
+
+		ImVec2 imagePos = ImGui::GetCursorScreenPos();
+		ImVec2 imageSize(373, 373);
+
+		ImGui::Image(_meshthumbnail->GetComPtr().Get(), imageSize);
+
+		// Draw text inside the image
+		ImGui::GetWindowDrawList()->AddText(
+			ImVec2(imagePos.x + imageSize.x / 2.5f, imagePos.y + imageSize.y - 20.0f),
+			IM_COL32(255, 255, 255, 255),
+			frameStr.c_str(),
+			(const char*)0);
+
+		ImVec4 originalFrameBg = ImGui::GetStyle().Colors[ImGuiCol_FrameBg];
+		ImVec4 originalSliderGrab = ImGui::GetStyle().Colors[ImGuiCol_SliderGrab];
+		ImVec4 originalSliderGrabActive = ImGui::GetStyle().Colors[ImGuiCol_SliderGrabActive];
+
+
+		bool progressChanged = false;
+
+		// Animation Control Buttons and Progress Bar on the same line
+		if (ImGui::Button(_isPlayingAnim ? "Pause" : "Play "))
+		{
+			_isPlayingAnim = !_isPlayingAnim;
+		}
+
+		ImGui::SameLine();
+		float availableWidth = ImGui::GetContentRegionAvail().x;
+		float progressBarWidth = availableWidth * 0.6f;
+		float speedSliderWidth = availableWidth * 0.3f;
+
+		ImGui::PushItemWidth(progressBarWidth);
+		ImGui::GetStyle().Colors[ImGuiCol_FrameBg] = ImVec4(0, 0, 0, 1);  // Black background
+		ImGui::GetStyle().Colors[ImGuiCol_SliderGrab] = ImVec4(1, 1, 1, 1);  // White bar
+		ImGui::GetStyle().Colors[ImGuiCol_SliderGrabActive] = ImVec4(1, 1, 1, 1);  // White bar active
+
+		if (ImGui::SliderInt("##AnimationFrame", (int*)&desc.curr.currFrame, 0, animation->frameCount - 1 , ""))
+		{
+			progressChanged = true;
+
+			desc.curr.currFrame = desc.curr.currFrame + 1;
+			desc.curr.nextFrame = desc.curr.currFrame + 1;
+		}
+
+		ImGui::GetStyle().Colors[ImGuiCol_FrameBg] = originalFrameBg;
+		ImGui::GetStyle().Colors[ImGuiCol_SliderGrab] = originalSliderGrab;
+		ImGui::GetStyle().Colors[ImGuiCol_SliderGrabActive] = originalSliderGrabActive;
+		ImGui::PopItemWidth();
+
+		ImGui::SameLine();
+		ImGui::PushItemWidth(speedSliderWidth);
+		ImGui::GetStyle().Colors[ImGuiCol_FrameBg] = ImVec4(0, 0, 0, 1);  // Black background
+		ImGui::PushStyleVar(ImGuiStyleVar_GrabRounding, 12.0f);  // Round slider grab
+		ImGui::GetStyle().Colors[ImGuiCol_SliderGrab] = ImVec4(1, 1, 1, 1);  // White grab color
+		ImGui::GetStyle().Colors[ImGuiCol_SliderGrabActive] = ImVec4(1, 1, 1, 1);  // White grab color active
+
+		ImGui::SliderFloat("##AnimationSpeed", &desc.curr.speed, 1.f, 5.0f, "");
+		ImVec2 p = ImGui::GetItemRectMin();
+		ImVec2 q = ImGui::GetItemRectMax();
+		float lineY = (p.y + q.y) / 2;  // Midpoint of the slider
+		float lineStartX = p.x;  // Start at the beginning of the slider
+		float lineEndX = q.x;  // End at the end of the slider
+		ImGui::GetWindowDrawList()->AddLine(ImVec2(lineStartX, lineY), ImVec2(lineEndX, lineY), IM_COL32(128, 128, 128, 255), 1.0f);
+		ImGui::GetStyle().Colors[ImGuiCol_SliderGrab] = originalSliderGrab;
+		ImGui::GetStyle().Colors[ImGuiCol_SliderGrabActive] = originalSliderGrabActive;
+		ImGui::PopStyleVar(1);
+		ImGui::PopItemWidth();
+
+		// Move speed text to the right end
+		char speedText[16];
+		snprintf(speedText, sizeof(speedText), "%.1fx", desc.curr.speed);
+		float textWidth = ImGui::CalcTextSize(speedText).x;
+
+		ImGui::SameLine(0, availableWidth - progressBarWidth - speedSliderWidth - textWidth);
+		ImGui::Text(speedText);  // Display the speed multiplier
+
+		//static bool followCamera = false;
+		//
+		//if (ImGui::Checkbox("Follow Camera", (bool*)followCamera)) {}
+		
+
+		if(_isPlayingAnim)
+			progressChanged = true;
+
+		if (progressChanged)
+		{
+			_meshPreviewObj->GetModelAnimator()->UpdateTweenData();
+		}
+
+		_meshPreviewCamera->GetCamera()->UpdateMatrix();
 	}
 
 	ImGui::Separator();
@@ -460,8 +715,11 @@ void Inspector::CreateMeshPreviewObj()
 {
 	shared_ptr<MetaData> metaData = SELECTED_P;
 
+	wstring modelName = metaData->fileName.substr(0, metaData->fileName.find('.'));
+	wstring modelPath = metaData->fileFullPath + L'/' + modelName;
+
 	auto shader = RESOURCES->Get<Shader>(L"Thumbnail");
-	auto model = RESOURCES->Get<Model>(metaData->fileFullPath + L'/' + metaData->fileName);
+	auto model = RESOURCES->Get<Model>(modelPath);
 
 	BoundingBox box = model->CalculateModelBoundingBox();
 	_meshPreviewObj = make_shared<GameObject>();
@@ -473,6 +731,7 @@ void Inspector::CreateMeshPreviewObj()
 		modelScale = globalScale;
 
 	float scale = globalScale / modelScale;
+//	scale = 0.01f;
 
 	_meshPreviewObj->GetOrAddTransform()->SetPosition(Vec3::Zero);
 	_meshPreviewObj->GetOrAddTransform()->SetRotation(Vec3(0.f, 0.f, 0.f));
@@ -481,26 +740,62 @@ void Inspector::CreateMeshPreviewObj()
 	_meshPreviewObj->AddComponent(make_shared<ModelRenderer>(shader));
 	_meshPreviewObj->GetModelRenderer()->SetModel(model);
 	_meshPreviewObj->GetModelRenderer()->SetPass(1);
-
 }
 
+
+void Inspector::CreateAniPreviewObj()
+{
+	_isPlayingAnim = false;
+	_animationProgress = 0.0f;
+
+	shared_ptr<MetaData> metaData = SELECTED_P;
+
+	auto path = filesystem::path(metaData->fileFullPath);
+	wstring modelName = path.filename().wstring();
+	wstring modelPath = metaData->fileFullPath + L'/' + modelName;
+
+	auto shader = RESOURCES->Get<Shader>(L"Standard");
+	auto model = RESOURCES->Get<Model>(modelPath);
+
+	BoundingBox box = model->CalculateModelBoundingBox();
+	_meshPreviewObj = make_shared<GameObject>();
+
+	float modelScale = max(max(box.Extents.x, box.Extents.y), box.Extents.z) * 2.0f;
+	float globalScale = MODEL_GLOBAL_SCALE;
+
+	if (modelScale > 10.f)
+		modelScale = globalScale;
+
+	float scale = globalScale / modelScale;
+	//scale = 1.f;
+
+	_meshPreviewObj->GetOrAddTransform()->SetPosition(Vec3::Zero);
+	_meshPreviewObj->GetOrAddTransform()->SetRotation(Vec3(0.f, 0.f, 0.f));
+	_meshPreviewObj->GetOrAddTransform()->SetScale(Vec3(scale, scale, scale));
+
+	_meshPreviewObj->AddComponent(make_shared<ModelAnimator>(shader));
+	_meshPreviewObj->GetModelAnimator()->SetModel(model);
+	_meshPreviewObj->GetModelAnimator()->SetPass(2);
+
+	_meshPreviewCamera->GetTransform()->SetParent(_meshPreviewObj->GetTransform());
+}
 
 void Inspector::DrawInspectorMesh()
 {
 	shared_ptr<MetaData> metaData = SELECTED_P;
-	
+
 	_meshthumbnail = make_shared<MeshThumbnail>(512, 512);
 
 	std::vector<shared_ptr<Renderer>> renderers;
 	std::vector<shared_ptr<InstancingBuffer>> buffers;
 
 	renderers.push_back(_meshPreviewObj->GetRenderer());
-	//renderers.push_back(_simpleGrid->GetRenderer());
+	renderers.push_back(_simpleGrid->GetRenderer());
+//	renderers.push_back(_sceneGrid->GetRenderer());
+	//for (auto& grid : _sceneGrids)
+	//	renderers.push_back(grid->GetRenderer());
 
-	renderers.push_back(_sceneGrid->GetRenderer());
-	//renderers.push_back(_skyBox->GetRenderer());
-
-	for (int32 i = 0; i < renderers.size() ; i++)
+	for (int32 i = 0; i < renderers.size(); i++)
 	{
 		InstancingData data;
 		data.world = renderers[i]->GetTransform()->GetWorldMatrix();
@@ -510,7 +805,8 @@ void Inspector::DrawInspectorMesh()
 		buffers.push_back(buffer);
 	}
 
-	//SKy¥¬ ±◊≥… ¿ŒΩ∫≈œΩÃ æ¯¿Ã ∑ª¥ı∏µ
+	//SKyÎäî Í∑∏ÎÉ• Ïù∏Ïä§ÌÑ¥Ïã± ÏóÜÏù¥ Î†åÎçîÎßÅ
+ // renderers.push_back(_skyBox->GetRenderer());
 //	shared_ptr<InstancingBuffer> buffer = nullptr;
 //	buffers.push_back(buffer);
 
@@ -519,11 +815,44 @@ void Inspector::DrawInspectorMesh()
 
 	JOB_POST_RENDER->DoPush([=]()
 	{
-		_meshthumbnail->Draw(renderers, V ,P, _meshPreviewLight->GetLight(), buffers);
+		_meshthumbnail->Draw(renderers, V, P, _meshPreviewLight->GetLight(), buffers);
 	});
 }
 
-void Inspector::PickMaterialTexture(string textureType , OUT bool& changed)
+void Inspector::DrawInspectorClip()
+{
+	shared_ptr<MetaData> metaData = SELECTED_P;
+
+	std::vector<shared_ptr<Renderer>> renderers;
+	std::vector<shared_ptr<InstancingBuffer>> buffers;
+
+	renderers.push_back(_meshPreviewObj->GetRenderer());
+	renderers.push_back(_simpleGrid->GetRenderer());
+	//renderers.push_back(_sceneGrid->GetRenderer());
+
+	//for(auto& grid : _sceneGrids)
+	//	renderers.push_back(grid->GetRenderer());
+
+	for (int32 i = 0; i < renderers.size(); i++)
+	{
+		InstancingData data;
+		data.world = renderers[i]->GetTransform()->GetWorldMatrix();
+		data.isPicked = renderers[i]->GetGameObject()->GetUIPicked() ? 1 : 0;
+		shared_ptr<InstancingBuffer> buffer = make_shared<InstancingBuffer>();
+		buffer->AddData(data);
+		buffers.push_back(buffer);
+	}
+
+	Matrix V = _meshPreviewCamera->GetCamera()->GetViewMatrix();
+	Matrix P = _meshPreviewCamera->GetCamera()->GetProjectionMatrix();
+
+	JOB_POST_RENDER->DoPush([=]()
+	{
+		_meshthumbnail->Draw(renderers, V, P, _meshPreviewLight->GetLight(), buffers);
+	});
+}
+
+void Inspector::PickMaterialTexture(string textureType, OUT bool& changed)
 {
 	shared_ptr<MetaData> metaData = SELECTED_P;
 
@@ -554,7 +883,7 @@ void Inspector::PickMaterialTexture(string textureType , OUT bool& changed)
 	else if (textureType == "Specular")
 		srv = material->GetSpecularMap() != nullptr ? material->GetSpecularMap()->GetComPtr().Get() : RESOURCES->Get<Texture>(L"Grid")->GetComPtr().Get();
 
-	string popupName = "Select " + textureType + " Texture"; 
+	string popupName = "Select " + textureType + " Texture";
 
 	if (ImGui::ImageButton(srv, ImVec2(75, 75)))
 	{
@@ -568,15 +897,15 @@ void Inspector::PickMaterialTexture(string textureType , OUT bool& changed)
 			if (textureFile.second->metaType != MetaType::IMAGE)
 				continue;
 
-			// ≈ÿΩ∫√≥ πÃ∏Æ∫∏±‚∏¶ ¿ß«— SRV ∑ŒµÂ
+			// ÌÖçÏä§Ï≤ò ÎØ∏Î¶¨Î≥¥Í∏∞Î•º ÏúÑÌïú SRV Î°úÎìú
 			auto previewTexture = RESOURCES->GetOrAddTexture(L"FILE_" + textureFile.second->fileName, textureFile.second->fileFullPath + L"\\" + textureFile.second->fileName);
 			ID3D11ShaderResourceView* previewSRV = previewTexture->GetComPtr().Get();
 
 			if (ImGui::ImageButton(previewSRV, ImVec2(50, 50)))
 			{
-				if(textureType == "Diffuse")
+				if (textureType == "Diffuse")
 					material->SetDiffuseMap(previewTexture);
-				else if(textureType == "Normal")
+				else if (textureType == "Normal")
 					material->SetNormalMap(previewTexture);
 				else if (textureType == "Specular")
 					material->SetSpecularMap(previewTexture);
@@ -586,7 +915,7 @@ void Inspector::PickMaterialTexture(string textureType , OUT bool& changed)
 
 			}
 
-			// ≈ÿΩ∫√≥ ∆ƒ¿œ ¿Ã∏ß «•Ω√
+			// ÌÖçÏä§Ï≤ò ÌååÏùº Ïù¥Î¶Ñ ÌëúÏãú
 			ImGui::Text("%s", Utils::ToString(textureFile.second->fileName).c_str());
 		}
 
@@ -598,38 +927,40 @@ void Inspector::PickMaterialTexture(string textureType , OUT bool& changed)
 
 
 ID3D11ShaderResourceView* Inspector::GetMetaFileIcon()
-{	
+{
 	shared_ptr<MetaData> metaData = SELECTED_P;
 	ID3D11ShaderResourceView* srv = nullptr;
 
 	switch (metaData->metaType)
 	{
-		case FOLDER:
-			srv = RESOURCES->Get<Texture>(L"Folder")->GetComPtr().Get();
-			break;
-		case META:
-			break;
-	
-		case SOUND:
-			break;
-		case IMAGE:
-			srv = RESOURCES->GetOrAddTexture(L"FILE_" + metaData->fileName, metaData->fileFullPath + L"\\" + metaData->fileName)->GetComPtr().Get();
-			break;
-		case MATERIAL:
-			srv = GetMeshThumbnail()->GetComPtr().Get();
-			break;
-		case MESH:		
-			
-			srv = GetMeshThumbnail()->GetComPtr().Get();
-			break;
-		case TEXT:
-		case XML:
-		case Unknown:
-			srv = RESOURCES->Get<Texture>(L"Text")->GetComPtr().Get();
-			break;
-	
-		default:
-			break;
+	case FOLDER:
+		srv = RESOURCES->Get<Texture>(L"Folder")->GetComPtr().Get();
+		break;
+	case META:
+		break;
+
+	case SOUND:
+		break;
+	case IMAGE:
+		srv = RESOURCES->GetOrAddTexture(L"FILE_" + metaData->fileName, metaData->fileFullPath + L"\\" + metaData->fileName)->GetComPtr().Get();
+		break;
+	case MATERIAL:
+		srv = GetMeshThumbnail()->GetComPtr().Get();
+		break;
+	case MESH:
+		srv = GetMeshThumbnail()->GetComPtr().Get();
+		break;
+	case CLIP:
+		srv = GetMeshThumbnail()->GetComPtr().Get();
+		break;
+	case TEXT:
+	case XML:
+	case Unknown:
+		srv = RESOURCES->Get<Texture>(L"Text")->GetComPtr().Get();
+		break;
+
+	default:
+		break;
 	}
 
 	return srv;
@@ -644,7 +975,7 @@ class shared_ptr<MeshThumbnail>& Inspector::GetMeshThumbnail()
 		static_pointer_cast<FolderContents>(TOOL->GetEditorWindow(Utils::GetClassNameEX<FolderContents>()))->GetMeshPreviewThumbnails();
 
 	return previewsThumbnails[metaData->fileFullPath + L'/' + metaData->fileName];
-	
+
 }
 
 

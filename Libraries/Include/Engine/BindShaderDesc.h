@@ -66,14 +66,14 @@ struct SpotLightDesc
 
 struct MaterialDesc
 {
-	Color ambient = Color(0.f, 0.f, 0.f, 1.f);
+	Color ambient = Color(0.3f, 0.3f, 0.3f, 1.f);
 	Color diffuse = Color(1.f, 1.f, 1.f, 1.f);
 	Color specular = Color(0.f, 0.f, 0.f, 1.f);
 	Color emissive = Color(0.f, 0.f, 0.f, 1.f);
 	int lightCount = 3;
 	int useTexture = 1;
 	int useAlphaclip = 1;
-	int dummy = 0;
+	int useSsao = 1; 
 };
 
 // Bone

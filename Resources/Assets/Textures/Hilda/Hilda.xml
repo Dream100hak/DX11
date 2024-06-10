@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Materials>
+    <Material>
+        <Name>Hero_Hilda_Vari05_Skin</Name>
+        <DiffuseFile>Hero_Hilda_Vari05_Body_D.png</DiffuseFile>
+        <SpecularFile>Hero_Hilda_Vari05_Body_D.png</SpecularFile>
+        <NormalFile>Hero_Hilda_Vari05_Body_D.png</NormalFile>
+        <Ambient R="0.2" G="0.2" B="0.2" A="1"/>
+        <Diffuse R="0" G="0" B="0" A="1"/>
+        <Specular R="0.2" G="0.2" B="0.2" A="20"/>
+        <Emissive R="0" G="0" B="0" A="1"/>
+    </Material>
+    <Material>
+        <Name>Hero_Hilda_Hair_01</Name>
+        <DiffuseFile>Hero_Hilda_Hair_01_D.png</DiffuseFile>
+        <SpecularFile>Hero_Hilda_Hair_01_D.png</SpecularFile>
+        <NormalFile>Hero_Hilda_Hair_01_D.png</NormalFile>
+        <Ambient R="0.2" G="0.2" B="0.2" A="1"/>
+        <Diffuse R="0.588" G="0.588" B="0.588" A="1"/>
+        <Specular R="0.2" G="0.2" B="0.2" A="20"/>
+        <Emissive R="0" G="0" B="0" A="1"/>
+    </Material>
+    <Material>
+        <Name>Hero_Hilda_Vari05_Eye</Name>
+        <DiffuseFile>Hero_Hilda_Eye_01_D.png</DiffuseFile>
+        <SpecularFile>Hero_Hilda_Eye_01_D.png</SpecularFile>
+        <NormalFile>Hero_Hilda_Eye_01_D.png</NormalFile>
+        <Ambient R="0.2" G="0.2" B="0.2" A="1"/>
+        <Diffuse R="0" G="0" B="0" A="1"/>
+        <Specular R="0.2" G="0.2" B="0.2" A="20"/>
+        <Emissive R="0" G="0" B="0" A="1"/>
+    </Material>
+    <Material>
+        <Name>Hero_Hilda_Vari05_Metal</Name>
+        <DiffuseFile>Hero_Hilda_Vari05_Body_D.png</DiffuseFile>
+        <SpecularFile>Hero_Hilda_Vari05_Body_D.png</SpecularFile>
+        <NormalFile>Hero_Hilda_Vari05_Body_D.png</NormalFile>
+        <Ambient R="0.2" G="0.2" B="0.2" A="1"/>
+        <Diffuse R="0.588" G="0.588" B="0.588" A="1"/>
+        <Specular R="0.2" G="0.2" B="0.2" A="20"/>
+        <Emissive R="0" G="0" B="0" A="1"/>
+    </Material>
+    <Material>
+        <Name>Hero_Hilda_Vari05_Fabric</Name>
+        <DiffuseFile>Hero_Hilda_Vari05_Body_D.png</DiffuseFile>
+        <SpecularFile>Hero_Hilda_Vari05_Body_D.png</SpecularFile>
+        <NormalFile>Hero_Hilda_Vari05_Body_D.png</NormalFile>
+        <Ambient R="0.2" G="0.2" B="0.2" A="1"/>
+        <Diffuse R="0.588" G="0.588" B="0.588" A="1"/>
+        <Specular R="0.2" G="0.2" B="0.2" A="20"/>
+        <Emissive R="0" G="0" B="0" A="1"/>
+    </Material>
+</Materials>

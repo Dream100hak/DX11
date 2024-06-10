@@ -86,6 +86,12 @@ std::string Utils::ToString(float value)
 	return tmp;
 }
 
+std::string Utils::ToString(int32 value)
+{
+	string tmp = to_string(value);
+	return tmp;
+}
+
 std::wstring Utils::GetResourcesName(wstring value, wstring exten)
 {
 	wstring resourceName = value;

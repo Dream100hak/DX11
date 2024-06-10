@@ -173,15 +173,11 @@ void Hiearchy::ShowHiearchy()
 				id = GUI->CreateEmptyGameObject();
 				TOOL->SetSelectedObjH(id);
 
-
-
-
 				ADDLOG("Create Terrain", LogFilter::Info);
 			}
 	
 			ImGui::EndMenu();
 		}
-
 
 		if (id != -1)
 		{

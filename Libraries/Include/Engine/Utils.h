@@ -20,6 +20,7 @@ public:
 	static string ToString(Vec2 value);
 	static string ToString(Vec3 value); 
 	static string ToString(Vec4 value); 
+	static string ToString(int32 value);
 	static string ToString(float value);
 
 	static wstring GetResourcesName(wstring value , wstring exten);  // 확장자 뺀 이름만 

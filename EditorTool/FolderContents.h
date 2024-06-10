@@ -66,7 +66,12 @@ public:
 
 	void CreateMeshPreviewObj(shared_ptr<MetaData>& meta);
 	void CreateModelPreviewObj(shared_ptr<MetaData>& meta);
+
+	void CreateAniPreviewObj(shared_ptr<MetaData>& meta);
+
 	void CreateMeshPreviewThumbnail(shared_ptr<MetaData>& meta , shared_ptr<GameObject>& obj);
+
+
 
 public:
 	 unordered_map<wstring, shared_ptr<GameObject>>& GetMeshPreviewObjs() { return _meshPreviewObjs; }
@@ -75,6 +80,12 @@ public:
 
 	 shared_ptr<class Camera> GetCamera() { return _meshPreviewCamera->GetCamera(); }
 	 shared_ptr<class Light> GetLight() { return _meshPreviewLight->GetLight(); }
+
+private:
+	
+	void DragModelFileToGUIWnd(shared_ptr<MetaData>& meta, const wstring& modelPath, shared_ptr<GameObject> obj);
+	
+	 
 
 private:
 

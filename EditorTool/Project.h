@@ -16,6 +16,11 @@ public:
 	void ListFolderHierarchy(const wstring& directory , bool isForcedToggle = false);
 
 private:
+	
+	shared_ptr<Model> CreateModelFile(shared_ptr<MetaData> metaData, const wstring& modelName , const wstring& modelPath );
+
+
+private:
 
 	std::wstring GetExecutablePath() {
 		WCHAR path[MAX_PATH];

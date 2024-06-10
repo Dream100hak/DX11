@@ -33,8 +33,10 @@ void MeshThumbnail::Draw(vector<shared_ptr<Renderer>> renderers, Matrix V, Matri
 
 	for (int32 i = 0; i < renderers.size(); ++i)
 	{
-		renderers[i]->RenderThumbnail(0, V, P, light, buffers[i]);
+		int32 tech = renderers[i]->GetTechnique();
+		renderers[i]->RenderThumbnail(tech, V, P, light, buffers[i]);
 	}
+
 }
 
 void MeshThumbnail::CreateColorTexture()

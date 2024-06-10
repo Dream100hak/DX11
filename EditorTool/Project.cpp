@@ -15,6 +15,8 @@
 
 #include "ModelMesh.h"
 
+#include <filesystem>
+
 Project::Project(Vec2 pos, Vec2 size)
 {
 	SetWinPosAndSize(pos, size);
@@ -39,6 +41,17 @@ void Project::Update()
 	ImGui::SetNextWindowPos(GetEWinPos());
 	ImGui::SetNextWindowSize(GetEWinSize());
 	ShowProject();
+}
+
+
+shared_ptr<Model> Project::CreateModelFile(shared_ptr<MetaData> metaData, const wstring& modelName, const wstring& modelPath)
+{
+	shared_ptr<Model> model = make_shared<Model>();
+
+	model->ReadModel(modelName + L'/' + modelName);
+	model->ReadMaterialByXml(modelName + L'/' + modelName);
+	RESOURCES->Add(metaData->fileFullPath + L'/' + modelName, model);
+	return model;
 }
 
 void Project::RefreshCasheFileList(const wstring& directory)
@@ -76,12 +89,30 @@ void Project::RefreshCasheFileList(const wstring& directory)
 		}
 		else if (meta->metaType == MetaType::MESH)
 		{
-			shared_ptr<Model> model = make_shared<Model>();
 			wstring modelName = meta->fileName.substr(0, meta->fileName.find('.'));
+			wstring modelPath = meta->fileFullPath + L'/' + modelName;
+			shared_ptr<Model> model = RESOURCES->Get<Model>(modelPath);
 
-			model->ReadModel(modelName + L'/' + modelName);
-			model->ReadMaterial(modelName + L'/' + modelName);
-			RESOURCES->Add(meta->fileFullPath + L'/' + meta->fileName, model);
+			if (model == nullptr)
+				model = CreateModelFile(meta, modelName , modelPath);
+		
+		}
+
+		else if (meta->metaType == MetaType::CLIP)
+		{
+			auto path = filesystem::path(meta->fileFullPath);
+			wstring modelName = path.filename().wstring();
+
+			wstring modelPath = meta->fileFullPath + L'/' + modelName;
+			shared_ptr<Model> model = RESOURCES->Get<Model>(modelPath);
+			
+			if (model == nullptr)
+				model = CreateModelFile(meta, modelName, modelPath);
+
+			wstring clipName = meta->fileName.substr(0, meta->fileName.find('.'));
+
+			model->ReadAnimation(modelName + L'/' + clipName);
+
 		}
 
 		CASHE_FILE_LIST.insert({ fullPath, meta });

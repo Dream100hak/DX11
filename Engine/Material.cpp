@@ -14,11 +14,17 @@ Material::~Material()
 
 void Material::Load(const wstring& path)
 {
+	
 	wstring fullPath = path + L".mat";
+	SetName(fullPath);
+	//wstring fullPath = path;
+	auto fileSystemPath = filesystem::path(fullPath);
+	auto parentPath = fileSystemPath.parent_path();
 
 	shared_ptr<FileUtils> file = make_shared<FileUtils>();
 	file->Open(fullPath, FileMode::Read);
 
+	//Shader
 	wstring shaderFile = Utils::ToWString(file->Read<string>());
 	shared_ptr<Shader> shader = RESOURCES->Get<Shader>(shaderFile);
 
@@ -28,6 +34,24 @@ void Material::Load(const wstring& path)
 	}
 	SetShader(shader);
 
+	wstring diffuseStr = Utils::ToWString(file->Read<string>());
+	if (diffuseStr.length() > 0)
+	{
+		auto texture = RESOURCES->GetOrAddTexture(diffuseStr, (parentPath / diffuseStr).wstring());
+		_diffuseMap = texture;
+	}
+	wstring specularStr = Utils::ToWString(file->Read<string>());
+	if (specularStr.length() > 0)
+	{
+		auto texture = RESOURCES->GetOrAddTexture(specularStr, (parentPath / specularStr).wstring());
+		_specularMap = texture;
+	}
+	wstring normalStr = Utils::ToWString(file->Read<string>());
+	if (normalStr.length() > 0)
+	{
+		auto texture = RESOURCES->GetOrAddTexture(normalStr, (parentPath / normalStr).wstring());
+		_normalMap = texture;
+	}
 	_desc.ambient = file->Read<Color>();
 	_desc.diffuse = file->Read<Color>();
 	_desc.specular = file->Read<Color>();
@@ -38,11 +62,11 @@ void Material::SetShader(shared_ptr<Shader> shader)
 {
 	_shader = shader;
 
-	_diffuseEffectBuffer = shader->GetSRV("DiffuseMap");
-	_normalEffectBuffer = shader->GetSRV("NormalMap");
-	_specularEffectBuffer = shader->GetSRV("SpecularMap");
-	_shadowMapEffectBuffer = shader->GetSRV("ShadowMap");
-	_ssaoMapEffectBuffer = shader->GetSRV("SsaoMap");
+	_diffuseEffectBuffer = _shader->GetSRV("DiffuseMap");
+	_normalEffectBuffer = _shader->GetSRV("NormalMap");
+	_specularEffectBuffer = _shader->GetSRV("SpecularMap");
+	_shadowMapEffectBuffer = _shader->GetSRV("ShadowMap");
+	_ssaoMapEffectBuffer = _shader->GetSRV("SsaoMap");
 }
 
 void Material::Update()

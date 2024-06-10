@@ -14,7 +14,7 @@ public:
 	void ExportMaterialDataByXml(wstring savePath);
 	void ExportAnimationData(wstring savePath, uint32 index = 0);
 
-	void ExportMaterialDataByMat(wstring savePath);
+	void ExportMaterialDataByMats(wstring savePath);
 
 private:
 	/////////////////  Model , Mesh , Skin  //////////////////////////////
@@ -31,7 +31,7 @@ private:
 
 	void ReadMaterialData();
 	void WriteMaterialDataByXml(wstring finalPath);
-	void WriteMaterialDataByMat(wstring finalPath);
+	void WriteMaterialDataByMat(shared_ptr<asMaterial> material, wstring finalPath);
 
 	////////////////////////////////// //////////////////////////////
 

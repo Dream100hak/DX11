@@ -49,6 +49,14 @@ float4 PS(VertexGridOutput input) : SV_TARGET
 }
 
 
+DepthStencilState EnableDepth
+{
+    DepthEnable = TRUE;
+    DepthWriteMask = ALL;
+    DepthFunc = LESS_EQUAL;
+};
+
+
 technique11 T0
 {
     pass P0
@@ -57,6 +65,7 @@ technique11 T0
         SetPixelShader(CompileShader(ps_5_0, PS()));
 
         SetRasterizerState(FillModeWireFrame);
-      //  SetDepthStencilState(DisableDepth, 0);
+        SetDepthStencilState(EnableDepth, 0);
+        SetBlendState(AlphaBlend, float4(0, 0, 0, 0), 0xFF);
     }
 };

@@ -11,18 +11,17 @@ SceneGrid::~SceneGrid()
 
 }
 
-void SceneGrid::Init()
+void SceneGrid::Init(int32 count, float size)
 {
 	_shader = make_shared<Shader>(L"01. SceneGrid.fx");
 
 	_geometry = make_shared<Geometry<VertexTextureData>>();
-	GeometryHelper::CreateSceneGrid(_geometry,  100 , 5.f);
+	GeometryHelper::CreateSceneGrid(_geometry, count, size);
 
 	_vertexBuffer = make_shared<VertexBuffer>();
 	_vertexBuffer->Create(_geometry->GetVertices());
 	_indexBuffer = make_shared<IndexBuffer>();
 	_indexBuffer->Create(_geometry->GetIndices());
-
 
 	auto go = GetGameObject();
 	go->SetUIPickable(false);

@@ -23,14 +23,18 @@ void AsConverter::ReadAssetFile(wstring file)
 
 	_scene = _importer->ReadFile(
 		Utils::ToString(fileStr),
+	
+		//aiProcess_ConvertToLeftHanded |
+		//aiProcess_FindInvalidData |
+		//aiProcess_Triangulate |
+		//aiProcess_GenUVCoords |
+		//aiProcess_GenNormals |
+		//aiProcess_CalcTangentSpace |
+		
 		aiProcess_ConvertToLeftHanded |
-		aiProcess_FindInvalidData | 
-		aiProcess_Triangulate |
-		aiProcess_GenUVCoords |
-		aiProcess_GenNormals |
-		aiProcess_CalcTangentSpace | 
-		aiProcess_GenBoundingBoxes |
-		aiProcess_GlobalScale
+		aiProcessPreset_TargetRealtime_Fast |
+		aiProcess_GlobalScale | 
+		aiProcess_GenBoundingBoxes 
 	);
 
 	assert(_scene != nullptr);
@@ -44,7 +48,7 @@ void AsConverter::ExportModelData(wstring savePath)
 
 	//Write CSV File
 	{
-		FILE* file;
+		/*FILE* file;
 		::fopen_s(&file, "../Vertices.csv", "w");
 
 		for (shared_ptr<asBone>& bone : _bones)
@@ -72,7 +76,7 @@ void AsConverter::ExportModelData(wstring savePath)
 			}
 		}
 
-		::fclose(file);
+		::fclose(file);*/
 	}
 
 
@@ -87,11 +91,36 @@ void AsConverter::ExportMaterialDataByXml(wstring savePath)
 }
 
 
-void AsConverter::ExportMaterialDataByMat(wstring savePath)
+void AsConverter::ExportMaterialDataByMats(wstring savePath)
 {
-	wstring finalPath = _modelPath + savePath + L".mat";
 	ReadMaterialData();
-	WriteMaterialDataByXml(finalPath);
+
+	wstring finalPath = _modelPath + savePath + L".mmat";
+
+	auto path = filesystem::path(finalPath);
+	filesystem::create_directory(path.parent_path());
+	string parentPath = path.parent_path().string() + "\\";
+
+	//Material = .mat
+	vector<wstring> matNames;
+	for (shared_ptr<asMaterial> material : _materials)
+	{
+		wstring matName = Utils::ToWString(parentPath + material->name);
+		WriteMaterialDataByMat(material, matName);
+		matNames.push_back(matName);
+	}
+
+	// Model Material = .mmat
+	shared_ptr<FileUtils> file = make_shared<FileUtils>();
+	file->Open(finalPath, FileMode::Write);
+
+	uint32 size = _materials.size();
+
+	file->Write<uint32>(size);
+	for (auto& matName : matNames)
+	{
+		file->Write<string>(Utils::ToString(matName));
+	}
 }
 
 void AsConverter::ExportAnimationData(wstring savePath, uint32 index /*= 0*/)
@@ -275,6 +304,8 @@ void AsConverter::WriteModelFile(wstring finalPath)
 
 void AsConverter::ReadMaterialData()
 {
+	_materials.clear();
+
 	for (uint32 i = 0; i < _scene->mNumMaterials; i++)
 	{
 		aiMaterial* srcMaterial = _scene->mMaterials[i];
@@ -389,42 +420,28 @@ void AsConverter::WriteMaterialDataByXml(wstring finalPath)
 	document->SaveFile(Utils::ToString(finalPath).c_str());
 }
 
-void AsConverter::WriteMaterialDataByMat(wstring finalPath)
+
+void AsConverter::WriteMaterialDataByMat(shared_ptr<asMaterial> material,  wstring finalPath)
 {
-	auto path = filesystem::path(finalPath);
+	wstring fullPath = finalPath + L".mat";
+	auto path = filesystem::path(fullPath);
 	// 폴더가 없으면 만든다.
 	filesystem::create_directory(path.parent_path());
+	string folder = path.parent_path().string();
 
 	shared_ptr<FileUtils> file = make_shared<FileUtils>();
-	file->Open(finalPath, FileMode::Write);
+	file->Open(fullPath, FileMode::Write);
 
+	auto shader = RESOURCES->Get<Shader>(L"Standard");
 
-	file->Write<uint32>(_materials.size());
-	for (shared_ptr<asMaterial> material : _materials)
-	{
-		file->Write<string>(material->name);
-		//file->Write<>(bone->parent);
-		//file->Write<Matrix>(bone->transform);
-	}
-
-	//// Mesh Data
-	//file->Write<uint32>(_meshes.size());
-	//for (shared_ptr<asMesh>& meshData : _meshes)
-	//{
-	//	file->Write<string>(meshData->name);
-	//	file->Write<int32>(meshData->boneIndex);
-	//	file->Write<string>(meshData->materialName);
-
-	//	// Vertex Data
-	//	file->Write<uint32>(meshData->vertices.size());
-	//	file->Write(&meshData->vertices[0], sizeof(VertexType) * meshData->vertices.size());
-
-	//	// Index Data
-	//	file->Write<uint32>(meshData->indices.size());
-	//	file->Write(&meshData->indices[0], sizeof(uint32) * meshData->indices.size());
-
-	//
-	//}
+	file->Write<string>(Utils::ToString(shader->GetFile()));
+	file->Write<string>(WriteTexture(folder, material->diffuseFile).c_str());
+	file->Write<string>(WriteTexture(folder, material->specularFile).c_str());
+	file->Write<string>(WriteTexture(folder, material->normalFile).c_str());
+	file->Write<Color>(material->ambient);
+	file->Write<Color>(material->diffuse);
+	file->Write<Color>(material->specular);
+	file->Write<Color>(material->emissive);
 }
 
 std::string AsConverter::WriteTexture(string saveFolder, string file)

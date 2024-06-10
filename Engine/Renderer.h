@@ -40,6 +40,8 @@ public:
 
 public:
 	
+	uint8 GetTechnique() { return _teq;}
+
 	virtual InstanceID GetInstanceID();
 	BoundingBox& GetBoundingBox() { return _boundingBox; }
 	RendererType GetRenderType() { return _renderType; }

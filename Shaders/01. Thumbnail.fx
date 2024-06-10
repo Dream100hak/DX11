@@ -52,6 +52,7 @@ technique11 T0
     PASS_VP(P0, VS_Mesh , PS)
     PASS_VP(P1, VS_Model, PS)
     PASS_VP(P2, VS_Animation, PS)
+    //PASS_ONLY_V(P2, VS_Animation)
     PASS_RS_VP(P3, FillModeWireFrame, VS_Mesh, PS_TEX)
     PASS_RS_VP(P4, FillModeWireFrame, VS_Model, PS_TEX)
     PASS_RS_VP(P5, FillModeWireFrame, VS_Animation, PS_TEX)

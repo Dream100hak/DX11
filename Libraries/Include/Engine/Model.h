@@ -15,6 +15,7 @@ public:
 
 public:
 	void ReadMaterial(wstring filename);
+	void ReadMaterialByXml(wstring filename);
 	void ReadModel(wstring filename);
 	void ReadAnimation(wstring filename);
 
@@ -36,7 +37,11 @@ public:
 	uint32 GetAnimationCount() { return _animations.size(); }
 	vector<shared_ptr<ModelAnimation>>& GetAnimations() { return _animations; }
 	shared_ptr<ModelAnimation> GetAnimationByIndex(UINT index) { return (index < 0 || index >= _animations.size()) ? nullptr : _animations[index]; }
-	shared_ptr<ModelAnimation> GetAnimationByName(wstring name);
+	shared_ptr<ModelAnimation> GetAnimationByFileName(wstring name);
+	shared_ptr<ModelAnimation> GetAnimationByClipName(wstring name);
+	
+	int32 GetAnimIndexByFileName(wstring name);
+	int32 GetAnimIndexByClipName(wstring name);
 
 	BoundingBox CalculateModelBoundingBox();
 

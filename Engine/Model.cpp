@@ -21,6 +21,34 @@ Model::~Model()
 
 void Model::ReadMaterial(wstring filename)
 {
+	wstring fullPath = _modelPath + filename + L".mmat";
+	auto parentPath = filesystem::path(fullPath).parent_path();
+	
+	shared_ptr<FileUtils> file = make_shared<FileUtils>();
+	file->Open(fullPath, FileMode::Read);
+
+	int32 size =  file->Read<int32>();
+
+	for (int32 i = 0; i < size; i++)
+	{
+		string matName = file->Read<string>();
+		
+		shared_ptr<Material> material = RESOURCES->Get<Material>(Utils::ToWString(matName));
+		if (material == nullptr)
+		{
+			material = make_shared<Material>();
+			material->Load(Utils::ToWString(matName));
+			RESOURCES->Add(Utils::ToWString(matName), material);
+		}
+			
+		_materials.push_back(material);
+	}
+
+	BindCacheInfo();
+}
+
+void Model::ReadMaterialByXml(wstring filename)
+{
 	wstring fullPath = _texturePath + filename + L".xml";
 	auto parentPath = filesystem::path(fullPath).parent_path();
 
@@ -139,6 +167,9 @@ void Model::ReadModel(wstring filename)
 {
 	wstring fullPath = _modelPath + filename + L".mesh";
 
+	auto path = filesystem::path(fullPath);
+	SetName(path.filename().wstring());
+
 	shared_ptr<FileUtils> file = make_shared<FileUtils>();
 	file->Open(fullPath, FileMode::Read);
 
@@ -209,13 +240,15 @@ void Model::ReadModel(wstring filename)
 void Model::ReadAnimation(wstring filename)
 {
 	wstring fullPath = _modelPath + filename + L".clip";
+	auto path = filesystem::path(fullPath);
 
 	shared_ptr<FileUtils> file = make_shared<FileUtils>();
 	file->Open(fullPath, FileMode::Read);
 
 	shared_ptr<ModelAnimation> animation = make_shared<ModelAnimation>();
 
-	animation->name = Utils::ToWString(file->Read<string>());
+	animation->fileName = Utils::ToWString(path.filename().string());
+	animation->clipName = Utils::ToWString(file->Read<string>());
 	animation->duration = file->Read<float>();
 	animation->frameRate = file->Read<float>();
 	animation->frameCount = file->Read<uint32>();
@@ -275,15 +308,48 @@ std::shared_ptr<ModelBone> Model::GetBoneByName(const wstring& name)
 	return nullptr;
 }
 
-std::shared_ptr<ModelAnimation> Model::GetAnimationByName(wstring name)
+shared_ptr<ModelAnimation> Model::GetAnimationByFileName(wstring name)
 {
 	for (auto& animation : _animations)
 	{
-		if (animation->name == name)
+		if (animation->fileName == name)
 			return animation;
 	}
 
 	return nullptr;
+}
+
+std::shared_ptr<ModelAnimation> Model::GetAnimationByClipName(wstring name)
+{
+	for (auto& animation : _animations)
+	{
+		if (animation->clipName == name)
+			return animation;
+	}
+
+	return nullptr;
+}
+
+int32 Model::GetAnimIndexByFileName(wstring name)
+{
+	for (int32 i = 0; i < _animations.size(); ++i)
+	{
+		if (_animations[i]->fileName == name)
+			return i;
+	}
+
+	return -1;
+}
+
+int32 Model::GetAnimIndexByClipName(wstring name)
+{
+	for (int32 i = 0; i < _animations.size(); ++i)
+	{
+		if (_animations[i]->clipName == name)
+			return i;
+	}
+
+	return -1;
 }
 
 void Model::BindCacheInfo()
@@ -330,36 +396,71 @@ void Model::BindCacheInfo()
 
 DirectX::BoundingBox Model::CalculateModelBoundingBox()
 {
-	XMFLOAT3 minPoint = XMFLOAT3(FLT_MAX, FLT_MAX, FLT_MAX);
-	XMFLOAT3 maxPoint = XMFLOAT3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+	//XMFLOAT3 minPoint = XMFLOAT3(FLT_MAX, FLT_MAX, FLT_MAX);
+	//XMFLOAT3 maxPoint = XMFLOAT3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+	//
+	//// 모든 메시의 정점을 순회하여 AABB 계산
+	//for (const auto& mesh : _meshes) {
+	//	for (const auto& vertex : mesh->geometry->GetVertices()) {
+	//		minPoint.x = min(minPoint.x, vertex.position.x);
+	//		minPoint.y = min(minPoint.y, vertex.position.y);
+	//		minPoint.z = min(minPoint.z, vertex.position.z);
 
-	// 모든 메시의 정점을 순회하여 AABB 계산
+	//		maxPoint.x = max(maxPoint.x, vertex.position.x);
+	//		maxPoint.y = max(maxPoint.y, vertex.position.y);
+	//		maxPoint.z = max(maxPoint.z, vertex.position.z);
+	//	}
+	//}
+
+	//// AABB 중심과 크기 계산
+	//XMFLOAT3 center = XMFLOAT3(
+	//	(minPoint.x + maxPoint.x) / 2.0f,
+	//	(minPoint.y + maxPoint.y) / 2.0f,
+	//	(minPoint.z + maxPoint.z) / 2.0f);
+
+	//XMFLOAT3 extents = XMFLOAT3(
+	//	(maxPoint.x - minPoint.x) / 2.0f,
+	//	(maxPoint.y - minPoint.y) / 2.0f,
+	//	(maxPoint.z - minPoint.z) / 2.0f);
+
+	//BoundingBox aabb;
+	//aabb.Center = center;
+	//aabb.Extents = extents;
+
+	//return aabb;
+
+	XMFLOAT3 minPoint(FLT_MAX, FLT_MAX, FLT_MAX);
+	XMFLOAT3 maxPoint(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+
+	// 모든 메시의 AABB를 순회하여 AABB 계산
 	for (const auto& mesh : _meshes) {
-		for (const auto& vertex : mesh->geometry->GetVertices()) {
-			minPoint.x = min(minPoint.x, vertex.position.x);
-			minPoint.y = min(minPoint.y, vertex.position.y);
-			minPoint.z = min(minPoint.z, vertex.position.z);
+		const aiVector3D& aiMin = mesh->aabb.mMin;
+		const aiVector3D& aiMax = mesh->aabb.mMax;
 
-			maxPoint.x = max(maxPoint.x, vertex.position.x);
-			maxPoint.y = max(maxPoint.y, vertex.position.y);
-			maxPoint.z = max(maxPoint.z, vertex.position.z);
-		}
+		minPoint.x = min(minPoint.x, aiMin.x);
+		minPoint.y = min(minPoint.y, aiMin.y);
+		minPoint.z = min(minPoint.z, aiMin.z);
+
+		maxPoint.x = max(maxPoint.x, aiMax.x);
+		maxPoint.y = max(maxPoint.y, aiMax.y);
+		maxPoint.z = max(maxPoint.z, aiMax.z);
 	}
 
 	// AABB 중심과 크기 계산
-	XMFLOAT3 center = XMFLOAT3(
+	XMFLOAT3 center(
 		(minPoint.x + maxPoint.x) / 2.0f,
 		(minPoint.y + maxPoint.y) / 2.0f,
-		(minPoint.z + maxPoint.z) / 2.0f);
+		(minPoint.z + maxPoint.z) / 2.0f
+	);
 
-	XMFLOAT3 extents = XMFLOAT3(
+	XMFLOAT3 extents(
 		(maxPoint.x - minPoint.x) / 2.0f,
 		(maxPoint.y - minPoint.y) / 2.0f,
-		(maxPoint.z - minPoint.z) / 2.0f);
+		(maxPoint.z - minPoint.z) / 2.0f
+	);
 
 	BoundingBox aabb;
-	aabb.Center = center;
-	aabb.Extents = extents;
+	BoundingBox::CreateFromPoints(aabb, XMLoadFloat3(&minPoint), XMLoadFloat3(&maxPoint));
 
 	return aabb;
 }

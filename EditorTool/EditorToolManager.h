@@ -58,12 +58,18 @@ public:
 
 		else if (ext == L"mesh")
 			return MetaType::MESH;
+		
+		else if (ext == L"clip")
+			return MetaType::CLIP;
 
 		else if (ext == L"xml" || ext == L"XML")
 			return MetaType::XML;
 
 		else if (ext == L"mat" || ext == L"MAT")
 			return MetaType::MATERIAL;
+		else if (ext == L"mmat" || ext == L"MMAT")
+			return MetaType::MODEL_MAT;
+
 
 		else
 			return MetaType::Unknown;

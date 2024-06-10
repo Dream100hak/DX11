@@ -13,7 +13,7 @@ public:
 	SceneGrid();
 	virtual ~SceneGrid();
 
-	void Init();
+	void Init(int32 count , float size);
 	virtual void Update() override;
 
 	void Render(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light) override;

@@ -293,6 +293,13 @@ pass name											\
     SetPixelShader(CompileShader(ps_5_0, ps()));	\
 }
 
+#define PASS_ONLY_V(name, vs)						\
+pass name											\
+{													\
+	SetVertexShader(CompileShader(vs_5_0, vs()));	\
+    SetPixelShader(NULL);                           \
+}
+
 //////////////
 // Function //
 //////////////

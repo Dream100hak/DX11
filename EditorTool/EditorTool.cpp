@@ -40,12 +40,21 @@
 
 void EditorTool::Init()
 {
-	
-	shared_ptr<AsConverter> converter = make_shared<AsConverter>();
 
-	//converter->ReadAssetFile(L"Kachujin/Mesh.fbx");
-	//converter->ExportMaterialDataByXml(L"Kachujin/Kachujin");
-	//converter->ExportModelData(L"Kachujin/Kachujin");
+	//{
+	//	shared_ptr<AsConverter> converter = make_shared<AsConverter>();
+
+	//	converter->ReadAssetFile(L"Kachujin/Mesh.fbx");
+	/////	converter->ExportMaterialDataByXml(L"Kachujin/Kachujin");
+	//	converter->ExportMaterialDataByMats(L"Kachujin/Kachujin");
+	//	converter->ExportModelData(L"Kachujin/Kachujin");
+
+	//}
+	//{
+	//	shared_ptr<AsConverter> converter = make_shared<AsConverter>();
+	//	converter->ReadAssetFile(L"Kachujin/Idle.fbx");
+	//	converter->ExportAnimationData(L"Kachujin/Idle");
+	//}
 
 	GET_SINGLE(ShortcutManager)->Init();
 	GET_SINGLE(EditorToolManager)->Init();
@@ -158,7 +167,6 @@ void EditorTool::Init()
 		terrainObj->SetObjectName(L"Terrain");
 		terrainObj->AddComponent(make_shared<Terrain>());
 
-
 		TerrainInfo info{};
 
 		info.heightMapFilename = L"../Resources/Assets/Textures/Terrain/terrain.raw";
@@ -211,38 +219,34 @@ void EditorTool::Init()
 		//	CUR_SCENE->Add(obj);
 		//}
 	 //}
-		{
+		//{
 
-			shared_ptr<class Model> m2 = make_shared<Model>();
-			m2->ReadModel(L"Kachujin/Kachujin");
-			m2->ReadMaterial(L"Kachujin/Kachujin");
-			m2->ReadAnimation(L"Kachujin/Idle");
-			m2->ReadAnimation(L"Kachujin/Run");
-			m2->ReadAnimation(L"Kachujin/Slash");
+		//	shared_ptr<class Model> m2 = make_shared<Model>();
+		//	m2->ReadModel(L"Kachujin/Kachujin");
+		//	m2->ReadMaterial(L"Kachujin/Kachujin");
+		//	m2->ReadAnimation(L"Kachujin/Idle");
+		//	m2->ReadAnimation(L"Kachujin/Run");
+		//	m2->ReadAnimation(L"Kachujin/Slash");
 
-			for (int i = 200; i < 201; i++)
-			{
-				auto obj = make_shared<GameObject>();
-				wstring name = L"Ani_" + to_wstring(i);
-				obj->SetObjectName(name);
+		//	for (int i = 200; i < 201; i++)
+		//	{
+		//		auto obj = make_shared<GameObject>();
+		//		wstring name = L"Ani_" + to_wstring(i);
+		//		obj->SetObjectName(name);
 
-				float randX = MathUtils::Random(100.f, 150.f);
-				float randZ = MathUtils::Random(-20.f, 20.f);
+		//		float randX = MathUtils::Random(100.f, 150.f);
+		//		float randZ = MathUtils::Random(-20.f, 20.f);
 
-				obj->GetOrAddTransform()->SetPosition(Vec3(randX, 0, randZ));
-				obj->GetOrAddTransform()->SetScale(Vec3(0.1f));
+		//		obj->GetOrAddTransform()->SetPosition(Vec3(randX, 0, randZ));
+		//		//obj->GetOrAddTransform()->SetScale(Vec3(0.1f));
 
-				obj->AddComponent(make_shared<ModelAnimator>(shader));
-				obj->GetModelAnimator()->SetModel(m2);
-				obj->GetModelAnimator()->SetPass(2);
+		//		obj->AddComponent(make_shared<ModelAnimator>(shader));
+		//		obj->GetModelAnimator()->SetModel(m2);
+		//		obj->GetModelAnimator()->SetPass(2);
 
-				auto collider = make_shared<OBBBoxCollider>();
-				collider->GetBoundingBox().Extents = Vec3(1.f);
-				obj->AddComponent(collider);
-
-				CUR_SCENE->Add(obj);
-			}
-		}
+		//		CUR_SCENE->Add(obj);
+		//	}
+		//}
 	
 }
 

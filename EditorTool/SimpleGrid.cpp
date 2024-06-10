@@ -25,6 +25,7 @@ void SimpleGrid::Create(int32 sizeX, int32 sizeZ, shared_ptr<Material> material)
 	_mesh->CreateGrid(sizeX, sizeZ);
 
 	go->GetMeshRenderer()->SetMesh(_mesh);
+	go->GetMeshRenderer()->SetTechnique(3);
 	go->GetMeshRenderer()->SetPass(0);
 	go->GetMeshRenderer()->SetMaterial(material);
 }

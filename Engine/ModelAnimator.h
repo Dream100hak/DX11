@@ -28,17 +28,16 @@ public:
 	bool Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& distance) override;
 
 	void UpdateTweenData();
-	
 
 	void PushBuffer(uint8 technique, uint8 pass, shared_ptr<Light> light);
 	void PushBufferInstancing(uint8 technique, uint8 pass, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer);
 
 public:
 	void SetModel(shared_ptr<Model> model);
-	void SetPass(uint8 pass) { _pass = pass; }
 	shared_ptr<Shader> GetShader() { return _shader; }
 
 	InstanceID GetInstanceID() override;
+	shared_ptr<Model>& GetModel() { return _model; }
 	TweenDesc& GetTweenDesc() { return _tweenDesc; }
 
 private:
@@ -55,7 +54,6 @@ private:
 
 private:
 	shared_ptr<Shader>	_shader;
-	uint8				_pass = 0;
 	shared_ptr<Model>	_model;
 };
 

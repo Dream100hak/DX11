@@ -6,6 +6,7 @@
 #include "Material.h"
 #include "MeshRenderer.h"
 #include "ModelRenderer.h"
+#include "ModelAnimator.h"
 
 #include "MeshThumbnail.h"
 #include "ShadowMap.h"
@@ -196,95 +197,64 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 	if (meta->metaType == MetaType::MESH)
 	{
 		shared_ptr<GameObject> obj = nullptr;
+	
+		wstring modelPath = meta->fileFullPath + L'/' + meta->fileName;
 
 		/////////////// Create Mesh Preview Obj ////////////////////////
-		if (_meshPreviewObjs.find(meta->fileFullPath + L'/' + meta->fileName) == _meshPreviewObjs.end())
+		if (_meshPreviewObjs.find(modelPath) == _meshPreviewObjs.end())
 		{
 			CreateModelPreviewObj(meta);
 		}
 			
-		obj = _meshPreviewObjs[meta->fileFullPath + L'/' + meta->fileName];
+		obj = _meshPreviewObjs[modelPath];
 
 		/////////////// Create Mesh Preview Thumbnail ////////////////////////
 		shared_ptr<MeshThumbnail> thumbnail = nullptr;
 
-		if (_meshPreviewthumbnails.find(meta->fileFullPath + L'/' + meta->fileName) == _meshPreviewthumbnails.end())
+		if (_meshPreviewthumbnails.find(modelPath) == _meshPreviewthumbnails.end())
 		{
 			CreateMeshPreviewThumbnail(meta , obj);
 		}
 		
-		thumbnail = _meshPreviewthumbnails[meta->fileFullPath + L'/' + meta->fileName];
+		thumbnail = _meshPreviewthumbnails[modelPath];
 
 		RefreshButton(thumbnail->GetComPtr().Get(), meta, id, []() {});
 
-		ImVec2 scenePos = TOOL->GetEditorWindow(Utils::GetClassNameEX<SceneWindow>())->GetEWinPos();
-		ImVec2 sceneSize = TOOL->GetEditorWindow(Utils::GetClassNameEX<SceneWindow>())->GetEWinSize();
-
-		ImVec2 hiearchyPos = TOOL->GetEditorWindow(Utils::GetClassNameEX<Hiearchy>())->GetEWinPos();
-		ImVec2 hiearchySize = TOOL->GetEditorWindow(Utils::GetClassNameEX<Hiearchy>())->GetEWinSize();
-
-		float prevScale = _meshScales[meta->fileFullPath + L'/' + meta->fileName];
-		float scaleRatio = prevScale * 6;
-
-		if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
-		{
-			MetaData* metaRawPtr = meta.get();
-
-			ImGui::SetDragDropPayload("MeshPayload", &metaRawPtr,  sizeof(MetaData*));
-
-			if (IsMouseInGUIWindow(scenePos, sceneSize))
-			{	
-				CUR_SCENE->Add(obj);
-
-				::SetCursor(LoadCursor(NULL, IDC_HAND));
-
-				int32 x = INPUT->GetMousePos().x;
-				int32 y = INPUT->GetMousePos().y;
-
-				Matrix V = MAIN_CAM->GetViewMatrix();
-				Matrix P = MAIN_CAM->GetProjectionMatrix();
-				Viewport& vp = GRAPHICS->GetViewport();
-
-				Vec3 n = vp.Unproject(Vec3(x, y, 0), Matrix::Identity, V, P);
-				Vec3 f = vp.Unproject(Vec3(x, y, 1), Matrix::Identity, V, P);
-				
-				Vec3 start =  MAIN_CAM->GetTransform()->GetPosition();
-				Vec3 direction = f - n;
-				direction.Normalize();
-
-				float rayLength = 1000.0f; 
-				float t = -start.y / direction.y; // y=0
-
-				if (t > 0 && t < rayLength) 
-				{				
-					Vec3 hitPoint = start + direction * t;
-					
-					shared_ptr<GameObject> terrain = CUR_SCENE->GetTerrain();
-					
-					if(terrain)
-						hitPoint.y = terrain->GetTerrain()->GetHeight(hitPoint.x, hitPoint.z);	
-
-					obj->GetTransform()->SetScale(Vec3(scaleRatio));
-					obj->GetTransform()->SetPosition(hitPoint);
-				}
-
-			}
-			else if (IsMouseInGUIWindow(hiearchyPos, hiearchySize))
-			{
-				CUR_SCENE->Remove(obj);
-				obj->GetTransform()->SetScale(Vec3(prevScale));
-				::SetCursor(LoadCursor(NULL, IDC_HAND));
-			}
-			else
-			{
-				CUR_SCENE->Remove(obj);
-				obj->GetTransform()->SetScale(Vec3(prevScale));
-				::SetCursor(LoadCursor(NULL, IDC_NO));
-			}
-
-			ImGui::EndDragDropSource();
-		}
+		DragModelFileToGUIWnd(meta, modelPath , obj);
 	}
+	// 애니메이션 처리
+	else if (meta->metaType == MetaType::CLIP)
+	{
+		shared_ptr<GameObject> obj = nullptr;
+
+		wstring clipPath = meta->fileFullPath + L'/' + meta->fileName;
+
+		/////////////// Create Mesh Preview Obj ////////////////////////
+		if (_meshPreviewObjs.find(clipPath) == _meshPreviewObjs.end())
+		{
+			CreateAniPreviewObj(meta);
+		}
+
+		obj = _meshPreviewObjs[clipPath];
+
+		/////////////// Create Mesh Preview Thumbnail ////////////////////////
+		shared_ptr<MeshThumbnail> thumbnail = nullptr;
+
+		if (_meshPreviewthumbnails.find(clipPath) == _meshPreviewthumbnails.end())
+		{
+			CreateMeshPreviewThumbnail(meta, obj);
+		}
+
+		thumbnail = _meshPreviewthumbnails[clipPath];
+
+		RefreshButton(thumbnail->GetComPtr().Get(), meta, id, []() {});
+	}
+	else if (meta->metaType == MetaType::MODEL_MAT)
+	{
+		auto tex = RESOURCES->Get<Texture>(L"Text");
+		RefreshButton(tex->GetComPtr().Get(), meta, id, []() {});
+	}
+
 	// 예외 파일 처리
 	else if (meta->metaType == MetaType::Unknown)
 	{
@@ -336,7 +306,14 @@ void FolderContents::CreateMaterial()
 	shared_ptr<FileUtils> file = make_shared<FileUtils>();
 	file->Open(finalPath, FileMode::Write);
 
-	file->Write<string>(Utils::ToString(material->GetShader()->GetFile()));
+	file->Write<wstring>(material->GetShader()->GetFile());
+	int32 materialSize = 1;
+	file->Write<uint32>(materialSize);
+	
+	file->Write<wstring>(fileName);
+	file->Write<string>(""); // Diffuse
+	file->Write<string>(""); // Specular
+	file->Write<string>(""); // Normal
 	file->Write<Color>(material->GetMaterialDesc().ambient);	
 	file->Write<Color>(material->GetMaterialDesc().diffuse);	
 	file->Write<Color>(material->GetMaterialDesc().specular);	
@@ -359,7 +336,6 @@ void FolderContents::CreateMeshPreviewObj(shared_ptr<MetaData>& meta)
 {
 	shared_ptr<Mesh> mesh = make_shared<Mesh>();
 	auto mat = RESOURCES->Get<Material>(meta->fileFullPath + L'/' + meta->fileName);
-	wstring debugPath = meta->fileFullPath + L'/' + meta->fileName;
 
 	mesh->CreateSphere();
 	auto obj = make_shared<GameObject>();
@@ -380,7 +356,10 @@ void FolderContents::CreateMeshPreviewObj(shared_ptr<MetaData>& meta)
 void FolderContents::CreateModelPreviewObj(shared_ptr<MetaData>& meta)
 {
 	auto shader = RESOURCES->Get<Shader>(L"Thumbnail");
-	auto model = RESOURCES->Get<Model>(meta->fileFullPath + L'/' + meta->fileName);
+	wstring modelName = meta->fileName.substr(0, meta->fileName.find('.'));
+	wstring modelPath = meta->fileFullPath + L'/' + modelName;
+
+	auto model = RESOURCES->Get<Model>(modelPath);
 	
 	BoundingBox box = model->CalculateModelBoundingBox();
 	auto obj = make_shared<GameObject>();
@@ -393,6 +372,8 @@ void FolderContents::CreateModelPreviewObj(shared_ptr<MetaData>& meta)
 
 	float scale = globalScale / modelScale;
 
+	//scale = 0.01f;
+
 	obj->GetOrAddTransform()->SetPosition(Vec3::Zero);
 	obj->GetOrAddTransform()->SetRotation(Vec3(0.f, 0.f, 0.f));
 	obj->GetOrAddTransform()->SetScale(Vec3(scale, scale, scale));
@@ -402,8 +383,50 @@ void FolderContents::CreateModelPreviewObj(shared_ptr<MetaData>& meta)
 	obj->GetModelRenderer()->SetPass(1);
 
 	_meshPreviewObjs.insert(make_pair(meta->fileFullPath + L'/' + meta->fileName, obj));
-	_meshScales.insert(make_pair(meta->fileFullPath + L'/' + meta->fileName , scale));
+	_meshScales.insert(make_pair(meta->fileFullPath + L'/' + meta->fileName, scale));
 
+}
+
+void FolderContents::CreateAniPreviewObj(shared_ptr<MetaData>& meta)
+{
+	auto shader = RESOURCES->Get<Shader>(L"Standard");
+	auto path = filesystem::path(meta->fileFullPath);
+	wstring modelName = path.filename().wstring();
+	wstring modelPath = meta->fileFullPath + L'/' + modelName;
+
+	auto model = RESOURCES->Get<Model>(modelPath);
+
+	BoundingBox box = model->CalculateModelBoundingBox();
+	auto obj = make_shared<GameObject>();
+
+	float modelScale = max(max(box.Extents.x, box.Extents.y), box.Extents.z) * 2.0f;
+	float globalScale = MODEL_GLOBAL_SCALE;
+
+	if (modelScale > 10.f)
+		modelScale = globalScale;
+
+	//TODO : 삭제 예정
+	//modelScale = .5f;
+
+	float scale = globalScale / modelScale;
+	//scale = 0.01f;
+
+	obj->GetOrAddTransform()->SetPosition(Vec3::Zero);
+	obj->GetOrAddTransform()->SetRotation(Vec3(0.f, 0.f, 0.f));
+	obj->GetOrAddTransform()->SetScale(Vec3(scale, scale, scale));
+
+	obj->AddComponent(make_shared<ModelAnimator>(shader));
+	obj->GetModelAnimator()->SetModel(model);
+	obj->GetModelAnimator()->SetPass(2);
+
+	_meshPreviewObjs.insert(make_pair(meta->fileFullPath + L'/' + meta->fileName, obj));
+	_meshScales.insert(make_pair(meta->fileFullPath + L'/' + meta->fileName, scale));
+
+	shared_ptr<ModelAnimator> animator = obj->GetModelAnimator();
+	TweenDesc& desc = animator->GetTweenDesc();
+	shared_ptr<ModelAnimation> animation = animator->GetModel()->GetAnimationByFileName(meta->fileName);
+
+	desc.curr.animIndex = animator->GetModel()->GetAnimIndexByFileName(meta->fileName);
 }
 
 void FolderContents::CreateMeshPreviewThumbnail(shared_ptr<MetaData>& meta , shared_ptr<GameObject>& obj)
@@ -411,17 +434,7 @@ void FolderContents::CreateMeshPreviewThumbnail(shared_ptr<MetaData>& meta , sha
 	std::vector<shared_ptr<Renderer>> renderers;
 	std::vector<shared_ptr<InstancingBuffer>> buffers;
 
-	switch (meta->metaType)
-	{
-	case MATERIAL:
-		
-		renderers.push_back(obj->GetMeshRenderer());
-		break;
-	case MESH:
-
-		renderers.push_back(obj->GetModelRenderer());
-		break;
-	}
+	renderers.push_back(obj->GetRenderer());
 
 	shared_ptr<MeshThumbnail> thumbnail = nullptr;
 	thumbnail = make_shared<MeshThumbnail>(1024, 1024);
@@ -429,9 +442,9 @@ void FolderContents::CreateMeshPreviewThumbnail(shared_ptr<MetaData>& meta , sha
 	InstancingData data;
 	data.world = obj->GetTransform()->GetWorldMatrix();
 	data.isPicked = obj->GetUIPicked() ? 1 : 0;
+
 	shared_ptr<InstancingBuffer> buffer = make_shared<InstancingBuffer>();
 	buffer->AddData(data);
-
 	buffers.push_back(buffer);
 
 	Matrix V = _meshPreviewCamera->GetCamera()->GetViewMatrix();
@@ -443,6 +456,78 @@ void FolderContents::CreateMeshPreviewThumbnail(shared_ptr<MetaData>& meta , sha
 	});
 
 	_meshPreviewthumbnails.insert(make_pair(meta->fileFullPath + L'/' + meta->fileName, thumbnail));
+
+}
+
+void FolderContents::DragModelFileToGUIWnd(shared_ptr<MetaData>& meta, const wstring& modelPath, shared_ptr<GameObject> obj)
+{
+	ImVec2 scenePos = TOOL->GetEditorWindow(Utils::GetClassNameEX<SceneWindow>())->GetEWinPos();
+	ImVec2 sceneSize = TOOL->GetEditorWindow(Utils::GetClassNameEX<SceneWindow>())->GetEWinSize();
+
+	ImVec2 hiearchyPos = TOOL->GetEditorWindow(Utils::GetClassNameEX<Hiearchy>())->GetEWinPos();
+	ImVec2 hiearchySize = TOOL->GetEditorWindow(Utils::GetClassNameEX<Hiearchy>())->GetEWinSize();
+
+	float prevScale = _meshScales[modelPath];
+	float scaleRatio = prevScale * 6;
+
+	if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
+	{
+		MetaData* metaRawPtr = meta.get();
+
+		ImGui::SetDragDropPayload("MeshPayload", &metaRawPtr, sizeof(MetaData*));
+
+		if (IsMouseInGUIWindow(scenePos, sceneSize))
+		{
+			CUR_SCENE->Add(obj);
+
+			::SetCursor(LoadCursor(NULL, IDC_HAND));
+
+			int32 x = INPUT->GetMousePos().x;
+			int32 y = INPUT->GetMousePos().y;
+
+			Matrix V = MAIN_CAM->GetViewMatrix();
+			Matrix P = MAIN_CAM->GetProjectionMatrix();
+			Viewport& vp = GRAPHICS->GetViewport();
+
+			Vec3 n = vp.Unproject(Vec3(x, y, 0), Matrix::Identity, V, P);
+			Vec3 f = vp.Unproject(Vec3(x, y, 1), Matrix::Identity, V, P);
+
+			Vec3 start = MAIN_CAM->GetTransform()->GetPosition();
+			Vec3 direction = f - n;
+			direction.Normalize();
+
+			float rayLength = 1000.0f;
+			float t = -start.y / direction.y; // y=0
+
+			if (t > 0 && t < rayLength)
+			{
+				Vec3 hitPoint = start + direction * t;
+
+				shared_ptr<GameObject> terrain = CUR_SCENE->GetTerrain();
+
+				if (terrain)
+					hitPoint.y = terrain->GetTerrain()->GetHeight(hitPoint.x, hitPoint.z);
+
+				obj->GetTransform()->SetScale(Vec3(scaleRatio));
+				obj->GetTransform()->SetPosition(hitPoint);
+			}
+
+		}
+		else if (IsMouseInGUIWindow(hiearchyPos, hiearchySize))
+		{
+			CUR_SCENE->Remove(obj);
+			obj->GetTransform()->SetScale(Vec3(prevScale));
+			::SetCursor(LoadCursor(NULL, IDC_HAND));
+		}
+		else
+		{
+			CUR_SCENE->Remove(obj);
+			obj->GetTransform()->SetScale(Vec3(prevScale));
+			::SetCursor(LoadCursor(NULL, IDC_NO));
+		}
+
+		ImGui::EndDragDropSource();
+	}
 
 }
 

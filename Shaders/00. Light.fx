@@ -53,6 +53,7 @@ struct MaterialDesc
     int lightCount;
     int useTexture;
     int useAlphaclip;
+    int useSsao;
 };
 
 /////////////////

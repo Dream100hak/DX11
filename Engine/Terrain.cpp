@@ -20,9 +20,9 @@ void Terrain::OnInspectorGUI()
 {
 	Super::OnInspectorGUI();
 
-	ImGui::DragFloat("Fog Start", (float*)&_fogStart, 0.1f);
-	ImGui::DragFloat("Fog Range", (float*)&_fogRange, 0.1f);
-	ImGui::ColorEdit4("Fog Color",(float*)&_fogColor);
+	//ImGui::DragFloat("Fog Start", (float*)&_fogStart, 0.1f);
+	//ImGui::DragFloat("Fog Range", (float*)&_fogRange, 0.1f);
+	//ImGui::ColorEdit4("Fog Color",(float*)&_fogColor);
 
 	if (_mat != nullptr)
 	{

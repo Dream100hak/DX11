@@ -12,8 +12,8 @@ ModelAnimator::ModelAnimator(shared_ptr<Shader> shader)
 	: Super(RendererType::Animator), _shader(shader)
 {
 	// TEST
-	_tweenDesc.next.animIndex = rand() % 3;
-	_tweenDesc.tweenSumTime += rand() % 100;
+//	_tweenDesc.next.animIndex = rand() % 3;
+//	_tweenDesc.tweenSumTime += rand() % 100;
 }
 
 ModelAnimator::~ModelAnimator()
@@ -23,7 +23,15 @@ ModelAnimator::~ModelAnimator()
 
 void ModelAnimator::OnInspectorGUI()
 {
-	
+	if (ImGui::InputInt("Current Animation", (int*)&_tweenDesc.curr.animIndex))
+	{
+		_tweenDesc.curr.animIndex %= _model->GetAnimationCount();
+	}
+
+	ImGui::DragFloat("Current Speed", &_tweenDesc.curr.speed);
+
+	ImGui::SliderInt("Current Frame", (int*)&_tweenDesc.curr.currFrame, 0, 1000);
+	ImGui::SliderInt("Next Frame", (int*)&_tweenDesc.curr.nextFrame, 0, 1000);
 }
 
 void ModelAnimator::Render(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light)
@@ -115,7 +123,26 @@ void ModelAnimator::RenderInstancing(int32 tech, shared_ptr<Shader> shader, Matr
 
 void ModelAnimator::RenderThumbnail(int32 tech, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer)
 {
+	if (_model == nullptr)
+		return;
+	if (_texture == nullptr)
+		CreateTexture();
 
+	_shader->PushGlobalData(V, P);
+	_shader->PushLightData(light->GetLightDesc());
+
+	if (buffer == nullptr)
+	{
+		PushBuffer(0, _pass, light);
+	}
+	else
+	{
+		shared_ptr<InstancedTweenDesc> tweenDesc = make_shared<InstancedTweenDesc>();
+		tweenDesc->tweens[0] = _tweenDesc;
+		_shader->PushTweenData(*tweenDesc.get());
+
+		PushBufferInstancing(0, _pass, light, buffer);
+	}
 }
 
 bool ModelAnimator::Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& distance)

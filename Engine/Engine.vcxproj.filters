@@ -496,5 +496,6 @@
     <None Include="SimpleMath.inl">
       <Filter>98. Utils</Filter>
     </None>
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>

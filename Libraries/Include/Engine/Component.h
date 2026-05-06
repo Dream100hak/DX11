@@ -1,6 +1,4 @@
 #pragma once
-#include <boost/type_index.hpp>
-
 
 class GameObject;
 class Transform;
@@ -23,8 +21,6 @@ enum class ComponentType : uint8
 	End,
 };
 
-BOOST_DESCRIBE_ENUM(ComponentType , Transform , Renderer, Camera, Animator, Light , Collider , Terrain, Button, BillBoard, SkyBox)
-
 enum
 {
 	FIXED_COMPONENT_COUNT = static_cast<uint8>(ComponentType::End) - 1
@@ -38,9 +34,7 @@ public:
 
 	virtual void OnInspectorGUI() {}
 
-
 public:
-
 	virtual void Awake() { }
 	virtual void Start() { }
 	virtual void Update() { }
@@ -48,11 +42,9 @@ public:
 	virtual void FixedUpdate() { }
 
 public:
-
 	void HideInspectorInfo(bool on) { _hideInspectorInfo = on; }
 
 public:
-	
 	ComponentType GetType() { return _type; }
 
 	shared_ptr<GameObject> GetGameObject();

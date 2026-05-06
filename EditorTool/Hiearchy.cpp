@@ -195,7 +195,7 @@ void Hiearchy::ShowHiearchy()
 
 int32 Hiearchy::CreateFire()
 {
-	int32 id = GUI->CreateEmptyGameObject(PARTICLE);
+	int32 id = GUI->CreateEmptyGameObject(CreatedObjType::PARTICLE);
 	TOOL->SetSelectedObjH(id);
 
 	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetTransform();
@@ -203,7 +203,7 @@ int32 Hiearchy::CreateFire()
 	Vec3 pos = cam->GetLocalPosition() + (cam->GetLook() * distance);
 
 	shared_ptr<GameObject> fire = CUR_SCENE->GetCreatedObject(id);
-	fire->SetObjectName(L"Fire " + GUI->FindEmptyName(PARTICLE));
+	fire->SetObjectName(L"Fire " + GUI->FindEmptyName(CreatedObjType::PARTICLE));
 	//fire->GetOrAddTransform()->SetPosition(Vec3(107.f, 1.f, -28.f));
 	fire->GetOrAddTransform()->SetPosition(pos);
 	fire->AddComponent(make_shared<class ParticleSystem>());
@@ -225,7 +225,7 @@ int32 Hiearchy::CreateRain()
 	TOOL->SetSelectedObjH(id);
 
 	shared_ptr<GameObject> rainDrop = CUR_SCENE->GetCreatedObject(id);
-	rainDrop->SetObjectName(L"Rain " + GUI->FindEmptyName(PARTICLE));
+	rainDrop->SetObjectName(L"Rain " + GUI->FindEmptyName(CreatedObjType::PARTICLE));
 	rainDrop->GetOrAddTransform()->SetPosition(Vec3::Zero);
 	rainDrop->AddComponent(make_shared<class ParticleSystem>());
 

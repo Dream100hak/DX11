@@ -1,6 +1,6 @@
 #pragma once
-#include <boost/describe.hpp>
-#include <boost/mp11.hpp>
+// TODO: magic_enum.hpp를 Libraries/Include/에 추가한 후 주석 해제
+// #include <magic_enum.hpp>
 #include "Component.h"
 
 class Transform;
@@ -14,11 +14,10 @@ class Terrain;
 class Button;
 class Billboard;
 
-
 class Model;
 
-
-enum CreatedObjType
+// enum class로 변경하여 타입 안전성 확보
+enum class CreatedObjType : uint32
 {
 	GAMEOBJ,
 	QUAD,
@@ -29,8 +28,6 @@ enum CreatedObjType
 	TERRAIN,
 	PARTICLE
 };
-
-BOOST_DESCRIBE_ENUM(CreatedObjType, GAMEOBJ, QUAD, CUBE, SPHERE, GRID, MODEL, TERRAIN, PARTICLE)
 
 class ImGuiManager
 {
@@ -47,21 +44,71 @@ public:
 	wstring FindEmptyName(CreatedObjType type);
 
 	int32 CreateMesh(CreatedObjType type);
-	int32 CreateModelMesh(shared_ptr<Model> model , Vec3 position = Vec3(0,0,0));
+	int32 CreateModelMesh(shared_ptr<Model> model, Vec3 position = Vec3(0, 0, 0));
 
-	template<class E>
-	std::string EnumToString(E e)
+	// 임시 Enum → String 변환 (magic_enum 추가 전)
+	template<typename E>
+	static std::string EnumToString(E e)
 	{
-		string r = "(unnamed)";
-
-		boost::mp11::mp_for_each<boost::describe::describe_enumerators<E>>([&](auto D)
+		// CreatedObjType만 지원
+		if constexpr (std::is_same_v<E, CreatedObjType>)
+		{
+			switch (e)
 			{
-				if (e == D.value)
-					r = D.name;
-			});
-
-		return r;
+			case CreatedObjType::GAMEOBJ: return "GAMEOBJ";
+			case CreatedObjType::QUAD: return "QUAD";
+			case CreatedObjType::CUBE: return "CUBE";
+			case CreatedObjType::SPHERE: return "SPHERE";
+			case CreatedObjType::GRID: return "GRID";
+			case CreatedObjType::MODEL: return "MODEL";
+			case CreatedObjType::TERRAIN: return "TERRAIN";
+			case CreatedObjType::PARTICLE: return "PARTICLE";
+			default: return "(unnamed)";
+			}
+		}
+		return "(unnamed)";
 	}
+
+	// 나중에 magic_enum 추가 후 사용할 함수들 (주석 처리)
+	/*
+	template<typename E>
+	static std::string EnumToString(E e)
+	{
+		auto name = magic_enum::enum_name(e);
+		return name.empty() ? "(unnamed)" : std::string(name);
+	}
+
+	template<typename E>
+	static std::optional<E> StringToEnum(std::string_view str)
+	{
+		return magic_enum::enum_cast<E>(str);
+	}
+
+	template<typename E>
+	static bool EnumCombo(const char* label, E& currentValue)
+	{
+		bool changed = false;
+		std::string preview = EnumToString(currentValue);
+
+		if (ImGui::BeginCombo(label, preview.c_str()))
+		{
+			for (auto [value, name] : magic_enum::enum_entries<E>())
+			{
+				bool isSelected = (currentValue == value);
+				if (ImGui::Selectable(name.data(), isSelected))
+				{
+					currentValue = value;
+					changed = true;
+				}
+				if (isSelected)
+					ImGui::SetItemDefaultFocus();
+			}
+			ImGui::EndCombo();
+		}
+		return changed;
+	}
+	*/
+
 	ImVec2 WorldToScreenPos(const Vec3& world, const Matrix& mat)
 	{
 		ImVec2 position = ImVec2(GAME->GetSceneDesc().x, GAME->GetSceneDesc().y);
@@ -87,7 +134,6 @@ public:
 		screenPos.y = (1.0f - (trans.y + 1.0f) * 0.5f) * size.y + position.y;
 
 		return screenPos;
-
 	}
 
 	bool IsHoveringWindow()
@@ -96,7 +142,7 @@ public:
 		ImGuiWindow* window = ImGui::FindWindowByName(GAME->GetSceneDesc().drawList->_OwnerName);
 		if (g.HoveredWindow == window)   // Mouse hovering drawlist window
 			return true;
-		if (g.HoveredWindow != NULL)     // Any other window is hovered
+		if (g.HoveredWindow != NULL) // Any other window is hovered
 			return false;
 		if (ImGui::IsMouseHoveringRect(window->InnerRect.Min, window->InnerRect.Max, false))   // Hovering drawlist window rect, while no other window is hovered (for _NoInputs windows)
 			return true;
@@ -112,10 +158,9 @@ public:
 		return false;
 	}
 
-
 	ImU32 GetColorU32(int idx)
 	{
 		IM_ASSERT(idx < COLOR::COUNT);
 		return ImGui::ColorConvertFloat4ToU32(GAME->GetSceneDesc().style.Colors[idx]);
-	}	
+	}
 };

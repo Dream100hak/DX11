@@ -5,7 +5,6 @@
 #include "Types.h"
 #include "Define.h"
 
-
 // STL
 #include <memory>
 #include <iostream>
@@ -35,6 +34,7 @@ using namespace std;
 #include <d3d11.h>
 #include <wrl.h>
 #include <DirectXMath.h>
+
 #include <DirectXTex/DirectXTex.h>
 #include <DirectXTex/DirectXTex.inl>
 using namespace DirectX;

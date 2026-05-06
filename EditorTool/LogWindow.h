@@ -1,5 +1,4 @@
 #include "EditorWindow.h"
-#include <boost/type_index.hpp>
 
 enum LogFilter : uint8
 {
@@ -7,8 +6,6 @@ enum LogFilter : uint8
 	Warn = 2,
 	Error = 4,
 };
-
-BOOST_DESCRIBE_ENUM(LogFilter, Info, Warn, Error);
 
 struct LogMessage 
 {

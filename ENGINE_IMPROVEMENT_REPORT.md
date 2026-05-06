@@ -1,3 +1,6 @@
+<!-- 파일 인코딩: UTF-8 (BOM 없음) | 편집 시 반드시 UTF-8로 저장할 것 -->
+<!-- VS Code: 우하단 인코딩 클릭 → 'UTF-8' 선택 | Visual Studio: 파일 → 고급 저장 옵션 → UTF-8 -->
+
 # DX11 Engine ? 구조적 개선 보고서 (포트폴리오 / 학습 목적)
 
 > **목적**: 포트폴리오 완성도와 그래픽스 엔지니어링 이해도를 높이기 위한 엔진 구조 개선 항목 정리  
@@ -688,3 +691,4 @@ Phase 5 ? 구조 개선 (병행 가능)
 ---
 
 > 면접/포트폴리오 관점에서 가장 임팩트가 큰 순서: **Deferred Rendering > PBR > Post-Process (HDR + Bloom + SSAO) > Frustum Culling > 멀티 라이트**
+

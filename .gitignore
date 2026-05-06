@@ -429,3 +429,7 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+# Debug symbols (large, not needed for build)
+*.pdb
+*.idb
+*.exp

@@ -14,10 +14,8 @@ Material::~Material()
 
 void Material::Load(const wstring& path)
 {
-	
 	wstring fullPath = path + L".mat";
 	SetName(fullPath);
-	//wstring fullPath = path;
 	auto fileSystemPath = filesystem::path(fullPath);
 	auto parentPath = fileSystemPath.parent_path();
 
@@ -30,7 +28,7 @@ void Material::Load(const wstring& path)
 
 	if (shader == nullptr)
 	{
-		shader = make_shared<Shader>(shaderFile); 
+		shader = make_shared<Shader>(shaderFile);
 	}
 	SetShader(shader);
 
@@ -61,41 +59,23 @@ void Material::Load(const wstring& path)
 void Material::SetShader(shared_ptr<Shader> shader)
 {
 	_shader = shader;
-
-	_diffuseEffectBuffer = _shader->GetSRV("DiffuseMap");
-	_normalEffectBuffer = _shader->GetSRV("NormalMap");
-	_specularEffectBuffer = _shader->GetSRV("SpecularMap");
-	_shadowMapEffectBuffer = _shader->GetSRV("ShadowMap");
-	_ssaoMapEffectBuffer = _shader->GetSRV("SsaoMap");
 }
 
 void Material::Update()
 {
-	// ── FX11 경로 (기존) ─────────────────────────────
+	// ── FX11 경로 (Terrain 등 레거시) ─────────────────────────
 	if (_shader)
 	{
-		bool useTexture = 0;
-		if (_diffuseMap)
-		{
-			_diffuseEffectBuffer->SetResource(_diffuseMap->GetComPtr().Get());
-			useTexture = 1;
-		}
-		if (_normalMap)    _normalEffectBuffer->SetResource(_normalMap->GetComPtr().Get());
-		if (_specularMap)  _specularEffectBuffer->SetResource(_specularMap->GetComPtr().Get());
-		if (_shadowMap)    _shadowMapEffectBuffer->SetResource(_shadowMap->GetComPtr().Get());
-		if (_ssaoMap)      _ssaoMapEffectBuffer->SetResource(_ssaoMap.Get());
-
-		_desc.useTexture = useTexture;
+		_desc.useTexture = _diffuseMap ? 1 : 0;
 		_shader->PushMaterialData(_desc);
 	}
 
-	// ── HlslShader 경로 (신규) ────────────────────────
+	// ── HlslShader 경로 (신규) ────────────────────────────────
 	if (_hlslShader)
 	{
 		_desc.useTexture = _diffuseMap ? 1 : 0;
 		_hlslShader->PushMaterialData(_desc);
 
-		// SRV 슬롯 t0~t4 바인딩
 		auto bindSRV = [&](UINT slot, shared_ptr<Texture> tex)
 		{
 			ID3D11ShaderResourceView* srv = tex ? tex->GetComPtr().Get() : nullptr;
@@ -113,17 +93,7 @@ void Material::Update()
 
 void Material::Refresh()
 {
-	// FX11
-	if (_shader)
-	{
-		_diffuseEffectBuffer->SetResource(nullptr);
-		_normalEffectBuffer->SetResource(nullptr);
-		_specularEffectBuffer->SetResource(nullptr);
-		_shadowMapEffectBuffer->SetResource(nullptr);
-		_ssaoMapEffectBuffer->SetResource(nullptr);
-	}
-
-	// HlslShader
+	// HlslShader SRV 클리어
 	if (_hlslShader)
 	{
 		for (UINT i = 0; i < 5; i++)
@@ -134,26 +104,16 @@ void Material::Refresh()
 std::shared_ptr<Material> Material::Clone()
 {
 	shared_ptr<Material> material = make_shared<Material>();
-//	shared_ptr<Shader> shader = make_shared<Shader>(_shader);
 
-	material->_shader = _shader;
-	material->_diffuseMap = _diffuseMap ? _diffuseMap->Clone() : nullptr;
-	material->_normalMap = _normalMap ? _normalMap->Clone() : nullptr;
-	material->_specularMap = _specularMap ? _specularMap->Clone() : nullptr;
-	material->_shadowMap = _shadowMap ? _shadowMap->Clone() : nullptr;
+	material->_shader     = _shader;
+	material->_hlslShader = _hlslShader;
 
-	material->_desc = _desc;
-	material->_diffuseMap = _diffuseMap;
-	material->_normalMap = _normalMap;
-	material->_specularMap = _specularMap;
-	material->_shadowMap = _shadowMap;
-	material->_diffuseEffectBuffer = _diffuseEffectBuffer;
-	material->_normalEffectBuffer = _normalEffectBuffer;
-	material->_specularEffectBuffer = _specularEffectBuffer;
-	material->_shadowMapEffectBuffer = _shadowMapEffectBuffer;
-	material->_ssaoMapEffectBuffer = _ssaoMapEffectBuffer;
-
-	Refresh();
+	material->_desc         = _desc;
+	material->_diffuseMap   = _diffuseMap;
+	material->_normalMap    = _normalMap;
+	material->_specularMap  = _specularMap;
+	material->_shadowMap    = _shadowMap;
+	material->_ssaoMap      = _ssaoMap;
 
 	return material;
 }

@@ -40,7 +40,8 @@ using namespace std;
 using namespace DirectX;
 using namespace Microsoft::WRL;
 
-#include <FX11/d3dx11effect.h>
+// FX11 헤더는 Shader.h / Pass.h 가 직접 포함하므로 여기서는 제거
+// #include <FX11/d3dx11effect.h>
 
 // Assimp
 #include <Assimp/Importer.hpp>

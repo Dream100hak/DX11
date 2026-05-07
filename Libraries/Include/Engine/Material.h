@@ -39,18 +39,13 @@ private:
 
 	MaterialDesc _desc;
 
-	// FX11 경로 (기존)
+	// FX11 경로 (Terrain 등 레거시 호환용으로 유지)
 	shared_ptr<Shader> _shader;
-	ComPtr<ID3DX11EffectShaderResourceVariable> _diffuseEffectBuffer;
-	ComPtr<ID3DX11EffectShaderResourceVariable> _normalEffectBuffer;
-	ComPtr<ID3DX11EffectShaderResourceVariable> _specularEffectBuffer;
-	ComPtr<ID3DX11EffectShaderResourceVariable> _shadowMapEffectBuffer;
-	ComPtr<ID3DX11EffectShaderResourceVariable> _ssaoMapEffectBuffer;
 
 	// HlslShader 경로 (신규)
 	shared_ptr<HlslShader> _hlslShader;
 
-	// 공용 텍스처
+	// 공유 텍스처
 	shared_ptr<Texture> _diffuseMap;
 	shared_ptr<Texture> _normalMap;
 	shared_ptr<Texture> _specularMap;

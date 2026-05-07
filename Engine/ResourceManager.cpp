@@ -74,70 +74,82 @@ void ResourceManager::CreateDefaultMesh()
 
 void ResourceManager::CreateDefaultShader()
 {
-	// FX11 Standard 셰이더 (기존 유지)
-	shared_ptr<Shader> shader = make_shared<Shader>(L"01. Standard.fx");
-	Add(L"Standard", shader);
-
-	// HlslShader Standard 셰이더 (신규)
+	// HlslShader Standard 셰이더
 	HlslShaderDesc hlslDesc;
 	hlslDesc.vsFile  = L"Standard_VS.hlsl";
 	hlslDesc.psFile  = L"Standard_PS.hlsl";
+	hlslDesc.vsEntry = "VS_Mesh";   // Standard_VS.hlsl 의 진입점
+	hlslDesc.psEntry = "PS_Main";
 	GetOrAddHlslShader(L"Standard_HLSL", hlslDesc);
+
+	// 레거시 FX11 Standard (Terrain 등 미이전 컴포넌트에서 참조할 수 있으므로 유지)
+	shared_ptr<Shader> shader = make_shared<Shader>(L"01. Standard.fx");
+	Add(L"Standard", shader);
 }
 
 void ResourceManager::CreateDefaultMaterial()
 {
-	auto shader = Get<Shader>(L"Standard");
+	// HlslShader 기반 기본 머티리얼
+	auto hlslShader = Get<HlslShader>(L"Standard_HLSL");
 	shared_ptr<Material> material = make_shared<Material>();
-	material->SetShader(shader);
+	if (hlslShader)
+		material->SetHlslShader(hlslShader);
+	else
+	{
+		auto shader = Get<Shader>(L"Standard");
+		material->SetShader(shader);
+	}
 	MaterialDesc& desc = material->GetMaterialDesc();
 	RESOURCES->Add(L"DefaultMaterial", material);
 }
 
 void ResourceManager::CreateShadowMapShader()
 {
-	// FX11 (기존 유지)
+	// HLSL
+	HlslShaderDesc desc;
+	desc.vsFile  = L"ShadowMap_VS.hlsl";
+	desc.psFile  = L"ShadowMap_PS.hlsl";
+	desc.vsEntry = "VS_Mesh";
+	desc.psEntry = "PS_AlphaClip";  // ShadowMap_PS.hlsl 의 진입점
+	GetOrAddHlslShader(L"Shadow_HLSL", desc);
+
+	// 레거시 FX11 (Terrain 섀도우 등)
 	shared_ptr<Shader> shader = make_shared<Shader>(L"00. ShadowMap.fx");
 	RESOURCES->Add(L"Shadow", shader);
-
-	// HLSL (신규)
-	HlslShaderDesc desc;
-	desc.vsFile = L"ShadowMap_VS.hlsl";
-	desc.psFile = L"ShadowMap_PS.hlsl";
-	desc.vsEntry = "VS_Mesh";
-	GetOrAddHlslShader(L"Shadow_HLSL", desc);
 }
 
 void ResourceManager::CreateOutlineShader()
 {
-	// FX11 (기존 유지)
-	shared_ptr<Shader> shader = make_shared<Shader>(L"01. Outline.fx");
-	RESOURCES->Add(L"Outline", shader);
-
-	// HLSL (신규)
+	// HLSL
 	HlslShaderDesc desc;
-	desc.vsFile = L"Outline_VS.hlsl";
-	desc.psFile = L"Outline_PS.hlsl";
+	desc.vsFile  = L"Outline_VS.hlsl";
+	desc.psFile  = L"Outline_PS.hlsl";
 	desc.vsEntry = "VS_MeshOutline";
 	GetOrAddHlslShader(L"Outline_HLSL", desc);
+
+	// 레거시 FX11
+	shared_ptr<Shader> shader = make_shared<Shader>(L"01. Outline.fx");
+	RESOURCES->Add(L"Outline", shader);
 }
 
 void ResourceManager::CreateThumbnailShader()
 {
-	// FX11 (기존 유지)
-	shared_ptr<Shader> shader = make_shared<Shader>(L"01. Thumbnail.fx");
-	RESOURCES->Add(L"Thumbnail", shader);
-
-	// HLSL (신규)
+	// HLSL
 	HlslShaderDesc desc;
-	desc.vsFile = L"Standard_VS.hlsl";   // VS 재활용
-	desc.psFile = L"Thumbnail.hlsl";
+	desc.vsFile  = L"Standard_VS.hlsl";
+	desc.psFile  = L"Thumbnail.hlsl";
+	desc.vsEntry = "VS_Mesh";   // Standard_VS.hlsl 의 진입점
 	desc.psEntry = "PS_Solid";
 	GetOrAddHlslShader(L"Thumbnail_HLSL", desc);
+
+	// 레거시 FX11
+	shared_ptr<Shader> shader = make_shared<Shader>(L"01. Thumbnail.fx");
+	RESOURCES->Add(L"Thumbnail", shader);
 }
 
 void ResourceManager::CreateSSAOShader()
 {
+	// SSAO는 아직 FX11 유지 (HLSL 미이전)
 	{
 		shared_ptr<Shader> shader = make_shared<Shader>(L"00. Ssao.fx");
 		RESOURCES->Add(L"Ssao", shader);
@@ -154,11 +166,7 @@ void ResourceManager::CreateSSAOShader()
 
 void ResourceManager::CreateTerrainShader()
 {
-	// FX11 (기존 유지)
+	// Terrain은 Tessellation(HS/DS) 때문에 FX11 유지
 	shared_ptr<Shader> shader = make_shared<Shader>(L"01. Terrain.fx");
 	RESOURCES->Add(L"Terrain", shader);
-
-	// HLSL (신규) ? Terrain.hlsl 은 단일 파일에 VS/HS/DS/PS 모두 포함
-	// HlslShader 는 현재 HS/DS 미지원 → 추후 Tessellation 확장 시 추가
-	// 현재는 FX11 유지
 }

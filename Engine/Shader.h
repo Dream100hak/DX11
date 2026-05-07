@@ -1,4 +1,5 @@
 #pragma once
+#include <FX11/d3dx11effect.h>
 #include "Pass.h"
 #include "Technique.h"
 #include "BindShaderDesc.h"

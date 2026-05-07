@@ -20,11 +20,14 @@ MeshRenderer::~MeshRenderer()
 
 void MeshRenderer::OnInspectorGUI()
 {
-
 	if (_material != nullptr)
 	{
-		shared_ptr<Shader> shader = _material->GetShader();
-		std::string name = Utils::ToString(shader->GetName());
+		// FX11 Shader 또는 HlslShader 이름 표시 (nullptr 방어)
+		std::string name = "(no shader)";
+		if (auto shader = _material->GetShader())
+			name = Utils::ToString(shader->GetName());
+		else if (auto hlsl = _material->GetHlslShader())
+			name = Utils::ToString(hlsl->GetName());
 
 		ImGui::Text(name.c_str());
 
@@ -163,7 +166,35 @@ void MeshRenderer::RenderInstancing(int32 tech, shared_ptr<Shader> shader, Matri
 
 void MeshRenderer::RenderThumbnail(int32 tech, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer)
 {
+	if (_mesh == nullptr || _material == nullptr)
+		return;
+
+	// ── HlslShader 경로 ──────────────────────────────────────
+	if (auto hlsl = _material->GetHlslShader())
+	{
+		hlsl->Bind();
+		hlsl->PushGlobalData(V, P);
+		hlsl->PushTransformData(TransformDesc{ GetTransform()->GetWorldMatrix() });
+		if (light) hlsl->PushLightData(light->GetLightDesc());
+		_material->Update();
+
+		_mesh->GetVertexBuffer()->PushData();
+		_mesh->GetIndexBuffer()->PushData();
+
+		if (buffer == nullptr)
+			hlsl->DrawIndexed(_mesh->GetIndexBuffer()->GetCount(), 0, 0);
+		else
+		{
+			buffer->PushData();
+			hlsl->DrawIndexedInstanced(_mesh->GetIndexBuffer()->GetCount(), buffer->GetCount());
+		}
+		return;
+	}
+
+	// ── FX11 경로 ─────────────────────────────────────────────
 	auto shader = _material->GetShader();
+	if (shader == nullptr)
+		return;
 
 	DCT->OMSetDepthStencilState(nullptr, 1);
 
@@ -171,7 +202,6 @@ void MeshRenderer::RenderThumbnail(int32 tech, Matrix V, Matrix P, shared_ptr<Li
 	shader->PushLightData(light->GetLightDesc());
 
 	_material->Update();
-	// IA
 	_mesh->GetVertexBuffer()->PushData();
 	_mesh->GetIndexBuffer()->PushData();
 

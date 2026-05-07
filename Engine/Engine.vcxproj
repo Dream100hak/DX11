@@ -162,6 +162,7 @@
     <ClInclude Include="ConstantBuffer.h" />
     <ClInclude Include="Define.h" />
     <ClInclude Include="EnginePch.h" />
+    <ClInclude Include="Frustum.h" />
     <ClInclude Include="HlslShader.h" />
     <ClInclude Include="Job.h" />
     <ClInclude Include="JobQueue.h" />
@@ -202,6 +203,7 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="Primitive3D.h" />
     <ClInclude Include="RawBuffer.h" />
+    <ClInclude Include="RenderContext.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="RenderStateManager.h" />
     <ClInclude Include="ResourceBase.h" />
@@ -238,6 +240,7 @@
     <ClCompile Include="Component.cpp" />
     <ClCompile Include="ConstantBuffer.cpp" />
     <ClCompile Include="Engine.cpp" />
+    <ClCompile Include="Frustum.cpp" />
     <ClCompile Include="HlslShader.cpp" />
     <ClCompile Include="Job.cpp" />
     <ClCompile Include="JobQueue.cpp" />

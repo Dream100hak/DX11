@@ -1,5 +1,6 @@
 #pragma once
 #include "Renderer.h"
+#include "RenderContext.h"
 
 class Model;
 
@@ -21,16 +22,12 @@ public:
 
 	void OnInspectorGUI() override;
 
-	void Render(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light) override;
-	void RenderInstancing(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer) override;
-	void RenderThumbnail(int32 tech, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer) override;
+	// ── 신규 단일 진입점 ─────────────────────────────────────
+	void Draw(const RenderContext& ctx) override;
 
 	bool Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& distance) override;
 
 	void UpdateTweenData();
-
-	void PushBuffer(uint8 technique, uint8 pass, shared_ptr<Light> light);
-	void PushBufferInstancing(uint8 technique, uint8 pass, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer);
 
 public:
 	void SetModel(shared_ptr<Model> model);
@@ -38,22 +35,19 @@ public:
 
 	InstanceID GetInstanceID() override;
 	shared_ptr<Model>& GetModel() { return _model; }
-	TweenDesc& GetTweenDesc() { return _tweenDesc; }
+	TweenDesc& GetTweenDesc()     { return _tweenDesc; }
 
 private:
+	void PushBufferInstancing(uint8 technique, uint8 pass, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer);
 	void CreateTexture();
 	void CreateAnimationTransform(uint32 index);
 
 private:
-	vector<AnimTransform> _animTransforms;
-	ComPtr<ID3D11Texture2D> _texture;
+	vector<AnimTransform>            _animTransforms;
+	ComPtr<ID3D11Texture2D>    _texture;
 	ComPtr<ID3D11ShaderResourceView> _srv;
-
-private:
-	TweenDesc _tweenDesc;
-
-private:
-	shared_ptr<Shader>	_shader;
-	shared_ptr<Model>	_model;
+	TweenDesc  _tweenDesc;
+	shared_ptr<Shader> _shader;
+	shared_ptr<Model>  _model;
 };
 

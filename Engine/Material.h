@@ -32,6 +32,9 @@ public:
 	void Update();
 	void Refresh();
 
+	RenderQueue GetRenderQueue() const  { return _renderQueue; }
+	void SetRenderQueue(RenderQueue q)  { _renderQueue = q; }
+
 	shared_ptr<Material> Clone();
 
 private:
@@ -51,5 +54,7 @@ private:
 	shared_ptr<Texture> _specularMap;
 	shared_ptr<Texture> _shadowMap;
 	ComPtr<ID3D11ShaderResourceView> _ssaoMap;
+
+	RenderQueue _renderQueue = RenderQueue::Opaque;
 };
 

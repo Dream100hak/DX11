@@ -8,120 +8,100 @@
 #include "Transform.h"
 #include "Camera.h"
 #include "MathUtils.h"
+#include "RenderContext.h"
 
-
-void InstancingManager::Render(int32 tech, shared_ptr<Shader> shader , Matrix V, Matrix P, shared_ptr<Light> light,  vector<shared_ptr<GameObject>>& gameObjects)
+void InstancingManager::Render(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, vector<shared_ptr<GameObject>>& gameObjects)
 {
 	ClearData();
-
 	RenderStaticObject(tech, shader, V, P, light, gameObjects);
-	RenderAnimRenderer(tech, shader, V, P, light,  gameObjects);
+	RenderAnimRenderer(tech, shader, V, P, light, gameObjects);
 }
-
 
 void InstancingManager::RenderStaticObject(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, vector<shared_ptr<GameObject>>& gameObjects)
 {
 	map<InstanceID, vector<shared_ptr<GameObject>>> cache;
 
-	for (shared_ptr<GameObject>& gameObject : gameObjects)
+	for (auto& gameObject : gameObjects)
 	{
-		if (gameObject->GetRenderer() == nullptr)
-			continue;
+		if (gameObject->GetRenderer() == nullptr) continue;
+		if (gameObject->GetRenderer()->GetRenderType() == RendererType::Animator) continue;
 
-		if (gameObject->GetRenderer()->GetRenderType() == RendererType::Animator)
-			continue;
-
-		if (gameObject->GetSkyBox() != nullptr)
-		{
-			tech = 0;
-		}
-
-		const InstanceID instanceId = gameObject->GetRenderer()->GetInstanceID();
-		cache[instanceId].push_back(gameObject);
+		const InstanceID id = gameObject->GetRenderer()->GetInstanceID();
+		cache[id].push_back(gameObject);
 	}
 
-	for (auto& pair : cache)
+	for (auto& [id, vec] : cache)
 	{
-		const vector<shared_ptr<GameObject>>& vec = pair.second;
+		for (auto& go : vec)
 		{
-			const InstanceID instanceId = pair.first;
-
-			for (int32 i = 0; i < vec.size(); i++)
-			{
-				const shared_ptr<GameObject>& gameObject = vec[i];
-				InstancingData data;
-				data.world = gameObject->GetTransform()->GetWorldMatrix();
-				data.isPicked = gameObject->GetUIPicked() ? 1 : 0;
-				AddData(instanceId, data);
-			}
-
-			shared_ptr<InstancingBuffer>& buffer = _buffers[instanceId];
-			vec[0]->GetRenderer()->RenderInstancing(tech, shader, V, P, light, buffer);
+			InstancingData data;
+			data.world    = go->GetTransform()->GetWorldMatrix();
+			data.isPicked = go->GetUIPicked() ? 1 : 0;
+			AddData(id, data);
 		}
+
+		RenderContext ctx;
+		ctx.tech       = tech;
+		ctx.view   = V;
+		ctx.proj           = P;
+		ctx.light   = light;
+		ctx.shaderOverride = shader;
+		ctx.buffer         = _buffers[id];
+
+		vec[0]->GetRenderer()->Draw(ctx);
 	}
 }
 
-
-void InstancingManager::RenderAnimRenderer(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light,  vector<shared_ptr<GameObject>>& gameObjects)
+void InstancingManager::RenderAnimRenderer(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, vector<shared_ptr<GameObject>>& gameObjects)
 {
 	map<InstanceID, vector<shared_ptr<GameObject>>> cache;
 
-	for (shared_ptr<GameObject>& gameObject : gameObjects)
+	for (auto& gameObject : gameObjects)
 	{
-		if (gameObject->GetRenderer() == nullptr)
-			continue;
+		if (gameObject->GetRenderer() == nullptr) continue;
+		if (gameObject->GetRenderer()->GetRenderType() != RendererType::Animator) continue;
 
-		if(gameObject->GetRenderer()->GetRenderType() != RendererType::Animator)
-			continue;
-
-		const InstanceID instanceId = gameObject->GetModelAnimator()->GetInstanceID();
-		cache[instanceId].push_back(gameObject);
+		const InstanceID id = gameObject->GetModelAnimator()->GetInstanceID();
+		cache[id].push_back(gameObject);
 	}
 
-	for (auto& pair : cache)
+	for (auto& [id, vec] : cache)
 	{
-		shared_ptr<InstancedTweenDesc> tweenDesc = make_shared<InstancedTweenDesc>();
+		auto tweenDesc = make_shared<InstancedTweenDesc>();
 
-		const vector<shared_ptr<GameObject>>& vec = pair.second;
-
+		for (int32 i = 0; i < (int32)vec.size(); i++)
 		{
-			const InstanceID instanceId = pair.first;
+			InstancingData data;
+			data.world    = vec[i]->GetTransform()->GetWorldMatrix();
+			data.isPicked = vec[i]->GetUIPicked() ? 1 : 0;
+			AddData(id, data);
 
-			for (int32 i = 0; i < vec.size(); i++)
-			{
-				const shared_ptr<GameObject>& gameObject = vec[i];
-				InstancingData data;
-				data.world = gameObject->GetTransform()->GetWorldMatrix();
-				data.isPicked = gameObject->GetUIPicked() ? 1 : 0;
-				AddData(instanceId, data);
-
-				// INSTANCING
-				gameObject->GetModelAnimator()->UpdateTweenData();
-				tweenDesc->tweens[i] = gameObject->GetModelAnimator()->GetTweenDesc();
-			}
-
-			vec[0]->GetModelAnimator()->GetShader()->PushTweenData(*tweenDesc.get());
-
-			shared_ptr<InstancingBuffer>& buffer = _buffers[instanceId];
-			vec[0]->GetModelAnimator()->RenderInstancing(tech, shader, V, P, light, buffer);
+			vec[i]->GetModelAnimator()->UpdateTweenData();
+			tweenDesc->tweens[i] = vec[i]->GetModelAnimator()->GetTweenDesc();
 		}
+
+		vec[0]->GetModelAnimator()->GetShader()->PushTweenData(*tweenDesc);
+
+		RenderContext ctx;
+		ctx.tech   = tech;
+		ctx.view   = V;
+		ctx.proj   = P;
+		ctx.light  = light;
+		ctx.buffer = _buffers[id];
+
+		vec[0]->GetModelAnimator()->Draw(ctx);
 	}
 }
-
 
 void InstancingManager::AddData(InstanceID instanceId, InstancingData& data)
 {
 	if (_buffers.find(instanceId) == _buffers.end())
 		_buffers[instanceId] = make_shared<InstancingBuffer>();
-
 	_buffers[instanceId]->AddData(data);
 }
 
 void InstancingManager::ClearData()
 {
-	for (auto& pair : _buffers)
-	{
-		shared_ptr<InstancingBuffer>& buffer = pair.second;
+	for (auto& [id, buffer] : _buffers)
 		buffer->ClearData();
-	}
 }

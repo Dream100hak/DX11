@@ -19,24 +19,25 @@ MeshThumbnail::~MeshThumbnail()
 
 void MeshThumbnail::Draw(vector<shared_ptr<Renderer>> renderers, Matrix V, Matrix P, shared_ptr<Light> light, vector<shared_ptr<class InstancingBuffer>> buffers)
 {
-	if (renderers.size() == 0 && light == nullptr)
+	if (renderers.size() == 0 || light == nullptr)
 		return;
 
 	_vp.RSSetViewport();
-
 	Color color = Color(0.3f, 0.3f, 0.3f, 0.7f);
-
 	DCT->OMSetRenderTargets(1, _colorMapRTV.GetAddressOf(), _depthMapDSV.Get());
-	//	DCT->ClearRenderTargetView(_colorMapRTV.Get(), (float*)(&GAME->GetGameDesc().clearColor));
 	DCT->ClearRenderTargetView(_colorMapRTV.Get(), (float*)&color);
 	DCT->ClearDepthStencilView(_depthMapDSV.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1, 0);
 
-	for (int32 i = 0; i < renderers.size(); ++i)
+	for (int32 i = 0; i < (int32)renderers.size(); ++i)
 	{
-		int32 tech = renderers[i]->GetTechnique();
-		renderers[i]->RenderThumbnail(tech, V, P, light, buffers[i]);
+		RenderContext ctx;
+		ctx.tech   = renderers[i]->GetTechnique();
+		ctx.view   = V;
+		ctx.proj   = P;
+		ctx.light  = light;
+		ctx.buffer = buffers[i];
+		renderers[i]->Draw(ctx);
 	}
-
 }
 
 void MeshThumbnail::CreateColorTexture()

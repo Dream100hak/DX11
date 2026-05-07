@@ -220,8 +220,16 @@
     <ClInclude Include="Renderer.h">
       <Filter>05. Component</Filter>
     </ClInclude>
-    <ClInclude Include="HlslShader.h" />
-    <ClInclude Include="RenderStateManager.h" />
+    <ClInclude Include="Frustum.h" />
+    <ClInclude Include="RenderStateManager.h">
+      <Filter>02. Managers</Filter>
+    </ClInclude>
+    <ClInclude Include="HlslShader.h">
+      <Filter>01. Graphics\Shader</Filter>
+    </ClInclude>
+    <ClInclude Include="RenderContext.h">
+      <Filter>01. Graphics\Render</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -434,8 +442,13 @@
     <ClCompile Include="Renderer.cpp">
       <Filter>05. Component</Filter>
     </ClCompile>
-    <ClCompile Include="HlslShader.cpp" />
-    <ClCompile Include="RenderStateManager.cpp" />
+    <ClCompile Include="Frustum.cpp" />
+    <ClCompile Include="RenderStateManager.cpp">
+      <Filter>02. Managers</Filter>
+    </ClCompile>
+    <ClCompile Include="HlslShader.cpp">
+      <Filter>01. Graphics\Shader</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="98. Utils">

@@ -277,12 +277,6 @@
     <FxCompile Include="..\Shaders\01. Fire.fx">
       <Filter>Shaders\Contents</Filter>
     </FxCompile>
-    <FxCompile Include="..\Shaders\HLSL\Standard_VS.hlsl">
-      <Filter>Shaders\HLSL</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\HLSL\Standard_PS.hlsl">
-      <Filter>Shaders\HLSL</Filter>
-    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Shaders\HLSL\Shadow.hlsli">
@@ -292,6 +286,41 @@
       <Filter>Shaders\HLSL</Filter>
     </None>
     <None Include="..\Shaders\HLSL\Lighting.hlsli">
+      <Filter>Shaders\HLSL</Filter>
+    </None>
+    <None Include="..\Shaders\HLSL\Standard_VS.hlsl" />
+    <None Include="..\Shaders\HLSL\Standard_PS.hlsl" />
+    <None Include="..\Shaders\HLSL\Collider.hlsl">
+      <Filter>Shaders\HLSL</Filter>
+    </None>
+    <None Include="..\Shaders\HLSL\CubeMap.hlsl">
+      <Filter>Shaders\HLSL</Filter>
+    </None>
+    <None Include="..\Shaders\HLSL\DebugTexture.hlsl">
+      <Filter>Shaders\HLSL</Filter>
+    </None>
+    <None Include="..\Shaders\HLSL\Outline_PS.hlsl">
+      <Filter>Shaders\HLSL</Filter>
+    </None>
+    <None Include="..\Shaders\HLSL\Outline_VS.hlsl">
+      <Filter>Shaders\HLSL</Filter>
+    </None>
+    <None Include="..\Shaders\HLSL\SceneGrid.hlsl">
+      <Filter>Shaders\HLSL</Filter>
+    </None>
+    <None Include="..\Shaders\HLSL\ShadowMap_PS.hlsl">
+      <Filter>Shaders\HLSL</Filter>
+    </None>
+    <None Include="..\Shaders\HLSL\ShadowMap_VS.hlsl">
+      <Filter>Shaders\HLSL</Filter>
+    </None>
+    <None Include="..\Shaders\HLSL\Sky.hlsl">
+      <Filter>Shaders\HLSL</Filter>
+    </None>
+    <None Include="..\Shaders\HLSL\Terrain.hlsl">
+      <Filter>Shaders\HLSL</Filter>
+    </None>
+    <None Include="..\Shaders\HLSL\Thumbnail.hlsl">
       <Filter>Shaders\HLSL</Filter>
     </None>
   </ItemGroup>

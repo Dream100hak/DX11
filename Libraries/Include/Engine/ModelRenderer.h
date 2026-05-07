@@ -1,6 +1,7 @@
 #pragma once
 #include "Component.h"
-#include "Renderer.h "
+#include "Renderer.h"
+#include "RenderContext.h"
 
 class Model;
 class Shader;
@@ -17,26 +18,22 @@ public:
 
 	void OnInspectorGUI() override;
 
-	void Render(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light) override;
-	void RenderInstancing(int32 tech , shared_ptr<Shader> shader , Matrix V, Matrix P, shared_ptr<Light> light,  shared_ptr<InstancingBuffer>& buffer) override;
-	void RenderThumbnail(int32 tech, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer) override;
+	// ── 신규 단일 진입점 ─────────────────────────────────────
+	void Draw(const RenderContext& ctx) override;
 
 	bool Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& distance) override;
-
-	void PushBuffer(uint8 technique, uint8 pass , shared_ptr<Light> light);
-	void PushBufferInstancing(uint8 technique, uint8 pass, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer);
 
 public:
 	void ChangeShader(shared_ptr<Shader> shader);
 	void SetModel(shared_ptr<Model> model);
 
 	virtual InstanceID GetInstanceID() override;
-	shared_ptr<Model>& GetModel() {return _model;}
+	shared_ptr<Model>& GetModel() { return _model; }
 
 private:
+	void PushMeshes(const RenderContext& ctx, bool instanced);
 
 	shared_ptr<Model>  _model;
 	shared_ptr<Shader> _shader;
-
 };
 

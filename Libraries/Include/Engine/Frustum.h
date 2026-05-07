@@ -1,27 +1,20 @@
 #pragma once
 
-enum PLANE_TYPE : uint8
-{
-	PLANE_FRONT,
-	PLANE_BACK,
-	PLANE_UP,
-	PLANE_DOWN,
-	PLANE_LEFT,
-	PLANE_RIGHT,
-
-	PLANE_END
-};
-
+// -----------------------------------------------------------
+// Frustum
+//  - View-Projection 행렬에서 6개 평면(절두체)을 추출
+//  - BoundingBox / BoundingSphere 컬링 판정
+// -----------------------------------------------------------
 class Frustum
 {
 public:
-	void FinalUpdate();
-	bool ContainsSphere(const Vec3& pos, float radius);
-	
-	const Vec4& GetPlane(PLANE_TYPE type) { return _planes[type]; } 
+	// 매 프레임 VP 행렬로 갱신
+	void Update(const Matrix& viewProj);
+
+	bool IsInFrustum(const BoundingBox& box)     const;
+	bool IsInFrustum(const BoundingSphere& sphere) const;
 
 private:
-	array<Vec4, PLANE_END> _planes;
-
+	// Left, Right, Bottom, Top, Near, Far
+	array<Plane, 6> _planes;
 };
-

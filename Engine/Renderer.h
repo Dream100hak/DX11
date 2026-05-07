@@ -1,5 +1,6 @@
 #pragma once
 #include "Component.h"
+#include "RenderContext.h"
 
 class InstancingBuffer;
 
@@ -18,14 +19,13 @@ class Renderer : public Component
 	using Super = Component;
 
 public:
-
 	Renderer(RendererType type);
 	virtual ~Renderer();
 
-	virtual void Render(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light) {}
-	virtual void RenderInstancing(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer) {}
-	virtual void RenderThumbnail(int32 tech, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer) {}
+	// ── 신규: 단일 진입점 ────────────────────────────────────
+	virtual void Draw(const RenderContext& ctx) {}
 
+	// ── 레거시 (점진적 제거 예정) ─────────────────────────────
 	virtual bool Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& distance) { return false; }
 
 public:

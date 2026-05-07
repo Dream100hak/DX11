@@ -34,9 +34,15 @@ void ModelAnimator::OnInspectorGUI()
 	ImGui::SliderInt("Next Frame", (int*)&_tweenDesc.curr.nextFrame, 0, 1000);
 }
 
-void ModelAnimator::Render(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light)
+void ModelAnimator::Draw(const RenderContext& ctx)
 {
+	if (_model == nullptr) return;
+	if (_texture == nullptr) CreateTexture();
 
+	_shader->PushGlobalData(ctx.view, ctx.proj);
+
+	auto buf = ctx.buffer;
+	PushBufferInstancing(ctx.tech, _pass, ctx.light, buf);
 }
 
 void ModelAnimator::SetModel(shared_ptr<Model> model)
@@ -108,54 +114,6 @@ void ModelAnimator::UpdateTweenData()
 }
 
 
-void ModelAnimator::RenderInstancing(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer)
-{
-	if (_model == nullptr)
-		return;
-	if (_texture == nullptr)
-		CreateTexture();
-
-	// GlobalData
-	_shader->PushGlobalData(V, P);
-
-	PushBufferInstancing(tech, _pass, light, buffer);
-}
-
-void ModelAnimator::RenderThumbnail(int32 tech, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer)
-{
-	if (_model == nullptr)
-		return;
-	if (_texture == nullptr)
-		CreateTexture();
-
-	_shader->PushGlobalData(V, P);
-	_shader->PushLightData(light->GetLightDesc());
-
-	if (buffer == nullptr)
-	{
-		PushBuffer(0, _pass, light);
-	}
-	else
-	{
-		shared_ptr<InstancedTweenDesc> tweenDesc = make_shared<InstancedTweenDesc>();
-		tweenDesc->tweens[0] = _tweenDesc;
-		_shader->PushTweenData(*tweenDesc.get());
-
-		PushBufferInstancing(0, _pass, light, buffer);
-	}
-}
-
-bool ModelAnimator::Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& distance)
-{
-	return false; 
-}
-
-
-void ModelAnimator::PushBuffer(uint8 technique, uint8 pass, shared_ptr<Light> light)
-{
-
-}
-
 void ModelAnimator::PushBufferInstancing(uint8 technique, uint8 pass, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer)
 {
 	// Light
@@ -196,6 +154,11 @@ void ModelAnimator::PushBufferInstancing(uint8 technique, uint8 pass, shared_ptr
 InstanceID ModelAnimator::GetInstanceID()
 {
 	return make_pair((uint64)_model.get(), (uint64)_shader.get());
+}
+
+bool ModelAnimator::Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& distance)
+{
+	return false;
 }
 
 void ModelAnimator::CreateTexture()

@@ -16,9 +16,7 @@ public:
 	void Init(int32 count , float size);
 	virtual void Update() override;
 
-	void Render(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light) override;
-	void RenderInstancing(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer) override;
-	void RenderThumbnail(int32 tech, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer) override;
+	void Draw(const RenderContext& ctx) override;
 
 	void DrawGrid(Matrix V, Matrix P);
 

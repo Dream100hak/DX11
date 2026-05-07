@@ -7,6 +7,7 @@
 #include "Light.h"
 #include "MathUtils.h"
 #include "Utils.h"
+#include "RenderContext.h"
 
 ModelRenderer::ModelRenderer(shared_ptr<Shader> shader)
 	: Super(RendererType::Model), _shader(shader)
@@ -136,126 +137,55 @@ void ModelRenderer::ChangeShader(shared_ptr<Shader> shader)
 	}
 }
 
-void ModelRenderer::Render(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light)
+// ============================================================
+// Draw() ? 단일 진입점
+// ============================================================
+void ModelRenderer::Draw(const RenderContext& ctx)
 {
 	if (_model == nullptr)
 		return;
 
-	//ssao shadow 등 덮어씌우는 경우가 있어, 기존 걸 원복시키기 위해 별도로 추가
 	auto prevShader = _shader;
+	if (ctx.shaderOverride)
+		ChangeShader(ctx.shaderOverride);
 
-	if (shader)
-		ChangeShader(shader);
+	_shader->PushGlobalData(ctx.view, ctx.proj);
+	if (ctx.light) _shader->PushLightData(ctx.light->GetLightDesc());
 
-	_shader->PushGlobalData(V, P);
-
-	if (light)
-		_shader->PushLightData(light->GetLightDesc());
-
-	PushBuffer(tech, _pass, light);
+	PushMeshes(ctx, ctx.buffer != nullptr);
 
 	ChangeShader(prevShader);
 }
 
-
-void ModelRenderer::RenderThumbnail(int32 tech, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer)
+// 메시 루프 (Single / Instanced 공통)
+void ModelRenderer::PushMeshes(const RenderContext& ctx, bool instanced)
 {
-	_shader->PushGlobalData(V, P);
-	_shader->PushLightData(light->GetLightDesc());
-
-	if (buffer == nullptr)
-	{
-		PushBuffer(0, _pass, light);
-	}
-	else
-	{
-		PushBufferInstancing(0, _pass, light, buffer);
-	}
-
-//	PushBufferInstancing(0, _pass + 3, light, buffer);
-}
-
-void ModelRenderer::RenderInstancing(int32 tech, shared_ptr<Shader> shader , Matrix V, Matrix P, shared_ptr<Light> light,  shared_ptr<InstancingBuffer>& buffer)
-{
-	if (_model == nullptr)
-		return;
-
-	//ssao shadow 등 덮어씌우는 경우가 있어, 기존 걸 원복시키기 위해 별도로 추가
-	auto prevShader = _shader;
-
-	if(shader)
-		ChangeShader(shader);
-
-	_shader->PushGlobalData(V, P);
-
-	if (light)
-		_shader->PushLightData(light->GetLightDesc());
-	
-
-	PushBufferInstancing(tech, _pass,  light, buffer );
-	ChangeShader(prevShader);
-}
-
-void ModelRenderer::PushBuffer(uint8 technique, uint8 pass, shared_ptr<Light> light)
-{
+	// Bone 데이터
 	BoneDesc boneDesc;
-
 	const uint32 boneCount = _model->GetBoneCount();
 	for (uint32 i = 0; i < boneCount; i++)
-	{
-		shared_ptr<ModelBone> bone = _model->GetBoneByIndex(i);
-		boneDesc.transforms[i] = bone->transform;
-	}
+		boneDesc.transforms[i] = _model->GetBoneByIndex(i)->transform;
 	_shader->PushBoneData(boneDesc);
 
-	// Transform
-	auto world = GetTransform()->GetWorldMatrix();
-	_shader->PushTransformData(TransformDesc{ world });
+	if (!instanced)
+		_shader->PushTransformData(TransformDesc{ GetTransform()->GetWorldMatrix() });
 
 	const auto& meshes = _model->GetMeshes();
 	for (auto& mesh : meshes)
 	{
-		if (mesh->material)
-			mesh->material->Update();
-
-		// BoneIndex
+		if (mesh->material) mesh->material->Update();
 		_shader->GetScalar("BoneIndex")->SetInt(mesh->boneIndex);
 
-		// IA
 		mesh->vertexBuffer->PushData();
 		mesh->indexBuffer->PushData();
 
-		_shader->DrawIndexed(0, _pass, mesh->indexBuffer->GetCount(), 0, 0);
-	}
-}
-
-void ModelRenderer::PushBufferInstancing(uint8 technique, uint8 pass, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer)
-{
-	BoneDesc boneDesc;
-
-	const uint32 boneCount = _model->GetBoneCount();
-	for (uint32 i = 0; i < boneCount; i++)
-	{
-		shared_ptr<ModelBone> bone = _model->GetBoneByIndex(i);
-		boneDesc.transforms[i] = bone->transform;
-	}
-	_shader->PushBoneData(boneDesc);
-
-	const auto& meshes = _model->GetMeshes();
-	for (auto& mesh : meshes)
-	{
-		if (mesh->material)
-			mesh->material->Update();
-
-		// BoneIndex
-		_shader->GetScalar("BoneIndex")->SetInt(mesh->boneIndex);
-
-		// IA
-		mesh->vertexBuffer->PushData();
-		mesh->indexBuffer->PushData();
-		buffer->PushData();
-
-		_shader->DrawIndexedInstanced(technique, pass, mesh->indexBuffer->GetCount(), buffer->GetCount());
+		if (!instanced)
+			_shader->DrawIndexed(0, _pass, mesh->indexBuffer->GetCount(), 0, 0);
+		else
+		{
+			ctx.buffer->PushData();
+			_shader->DrawIndexedInstanced(ctx.tech, _pass, mesh->indexBuffer->GetCount(), ctx.buffer->GetCount());
+		}
 	}
 }
 

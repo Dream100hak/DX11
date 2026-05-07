@@ -54,3 +54,18 @@ enum LayerMask
 	Invisible = 3
 };
 
+// ── 렌더 큐 ────────────────────────────────────────────────
+// Background  : 스카이박스 (뒤에서 먼저)
+// Opaque      : 불투명 오브젝트  → Front-to-Back 정렬 (Early-Z 활용)
+// AlphaTest   : 알파 클립 오브젝트 (나뭇잎 등)
+// Transparent : 반투명 오브젝트  → Back-to-Front 정렬 (알파 블렌딩)
+// Overlay     : UI / 이펙트 (가장 나중)
+enum class RenderQueue : int32
+{
+	Background  = 1000,
+	Opaque      = 2000,
+	AlphaTest   = 2450,
+	Transparent = 3000,
+	Overlay     = 4000,
+};
+

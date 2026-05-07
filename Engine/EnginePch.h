@@ -87,6 +87,7 @@ using namespace Microsoft::WRL;
 #include "ConstantBuffer.h"
 #include "Shader.h"
 #include "HlslShader.h"
+#include "RenderContext.h"
 #include "IExecute.h"
 
 #include "GameObject.h"

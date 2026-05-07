@@ -32,22 +32,10 @@ void SceneGrid::Update()
 	
 }
 
-void SceneGrid::Render(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light)
+void SceneGrid::Draw(const RenderContext& ctx)
 {
-
+	DrawGrid(ctx.view, ctx.proj);
 }
-
-void SceneGrid::RenderInstancing(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer)
-{
-	DrawGrid(V, P);
-}
-
-void SceneGrid::RenderThumbnail(int32 tech, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer)
-{
-	DrawGrid(V,P);
-}
-
-
 
 void SceneGrid::DrawGrid(Matrix V, Matrix P)
 {

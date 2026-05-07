@@ -105,15 +105,15 @@ std::shared_ptr<Material> Material::Clone()
 {
 	shared_ptr<Material> material = make_shared<Material>();
 
-	material->_shader     = _shader;
+	material->_shader       = _shader;
 	material->_hlslShader = _hlslShader;
-
 	material->_desc         = _desc;
 	material->_diffuseMap   = _diffuseMap;
 	material->_normalMap    = _normalMap;
 	material->_specularMap  = _specularMap;
 	material->_shadowMap    = _shadowMap;
 	material->_ssaoMap      = _ssaoMap;
+	material->_renderQueue  = _renderQueue;   // ก็ RenderQueue บนป็
 
 	return material;
 }

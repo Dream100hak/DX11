@@ -8,6 +8,7 @@
 #include "Light.h"
 #include "MathUtils.h"
 #include "Utils.h"
+#include "RenderContext.h"
 
 MeshRenderer::MeshRenderer() : Super(RendererType::Mesh)
 {
@@ -89,8 +90,13 @@ void MeshRenderer::OnInspectorGUI()
 	}
 }
 
-
-void MeshRenderer::Render(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light)
+// ============================================================
+// Draw() ? 단일 렌더 진입점
+//  ctx.buffer == nullptr  → 단일 드로우
+//  ctx.buffer != nullptr  → 인스턴싱 드로우
+//  ctx.shaderOverride     → 셰이더 강제 교체 (Shadow/Outline 패스)
+// ============================================================
+void MeshRenderer::Draw(const RenderContext& ctx)
 {
 	if (_mesh == nullptr || _material == nullptr)
 		return;
@@ -99,126 +105,57 @@ void MeshRenderer::Render(int32 tech, shared_ptr<Shader> shader, Matrix V, Matri
 	if (auto hlsl = _material->GetHlslShader())
 	{
 		hlsl->Bind();
-		hlsl->PushGlobalData(V, P);
-		hlsl->PushTransformData(TransformDesc{ GetTransform()->GetWorldMatrix() });
-		if (light) hlsl->PushLightData(light->GetLightDesc());
+		hlsl->PushGlobalData(ctx.view, ctx.proj);
+		if (ctx.light) hlsl->PushLightData(ctx.light->GetLightDesc());
+
+		if (!ctx.buffer) // Single
+			hlsl->PushTransformData(TransformDesc{ GetTransform()->GetWorldMatrix() });
+
 		_material->Update();
-
-		_mesh->GetVertexBuffer()->PushData();
-		_mesh->GetIndexBuffer()->PushData();
-		hlsl->DrawIndexed(_mesh->GetIndexBuffer()->GetCount(), 0, 0);
-		return;
-	}
-
-	// ── FX11 경로 (기존) ─────────────────────────────────────
-	auto prevShader = _material->GetShader();
-	if (shader) _material->SetShader(shader);
-
-	auto curShader = _material->GetShader();
-	curShader->PushGlobalData(V, P);
-	curShader->PushTransformData(TransformDesc{ GetTransform()->GetWorldMatrix() });
-	if (light) curShader->PushLightData(light->GetLightDesc());
-	_material->Update();
-
-	_mesh->GetVertexBuffer()->PushData();
-	_mesh->GetIndexBuffer()->PushData();
-	curShader->DrawIndexed(tech, _pass, _mesh->GetIndexBuffer()->GetCount(), 0, 0);
-
-	_material->SetShader(prevShader);
-}
-
-void MeshRenderer::RenderInstancing(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer)
-{
-	if (_mesh == nullptr || _material == nullptr)
-		return;
-
-	// ── HlslShader 경로 ──────────────────────────────────────
-	if (auto hlsl = _material->GetHlslShader())
-	{
-		hlsl->Bind();
-		hlsl->PushGlobalData(V, P);
-		if (light) hlsl->PushLightData(light->GetLightDesc());
-		_material->Update();
-
-		_mesh->GetVertexBuffer()->PushData();
-		_mesh->GetIndexBuffer()->PushData();
-		buffer->PushData();
-		hlsl->DrawIndexedInstanced(_mesh->GetIndexBuffer()->GetCount(), buffer->GetCount());
-		return;
-	}
-
-	// ── FX11 경로 (기존) ─────────────────────────────────────
-	auto prevShader = _material->GetShader();
-	if (shader) _material->SetShader(shader);
-
-	auto curShader = _material->GetShader();
-	curShader->PushGlobalData(V, P);
-	if (light) curShader->PushLightData(light->GetLightDesc());
-	_material->Update();
-
-	_mesh->GetVertexBuffer()->PushData();
-	_mesh->GetIndexBuffer()->PushData();
-	buffer->PushData();
-	curShader->DrawIndexedInstanced(tech, _pass, _mesh->GetIndexBuffer()->GetCount(), buffer->GetCount());
-
-	_material->SetShader(prevShader);
-}
-
-void MeshRenderer::RenderThumbnail(int32 tech, Matrix V, Matrix P, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer)
-{
-	if (_mesh == nullptr || _material == nullptr)
-		return;
-
-	// ── HlslShader 경로 ──────────────────────────────────────
-	if (auto hlsl = _material->GetHlslShader())
-	{
-		hlsl->Bind();
-		hlsl->PushGlobalData(V, P);
-		hlsl->PushTransformData(TransformDesc{ GetTransform()->GetWorldMatrix() });
-		if (light) hlsl->PushLightData(light->GetLightDesc());
-		_material->Update();
-
 		_mesh->GetVertexBuffer()->PushData();
 		_mesh->GetIndexBuffer()->PushData();
 
-		if (buffer == nullptr)
+		if (!ctx.buffer)
 			hlsl->DrawIndexed(_mesh->GetIndexBuffer()->GetCount(), 0, 0);
 		else
 		{
-			buffer->PushData();
-			hlsl->DrawIndexedInstanced(_mesh->GetIndexBuffer()->GetCount(), buffer->GetCount());
+			ctx.buffer->PushData();
+			hlsl->DrawIndexedInstanced(_mesh->GetIndexBuffer()->GetCount(), ctx.buffer->GetCount());
 		}
 		return;
 	}
 
-	// ── FX11 경로 ─────────────────────────────────────────────
-	auto shader = _material->GetShader();
-	if (shader == nullptr)
-		return;
+	// ── FX11 경로 ────────────────────────────────────────────
+	auto prevShader = _material->GetShader();
+	if (ctx.shaderOverride) _material->SetShader(ctx.shaderOverride);
 
-	DCT->OMSetDepthStencilState(nullptr, 1);
+	auto curShader = _material->GetShader();
+	if (curShader == nullptr) return;
 
-	shader->PushGlobalData(V, P);
-	shader->PushLightData(light->GetLightDesc());
+	curShader->PushGlobalData(ctx.view, ctx.proj);
+	if (ctx.light) curShader->PushLightData(ctx.light->GetLightDesc());
+
+	if (!ctx.buffer)
+		curShader->PushTransformData(TransformDesc{ GetTransform()->GetWorldMatrix() });
 
 	_material->Update();
 	_mesh->GetVertexBuffer()->PushData();
 	_mesh->GetIndexBuffer()->PushData();
 
-	if (buffer == nullptr)
-	{
-		auto world = GetTransform()->GetWorldMatrix();
-		shader->PushTransformData(TransformDesc{ world });
-		shader->DrawIndexed(tech, _pass, _mesh->GetIndexBuffer()->GetCount(), 0, 0);
-	}
+	if (!ctx.buffer)
+		curShader->DrawIndexed(ctx.tech, _pass, _mesh->GetIndexBuffer()->GetCount(), 0, 0);
 	else
 	{
-		buffer->PushData();
-		shader->DrawIndexedInstanced(tech, _pass, _mesh->GetIndexBuffer()->GetCount(), buffer->GetCount());
+		ctx.buffer->PushData();
+		curShader->DrawIndexedInstanced(ctx.tech, _pass, _mesh->GetIndexBuffer()->GetCount(), ctx.buffer->GetCount());
 	}
+
+	_material->SetShader(prevShader);
 }
 
-
+// ============================================================
+// Pick() - 마우스 선택 로직
+// ============================================================
 bool MeshRenderer::Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& distance)
 {
 	Super::Pick(screenX, screenY, pickPos, distance);

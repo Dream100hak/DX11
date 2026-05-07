@@ -1,5 +1,6 @@
 #pragma once
 #include "Component.h"
+#include "Frustum.h"
 
 enum class ProjectionType
 {
@@ -88,5 +89,8 @@ public:
 
 private:
 	uint32 _cullingMask = 0;
-	vector<shared_ptr<GameObject>> _vecForward;
+	vector<shared_ptr<GameObject>> _vecForward;    // 전체 (레거시 / 호환용)
+	vector<shared_ptr<GameObject>> _vecOpaque;     // Background + Opaque + AlphaTest
+	vector<shared_ptr<GameObject>> _vecTransparent;// Transparent + Overlay
+	Frustum _frustum;
 };

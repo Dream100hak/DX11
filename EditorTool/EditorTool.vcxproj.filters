@@ -34,6 +34,9 @@
     <Filter Include="Managers">
       <UniqueIdentifier>{72b3cb0f-be3a-416a-a8aa-ee913991e35e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shaders\HLSL">
+      <UniqueIdentifier>{2cbbb462-b6a5-4a8e-a0bd-586783728996}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -274,5 +277,22 @@
     <FxCompile Include="..\Shaders\01. Fire.fx">
       <Filter>Shaders\Contents</Filter>
     </FxCompile>
+    <FxCompile Include="..\Shaders\HLSL\Standard_VS.hlsl">
+      <Filter>Shaders\HLSL</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\HLSL\Standard_PS.hlsl">
+      <Filter>Shaders\HLSL</Filter>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Shaders\HLSL\Shadow.hlsli">
+      <Filter>Shaders\HLSL</Filter>
+    </None>
+    <None Include="..\Shaders\HLSL\Common.hlsli">
+      <Filter>Shaders\HLSL</Filter>
+    </None>
+    <None Include="..\Shaders\HLSL\Lighting.hlsli">
+      <Filter>Shaders\HLSL</Filter>
+    </None>
   </ItemGroup>
 </Project>

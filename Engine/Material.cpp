@@ -71,41 +71,64 @@ void Material::SetShader(shared_ptr<Shader> shader)
 
 void Material::Update()
 {
-	if (_shader == nullptr)
-		return;
-
-	bool useTexture = 0;
-
-	if (_diffuseMap)
+	// ── FX11 경로 (기존) ─────────────────────────────
+	if (_shader)
 	{
-		_diffuseEffectBuffer->SetResource(_diffuseMap->GetComPtr().Get());
-		useTexture = 1;
+		bool useTexture = 0;
+		if (_diffuseMap)
+		{
+			_diffuseEffectBuffer->SetResource(_diffuseMap->GetComPtr().Get());
+			useTexture = 1;
+		}
+		if (_normalMap)    _normalEffectBuffer->SetResource(_normalMap->GetComPtr().Get());
+		if (_specularMap)  _specularEffectBuffer->SetResource(_specularMap->GetComPtr().Get());
+		if (_shadowMap)    _shadowMapEffectBuffer->SetResource(_shadowMap->GetComPtr().Get());
+		if (_ssaoMap)      _ssaoMapEffectBuffer->SetResource(_ssaoMap.Get());
+
+		_desc.useTexture = useTexture;
+		_shader->PushMaterialData(_desc);
 	}
 
-	if(_normalMap)
-		_normalEffectBuffer->SetResource(_normalMap->GetComPtr().Get());
+	// ── HlslShader 경로 (신규) ────────────────────────
+	if (_hlslShader)
+	{
+		_desc.useTexture = _diffuseMap ? 1 : 0;
+		_hlslShader->PushMaterialData(_desc);
 
-	if (_specularMap)
-		_specularEffectBuffer->SetResource(_specularMap->GetComPtr().Get());
+		// SRV 슬롯 t0~t4 바인딩
+		auto bindSRV = [&](UINT slot, shared_ptr<Texture> tex)
+		{
+			ID3D11ShaderResourceView* srv = tex ? tex->GetComPtr().Get() : nullptr;
+			_hlslShader->SetPSSRV(slot, srv);
+		};
+		bindSRV(0, _diffuseMap);
+		bindSRV(1, _specularMap);
+		bindSRV(2, _normalMap);
+		bindSRV(3, _shadowMap);
 
-	if (_shadowMap)
-		_shadowMapEffectBuffer->SetResource(_shadowMap->GetComPtr().Get());
-
-	if (_ssaoMap)
-		_ssaoMapEffectBuffer->SetResource(_ssaoMap.Get());
-
-	_desc.useTexture = useTexture;
-
-	_shader->PushMaterialData(_desc);
+		ID3D11ShaderResourceView* ssaoSrv = _ssaoMap.Get();
+		_hlslShader->SetPSSRV(4, ssaoSrv);
+	}
 }
 
 void Material::Refresh()
 {
-	_diffuseEffectBuffer->SetResource(nullptr);
-	_normalEffectBuffer->SetResource(nullptr);
-	_specularEffectBuffer->SetResource(nullptr);
-	_shadowMapEffectBuffer->SetResource(nullptr);
-	_ssaoMapEffectBuffer->SetResource(nullptr);
+	// FX11
+	if (_shader)
+	{
+		_diffuseEffectBuffer->SetResource(nullptr);
+		_normalEffectBuffer->SetResource(nullptr);
+		_specularEffectBuffer->SetResource(nullptr);
+		_shadowMapEffectBuffer->SetResource(nullptr);
+		_ssaoMapEffectBuffer->SetResource(nullptr);
+	}
+
+	// HlslShader
+	if (_hlslShader)
+	{
+		for (UINT i = 0; i < 5; i++)
+			_hlslShader->SetPSSRV(i, nullptr);
+	}
 }
 
 std::shared_ptr<Material> Material::Clone()

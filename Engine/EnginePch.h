@@ -77,6 +77,7 @@ using namespace Microsoft::WRL;
 #include "ImGuiManager.h"
 #include "SceneManager.h"
 #include "ProjectManager.h"
+#include "RenderStateManager.h"
 
 // Engine
 #include "VertexData.h"
@@ -84,6 +85,7 @@ using namespace Microsoft::WRL;
 #include "IndexBuffer.h"
 #include "ConstantBuffer.h"
 #include "Shader.h"
+#include "HlslShader.h"
 #include "IExecute.h"
 
 #include "GameObject.h"

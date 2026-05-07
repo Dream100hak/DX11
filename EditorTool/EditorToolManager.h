@@ -14,13 +14,11 @@ public:
 
 	const unordered_map<string, shared_ptr< EditorWindow>>& GetEditorWindows() const {return _editorWindows;}
 	
-	const shared_ptr<EditorWindow>& GetEditorWindow(string name)  
+	const shared_ptr<EditorWindow>& GetEditorWindow(const string& name) const
 	{
+		static const shared_ptr<EditorWindow> sNull = nullptr;
 		auto it = _editorWindows.find(name);
-		if (it  != _editorWindows.end())
-		{
-			return it->second;
-		}	
+		return (it != _editorWindows.end()) ? it->second : sNull;
 	}
 
 	void SetSelectedObjH(int64 id) { ClearId(); _selectedH = id; }

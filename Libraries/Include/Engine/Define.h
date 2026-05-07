@@ -27,6 +27,8 @@ public:										\
 #define GUI			GET_SINGLE(ImGuiManager)
 #define SCENE		GET_SINGLE(SceneManager)
 #define PROJECT		GET_SINGLE(ProjectManager)
+#define RENDER_STATES GET_SINGLE(RenderStateManager)
+
 #define CUR_SCENE	SCENE->GetCurrentScene()
 #define MAIN_CAM	SCENE->GetCurrentScene()->GetMainCamera()->GetCamera()
 

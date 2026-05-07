@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "Graphics.h"
+#include "RenderStateManager.h"
 
 void Graphics::Init(HWND hwnd)
 {
@@ -14,6 +15,8 @@ void Graphics::Init(HWND hwnd)
 	CreateDepthStencilView();
 	CreateRasterizer();
 
+	// RenderStateManager 초기화 (Device 생성 이후)
+	RENDER_STATES->Init();
 }
 
 void Graphics::PreRenderBegin()

@@ -1,10 +1,11 @@
 #pragma once
 
 #include "ResourceBase.h"
+#include "HlslShader.h"  // HlslShaderDesc 완전 선언 필요
 
 class Texture;
 class Mesh;
-class Shader; 
+class Shader;
 class Material;
 class Model;
 
@@ -23,7 +24,8 @@ public:
 	template<typename T>
 	shared_ptr<T> Get(const wstring& key);
 
-	shared_ptr<Texture> GetOrAddTexture(const wstring& key, const wstring& path);
+	shared_ptr<Texture>    GetOrAddTexture(const wstring& key, const wstring& path);
+	shared_ptr<HlslShader> GetOrAddHlslShader(const wstring& key, const HlslShaderDesc& desc);
 
 	template<typename T>
 	ResourceType GetResourceType();
@@ -32,7 +34,6 @@ private:
 	void CreateDefaultMesh();
 	void CreateDefaultShader();
 	void CreateDefaultMaterial();
-
 	void CreateShadowMapShader();
 	void CreateOutlineShader();
 	void CreateThumbnailShader();
@@ -41,9 +42,7 @@ private:
 
 private:
 	wstring _resourcePath;
-
-private:
-	using KeyObjMap = map<wstring/*key*/, shared_ptr<ResourceBase>>;
+	using KeyObjMap = map<wstring, shared_ptr<ResourceBase>>;
 	array<KeyObjMap, RESOURCE_TYPE_COUNT> _resources;
 };
 
@@ -95,16 +94,12 @@ shared_ptr<T> ResourceManager::Get(const wstring& key)
 template<typename T>
 ResourceType ResourceManager::GetResourceType()
 {
-	if (std::is_same_v<T, Texture>)
-		return ResourceType::Texture;
-	if (std::is_same_v<T, Mesh>)
-		return ResourceType::Mesh;
-	if (std::is_same_v<T, Material>)
-		return ResourceType::Material;
-	if (std::is_same_v<T, Shader>)
-		return ResourceType::Shader;
-	if (std::is_same_v<T, Model>)
-		return ResourceType::Model;
+	if (std::is_same_v<T, Texture>)    return ResourceType::Texture;
+	if (std::is_same_v<T, Mesh>)       return ResourceType::Mesh;
+	if (std::is_same_v<T, Material>)   return ResourceType::Material;
+	if (std::is_same_v<T, Shader>)     return ResourceType::Shader;
+	if (std::is_same_v<T, HlslShader>) return ResourceType::Shader;
+	if (std::is_same_v<T, Model>)      return ResourceType::Model;
 
 	assert(false);
 	return ResourceType::None;

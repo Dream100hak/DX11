@@ -34,8 +34,6 @@ void Hiearchy::ShowHiearchy()
 	ImGui::SetNextWindowPos(GetEWinPos());
 	ImGui::SetNextWindowSize(GetEWinSize());
 
-	ImGuiIO& io = ImGui::GetIO();
-
 	ImGui::Begin("Hiearchy", nullptr);
 
 	// 드롭 가능 영역 설정
@@ -74,7 +72,7 @@ void Hiearchy::ShowHiearchy()
 		wstring wstr = object.second->GetObjectName();
 		if (wstr.empty())
 			continue;
-		string name(wstr.begin(), wstr.end());
+		string name = Utils::ToString(wstr);  // wstring→string 변환 수정
 
 		bool isSelected = (SELECTED_H == object.first);
 
@@ -83,7 +81,7 @@ void Hiearchy::ShowHiearchy()
 		else
 			ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.2f, 0.2f, 0.2f, 0.2f)); // Default background
 
-		if (ImGui::Selectable(name.c_str(), (isSelected, ImGuiSelectableFlags_SpanAllColumns)))
+		if (ImGui::Selectable(name.c_str(), isSelected, ImGuiSelectableFlags_SpanAllColumns))  // 쉼표 연산자 버그 수정
 		{
 			CUR_SCENE->UnPickAll();
 			TOOL->SetSelectedObjH(object.first);

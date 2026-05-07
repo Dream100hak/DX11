@@ -4,6 +4,7 @@
 #include "Camera.h"
 #include "Game.h"
 #include "Shader.h"
+#include "HlslShader.h"
 #include "Light.h"
 #include "MathUtils.h"
 #include "Utils.h"
@@ -91,31 +92,35 @@ void MeshRenderer::Render(int32 tech, shared_ptr<Shader> shader, Matrix V, Matri
 	if (_mesh == nullptr || _material == nullptr)
 		return;
 
-	auto prevShader = _material->GetShader();
+	// ── HlslShader 경로 ──────────────────────────────────────
+	if (auto hlsl = _material->GetHlslShader())
+	{
+		hlsl->Bind();
+		hlsl->PushGlobalData(V, P);
+		hlsl->PushTransformData(TransformDesc{ GetTransform()->GetWorldMatrix() });
+		if (light) hlsl->PushLightData(light->GetLightDesc());
+		_material->Update();
 
-	if (shader)
-		_material->SetShader(shader);
+		_mesh->GetVertexBuffer()->PushData();
+		_mesh->GetIndexBuffer()->PushData();
+		hlsl->DrawIndexed(_mesh->GetIndexBuffer()->GetCount(), 0, 0);
+		return;
+	}
+
+	// ── FX11 경로 (기존) ─────────────────────────────────────
+	auto prevShader = _material->GetShader();
+	if (shader) _material->SetShader(shader);
 
 	auto curShader = _material->GetShader();
-	// GlobalData
 	curShader->PushGlobalData(V, P);
-
-	auto world = GetTransform()->GetWorldMatrix();
-	curShader->PushTransformData(TransformDesc{ world });
-
-	//LIGHT 
-	if (light)
-		curShader->PushLightData(light->GetLightDesc());
-
+	curShader->PushTransformData(TransformDesc{ GetTransform()->GetWorldMatrix() });
+	if (light) curShader->PushLightData(light->GetLightDesc());
 	_material->Update();
-	// IA
+
 	_mesh->GetVertexBuffer()->PushData();
 	_mesh->GetIndexBuffer()->PushData();
-
-	//DRAW 
 	curShader->DrawIndexed(tech, _pass, _mesh->GetIndexBuffer()->GetCount(), 0, 0);
 
-	//RESTORE 
 	_material->SetShader(prevShader);
 }
 
@@ -124,30 +129,35 @@ void MeshRenderer::RenderInstancing(int32 tech, shared_ptr<Shader> shader, Matri
 	if (_mesh == nullptr || _material == nullptr)
 		return;
 
-	auto prevShader = _material->GetShader();
+	// ── HlslShader 경로 ──────────────────────────────────────
+	if (auto hlsl = _material->GetHlslShader())
+	{
+		hlsl->Bind();
+		hlsl->PushGlobalData(V, P);
+		if (light) hlsl->PushLightData(light->GetLightDesc());
+		_material->Update();
 
-	if(shader)
-		_material->SetShader(shader);
+		_mesh->GetVertexBuffer()->PushData();
+		_mesh->GetIndexBuffer()->PushData();
+		buffer->PushData();
+		hlsl->DrawIndexedInstanced(_mesh->GetIndexBuffer()->GetCount(), buffer->GetCount());
+		return;
+	}
+
+	// ── FX11 경로 (기존) ─────────────────────────────────────
+	auto prevShader = _material->GetShader();
+	if (shader) _material->SetShader(shader);
 
 	auto curShader = _material->GetShader();
-
-	// GlobalData
 	curShader->PushGlobalData(V, P);
-
-	//LIGHT 
-	if (light)
-		curShader->PushLightData(light->GetLightDesc());
-
+	if (light) curShader->PushLightData(light->GetLightDesc());
 	_material->Update();
-	// IA
+
 	_mesh->GetVertexBuffer()->PushData();
 	_mesh->GetIndexBuffer()->PushData();
 	buffer->PushData();
-
-	//DRAW 
 	curShader->DrawIndexedInstanced(tech, _pass, _mesh->GetIndexBuffer()->GetCount(), buffer->GetCount());
-	
-	//RESTORE 
+
 	_material->SetShader(prevShader);
 }
 

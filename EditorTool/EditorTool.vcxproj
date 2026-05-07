@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -220,6 +220,26 @@
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
     </FxCompile>
+    
+    
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Shaders\HLSL\Common.hlsli" />
+    <None Include="..\Shaders\HLSL\Lighting.hlsli" />
+      <None Include="..\Shaders\HLSL\Shadow.hlsli" />
+    <None Include="..\Shaders\HLSL\Standard_VS.hlsl" />
+  <None Include="..\Shaders\HLSL\Standard_PS.hlsl" />
+    <None Include="..\Shaders\HLSL\ShadowMap_VS.hlsl" />
+    <None Include="..\Shaders\HLSL\ShadowMap_PS.hlsl" />
+    <None Include="..\Shaders\HLSL\Outline_VS.hlsl" />
+    <None Include="..\Shaders\HLSL\Outline_PS.hlsl" />
+ <None Include="..\Shaders\HLSL\Sky.hlsl" />
+  <None Include="..\Shaders\HLSL\Terrain.hlsl" />
+    <None Include="..\Shaders\HLSL\Collider.hlsl" />
+    <None Include="..\Shaders\HLSL\Thumbnail.hlsl" />
+    <None Include="..\Shaders\HLSL\SceneGrid.hlsl" />
+    <None Include="..\Shaders\HLSL\DebugTexture.hlsl" />
+    <None Include="..\Shaders\HLSL\CubeMap.hlsl" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

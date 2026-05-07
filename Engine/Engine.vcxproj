@@ -162,6 +162,7 @@
     <ClInclude Include="ConstantBuffer.h" />
     <ClInclude Include="Define.h" />
     <ClInclude Include="EnginePch.h" />
+    <ClInclude Include="HlslShader.h" />
     <ClInclude Include="Job.h" />
     <ClInclude Include="JobQueue.h" />
     <ClInclude Include="ProjectManager.h" />
@@ -202,6 +203,7 @@
     <ClInclude Include="Primitive3D.h" />
     <ClInclude Include="RawBuffer.h" />
     <ClInclude Include="Renderer.h" />
+    <ClInclude Include="RenderStateManager.h" />
     <ClInclude Include="ResourceBase.h" />
     <ClInclude Include="ResourceManager.h" />
     <ClInclude Include="Scene.h" />
@@ -236,6 +238,7 @@
     <ClCompile Include="Component.cpp" />
     <ClCompile Include="ConstantBuffer.cpp" />
     <ClCompile Include="Engine.cpp" />
+    <ClCompile Include="HlslShader.cpp" />
     <ClCompile Include="Job.cpp" />
     <ClCompile Include="JobQueue.cpp" />
     <ClCompile Include="ProjectManager.cpp" />
@@ -294,6 +297,7 @@
     <ClCompile Include="Primitive3D.cpp" />
     <ClCompile Include="RawBuffer.cpp" />
     <ClCompile Include="Renderer.cpp" />
+    <ClCompile Include="RenderStateManager.cpp" />
     <ClCompile Include="ResourceBase.cpp" />
     <ClCompile Include="ResourceManager.cpp" />
     <ClCompile Include="Scene.cpp" />

@@ -63,73 +63,71 @@ EditorTool 로드:
  - Camera::SortGameObject() 에 _frustum.Update() + IsInFrustum() 연동
            - BoundingBox 미계산 오브젝트 자동 통과 처리
 ✅ Step 8. 렌더 큐 (Render Queue) 구현
-           - Define.h 에 RenderQueue enum 추가 (Background/Opaque/AlphaTest/Transparent/Overlay)
-           - Material 에 _renderQueue 멤버 추가 + Clone() 복사 포함
-           - Camera::SortGameObject() 에서 _vecOpaque / _vecTransparent 벡터 분리
+      - Define.h 에 RenderQueue enum 추가 (Background/Opaque/AlphaTest/Transparent/Overlay)
+   - Material 에 _renderQueue 멤버 추가 + Clone() 복사 포함
+ - Camera::SortGameObject() 에서 _vecOpaque / _vecTransparent 벡터 분리
    - 불투명: Front-to-Back 정렬 (Early-Z 활용)
-           - 투명:   Back-to-Front 정렬 (알파 블렌딩 정확도)
-           - Camera::Render_Forward() 에서 Opaque → Transparent 순서로 각각 렌더
+        - 투명:   Back-to-Front 정렬 (알파 블렌딩 정확도)
+    - Camera::Render_Forward() 에서 Opaque → Transparent 순서로 각각 렌더
 ✅ Step 9. 렌더러 단일 진입점 (RenderContext) 구현
    - Engine/RenderContext.h 추가
            struct RenderContext { tech, view, proj, light, shaderOverride, buffer }
-           - Renderer 기반 클래스에 virtual Draw(const RenderContext&) 단일 진입점 추가
-           - MeshRenderer::Draw()   — HlslShader / FX11 분기, Single/Instanced 통합
-           - ModelRenderer::Draw()  — PushMeshes() 내부 헬퍼로 Single/Instanced 공통화
+    - Renderer 기반 클래스에 virtual Draw(const RenderContext&) 단일 진입점 추가
+    - MeshRenderer::Draw()   — HlslShader / FX11 분기, Single/Instanced 통합
+      - ModelRenderer::Draw()— PushMeshes() 내부 헬퍼로 Single/Instanced 공통화
      - ModelAnimator::Draw()  — PushBufferInstancing() 호출
-           - SceneGrid::Draw()      — DrawGrid() 호출
+      - SceneGrid::Draw()      — DrawGrid() 호출
          - InstancingManager 를 Draw(RenderContext) 기반으로 전환
        - 레거시 Render / RenderInstancing / RenderThumbnail 전면 제거
-          (Renderer / MeshRenderer / ModelRenderer / ModelAnimator / SceneGrid)
+        (Renderer / MeshRenderer / ModelRenderer / ModelAnimator / SceneGrid)
        - ModelRenderer::PushBuffer / PushBufferInstancing → PushMeshes() 로 통합 후 제거
-      - MeshThumbnail::Draw() 도 RenderContext 기반으로 전환
-```
-
-### 현재 구조에 남아 있는 문제점 (집에서 이어받기)
-
-```
-⚠️  Issue 1. InstancingManager::Render() 시그니처가 레거시 파라미터 유지
-    - Render(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, ...)
-    - 내부는 RenderContext 로 전환됐지만 외부 호출부(Camera::Render_Forward)가
-      여전히 개별 파라미터를 넘기는 구조
-    - 개선 방향: InstancingManager::Render(const RenderContext&, vector<GameObject>&) 로
-      시그니처 통일 → Camera::Render_Forward 도 RenderContext 생성 후 전달
-
-⚠️  Issue 2. InstancingManager::RenderStaticObject / RenderAnimRenderer 가 public
-    - 외부에서 직접 호출 가능한 상태 → private 또는 내부 메서드로 변경 권장
-    - Render() 하나만 public API 로 두는 것이 바람직
-
-⚠️  Issue 3. Camera::Render_Forward() 가 매번 SCENE->GetCurrentScene() 재조회
-    - 같은 프레임 안에서 SortGameObject() / Render_Forward() 가 각각 씬을 조회
-    - RenderContext 를 SortGameObject 단계에서 미리 구성해 두면 중복 제거 가능
-
-⚠️  Issue 4. ModelAnimator::UpdateTweenData() 가 InstancingManager 내부에서 호출됨
-    - 렌더 루프가 업데이트 로직(애니메이션 시간 진행)을 수행 — 책임 혼재
-    - UpdateTweenData() 는 Scene::Update() 단계에서 호출하고,
-      렌더 루프에서는 순수하게 Draw만 담당하도록 분리 권장
-
-⚠️  Issue 5. RenderContext.shaderOverride 가 FX11 Shader 전용
-    - HlslShader 경로에서는 shaderOverride 가 무시됨 (MeshRenderer::Draw 내부 확인)
-    - Shadow Pass / Outline Pass 를 HlslShader 로 교체할 때 shaderOverride 도
-      shared_ptr<HlslShader> hlslShaderOverride 를 RenderContext 에 추가해야 함
-```
-
-### 다음 작업 추천 순서
-
-```
-→ Step 10. InstancingManager 시그니처 정리
+    - MeshThumbnail::Draw() 도 RenderContext 기반으로 전환
+✅ Step 10. InstancingManager 시그니처 정리
      - Render(const RenderContext& baseCtx, vector<shared_ptr<GameObject>>& gameObjects)
-           - RenderStaticObject / RenderAnimRenderer → private
+ - RenderStaticObject / RenderAnimRenderer → private
            - Camera::Render_Forward() 에서 RenderContext 구성 후 전달
 
-→ Step 11. UpdateTweenData() 위치 분리
+✅ Step 11. UpdateTweenData() 위치 분리
            - ModelAnimator::Update() 에서 호출하도록 이동
-           - InstancingManager 에서 UpdateTweenData() 호출 제거
+    - InstancingManager 에서 UpdateTweenData() 호출 제거
 
-→ Step 12. RenderContext 에 HlslShader override 지원 추가
-   - struct RenderContext 에 shared_ptr<HlslShader> hlslOverride 필드 추가
-           - MeshRenderer::Draw() 에서 hlslOverride 분기 처리
-           - Shadow / Outline 패스에서 HlslShader 기반 override 사용 가능하게
+✅ Step 12. RenderContext 에 HlslShader override 지원 추가
+   - struct RenderContext 에 shared_ptr<HlslShader> hlslOverride 필드 추가 ✅
+   - MeshRenderer::Draw() 에서 hlslOverride 분기 처리 ✅
+ - Shadow / Outline 패스에서 HlslShader 기반 override 사용 가능하게 준비 ✅
 
-→ Step 13. 멀티 라이트 지원 (Phase 1 마무리)
+✅ Step 13. 멀티 라이트 지원 (Phase 1 마무리)
+   - Define.h 에 MAX_LIGHTS = 16 추가 ✅
+   - BindShaderDesc.h 에 DirectionalLightData / LightArrayDesc 구조 추가 ✅
+   - RenderContext 에 lightArray 필드 추가 ✅
+   - Lighting.hlsli 에 ComputeDirectionalLightArray() 함수 추가 ✅
+   - HlslShader 에 PushLightArrayData() 메서드 추가 ✅
+   - Scene 에 GetLights() 메서드 추가 ✅
+   - Camera::Render_Forward() 에서 모든 라이트 수집 및 배열 전달 ✅
+   - MeshRenderer::Draw() 에서 lightArray 우선 처리 ✅
+   - Common.hlsli 에 MAX_LIGHTS 상수 추가 ✅
+
 → Step 14. Deferred Rendering (Phase 2 시작)
+
+```
+
+### 현재 구조에 남아 있는 문제점 (해결됨)
+
+```
+✅ Issue 1. InstancingManager::Render() 시그니처 정리 완료
+    - Render(const RenderContext& baseCtx, vector<GameObject>&) 로 통일
+
+✅ Issue 2. InstancingManager::RenderStaticObject / RenderAnimRenderer 을 private으로 변경 완료
+    - Render() 하나만 public API
+
+✅ Issue 3. Camera::Render_Forward() 최적화
+  - RenderContext 를 사전에 구성 후 전달 (씬 중복 조회 방지)
+
+✅ Issue 4. ModelAnimator::UpdateTweenData() 위치 분리 완료
+    - ModelAnimator::Update() 에서 호출
+    - 렌더 루프에서 순수 Draw만 담당
+
+✅ Issue 5. RenderContext.hlslOverride 지원 추가 완료
+    - MeshRenderer::Draw() 에서 우선 처리 (hlslOverride → HlslShader → FX11)
+    - Shadow / Outline 패스 준비 완료
 

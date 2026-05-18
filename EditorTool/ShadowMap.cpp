@@ -94,10 +94,20 @@ void ShadowMap::Draw()
 
 	//DCT->RSSetState(light->GetDepthRS().Get()); 
 
-	INSTANCING->Render(0, shader , V , P , light , vecForward);
+	// ? RenderContext 기반 호출
+	RenderContext ctx;
+	ctx.tech = 0;
+	ctx.view = V;
+	ctx.proj = P;
+	ctx.light = light;
+	ctx.shaderOverride = shader;
+	ctx.hlslOverride = nullptr;
+	ctx.buffer = nullptr;
+	ctx.lightArray = nullptr;
+
+	INSTANCING->Render(ctx, vecForward);
 	if(terrain)
 		terrain->TerrainRendererNotPS(shader, V, P);
 
-//	DCT->RSSetState(0);
-
+	//DCT->RSSetState(0);
 }

@@ -94,6 +94,7 @@ using namespace Microsoft::WRL;
 #include "Transform.h"
 #include "Texture.h"
 #include "Mesh.h"
+#include "Light.h"  // ✅ 멀티 라이트 지원을 위해 추가
 
 #include "WindowDesc.h"
 

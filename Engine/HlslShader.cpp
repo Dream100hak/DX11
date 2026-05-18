@@ -301,6 +301,22 @@ void HlslShader::PushTweenData(const InstancedTweenDesc& desc)
 	DCT->VSSetConstantBuffers(6, 1, &buf);
 }
 
+// ──────────────────────────────────────────────────────────
+// PushLightArrayData - 멀티 라이트 배열 전달
+// ──────────────────────────────────────────────────────────
+void HlslShader::PushLightArrayData(const LightArrayDesc& desc)
+{
+	if (!_lightArrayCB)
+	{
+		_lightArrayCB = make_shared<ConstantBuffer<LightArrayDesc>>();
+		_lightArrayCB->Create();
+	}
+	_lightArrayCB->CopyData(const_cast<LightArrayDesc&>(desc));
+	auto buf = _lightArrayCB->GetComPtr().Get();
+	DCT->VSSetConstantBuffers(7, 1, &buf);
+	DCT->PSSetConstantBuffers(7, 1, &buf);
+}
+
 // --------------------------------------------------------------------------
 // Internal : HLSL 파일 컴파일
 // --------------------------------------------------------------------------

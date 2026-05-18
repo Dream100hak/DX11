@@ -9,6 +9,7 @@
 #include "MathUtils.h"
 #include "Utils.h"
 #include "RenderContext.h"
+#include "BindShaderDesc.h"  // ? LightArrayDesc 필요
 
 MeshRenderer::MeshRenderer() : Super(RendererType::Mesh)
 {
@@ -91,19 +92,21 @@ void MeshRenderer::OnInspectorGUI()
 }
 
 // ============================================================
-// Draw() ? 단일 렌더 진입점
-//  ctx.buffer == nullptr  → 단일 드로우
-//  ctx.buffer != nullptr  → 인스턴싱 드로우
-//  ctx.shaderOverride     → 셰이더 강제 교체 (Shadow/Outline 패스)
+// Draw() ? 렌더 진입 지점
+//  ctx.buffer == nullptr  ? 단일 드로우
+//  ctx.buffer != nullptr  ? 인스턴싱 드로우
+//  ctx.shaderOverride     ? 셰이더 오버라이드 (Shadow/Outline 패스)
+//  ctx.hlslOverride       ? HlslShader 기반 오버라이드
 // ============================================================
 void MeshRenderer::Draw(const RenderContext& ctx)
 {
 	if (_mesh == nullptr || _material == nullptr)
 		return;
 
-	// ── HlslShader 경로 ──────────────────────────────────────
-	if (auto hlsl = _material->GetHlslShader())
+	// ── HlslShader override 우선 처리 ─────────────────────────────────────────────
+	if (ctx.hlslOverride)
 	{
+		auto hlsl = ctx.hlslOverride;
 		hlsl->Bind();
 		hlsl->PushGlobalData(ctx.view, ctx.proj);
 		if (ctx.light) hlsl->PushLightData(ctx.light->GetLightDesc());
@@ -125,7 +128,36 @@ void MeshRenderer::Draw(const RenderContext& ctx)
 		return;
 	}
 
-	// ── FX11 경로 ────────────────────────────────────────────
+	// ── HlslShader 경로 ────────────────────────────────────────────────────────────
+	if (auto hlsl = _material->GetHlslShader())
+	{
+		hlsl->Bind();
+		hlsl->PushGlobalData(ctx.view, ctx.proj);
+		
+		// ? 라이트 배열 우선, 없으면 단일 라이트
+		if (ctx.lightArray)
+			hlsl->PushLightArrayData(*ctx.lightArray);
+		else if (ctx.light)
+			hlsl->PushLightData(ctx.light->GetLightDesc());
+
+		if (!ctx.buffer) // Single
+			hlsl->PushTransformData(TransformDesc{ GetTransform()->GetWorldMatrix() });
+
+		_material->Update();
+		_mesh->GetVertexBuffer()->PushData();
+		_mesh->GetIndexBuffer()->PushData();
+
+		if (!ctx.buffer)
+			hlsl->DrawIndexed(_mesh->GetIndexBuffer()->GetCount(), 0, 0);
+		else
+		{
+			ctx.buffer->PushData();
+			hlsl->DrawIndexedInstanced(_mesh->GetIndexBuffer()->GetCount(), ctx.buffer->GetCount());
+		}
+		return;
+	}
+
+	// ── FX11 경로 ─────────────────────────────────────────────────────────────────
 	auto prevShader = _material->GetShader();
 	if (ctx.shaderOverride) _material->SetShader(ctx.shaderOverride);
 

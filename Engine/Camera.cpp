@@ -5,6 +5,7 @@
 #include "MeshRenderer.h"
 #include "ModelRenderer.h"
 #include "ModelAnimator.h"
+#include "BindShaderDesc.h"  // ? LightArrayDesc, DirectionalLightData 필요
 
 void Camera::SortGameObject()
 {
@@ -74,8 +75,8 @@ void Camera::SortGameObject()
 void Camera::Render_Forward()
 {
 	auto cam   = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
-	auto light = SCENE->GetCurrentScene()->GetLight()->GetLight();
-
+	auto scene = SCENE->GetCurrentScene();
+	
 	int32 tech = 0;
 	if (INPUT->GetButton(KEY_TYPE::KEY_1)) tech = TECH_WIREFRAME;
 	if (INPUT->GetButton(KEY_TYPE::KEY_2)) tech = TECH_CLOCKWISE;
@@ -83,12 +84,47 @@ void Camera::Render_Forward()
 	Matrix V = cam->GetViewMatrix();
 	Matrix P = cam->GetProjectionMatrix();
 
-	// 1) 불투명 오브젝트 (Front-to-Back, Depth Write ON)
-	GET_SINGLE(InstancingManager)->Render(tech, nullptr, V, P, light, _vecOpaque);
+	// ── 멀티 라이트 배열 수집 ──────────────────────────────────────
+	auto lightArray = make_shared<LightArrayDesc>();
+	lightArray->lightCount = 0;
+	
+	// Scene의 모든 라이트 객체 수집
+	auto& lights = scene->GetLights();
+	for (auto& lightObj : lights)
+	{
+		if (lightArray->lightCount >= MAX_LIGHTS) break;
+		
+		auto lightComponent = lightObj->GetLight();
+		if (!lightComponent) continue;
+		
+		const LightDesc& lightDesc = lightComponent->GetLightDesc();
+		DirectionalLightData& data = lightArray->lights[lightArray->lightCount];
+		
+		data.diffuse = lightDesc.diffuse;
+		data.ambient = lightDesc.ambient;
+		data.intensity = lightDesc.intensity;
+		data.direction = lightDesc.direction;
+		
+		lightArray->lightCount++;
+	}
 
-	// 2) 반투명 오브젝트 (Back-to-Front, Depth Write OFF 권장)
-	//  현재는 동일 패스로 렌더 ? BlendState는 Material/HlslShader 에서 각자 설정
-	GET_SINGLE(InstancingManager)->Render(tech, nullptr, V, P, light, _vecTransparent);
+	// RenderContext 구성
+	RenderContext baseCtx;
+	baseCtx.tech = tech;
+	baseCtx.view   = V;
+	baseCtx.proj   = P;
+	baseCtx.light  = nullptr;
+	baseCtx.lightArray = lightArray;
+	baseCtx.shaderOverride = nullptr;
+	baseCtx.hlslOverride   = nullptr;
+	baseCtx.buffer = nullptr;
+
+	// 1) 불투명 렌더 패스 (Front-to-Back, Depth Write ON)
+	GET_SINGLE(InstancingManager)->Render(baseCtx, _vecOpaque);
+
+	// 2) 투명 렌더 패스 (Back-to-Front, Depth Write OFF 처리)
+	//    투명도 정확 처리는 BlendState를 Material/HlslShader 레벨에서 처리 권장
+	GET_SINGLE(InstancingManager)->Render(baseCtx, _vecTransparent);
 }
 
 Camera::Camera() : Super(ComponentType::Camera)

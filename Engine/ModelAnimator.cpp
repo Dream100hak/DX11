@@ -34,6 +34,15 @@ void ModelAnimator::OnInspectorGUI()
 	ImGui::SliderInt("Next Frame", (int*)&_tweenDesc.curr.nextFrame, 0, 1000);
 }
 
+// ──────────────────────────────────────────────────────────────────
+// Update: 애니메이션 프레임 진행 (렌더가 아닌 Update 단계에서)
+// ──────────────────────────────────────────────────────────────────
+void ModelAnimator::Update()
+{
+	if (_model == nullptr) return;
+	UpdateTweenData();
+}
+
 void ModelAnimator::Draw(const RenderContext& ctx)
 {
 	if (_model == nullptr) return;
@@ -80,7 +89,7 @@ void ModelAnimator::UpdateTweenData()
 		}
 	}
 
-	// 다음 애니메이션이 예약 되어 있다면
+	// 다음 애니메이션이 설정 되어 있다면
 	if (desc.next.animIndex >= 0)
 	{
 		desc.tweenSumTime += DT;
@@ -88,13 +97,13 @@ void ModelAnimator::UpdateTweenData()
 
 		if (desc.tweenRatio >= 1.f)
 		{
-			// 애니메이션 교체 성공
+			// 애니메이션 완전 교체
 			desc.curr = desc.next;
 			desc.ClearNextAnim();
 		}
 		else
 		{
-			// 교체중
+			// 블렌딩
 			shared_ptr<ModelAnimation> nextAnim = _model->GetAnimationByIndex(desc.next.animIndex);
 			desc.next.sumTime += DT;
 
@@ -187,7 +196,7 @@ void ModelAnimator::CreateTexture()
 		const uint32 pageSize = dataSize * MAX_MODEL_KEYFRAMES;
 		void* mallocPtr = ::malloc(pageSize * _model->GetAnimationCount());
 
-		// 파편화된 데이터를 조립한다.
+		// 애니메이션 데이터를 준비한다.
 		for (uint32 c = 0; c < _model->GetAnimationCount(); c++)
 		{
 			uint32 startOffset = c * pageSize;
@@ -201,7 +210,7 @@ void ModelAnimator::CreateTexture()
 			}
 		}
 
-		// 리소스 만들기
+		// 리소스 초기화
 		vector<D3D11_SUBRESOURCE_DATA> subResources(_model->GetAnimationCount());
 
 		for (uint32 c = 0; c < _model->GetAnimationCount(); c++)
@@ -275,7 +284,7 @@ void ModelAnimator::CreateAnimationTransform(uint32 index)
 
 			tempAnimBoneTransforms[b] = matAnimation * matParent;
 
-			// 결론
+			// 역행렬
 			_animTransforms[index].transforms[f][b] = invGlobal * tempAnimBoneTransforms[b];
 		}
 	}

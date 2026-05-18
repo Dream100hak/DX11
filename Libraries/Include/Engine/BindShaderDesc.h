@@ -1,6 +1,9 @@
 #pragma once
 #include "ConstantBuffer.h"
 
+// ? Forward declaration
+class Light;
+
 class Shader;
 
 struct GlobalDesc
@@ -30,6 +33,25 @@ struct LightDesc
 	Vec3 direction;
 	float intensity = 1.f;
 };
+
+// ──────────────────────────────────────────────────────────
+// 멀티 라이트 지원 (Directional Light Array)
+// ──────────────────────────────────────────────────────────
+struct DirectionalLightData
+{
+	Color diffuse;
+	Color ambient;
+	float intensity;
+	Vec3 direction;
+};
+
+struct LightArrayDesc
+{
+	DirectionalLightData lights[MAX_LIGHTS];
+	int32 lightCount = 0;
+	Vec3 padding;  // Padding for alignment (총 16바이트 정렬)
+};
+
 struct PointLightDesc
 {
 	Color ambient = Color(1.f, 1.f, 1.f, 1.f);

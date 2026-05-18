@@ -78,7 +78,7 @@ public:
 	void DrawIndexedInstanced(UINT indexCountPerInstance, UINT instanceCount, UINT startIndex = 0, INT baseVertex = 0, UINT startInstance = 0);
 	void Dispatch(UINT x, UINT y, UINT z);
 
-	// ---- 편의 Push (기존 Shader 인터페이스 유지) ----
+	// ---- 렌더 Push (각종 Shader 파라미터 전달) ----
 	void PushGlobalData(const Matrix& view, const Matrix& projection);
 	void PushTransformData(const TransformDesc& desc);
 	void PushLightData(const LightDesc& desc);
@@ -86,6 +86,7 @@ public:
 	void PushBoneData(const BoneDesc& desc);
 	void PushKeyframeData(const KeyframeDesc& desc);
 	void PushTweenData(const InstancedTweenDesc& desc);
+	void PushLightArrayData(const LightArrayDesc& desc); // ? 새로운 메서드
 
 	// ---- InputLayout ----
 	ComPtr<ID3D11InputLayout> GetInputLayout() const { return _inputLayout; }
@@ -124,6 +125,7 @@ private:
 	shared_ptr<ConstantBuffer<BoneDesc>>      _boneCB;
 	shared_ptr<ConstantBuffer<KeyframeDesc>>         _keyframeCB;
 	shared_ptr<ConstantBuffer<InstancedTweenDesc>>   _tweenCB;
+	shared_ptr<ConstantBuffer<LightArrayDesc>> _lightArrayCB; // ? 새로운 CB
 
 	// CB 슬롯 약속 (Common.hlsli 와 동일하게 맞춤)
 	// b0: GlobalBuffer, b1: TransformBuffer, b2: LightBuffer

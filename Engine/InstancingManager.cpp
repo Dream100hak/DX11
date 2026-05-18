@@ -10,14 +10,14 @@
 #include "MathUtils.h"
 #include "RenderContext.h"
 
-void InstancingManager::Render(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, vector<shared_ptr<GameObject>>& gameObjects)
+void InstancingManager::Render(const RenderContext& baseCtx, vector<shared_ptr<GameObject>>& gameObjects)
 {
 	ClearData();
-	RenderStaticObject(tech, shader, V, P, light, gameObjects);
-	RenderAnimRenderer(tech, shader, V, P, light, gameObjects);
+	RenderStaticObject(baseCtx, gameObjects);
+	RenderAnimRenderer(baseCtx, gameObjects);
 }
 
-void InstancingManager::RenderStaticObject(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, vector<shared_ptr<GameObject>>& gameObjects)
+void InstancingManager::RenderStaticObject(const RenderContext& baseCtx, vector<shared_ptr<GameObject>>& gameObjects)
 {
 	map<InstanceID, vector<shared_ptr<GameObject>>> cache;
 
@@ -40,19 +40,15 @@ void InstancingManager::RenderStaticObject(int32 tech, shared_ptr<Shader> shader
 			AddData(id, data);
 		}
 
-		RenderContext ctx;
-		ctx.tech       = tech;
-		ctx.view   = V;
-		ctx.proj           = P;
-		ctx.light   = light;
-		ctx.shaderOverride = shader;
-		ctx.buffer         = _buffers[id];
+		// RenderContext 복사 후 buffer 설정
+		RenderContext ctx = baseCtx;
+		ctx.buffer = _buffers[id];
 
 		vec[0]->GetRenderer()->Draw(ctx);
 	}
 }
 
-void InstancingManager::RenderAnimRenderer(int32 tech, shared_ptr<Shader> shader, Matrix V, Matrix P, shared_ptr<Light> light, vector<shared_ptr<GameObject>>& gameObjects)
+void InstancingManager::RenderAnimRenderer(const RenderContext& baseCtx, vector<shared_ptr<GameObject>>& gameObjects)
 {
 	map<InstanceID, vector<shared_ptr<GameObject>>> cache;
 
@@ -76,17 +72,13 @@ void InstancingManager::RenderAnimRenderer(int32 tech, shared_ptr<Shader> shader
 			data.isPicked = vec[i]->GetUIPicked() ? 1 : 0;
 			AddData(id, data);
 
-			vec[i]->GetModelAnimator()->UpdateTweenData();
 			tweenDesc->tweens[i] = vec[i]->GetModelAnimator()->GetTweenDesc();
 		}
 
 		vec[0]->GetModelAnimator()->GetShader()->PushTweenData(*tweenDesc);
 
-		RenderContext ctx;
-		ctx.tech   = tech;
-		ctx.view   = V;
-		ctx.proj   = P;
-		ctx.light  = light;
+		// RenderContext 복사 후 buffer 설정
+		RenderContext ctx = baseCtx;
 		ctx.buffer = _buffers[id];
 
 		vec[0]->GetModelAnimator()->Draw(ctx);

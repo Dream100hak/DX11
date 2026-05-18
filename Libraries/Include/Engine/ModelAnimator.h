@@ -22,12 +22,13 @@ public:
 
 	void OnInspectorGUI() override;
 
-	// ── 신규 단일 진입점 ─────────────────────────────────────
+	// 애니메이션 재생 진행 및 렌더링 ────────────────────────────────────────
+	void Update() override; // ? 추가: 애니메이션 프레임 진행
 	void Draw(const RenderContext& ctx) override;
 
 	bool Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& distance) override;
 
-	void UpdateTweenData();
+	void UpdateTweenData(); // 내부용 (이전 호출처에서 이동)
 
 public:
 	void SetModel(shared_ptr<Model> model);
@@ -43,7 +44,7 @@ private:
 	void CreateAnimationTransform(uint32 index);
 
 private:
-	vector<AnimTransform>            _animTransforms;
+	vector<AnimTransform>   _animTransforms;
 	ComPtr<ID3D11Texture2D>    _texture;
 	ComPtr<ID3D11ShaderResourceView> _srv;
 	TweenDesc  _tweenDesc;

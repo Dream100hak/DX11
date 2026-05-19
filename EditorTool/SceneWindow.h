@@ -22,8 +22,13 @@ public:
 
 	virtual void Init() override;
 	virtual void Update() override;
+	void Render();  // ? Ãß°¡: ·»´õ¸µ ÇÔ¼ö ¼±¾ð
 
 	void ShowSceneWindow();
+
+	// ? ·»´õ Å¸°Ù °ü·Ã ÇÔ¼ö Ãß°¡
+	void CreateRenderTarget(uint32 width, uint32 height);
+	void RenderScene();
 
 	bool Intersects(OPERATION lhs, OPERATION rhs) { return (lhs & rhs) != 0; }
 
@@ -160,5 +165,15 @@ private:
 	float _planeLimit = 0.02f;
 
 	bool _bUsing = false;
+
+	// ? ·»´õ Å¸°Ù ¸â¹ö Ãß°¡
+	ComPtr<ID3D11Texture2D> _sceneTexture;
+	ComPtr<ID3D11RenderTargetView> _sceneRTV;
+	ComPtr<ID3D11DepthStencilView> _sceneDSV;
+	ComPtr<ID3D11ShaderResourceView> _sceneSRV;
+	Viewport _sceneViewport;
+
+	uint32 _sceneWidth = 800;
+	uint32 _sceneHeight = 530;
 
 };

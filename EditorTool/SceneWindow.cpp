@@ -10,6 +10,10 @@
 #include "Light.h"
 #include "SceneGrid.h"
 #include "FolderContents.h"
+#include "RenderContext.h"  // ? 추가
+#include "MeshRenderer.h"   // ? 추가
+#include "ModelRenderer.h"  // ? 추가
+#include "ModelAnimator.h"  // ? 추가
 
 #include "Model.h"
 
@@ -33,12 +37,133 @@ SceneWindow::~SceneWindow()
 
 void SceneWindow::Init()
 {
-
+	// ? 렌더 타겟 생성 (초기 크기: 800x530)
+	CreateRenderTarget(_sceneWidth, _sceneHeight);
 }
+
+void SceneWindow::CreateRenderTarget(uint32 width, uint32 height)
+{
+	_sceneWidth = width;
+	_sceneHeight = height;
+
+	// ? 1. Texture2D 생성 (RTV + SRV용)
+	{
+		D3D11_TEXTURE2D_DESC texDesc;
+		ZeroMemory(&texDesc, sizeof(texDesc));
+		texDesc.Width = width;
+		texDesc.Height = height;
+		texDesc.MipLevels = 1;
+		texDesc.ArraySize = 1;
+		texDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		texDesc.SampleDesc.Count = 1;
+		texDesc.SampleDesc.Quality = 0;
+		texDesc.Usage = D3D11_USAGE_DEFAULT;
+		texDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+		texDesc.CPUAccessFlags = 0;
+		texDesc.MiscFlags = 0;
+
+		HRESULT hr = DEVICE->CreateTexture2D(&texDesc, nullptr, _sceneTexture.GetAddressOf());
+		CHECK(hr);
+	}
+
+	// ? 2. RenderTargetView 생성
+	{
+		D3D11_RENDER_TARGET_VIEW_DESC rtvDesc;
+		ZeroMemory(&rtvDesc, sizeof(rtvDesc));
+		rtvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+
+		HRESULT hr = DEVICE->CreateRenderTargetView(_sceneTexture.Get(), &rtvDesc, _sceneRTV.GetAddressOf());
+		CHECK(hr);
+	}
+
+	// ? 3. ShaderResourceView 생성 (ImGui에서 표시용)
+	{
+		D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
+		ZeroMemory(&srvDesc, sizeof(srvDesc));
+		srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MostDetailedMip = 0;
+		srvDesc.Texture2D.MipLevels = 1;
+
+		HRESULT hr = DEVICE->CreateShaderResourceView(_sceneTexture.Get(), &srvDesc, _sceneSRV.GetAddressOf());
+		CHECK(hr);
+	}
+
+	// ? 4. DepthStencil 생성
+	{
+		D3D11_TEXTURE2D_DESC depthDesc;
+		ZeroMemory(&depthDesc, sizeof(depthDesc));
+		depthDesc.Width = width;
+		depthDesc.Height = height;
+		depthDesc.MipLevels = 1;
+		depthDesc.ArraySize = 1;
+		depthDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+		depthDesc.SampleDesc.Count = 1;
+		depthDesc.SampleDesc.Quality = 0;
+		depthDesc.Usage = D3D11_USAGE_DEFAULT;
+		depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+		depthDesc.CPUAccessFlags = 0;
+		depthDesc.MiscFlags = 0;
+
+		ComPtr<ID3D11Texture2D> depthTexture;
+		HRESULT hr = DEVICE->CreateTexture2D(&depthDesc, nullptr, depthTexture.GetAddressOf());
+		CHECK(hr);
+
+		D3D11_DEPTH_STENCIL_VIEW_DESC dsvDesc;
+		ZeroMemory(&dsvDesc, sizeof(dsvDesc));
+		dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+		dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+		dsvDesc.Texture2D.MipSlice = 0;
+
+		hr = DEVICE->CreateDepthStencilView(depthTexture.Get(), &dsvDesc, _sceneDSV.GetAddressOf());
+		CHECK(hr);
+	}
+
+	// ? 5. Viewport 설정
+	_sceneViewport.Set(width, height, 0, 0);
+}
+
+void SceneWindow::RenderScene()
+{
+	// ? 렌더 타겟을 SceneWindow용으로 변경
+	_sceneViewport.RSSetViewport();
+	DCT->OMSetRenderTargets(1, _sceneRTV.GetAddressOf(), _sceneDSV.Get());
+	
+	// ? 수정: Color 임시 변수 사용
+	Color clearColor(0.2f, 0.2f, 0.2f, 1.0f);
+	DCT->ClearRenderTargetView(_sceneRTV.Get(), (float*)&clearColor);
+	DCT->ClearDepthStencilView(_sceneDSV.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+
+	// ? Scene 렌더링 (기존 로직)
+	auto scene = SCENE->GetCurrentScene();
+	if (!scene) return;
+
+	auto mainCamera = scene->GetMainCamera();
+	if (!mainCamera) return;
+
+	auto camera = mainCamera->GetCamera();
+	auto light = scene->GetLight();
+
+	if (!camera) return;
+
+	// ? 카메라 정렬 및 렌더링
+	camera->SortGameObject();
+	camera->Render_Forward();
+
+	// ? SceneWindow RT 사용 완료 → 메인 백버퍼 RTV로 복구 (ImGui가 백버퍼에 그려지도록)
+	GRAPHICS->RestoreMainRenderTarget();
+}
+
 
 void SceneWindow::Update()
 {
 	ShowSceneWindow();
+}
+
+void SceneWindow::Render()
+{
+	// ? 추가: SceneWindow 렌더링 함수 (메인 렌더링 루프에서 호출됨)
 }
 
 void SceneWindow::ShowSceneWindow()
@@ -76,9 +201,6 @@ void SceneWindow::ShowSceneWindow()
 			
 			shared_ptr<GameObject> makeObj = CUR_SCENE->GetCreatedObject(id);
 			CUR_SCENE->GetCreatedObject(id)->SetUIPicked(true);
-
-			//float scale = scales[droppedMesh->fileFullPath + L"/" + droppedMesh->fileName];
-			//CUR_SCENE->GetCreatedObject(id)->GetTransform()->SetScale(Vec3(scale * 6));
 
 			ADDLOG("Create Object : " + Utils::ToString(droppedMesh->fileName) , LogFilter::Warn);
 			SetCursor(LoadCursor(NULL, IDC_ARROW));
@@ -384,7 +506,7 @@ void SceneWindow::HandleScale(OPERATION op, int& type, Mode mode, const float* s
 
 		if (!io.MouseDown[0])
 			_bUsing = false;
-		
+			
 
 		type = _currentOperation;
 	}

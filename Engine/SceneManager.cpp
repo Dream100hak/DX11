@@ -17,5 +17,5 @@ void SceneManager::Update()
 	_currentScene->Update();
 	_currentScene->LateUpdate();
 
-	_currentScene->Render();
+	_currentScene->Render();   // Camera::Render_Forward() → HLSL 오브젝트 메인 백버퍼에 렌더
 }

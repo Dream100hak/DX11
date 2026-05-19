@@ -16,7 +16,7 @@ void SkyBox::Init()
 	GetGameObject()->SetEnableOutline(false);
 	GetGameObject()->SetIgnoredTransformEdit(true);
 
-	// HlslShader 기반 스카이박스
+	// HlslShader 스카이박스
 	HlslShaderDesc skyDesc;
 	skyDesc.vsFile   = L"Sky.hlsl";
 	skyDesc.psFile   = L"Sky.hlsl";
@@ -24,13 +24,12 @@ void SkyBox::Init()
 	skyDesc.psEntry  = "PS_Main";
 	auto hlslShader = RESOURCES->GetOrAddHlslShader(L"Sky_HLSL", skyDesc);
 
-	// RasterizerState: FrontCounterCW (안쪽 면 렌더링)
 	hlslShader->SetRasterizerState(RENDER_STATES->GetRS(RasterizerStateType::FrontCounterCW));
-	// DepthStencilState: NoDepthWrite (스카이박스는 depth 쓰기 금지)
 	hlslShader->SetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::NoDepthWrite));
 
 	shared_ptr<Material> material = make_shared<Material>();
 	material->SetHlslShader(hlslShader);
+	material->SetRenderQueue(RenderQueue::Background);   // 항상 가장 먼저 렌더
 
 	auto texture = RESOURCES->Load<Texture>(L"Sky", L"../Resources/Assets/Textures/Sky.jpg");
 	material->SetDiffuseMap(texture);
@@ -53,5 +52,19 @@ void SkyBox::Init()
 	{
 		auto mat = RESOURCES->Get<Material>(L"Sky");
 		GetGameObject()->GetMeshRenderer()->SetMaterial(mat);
+	}
+
+	// 카메라 Far plane보다 충분히 큰 스케일로 설정
+	GetGameObject()->GetOrAddTransform()->SetScale(Vec3(500.f, 500.f, 500.f));
+}
+
+void SkyBox::Update()
+{
+	// 항상 카메라 위치에 스카이박스를 따라붙임 (Frustum Culling 회피)
+	auto mainCamObj = SCENE->GetCurrentScene()->GetMainCamera();
+	if (mainCamObj)
+	{
+		Vec3 camPos = mainCamObj->GetTransform()->GetPosition();
+		GetTransform()->SetPosition(camPos);
 	}
 }

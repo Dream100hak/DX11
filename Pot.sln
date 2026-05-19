@@ -13,6 +13,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "솔루션 항목", "솔루�
 	ProjectSection(SolutionItems) = preProject
 		ENGINE_IMPROVEMENT_REPORT.md = ENGINE_IMPROVEMENT_REPORT.md
 		IMPROVEMENT_REPORT.md = IMPROVEMENT_REPORT.md
+		README.md = README.md
 	EndProjectSection
 EndProject
 Global

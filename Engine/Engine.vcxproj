@@ -328,6 +328,8 @@
     <ClCompile Include="Viewport.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\HLSL_RENDERING_DIAGNOSIS.md" />
+    <None Include="..\HLSL_RENDERING_SUMMARY.md" />
     <None Include="packages.config" />
     <None Include="SimpleMath.inl" />
   </ItemGroup>

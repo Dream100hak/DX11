@@ -62,7 +62,7 @@ cbuffer MaterialBuffer : register(b3)
  int    UseTexture;
 int    UseAlphaClip;
     int    UseSsao;
-    int    LightCount;
+    int    MatPadding;  // 16바이트 정렬 (LightCount 제거 → LightArrayBuffer(b7).lightCount 사용)
 };
 
 // BoneBuffer (b4), KeyframeBuffer (b5), TweenBuffer (b6) 은

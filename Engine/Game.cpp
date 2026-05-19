@@ -132,17 +132,17 @@ void Game::Update()
 
 	GRAPHICS->SetViewport(_sceneDesc.width , _sceneDesc.height , _sceneDesc.x , _sceneDesc.y);
 	GRAPHICS->PreRenderBegin();
-	GRAPHICS->RenderBegin();
+	GRAPHICS->RenderBegin();   // ← 백버퍼를 렌더 타겟으로 설정
 	
-	SCENE->Update();
+	// ? 주의: SCENE->Update()는 여기서 호출하지 않음
+	// Scene은 SceneWindow에서 별도 렌더 타겟으로 렌더링됨
+	
 	GUI->Update();
 
 	ImGui::SetNextWindowPos(ImVec2(_sceneDesc.x, _sceneDesc.y), ImGuiCond_Appearing);
 	ImGui::SetNextWindowSize(ImVec2(_sceneDesc.width, _sceneDesc.height), ImGuiCond_Appearing);
 	
 	ImGui::Begin("Scene", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground);
-	
-	string s = ImGui::GetCurrentWindow()->Name;
 	
 	float w = (float)ImGui::GetWindowWidth();
 	float h = (float)ImGui::GetWindowHeight();
@@ -167,15 +167,13 @@ void Game::Update()
 	}
 
 	_gameDesc.app->Update();
-	_gameDesc.app->Render();
+	_gameDesc.app->Render();   // ← EditorTool::Render() 호출 (SceneWindow::RenderScene() 포함)
 	
 	ImGui::End();
 
-	GUI->Render();
+	GUI->Render();             // ← ImGui 렌더링 (백버퍼에)
 	GRAPHICS->PostRenderBegin();
-	GRAPHICS->RenderEnd();
-	
-
+	GRAPHICS->RenderEnd();     // ← Present()
 }
 
 void Game::ShowFps()

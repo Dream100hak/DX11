@@ -42,34 +42,32 @@ float4 PS_Main(MeshOutput input) : SV_TARGET
 
     float4 litColor = texColor;
 
-    if (LightCount > 0)
+  // LightArrayBuffer(b7)의 lightCount를 사용 (MaterialBuffer의 LightCount 불필요)
+    if (lightCount > 0)
     {
- float4 ambient = float4(0, 0, 0, 0);
-      float4 diffuse = float4(0, 0, 0, 0);
-        float4 spec = float4(0, 0, 0, 0);
+        float4 ambient = float4(0, 0, 0, 0);
+        float4 diffuse = float4(0, 0, 0, 0);
+        float4 spec    = float4(0, 0, 0, 0);
 
-        // Shadow Factor (PCF 9-tap)
         float shadowFactor = CalcShadowFactor(ShadowMap, input.shadow);
 
-        // SSAO ambient occlusion
-    float4 ssaoCoord = input.ssao / input.ssao.w;
-        float  ambientAccess = 1.0f;
+        float4 ssaoCoord = input.ssao / input.ssao.w;
+   float ambientAccess = 1.0f;
         if (UseSsao)
-      ambientAccess = SsaoMap.SampleLevel(LinearSampler, ssaoCoord.xy, 0.0f).r;
+         ambientAccess = SsaoMap.SampleLevel(LinearSampler, ssaoCoord.xy, 0.0f).r;
 
-        // 라이팅 계산
- float4 A, D, S;
-        ComputeDirectionalLight(input.normal, toEye, A, D, S);
+        float4 A, D, S;
+        ComputeDirectionalLightArray(input.normal, toEye, A, D, S);
 
         ambient = UseSsao ? (ambientAccess * A) : A;
-        diffuse = shadowFactor * D;
+      diffuse = shadowFactor * D;
         spec    = shadowFactor * S;
 
-     litColor = texColor * (ambient + diffuse) + spec;
-    }
+        litColor = texColor * (ambient + diffuse) + spec;
+ }
 
     litColor.a = MatDiffuse.a * texColor.a;
- return litColor;
+  return litColor;
 }
 
 // ===========================================================

@@ -70,7 +70,7 @@ void Material::Update()
 		_shader->PushMaterialData(_desc);
 	}
 
-	// ── HlslShader 경로 (신규) ────────────────────────────────
+	// ////// HlslShader ////// (////// - ////// ////// ///////////////////////)
 	if (_hlslShader)
 	{
 		_desc.useTexture = _diffuseMap ? 1 : 0;
@@ -88,6 +88,9 @@ void Material::Update()
 
 		ID3D11ShaderResourceView* ssaoSrv = _ssaoMap.Get();
 		_hlslShader->SetPSSRV(4, ssaoSrv);
+
+		// 샘플러를 RenderStateManager에서 실제 생성된 것으로 바인딩
+		RENDER_STATES->BindAllSamplersPS();
 	}
 }
 

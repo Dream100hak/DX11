@@ -10,6 +10,7 @@ public:
 	virtual ~SkyBox();
 
 	void Init();
+	virtual void Update() override;
 
 private:
 	

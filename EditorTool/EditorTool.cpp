@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "ShadowMap.h"
 #include "EditorTool.h"
 #include "GameObject.h"
@@ -30,13 +30,14 @@
 
 #include "MeshThumbnail.h"
 #include "TextureRenderer.h"
-#include "SimpleGrid.h"
+
 
 #include "Ssao.h"
 #include "ParticleSystem.h"
 #include "SkyCubeMap.h"
 
 #include "Hiearchy.h"
+#include "SceneWindow.h"
 
 void EditorTool::Init()
 {
@@ -252,6 +253,9 @@ void EditorTool::Init()
 
 void EditorTool::Update()
 {
+	// ✅ 게임 로직 업데이트
+	SCENE->Update();
+	
 	GET_SINGLE(ShortcutManager)->Update();
 	GET_SINGLE(EditorToolManager)->Update();
 	GET_SINGLE(TextureManager)->Update();
@@ -259,11 +263,13 @@ void EditorTool::Update()
 	ImGui::ShowDemoWindow(&_showWindow);
 
 	DrawRenderTextures();
-
 }
 
 void EditorTool::Render()
 {
+	// 렌더링은 SceneManager::Update() → Scene::Render() → Camera::Render_Forward()에서
+	// 메인 백버퍼에 직접 처리됨
+	// (ImGui "Scene" 윈도우가 NoBackground 플래그로 백버퍼를 그대로 보여주는 구조)
 }
 
 void EditorTool::OnMouseWheel(int32 scrollAmount)

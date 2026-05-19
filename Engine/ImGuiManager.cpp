@@ -90,18 +90,27 @@ wstring ImGuiManager::FindEmptyName(CreatedObjType type)
 
 int32 ImGuiManager::CreateMesh(CreatedObjType type)
 {
-
-	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetTransform();
-	float distance = 10.0f;
-	Vec3 objectPosition = cam->GetLocalPosition() + (cam->GetLook() * distance);
+	auto scene = SCENE->GetCurrentScene();
+	auto cam = scene->GetMainCamera();
+	
+	if (!cam) return -1;
 
 	auto obj = make_shared<GameObject>();
-	obj->GetOrAddTransform()->SetPosition(objectPosition);
+	obj->GetOrAddTransform()->SetPosition(Vec3(0, 0, 0));  // ? 원점에 배치 (카메라 상관없이)
 	auto meshRenderer = make_shared<MeshRenderer>();
 
 	shared_ptr<Mesh> mesh = make_shared<Mesh>();
+	
 	auto mat = RESOURCES->Get<Material>(L"DefaultMaterial")->Clone();
-	mat->GetMaterialDesc().lightCount = 1;
+	mat->GetMaterialDesc().lightCount = MAX_LIGHTS;
+	mat->SetRenderQueue(RenderQueue::Opaque);
+	
+	if (!mat->GetHlslShader())
+	{
+		auto shader = RESOURCES->Get<Shader>(L"Standard");
+		if (shader)
+			mat->SetShader(shader);
+	}
 
 	wstring name;
 
@@ -119,7 +128,6 @@ int32 ImGuiManager::CreateMesh(CreatedObjType type)
 		mesh->CreateSphere();
 		name = FindEmptyName(CreatedObjType::SPHERE);
 		break;
-
 	default:
 		break;
 	}
@@ -128,13 +136,14 @@ int32 ImGuiManager::CreateMesh(CreatedObjType type)
 
 	meshRenderer->SetMesh(mesh);
 	meshRenderer->SetMaterial(mat);
-	meshRenderer->SetTechnique(2);
+	meshRenderer->SetTechnique(0);
 	obj->AddComponent(meshRenderer);
+	
 	obj->GetOrAddTransform()->SetLocalScale(Vec3{ 1.f, 1.f, 1.f });
+	
 	CUR_SCENE->Add(obj);
 
 	return obj->GetId();
-
 }
 
 int32 ImGuiManager::CreateModelMesh(shared_ptr<Model> model, Vec3 position /*= Vec3(0,0,0)*/)

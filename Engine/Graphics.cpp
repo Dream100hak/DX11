@@ -43,6 +43,12 @@ void Graphics::PostRenderBegin()
 	_postRenderJobQueue->Execute();
 }
 
+void Graphics::RestoreMainRenderTarget()
+{
+	_deviceContext->OMSetRenderTargets(1, _renderTargetView.GetAddressOf(), _depthStencilView.Get());
+	_vp.RSSetViewport();
+}
+
 void Graphics::RenderEnd()
 {
 	HRESULT hr = _swapChain->Present(1, 0);

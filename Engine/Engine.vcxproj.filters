@@ -514,5 +514,7 @@
       <Filter>98. Utils</Filter>
     </None>
     <None Include="packages.config" />
+    <None Include="..\HLSL_RENDERING_DIAGNOSIS.md" />
+    <None Include="..\HLSL_RENDERING_SUMMARY.md" />
   </ItemGroup>
 </Project>

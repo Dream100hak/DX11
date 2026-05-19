@@ -166,24 +166,28 @@ void HlslShader::SetPSSampler(UINT slot, ID3D11SamplerState* sampler)
 // --------------------------------------------------------------------------
 void HlslShader::Draw(UINT vertexCount, UINT startVertex)
 {
+	DCT->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	Bind();
 	DCT->Draw(vertexCount, startVertex);
 }
 
 void HlslShader::DrawIndexed(UINT indexCount, UINT startIndex, INT baseVertex)
 {
+	DCT->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	Bind();
 	DCT->DrawIndexed(indexCount, startIndex, baseVertex);
 }
 
 void HlslShader::DrawInstanced(UINT vertexCountPerInstance, UINT instanceCount, UINT startVertex, UINT startInstance)
 {
+	DCT->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	Bind();
 	DCT->DrawInstanced(vertexCountPerInstance, instanceCount, startVertex, startInstance);
 }
 
 void HlslShader::DrawIndexedInstanced(UINT indexCountPerInstance, UINT instanceCount, UINT startIndex, INT baseVertex, UINT startInstance)
 {
+	DCT->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	Bind();
 	DCT->DrawIndexedInstanced(indexCountPerInstance, instanceCount, startIndex, baseVertex, startInstance);
 }
@@ -358,26 +362,39 @@ ComPtr<ID3DBlob> HlslShader::CompileShaderFromFile(const wstring& filePath, cons
 }
 
 // --------------------------------------------------------------------------
-// Internal : VS Blob 리플렉션으로 InputLayout 자동 생성
+// Internal : VS Blob 리플렉션으로부터 InputLayout 자동 생성
 // --------------------------------------------------------------------------
 void HlslShader::CreateInputLayoutFromVS(ComPtr<ID3DBlob> vsBlob)
 {
+	if (!vsBlob)
+	{
+		assert(false && "HlslShader: vsBlob is null");
+		return;
+	}
+
 	ComPtr<ID3D11ShaderReflection> reflection;
 	HRESULT hr = D3DReflect(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(),
 		IID_ID3D11ShaderReflection, reinterpret_cast<void**>(reflection.GetAddressOf()));
-	CHECK(hr);
+	
+	if (FAILED(hr) || !reflection)
+	{
+		assert(false && "HlslShader: D3DReflect failed or reflection is null");
+		return;
+	}
 
 	D3D11_SHADER_DESC shaderDesc;
 	reflection->GetDesc(&shaderDesc);
 
 	vector<D3D11_INPUT_ELEMENT_DESC> inputLayout;
+	UINT byteOffset_Slot0 = 0;
+	UINT byteOffset_Slot1 = 0;
 
 	for (UINT i = 0; i < shaderDesc.InputParameters; i++)
 	{
 		D3D11_SIGNATURE_PARAMETER_DESC paramDesc;
 		reflection->GetInputParameterDesc(i, &paramDesc);
 
-		// SV_ 시스템 시맨틱은 InputLayout 에서 제외
+		// SV_ 시스템 의미론 InputLayout에서 제외
 		string semantic = paramDesc.SemanticName;
 		if (semantic.rfind("SV_", 0) == 0)
 			continue;
@@ -386,11 +403,11 @@ void HlslShader::CreateInputLayoutFromVS(ComPtr<ID3DBlob> vsBlob)
 		elem.SemanticName     = paramDesc.SemanticName;
 		elem.SemanticIndex     = paramDesc.SemanticIndex;
 		elem.AlignedByteOffset    = D3D11_APPEND_ALIGNED_ELEMENT;
-		elem.InputSlotClass       = D3D11_INPUT_PER_VERTEX_DATA;
+		elem.InputSlotClass  = D3D11_INPUT_PER_VERTEX_DATA;
 		elem.InstanceDataStepRate = 0;
-		elem.InputSlot= 0;
+		elem.InputSlot = 0;
 
-		// 포맷 자동 판별
+		// 포맷 결정 (기본)
 		if      (paramDesc.Mask == 1)   elem.Format = (paramDesc.ComponentType == D3D_REGISTER_COMPONENT_FLOAT32) ? DXGI_FORMAT_R32_FLOAT    : DXGI_FORMAT_R32_UINT;
 		else if (paramDesc.Mask <= 3)   elem.Format = (paramDesc.ComponentType == D3D_REGISTER_COMPONENT_FLOAT32) ? DXGI_FORMAT_R32G32_FLOAT      : DXGI_FORMAT_R32G32_UINT;
 		else if (paramDesc.Mask <= 7)   elem.Format = (paramDesc.ComponentType == D3D_REGISTER_COMPONENT_FLOAT32) ? DXGI_FORMAT_R32G32B32_FLOAT   : DXGI_FORMAT_R32G32B32_UINT;
@@ -399,14 +416,14 @@ void HlslShader::CreateInputLayoutFromVS(ComPtr<ID3DBlob> vsBlob)
 		string name = semantic;
 		transform(name.begin(), name.end(), name.begin(), ::toupper);
 
-		// POSITION 은 항상 R32G32B32_FLOAT
+		// POSITION은 항상 R32G32B32_FLOAT
 		if (name == "POSITION")
 			elem.Format = DXGI_FORMAT_R32G32B32_FLOAT;
 
-		// INST*, PICKED → 인스턴싱 슬롯
+		// INST* (Instancing) 또는 PICKED는 InputSlot 1에 할당
 		if (name.rfind("INST", 0) == 0 || name == "PICKED")
 		{
-			elem.InputSlot            = 1;
+			elem.InputSlot = 1;
 			elem.InputSlotClass       = D3D11_INPUT_PER_INSTANCE_DATA;
 			elem.InstanceDataStepRate = 1;
 			elem.AlignedByteOffset    = D3D11_APPEND_ALIGNED_ELEMENT;
@@ -414,9 +431,32 @@ void HlslShader::CreateInputLayoutFromVS(ComPtr<ID3DBlob> vsBlob)
 				elem.Format = DXGI_FORMAT_R32_UINT;
 		}
 
+		// INST_WORLD (matrix): 4행의 float4로 분해 ? 리플렉션은 index 0~3을 각각 보고함
+		// index 0에서 한 번만 4개를 추가하고, 나머지 index(1~3)는 스킵
+		if (name == "INST_WORLD")
+		{
+			if (paramDesc.SemanticIndex == 0)
+			{
+				for (int j = 0; j < 4; j++)
+				{
+					D3D11_INPUT_ELEMENT_DESC matElem{};
+					matElem.SemanticName    = "INST_WORLD";
+					matElem.SemanticIndex         = j;
+					matElem.Format      = DXGI_FORMAT_R32G32B32A32_FLOAT;
+					matElem.InputSlot          = 1;
+					matElem.InputSlotClass        = D3D11_INPUT_PER_INSTANCE_DATA;
+					matElem.InstanceDataStepRate  = 1;
+					matElem.AlignedByteOffset     = D3D11_APPEND_ALIGNED_ELEMENT;
+					inputLayout.push_back(matElem);
+				}
+			}
+			continue;  // index 0~3 모두 스킵 (위에서 이미 4개 추가함)
+		}
+
 		inputLayout.push_back(elem);
 	}
 
+	// InputLayout이 비어있는 경우는 생성하지 않음
 	if (!inputLayout.empty())
 	{
 		hr = DEVICE->CreateInputLayout(
@@ -426,6 +466,12 @@ void HlslShader::CreateInputLayoutFromVS(ComPtr<ID3DBlob> vsBlob)
 			vsBlob->GetBufferSize(),
 			_inputLayout.GetAddressOf()
 		);
-		CHECK(hr);
+
+		if (FAILED(hr))
+		{
+			// 에러 로깅
+			assert(false && "HlslShader: CreateInputLayout failed");
+			return;
+		}
 	}
 }

@@ -88,14 +88,16 @@ struct SpotLightDesc
 
 struct MaterialDesc
 {
-	Color ambient = Color(0.3f, 0.3f, 0.3f, 1.f);
-	Color diffuse = Color(1.f, 1.f, 1.f, 1.f);
-	Color specular = Color(0.f, 0.f, 0.f, 1.f);
-	Color emissive = Color(0.f, 0.f, 0.f, 1.f);
-	int lightCount = 3;
-	int useTexture = 1;
-	int useAlphaclip = 1;
-	int useSsao = 1; 
+	Color ambient  = Color(0.3f, 0.3f, 0.3f, 1.f);
+	Color diffuse  = Color(1.f,  1.f,  1.f,  1.f);
+	Color specular = Color(0.f,  0.f,  0.f,  1.f);
+	Color emissive = Color(0.f,  0.f,  0.f,  1.f);
+	// ※ HLSL Common.hlsli MaterialBuffer(b3) 순서와 반드시 일치
+	// UseTexture, UseAlphaClip, UseSsao, padding
+	int useTexture  = 0; // 0 = 색상만, 1 = 텍스처 샘플
+	int useAlphaclip = 0;  // 0 = 클립 없음
+	int useSsao     = 0;   // 0 = SSAO 미적용
+	int padding     = 0;   // 16바이트 정렬
 };
 
 // Bone

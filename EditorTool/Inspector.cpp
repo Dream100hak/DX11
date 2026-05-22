@@ -452,8 +452,6 @@ void Inspector::ShowInfoProject()
 		if (ImGui::ColorEdit3("Ambient", (float*)&desc.ambient)) { changed = true; }
 		if (ImGui::ColorEdit3("Emissive", (float*)&desc.emissive)) { changed = true; }
 		if (ImGui::ColorEdit3("Specular", (float*)&desc.specular)) { changed = true; }
-
-		if (ImGui::InputInt("Light Count", &desc.lightCount)) { changed = true; }
 		if (ImGui::Checkbox("Use Texture", (bool*)&desc.useTexture)) { changed = true; }
 		if (ImGui::Checkbox("Use Alpha Clip", (bool*)&desc.useAlphaclip)) { changed = true; }
 		if (ImGui::Checkbox("Use SSAO", (bool*)&desc.useSsao)) { changed = true; }

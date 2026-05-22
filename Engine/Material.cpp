@@ -32,6 +32,14 @@ void Material::Load(const wstring& path)
 	}
 	SetShader(shader);
 
+	// Standard.fx 계열이면 HlslShader(Standard_HLSL)도 자동 연결
+	if (shaderFile.find(L"Standard") != wstring::npos)
+	{
+		auto hlslShader = RESOURCES->Get<HlslShader>(L"Standard_HLSL");
+		if (hlslShader)
+			SetHlslShader(hlslShader);
+	}
+
 	wstring diffuseStr = Utils::ToWString(file->Read<string>());
 	if (diffuseStr.length() > 0)
 	{

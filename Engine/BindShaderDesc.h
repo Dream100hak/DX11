@@ -97,7 +97,7 @@ struct MaterialDesc
 	int useTexture  = 0; // 0 = 색상만, 1 = 텍스처 샘플
 	int useAlphaclip = 0;  // 0 = 클립 없음
 	int useSsao     = 0;   // 0 = SSAO 미적용
-	int padding     = 0;   // 16바이트 정렬
+	int lightCount = 0;   // 16바이트 정렬
 };
 
 // Bone

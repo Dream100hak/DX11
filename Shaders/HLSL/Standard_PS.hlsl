@@ -42,32 +42,37 @@ float4 PS_Main(MeshOutput input) : SV_TARGET
 
     float4 litColor = texColor;
 
-  // LightArrayBuffer(b7)의 lightCount를 사용 (MaterialBuffer의 LightCount 불필요)
     if (lightCount > 0)
     {
         float4 ambient = float4(0, 0, 0, 0);
         float4 diffuse = float4(0, 0, 0, 0);
-        float4 spec    = float4(0, 0, 0, 0);
+    float4 spec    = float4(0, 0, 0, 0);
 
-        float shadowFactor = CalcShadowFactor(ShadowMap, input.shadow);
+     float shadowFactor = CalcShadowFactor(ShadowMap, input.shadow);
 
-        float4 ssaoCoord = input.ssao / input.ssao.w;
-   float ambientAccess = 1.0f;
+  float4 ssaoCoord = input.ssao / input.ssao.w;
+        float ambientAccess = 1.0f;
         if (UseSsao)
-         ambientAccess = SsaoMap.SampleLevel(LinearSampler, ssaoCoord.xy, 0.0f).r;
+ ambientAccess = SsaoMap.SampleLevel(LinearSampler, ssaoCoord.xy, 0.0f).r;
 
-        float4 A, D, S;
+      float4 A, D, S;
         ComputeDirectionalLightArray(input.normal, toEye, A, D, S);
 
         ambient = UseSsao ? (ambientAccess * A) : A;
-      diffuse = shadowFactor * D;
+        diffuse = shadowFactor * D;
         spec    = shadowFactor * S;
 
         litColor = texColor * (ambient + diffuse) + spec;
- }
+    }
+    else
+    {
+     // 라이트 없을 때: 단순 ambient(0.3) 적용하여 오브젝트가 보이도록
+        float4 fallbackAmbient = MatAmbient * float4(0.3f, 0.3f, 0.3f, 1.0f);
+    litColor = texColor * (fallbackAmbient + MatDiffuse * 0.5f);
+    }
 
     litColor.a = MatDiffuse.a * texColor.a;
-  return litColor;
+    return litColor;
 }
 
 // ===========================================================

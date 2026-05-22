@@ -156,50 +156,48 @@ MeshOutput VS_Mesh(VertexMesh input)
 {
     MeshOutput output;
 
-    // World 변환
-output.position      = mul(input.position, input.world);
-    output.worldPosition = output.position.xyz;
+    // w=0 방지: InputLayout이 float3(R32G32B32_FLOAT)으로 바인딩되므로 w=1 명시
+    float4 posW = mul(float4(input.position.xyz, 1.0f), input.world);
+    output.worldPosition = posW.xyz;
 
- // Shadow 좌표
-    output.shadow = mul(output.position, Shadow);
+    // Shadow 좌표
+    output.shadow = mul(posW, Shadow);
 
-    // View / Proj
-    output.position = mul(output.position, VP);
+  // View / Proj
+    output.position = mul(posW, VP);
 
     output.uv      = input.uv;
     output.normal  = normalize(mul(input.normal,  (float3x3)input.world));
     output.tangent = normalize(mul(input.tangent, (float3x3)input.world));
 
-  // SSAO UV
-  output.ssao    = mul(output.position, T);
+    // SSAO UV
+    output.ssao    = mul(output.position, T);
 
- output.picked  = input.isPicked;
+    output.picked  = input.isPicked;
 
-return output;
+    return output;
 }
 
 // ===========================================================
-// VS_Model  ? ModelRenderer (스키닝 없음, 본 인덱스 단일)
+// VS_Model  ? ModelRenderer (스키닝 없음, 본 인덱스 있음)
 // ===========================================================
 MeshOutput VS_Model(VertexModel input)
 {
     MeshOutput output;
 
-    // 본 글로벌 트랜스폼 (BoneTransforms[0] = 루트, 단일 뼈 전달)
-    output.position = mul(input.position, BoneTransforms[0]);
-    output.position = mul(output.position, input.world);
- output.worldPosition = output.position.xyz;
+    // 본 글로벌 트랜스폼 (BoneTransforms[0] = 루트, 없으면 Identity)
+    float4 localPos = mul(float4(input.position.xyz, 1.0f), BoneTransforms[0]);
+ float4 posW     = mul(localPos, input.world);
+    output.worldPosition = posW.xyz;
 
-    output.shadow = mul(output.position, Shadow);
-
-    output.position = mul(output.position, VP);
+    output.shadow = mul(posW, Shadow);
+    output.position = mul(posW, VP);
 
     output.uv      = input.uv;
     output.normal  = normalize(mul(input.normal,  (float3x3)input.world));
-    output.tangent = normalize(mul(input.tangent, (float3x3)input.world));
+ output.tangent = normalize(mul(input.tangent, (float3x3)input.world));
 
-  output.ssao    = mul(output.position, T);
-
+    output.ssao    = mul(output.position, T);
     output.picked  = input.isPicked;
 
     return output;
@@ -214,21 +212,19 @@ MeshOutput VS_Animation(VertexModel input)
 
     matrix skinMat   = GetAnimationMatrix(input);
 
-    output.position  = mul(input.position, skinMat);
-    output.position  = mul(output.position, input.world);
-    output.worldPosition = output.position.xyz;
+    float4 skinnedPos = mul(float4(input.position.xyz, 1.0f), skinMat);
+    float4 posW       = mul(skinnedPos, input.world);
+    output.worldPosition = posW.xyz;
 
-    output.shadow    = mul(output.position, Shadow);
-
-    output.position  = mul(output.position, VP);
+    output.shadow    = mul(posW, Shadow);
+    output.position  = mul(posW, VP);
 
     output.uv        = input.uv;
     output.normal    = normalize(mul(input.normal,  (float3x3)input.world));
     output.tangent   = normalize(mul(input.tangent, (float3x3)input.world));
 
-    output.ssao      = mul(output.position, T);
+    output.ssao  = mul(output.position, T);
+    output.picked    = input.isPicked;
 
- output.picked    = input.isPicked;
-
- return output;
+    return output;
 }

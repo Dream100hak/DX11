@@ -96,7 +96,8 @@ int32 ImGuiManager::CreateMesh(CreatedObjType type)
 	if (!cam) return -1;
 
 	auto obj = make_shared<GameObject>();
-	obj->GetOrAddTransform()->SetPosition(Vec3(0, 0, 0));  // ? 원점에 배치 (카메라 상관없이)
+	Vec3 spawnPos = cam->GetTransform()->GetLocalPosition() + cam->GetTransform()->GetLook() * 10.f;
+	obj->GetOrAddTransform()->SetPosition(spawnPos);
 	auto meshRenderer = make_shared<MeshRenderer>();
 
 	shared_ptr<Mesh> mesh = make_shared<Mesh>();

@@ -3,8 +3,8 @@
 
 void Frustum::Update(const Matrix& viewProj)
 {
-	// Gribb-Hartmann: VP Çà·Ä ¿­¿¡¼­ 6 Æò¸é ÃßÃâ (row-major XMFLOAT4X4 ÀüÄ¡ È°¿ë)
-	Matrix m = viewProj.Transpose();
+	// Gribb-Hartmann: row-vector convention (v*M) -> extract from columns directly
+	const Matrix& m = viewProj;
 
 	// Left  : col3 + col0
 	_planes[0] = Plane(m._14 + m._11, m._24 + m._21, m._34 + m._31, m._44 + m._41);
@@ -25,18 +25,18 @@ void Frustum::Update(const Matrix& viewProj)
 
 bool Frustum::IsInFrustum(const BoundingBox& box) const
 {
-	// °¢ Æò¸é¿¡ ´ëÇØ AABBÀÇ "°¡Àå ¸Õ ²ÀÁþÁ¡(p-vertex)"ÀÌ µÞ¸éÀÌ¸é ¿ÏÀü ¹Û(ÄÃ¸µ)
+	// ï¿½ï¿½ ï¿½ï¿½é¿¡ ï¿½ï¿½ï¿½ï¿½ AABBï¿½ï¿½ "ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(p-vertex)"ï¿½ï¿½ ï¿½Þ¸ï¿½ï¿½Ì¸ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½(ï¿½Ã¸ï¿½)
 	XMFLOAT3 c = box.Center;
 	XMFLOAT3 e = box.Extents;
 
 	for (const auto& p : _planes)
 	{
-		// p-vertex: Æò¸é ¹ý¼± ¹æÇâ¿¡¼­ °¡Àå µ¹ÃâµÈ ²ÀÁþÁ¡
+		// p-vertex: ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½â¿¡ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		float px = (p.x >= 0.f) ? (c.x + e.x) : (c.x - e.x);
 		float py = (p.y >= 0.f) ? (c.y + e.y) : (c.y - e.y);
 		float pz = (p.z >= 0.f) ? (c.z + e.z) : (c.z - e.z);
 
-		// p-vertex °¡ Æò¸é µÞ¸éÀÌ¸é AABB ¿ÏÀü ¹Û
+		// p-vertex ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½Þ¸ï¿½ï¿½Ì¸ï¿½ AABB ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½
 		if (p.x * px + p.y * py + p.z * pz + p.w < 0.f)
 			return false;
 	}

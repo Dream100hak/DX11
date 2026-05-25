@@ -5,7 +5,41 @@
 #include "MeshRenderer.h"
 #include "ModelRenderer.h"
 #include "ModelAnimator.h"
-#include "BindShaderDesc.h"  // ? LightArrayDesc, DirectionalLightData 필요
+#include "BindShaderDesc.h"
+#include "Light.h"
+#include "GBuffer.h"
+#include "HlslShader.h"
+#include "RenderStateManager.h"
+
+shared_ptr<LightArrayDesc> Camera::CollectLights(shared_ptr<Scene> scene)
+{
+	auto lightArray = make_shared<LightArrayDesc>();
+	lightArray->lightCount = 0;
+
+	auto& lights = scene->GetLights();
+	for (auto& lightObj : lights)
+	{
+		if (lightArray->lightCount >= MAX_LIGHTS) break;
+		auto lc = lightObj->GetLight();
+		if (!lc) continue;
+
+		const LightDesc& ld = lc->GetLightDesc();
+		LightData& data = lightArray->lights[lightArray->lightCount];
+
+		data.diffuse    = ld.diffuse;
+		data.ambient    = ld.ambient;
+		data.intensity  = ld.intensity;
+		data.type       = static_cast<int32>(lc->GetLightType());
+		data.direction  = ld.direction;
+		data.position   = lightObj->GetTransform()->GetPosition();
+		data.range      = lc->GetRange();
+		data.attenuation = lc->GetAttenuation();
+		data.spotAngle  = lc->GetSpotAngleCos();
+
+		lightArray->lightCount++;
+	}
+	return lightArray;
+}
 
 void Camera::SortGameObject()
 {
@@ -90,29 +124,7 @@ void Camera::Render_Forward()
 	Matrix V = cam->GetViewMatrix();
 	Matrix P = cam->GetProjectionMatrix();
 
-	// ── 멀티 라이트 배열 수집 ──────────────────────────────────────
-	auto lightArray = make_shared<LightArrayDesc>();
-	lightArray->lightCount = 0;
-	
-	// Scene의 모든 라이트 객체 수집
-	auto& lights = scene->GetLights();
-	for (auto& lightObj : lights)
-	{
-		if (lightArray->lightCount >= MAX_LIGHTS) break;
-		
-		auto lightComponent = lightObj->GetLight();
-		if (!lightComponent) continue;
-		
-		const LightDesc& lightDesc = lightComponent->GetLightDesc();
-		DirectionalLightData& data = lightArray->lights[lightArray->lightCount];
-		
-		data.diffuse = lightDesc.diffuse;
-		data.ambient = lightDesc.ambient;
-		data.intensity = lightDesc.intensity;
-		data.direction = lightDesc.direction;
-		
-		lightArray->lightCount++;
-	}
+	auto lightArray = CollectLights(scene);
 
 	// RenderContext 구성
 	RenderContext baseCtx;
@@ -134,6 +146,101 @@ void Camera::Render_Forward()
 
 	// 3) 투명 렌더 패스 (Back-to-Front)
 	GET_SINGLE(InstancingManager)->Render(baseCtx, _vecTransparent);
+}
+
+void Camera::Render_Deferred()
+{
+	auto cam   = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
+	auto scene = SCENE->GetCurrentScene();
+
+	Matrix V = cam->GetViewMatrix();
+	Matrix P = cam->GetProjectionMatrix();
+
+	auto lightArray = CollectLights(scene);
+
+	// G-Buffer lazy init
+	uint32 w = static_cast<uint32>(_width);
+	uint32 h = static_cast<uint32>(_height);
+	if (!_gBuffer || _gBuffer->GetWidth() != w || _gBuffer->GetHeight() != h)
+	{
+		_gBuffer = make_shared<GBuffer>();
+		_gBuffer->Init(w, h);
+	}
+
+	// ── Pass 1: G-Buffer fill (opaque only) ──
+	_gBuffer->Clear();
+	_gBuffer->BindAsTarget();
+
+	RenderContext gbufCtx;
+	gbufCtx.view = V;
+	gbufCtx.proj = P;
+	gbufCtx.lightArray = lightArray;
+	gbufCtx.deferredPass = true;
+	GET_SINGLE(InstancingManager)->Render(gbufCtx, _vecOpaque);
+
+	// ── Pass 2: Deferred lighting (fullscreen) ──
+	GRAPHICS->RestoreMainRenderTarget();
+
+	auto lightingShader = RESOURCES->Get<HlslShader>(L"DeferredLighting_HLSL");
+	if (lightingShader)
+	{
+		RENDER_STATES->BindAllSamplersPS();
+		_gBuffer->BindSRVsPS(0);
+
+		if (auto mat = RESOURCES->Get<Material>(L"DefaultMaterial"))
+			if (mat->GetShadowMap())
+				lightingShader->SetPSSRV(3, mat->GetShadowMap()->GetComPtr().Get());
+
+		lightingShader->Bind();
+		lightingShader->PushGlobalData(V, P);
+		lightingShader->PushLightArrayData(*lightArray);
+
+		MaterialDesc defaultMat;
+		defaultMat.ambient  = Vec4(1.f);
+		defaultMat.diffuse  = Vec4(1.f);
+		defaultMat.specular = Vec4(1.f, 1.f, 1.f, 32.f);
+		lightingShader->PushMaterialData(defaultMat);
+
+		DCT->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		DCT->Draw(3, 0);
+
+		_gBuffer->UnbindSRVsPS(0);
+	}
+
+	// ── Pass 3: Forward pass (skybox + transparent) using G-Buffer depth ──
+	ID3D11RenderTargetView* mainRTV = GRAPHICS->GetRTV().Get();
+	DCT->OMSetRenderTargets(1, &mainRTV, _gBuffer->GetDSV().Get());
+
+	RenderContext fwdCtx;
+	fwdCtx.view = V;
+	fwdCtx.proj = P;
+	fwdCtx.lightArray = lightArray;
+	GET_SINGLE(InstancingManager)->Render(fwdCtx, _vecBackground);
+	GET_SINGLE(InstancingManager)->Render(fwdCtx, _vecTransparent);
+
+	// ── G-Buffer Debug View (KEY_3 toggle) ──
+	if (INPUT->GetButtonDown(KEY_TYPE::KEY_3))
+		_showGBufferDebug = !_showGBufferDebug;
+
+	if (_showGBufferDebug)
+	{
+		auto debugShader = RESOURCES->Get<HlslShader>(L"GBufferDebug_HLSL");
+		if (debugShader)
+		{
+			RENDER_STATES->BindAllSamplersPS();
+			_gBuffer->BindSRVsPS(0);
+
+			debugShader->Bind();
+			debugShader->PushGlobalData(V, P);
+
+			DCT->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			DCT->OMSetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::DisableDepth).Get(), 0);
+			DCT->Draw(3, 0);
+			DCT->OMSetDepthStencilState(nullptr, 0);
+
+			_gBuffer->UnbindSRVsPS(0);
+		}
+	}
 }
 
 Camera::Camera() : Super(ComponentType::Camera)

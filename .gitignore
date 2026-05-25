@@ -433,3 +433,10 @@ FodyWeavers.xsd
 *.pdb
 *.idb
 *.exp
+
+# Compiled Shader Objects (regenerated from .hlsl at build time)
+*.cso
+
+# Intermediate build files
+Intermediate/
+Binaries/

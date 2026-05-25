@@ -15,11 +15,12 @@ public:
 	void RenderBegin();
 	void PostRenderBegin();
 	void RenderEnd();
-	void RestoreMainRenderTarget(); // SceneWindow µî º°µµ RT »ç¿ë ÈÄ ¸ÞÀÎ RTV º¹±¸¿ë
+	void RestoreMainRenderTarget(); // SceneWindow ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ RT ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ RTV ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 	ComPtr<ID3D11Device> GetDevice() { return _device; }
 	ComPtr<ID3D11DeviceContext> GetDeviceContext() { return _deviceContext; }
 	ComPtr<ID3D11DepthStencilView> GetDsv() { return _depthStencilView; }
+	ComPtr<ID3D11RenderTargetView> GetRTV() { return _renderTargetView; }
 
 	shared_ptr<JobQueue>& GetPreRenderJobQueue() { return _preRenderJobQueue; }
 	shared_ptr<JobQueue>& GetRenderJobQueue() { return _renderJobQueue; }

@@ -1,6 +1,6 @@
 // Lighting.hlsli
-// Phong/Blinn-Phong ¶óÀÌÆÃ ÇÔ¼ö
-// Common.hlsli ¿Í LightBuffer / MaterialBuffer ¸¦ »ç¿ëÇÔ
+// Phong/Blinn-Phong ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ô¼ï¿½
+// Common.hlsli ï¿½ï¿½ LightBuffer / MaterialBuffer ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½
 
 #ifndef _LIGHTING_HLSLI_
 #define _LIGHTING_HLSLI_
@@ -8,7 +8,7 @@
 #include "Common.hlsli"
 
 // ===========================================================
-// Directional Light (Blinn-Phong) - ´ÜÀÏ
+// Directional Light (Blinn-Phong) - ï¿½ï¿½ï¿½ï¿½
 // ===========================================================
 void ComputeDirectionalLight(
     float3 normal,
@@ -42,22 +42,28 @@ void ComputeDirectionalLight(
 }
 
 // ===========================================================
-// Directional Light Array (Blinn-Phong) - ´ÙÁß
+// Unified Light Data (Directional / Point / Spot)
+// type: 0=Directional, 1=Point, 2=Spot
 // ===========================================================
-// ±¸Á¶Ã¼ Á¤ÀÇ
-struct DirectionalLightData
+struct LightData
 {
     float4 diffuse;
     float4 ambient;
-    float intensity;
     float3 direction;
+    float  intensity;
+    float3 position;
+    float  range;
+    float3 attenuation;   // (constant, linear, quadratic)
+    float  spotAngle;     // cos(half-angle)
+    int    type;          // 0=Directional, 1=Point, 2=Spot
+    float3 pad;
 };
 
 cbuffer LightArrayBuffer : register(b7)
 {
-    DirectionalLightData lights[16];  // ¡ç °íÁ¤ Å©±â (MAX_LIGHTS ¸ÅÅ©·Î ºÒ°¡)
+    LightData lights[16];
     int lightCount;
-    float3 padding;
+    float3 lightPadding;
 };
 
 void ComputeDirectionalLightArray(
@@ -72,26 +78,75 @@ void ComputeDirectionalLightArray(
     spec    = float4(0, 0, 0, 0);
 
     [unroll(16)]
-  for (int i = 0; i < lightCount; ++i)
+    for (int i = 0; i < lightCount; ++i)
     {
-        float3 lightVec = -normalize(lights[i].direction);
-        
-        // Ambient
-     ambient += MatAmbient * lights[i].ambient * lights[i].intensity;
+        ambient += MatAmbient * lights[i].ambient * lights[i].intensity;
 
-   float diffuseFactor = dot(lightVec, normal);
+        float3 lightVec = -normalize(lights[i].direction);
+        float diffuseFactor = dot(lightVec, normal);
 
         [flatten]
         if (diffuseFactor > 0.0f)
         {
-            // Diffuse
-        diffuse += diffuseFactor * MatDiffuse * lights[i].diffuse * lights[i].intensity;
-
-   // Specular (Phong)
+            diffuse += diffuseFactor * MatDiffuse * lights[i].diffuse * lights[i].intensity;
             float3 v = reflect(-lightVec, normal);
-     float specFactor = pow(max(dot(v, toEye), 0.0f), MatSpecular.w);
-         spec += specFactor * MatSpecular * lights[i].diffuse * lights[i].intensity;
-      }
+            float specFactor = pow(max(dot(v, toEye), 0.0f), MatSpecular.w);
+            spec += specFactor * MatSpecular * lights[i].diffuse * lights[i].intensity;
+        }
+    }
+}
+
+void ComputeAllLights(
+    float3 normal,
+    float3 toEye,
+    float3 worldPos,
+    out float4 ambient,
+    out float4 diffuse,
+    out float4 spec)
+{
+    ambient = float4(0, 0, 0, 0);
+    diffuse = float4(0, 0, 0, 0);
+    spec    = float4(0, 0, 0, 0);
+
+    [unroll(16)]
+    for (int i = 0; i < lightCount; ++i)
+    {
+        float3 lightVec;
+        float  att = 1.0f;
+
+        if (lights[i].type == 0)
+        {
+            lightVec = -normalize(lights[i].direction);
+        }
+        else
+        {
+            float3 toLight = lights[i].position - worldPos;
+            float d = length(toLight);
+            if (d > lights[i].range) continue;
+            lightVec = toLight / d;
+            att = 1.0f / (lights[i].attenuation.x + lights[i].attenuation.y * d + lights[i].attenuation.z * d * d);
+
+            if (lights[i].type == 2)
+            {
+                float cosAngle = dot(-lightVec, normalize(lights[i].direction));
+                float outerCos = lights[i].spotAngle;
+                float innerCos = lerp(outerCos, 1.0f, 0.3f);
+                float spotFactor = saturate((cosAngle - outerCos) / (innerCos - outerCos));
+                att *= spotFactor;
+            }
+        }
+
+        ambient += MatAmbient * lights[i].ambient * lights[i].intensity * att;
+
+        float NdotL = dot(lightVec, normal);
+        [flatten]
+        if (NdotL > 0.0f)
+        {
+            diffuse += NdotL * MatDiffuse * lights[i].diffuse * lights[i].intensity * att;
+            float3 v = reflect(-lightVec, normal);
+            float specFactor = pow(max(dot(v, toEye), 0.0f), MatSpecular.w);
+            spec += specFactor * MatSpecular * lights[i].diffuse * lights[i].intensity * att;
+        }
     }
 }
 

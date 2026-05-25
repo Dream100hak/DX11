@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ResourceBase.h"
-#include "HlslShader.h"  // HlslShaderDesc ¿ÏÀü ¼±¾ð ÇÊ¿ä
+#include "HlslShader.h"  // HlslShaderDesc ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ê¿ï¿½
 
 class Texture;
 class Mesh;
@@ -39,6 +39,7 @@ private:
 	void CreateThumbnailShader();
 	void CreateSSAOShader();
 	void CreateTerrainShader();
+	void CreateDeferredShaders();
 
 private:
 	wstring _resourcePath;

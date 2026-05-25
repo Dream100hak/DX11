@@ -1,6 +1,6 @@
 // Standard_PS.hlsl
-// °øÅë ÇÈ¼¿ ¼ÎÀÌ´õ  ? MeshRenderer / ModelRenderer / ModelAnimator ÀüºÎ »ç¿ë
-// Material SRV ½½·Ô:
+// ï¿½ï¿½ï¿½ï¿½ ï¿½È¼ï¿½ ï¿½ï¿½ï¿½Ì´ï¿½  ? MeshRenderer / ModelRenderer / ModelAnimator ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½
+// Material SRV ï¿½ï¿½ï¿½ï¿½:
 //   t0 : DiffuseMap
 //   t1 : SpecularMap
 //   t2 : NormalMap
@@ -11,7 +11,7 @@
 #include "Shadow.hlsli"
 
 // ===========================================================
-// Textures (Material SRV, ½½·Ô t0~t4)
+// Textures (Material SRV, ï¿½ï¿½ï¿½ï¿½ t0~t4)
 // ===========================================================
 Texture2D DiffuseMap  : register(t0);
 Texture2D SpecularMap : register(t1);
@@ -24,13 +24,13 @@ Texture2D SsaoMap     : register(t4);
 // ===========================================================
 float4 PS_Main(MeshOutput input) : SV_TARGET
 {
-    // ¹ý¼± Á¤±ÔÈ­ ¹× ³ë¸»¸Ê Àû¿ë
+    // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½È­ ï¿½ï¿½ ï¿½ë¸»ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     input.normal = normalize(input.normal);
     ComputeNormalMapping(input.normal, input.tangent, input.uv, NormalMap);
 
     float3 toEye = normalize(CameraPositionWS() - input.worldPosition);
 
-    // µðÇ»Áî ÅØ½ºÃ³
+    // ï¿½ï¿½Ç»ï¿½ï¿½ ï¿½Ø½ï¿½Ã³
     float4 texColor = MatDiffuse;
     if (UseTexture)
     {
@@ -44,29 +44,25 @@ float4 PS_Main(MeshOutput input) : SV_TARGET
 
     if (lightCount > 0)
     {
-        float4 ambient = float4(0, 0, 0, 0);
-        float4 diffuse = float4(0, 0, 0, 0);
-    float4 spec    = float4(0, 0, 0, 0);
+        float shadowFactor = CalcShadowFactor(ShadowMap, input.shadow);
 
-     float shadowFactor = CalcShadowFactor(ShadowMap, input.shadow);
-
-  float4 ssaoCoord = input.ssao / input.ssao.w;
+        float4 ssaoCoord = input.ssao / input.ssao.w;
         float ambientAccess = 1.0f;
         if (UseSsao)
- ambientAccess = SsaoMap.SampleLevel(LinearSampler, ssaoCoord.xy, 0.0f).r;
+            ambientAccess = SsaoMap.SampleLevel(LinearSampler, ssaoCoord.xy, 0.0f).r;
 
-      float4 A, D, S;
-        ComputeDirectionalLightArray(input.normal, toEye, A, D, S);
+        float4 A, D, S;
+        ComputeAllLights(input.normal, toEye, input.worldPosition, A, D, S);
 
-        ambient = UseSsao ? (ambientAccess * A) : A;
-        diffuse = shadowFactor * D;
-        spec    = shadowFactor * S;
+        float4 ambient = UseSsao ? (ambientAccess * A) : A;
+        float4 diffuse = shadowFactor * D;
+        float4 spec    = shadowFactor * S;
 
         litColor = texColor * (ambient + diffuse) + spec;
     }
     else
     {
-     // ¶óÀÌÆ® ¾øÀ» ¶§: ´Ü¼ø ambient(0.3) Àû¿ëÇÏ¿© ¿ÀºêÁ§Æ®°¡ º¸ÀÌµµ·Ï
+     // ï¿½ï¿½ï¿½ï¿½Æ® ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½: ï¿½Ü¼ï¿½ ambient(0.3) ï¿½ï¿½ï¿½ï¿½ï¿½Ï¿ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ®ï¿½ï¿½ ï¿½ï¿½ï¿½Ìµï¿½ï¿½ï¿½
         float4 fallbackAmbient = MatAmbient * float4(0.3f, 0.3f, 0.3f, 1.0f);
     litColor = texColor * (fallbackAmbient + MatDiffuse * 0.5f);
     }
@@ -76,7 +72,7 @@ float4 PS_Main(MeshOutput input) : SV_TARGET
 }
 
 // ===========================================================
-// PS_Wireframe  ? ´Ü»ö ¿ÍÀÌ¾îÇÁ·¹ÀÓ µð¹ö±×
+// PS_Wireframe  ? ï¿½Ü»ï¿½ ï¿½ï¿½ï¿½Ì¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½
 // ===========================================================
 float4 PS_Wireframe(MeshOutput input) : SV_TARGET
 {

@@ -17,6 +17,7 @@ void ResourceManager::Init()
 	CreateThumbnailShader();
 	CreateSSAOShader();
 	CreateTerrainShader();
+	CreateDeferredShaders();
 }
 
 std::shared_ptr<Texture> ResourceManager::GetOrAddTexture(const wstring& key, const wstring& path)
@@ -161,6 +162,39 @@ void ResourceManager::CreateSSAOShader()
 	{
 		shared_ptr<Shader> shader = make_shared<Shader>(L"00. SsaoBlur.fx");
 		RESOURCES->Add(L"SsaoBlur", shader);
+	}
+}
+
+void ResourceManager::CreateDeferredShaders()
+{
+	// G-Buffer fill (VS_Mesh + GBuffer PS)
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Standard_VS.hlsl";
+		desc.psFile  = L"GBuffer_PS.hlsl";
+		desc.vsEntry = "VS_Mesh";
+		desc.psEntry = "PS_GBuffer";
+		GetOrAddHlslShader(L"GBuffer_HLSL", desc);
+	}
+
+	// Deferred Lighting (fullscreen triangle, no vertex buffer)
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"DeferredLighting.hlsl";
+		desc.psFile  = L"DeferredLighting.hlsl";
+		desc.vsEntry = "VS_Main";
+		desc.psEntry = "PS_Main";
+		GetOrAddHlslShader(L"DeferredLighting_HLSL", desc);
+	}
+
+	// G-Buffer Debug View (4-quadrant split)
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"GBufferDebug.hlsl";
+		desc.psFile  = L"GBufferDebug.hlsl";
+		desc.vsEntry = "VS_Main";
+		desc.psEntry = "PS_Main";
+		GetOrAddHlslShader(L"GBufferDebug_HLSL", desc);
 	}
 }
 

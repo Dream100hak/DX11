@@ -27,38 +27,40 @@ public:
 	{
 		Super::OnInspectorGUI();
 
-		ImGui::Text("Intentsity		");
-		ImGui::SameLine();
-
-		if (ImGui::DragFloat("##Intentsity", &_intensity))
-		{
-			SetIntensity(_intensity);
-		}
-
-		ImGui::Text("Mode		");
-		ImGui::SameLine();
-
 		int32 selected = (int32)_type;
-		if (ImGui::Combo("LightMode", &selected, "Directional\0Point\0Spot\0"));
-		{
+		if (ImGui::Combo("Light Type", &selected, "Directional\0Point\0Spot\0"))
 			_type = static_cast<LightType>(selected);
+
+		ImGui::DragFloat("Intensity", &_intensity, 0.01f, 0.f, 100.f);
+		SetIntensity(_intensity);
+
+		if (_type == Point || _type == Spot)
+		{
+			ImGui::DragFloat("Range", &_range, 0.5f, 0.1f, 1000.f);
+			ImGui::DragFloat3("Attenuation", (float*)&_attenuation, 0.001f, 0.f, 10.f);
 		}
 
-		ImGui::Text("Shadow Bounding Box	");
-		ImGui::DragFloat3("Center", (float*) & _center);
-		ImGui::DragFloat("Radius" , &_radius);
+		if (_type == Spot)
+		{
+			ImGui::DragFloat("Spot Angle", &_spotAngleDeg, 0.5f, 1.f, 89.f);
+		}
 
+		if (_type == Directional)
+		{
+			ImGui::Separator();
+			ImGui::Text("Shadow Bounding Box");
+			ImGui::DragFloat3("Center", (float*)&_center);
+			ImGui::DragFloat("Radius", &_radius);
 
-		ImGui::Text("Depth Bias Settings");
-		ImGui::DragFloat("DepthBias", &_depthBias, 1000.0f, 0.0f, FLT_MAX, "%.0f");
-		ImGui::DragFloat("Slope Scaled Depth Bias", &_slopeScaledDepthBias, 0.1f, 0.0f, FLT_MAX, "%.3f");
-		ImGui::DragFloat("Depth Bias Clamp", &_depthBiasClamp, 0.01f, 0.0f, FLT_MAX, "%.5f");
+			ImGui::Text("Depth Bias Settings");
+			ImGui::DragFloat("DepthBias", &_depthBias, 1000.0f, 0.0f, FLT_MAX, "%.0f");
+			ImGui::DragFloat("Slope Scaled Depth Bias", &_slopeScaledDepthBias, 0.1f, 0.0f, FLT_MAX, "%.3f");
+			ImGui::DragFloat("Depth Bias Clamp", &_depthBiasClamp, 0.01f, 0.0f, FLT_MAX, "%.5f");
 
-		CreateRasterizer();
-
-		SetLightDirection();
-	
-		SetShadowBoundingSphere();
+			CreateRasterizer();
+			SetLightDirection();
+			SetShadowBoundingSphere();
+		}
 	}
 
 public:
@@ -78,6 +80,12 @@ public:
 	}
 	void SetIntensity(float intensity){  _desc.intensity = _intensity; }
 
+	LightType GetLightType() const { return _type; }
+	void SetLightType(LightType type) { _type = type; }
+	float GetRange() const { return _range; }
+	float GetSpotAngleCos() const { return cosf(_spotAngleDeg * XM_PI / 180.f); }
+	Vec3 GetAttenuation() const { return _attenuation; }
+
 	void SetShadowBoundingSphere();
 
 private:
@@ -88,7 +96,10 @@ private:
 	LightDesc _desc;
 	LightType _type = Directional;
 
-	float _intensity = 1.f;  
+	float _intensity = 1.f;
+	float _range = 25.f;
+	float _spotAngleDeg = 30.f;
+	Vec3  _attenuation = Vec3(1.f, 0.09f, 0.032f);
 
 	BoundingSphere _sceneBounds;
 	Vec3 _center = Vec3::Zero;

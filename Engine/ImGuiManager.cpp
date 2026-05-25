@@ -4,6 +4,7 @@
 #include "MeshRenderer.h"
 #include "Material.h"
 #include "ModelRenderer.h"
+#include "Light.h"
 
 #include "Model.h"
 
@@ -144,6 +145,55 @@ int32 ImGuiManager::CreateMesh(CreatedObjType type)
 	
 	CUR_SCENE->Add(obj);
 
+	return obj->GetId();
+}
+
+int32 ImGuiManager::CreateLight(int32 lightType)
+{
+	auto cam = SCENE->GetCurrentScene()->GetMainCamera();
+	if (!cam) return -1;
+
+	Vec3 spawnPos = cam->GetTransform()->GetLocalPosition() + cam->GetTransform()->GetLook() * 10.f;
+
+	auto obj = make_shared<GameObject>();
+	obj->GetOrAddTransform()->SetPosition(spawnPos);
+
+	auto light = make_shared<Light>();
+
+	const char* names[] = { "DirectionalLight", "PointLight", "SpotLight" };
+	wstring baseName = wstring(names[lightType], names[lightType] + strlen(names[lightType]));
+
+	int32 cnt = 0;
+	while (true)
+	{
+		wstring name = baseName + L"_" + std::to_wstring(cnt);
+		if (!SCENE->GetCurrentScene()->FindCreatedObjectByName(name))
+		{
+			obj->SetObjectName(name);
+			break;
+		}
+		cnt++;
+	}
+
+	LightType lt = static_cast<LightType>(lightType);
+
+	LightDesc desc;
+	desc.diffuse  = Color(1.f, 1.f, 1.f, 1.f);
+	desc.ambient  = Color(0.2f, 0.2f, 0.2f, 1.f);
+	desc.specular = Color(1.f, 1.f, 1.f, 1.f);
+	desc.intensity = 1.f;
+
+	if (lt == Directional)
+		desc.direction = Vec3(0.f, -1.f, 1.f);
+	else
+		desc.direction = Vec3(0.f, -1.f, 0.f);
+
+	light->SetLightType(lt);
+	light->SetLightDesc(desc);
+	light->SetIntensity(1.f);
+	obj->AddComponent(light);
+
+	CUR_SCENE->Add(obj);
 	return obj->GetId();
 }
 

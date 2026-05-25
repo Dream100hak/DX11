@@ -73,7 +73,9 @@ private:
 public:
 	void SortGameObject();
 	void Render_Forward();
+	void Render_Deferred();
 
+public:
 	void SetCullingMaskLayerOnOff(uint8 layer, bool on)
 	{
 		if (on)
@@ -94,4 +96,8 @@ private:
 	vector<shared_ptr<GameObject>> _vecBackground;
 	vector<shared_ptr<GameObject>> _vecTransparent;
 	Frustum _frustum;
+	shared_ptr<class GBuffer> _gBuffer;
+	bool _showGBufferDebug = false;
+
+	shared_ptr<class LightArrayDesc> CollectLights(shared_ptr<class Scene> scene);
 };

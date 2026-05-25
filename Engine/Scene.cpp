@@ -52,7 +52,7 @@ void Scene::Render()
 	for (auto& camera : _cameras)
 	{
 		camera->GetCamera()->SortGameObject();
-		camera->GetCamera()->Render_Forward();
+		camera->GetCamera()->Render_Deferred();
 	}
 }
 
@@ -159,16 +159,16 @@ std::shared_ptr<class GameObject> Scene::Pick(int32 screenX, int32 screenY)
 		if (gameObject->GetCollider() == nullptr)
 			continue;
 
-		// ViewSpace¿¡¼­ÀÇ Ray Á¤ÀÇ
+		// ViewSpaceï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ray ï¿½ï¿½ï¿½ï¿½
 		Vec4 rayOrigin = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
 		Vec4 rayDir = Vec4(viewX, viewY, 1.0f, 0.0f);
 
-		// WorldSpace¿¡¼­ÀÇ Ray Á¤ÀÇ
+		// WorldSpaceï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ray ï¿½ï¿½ï¿½ï¿½
 		Vec3 worldRayOrigin = XMVector3TransformCoord(rayOrigin, viewMatrixInv);
 		Vec3 worldRayDir = XMVector3TransformNormal(rayDir, viewMatrixInv);
 		worldRayDir.Normalize();
 
-		// WorldSpace¿¡¼­ ¿¬»ê
+		// WorldSpaceï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 		Ray ray = Ray(worldRayOrigin, worldRayDir);
 
 		float distance = 0.f;

@@ -36,7 +36,7 @@ void Hiearchy::ShowHiearchy()
 
 	ImGui::Begin("Hiearchy", nullptr);
 
-	// µå·Ó °¡´É ¿µ¿ª ¼³Á¤
+	// ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 	if (ImGui::BeginDragDropTargetCustom(ImRect(GetEWinPos(), GetEWinPos() + GetEWinSize()), ImGui::GetID("Hiearchy")))
 	{
 		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MeshPayload"))
@@ -72,7 +72,7 @@ void Hiearchy::ShowHiearchy()
 		wstring wstr = object.second->GetObjectName();
 		if (wstr.empty())
 			continue;
-		string name = Utils::ToString(wstr);  // wstring¡æstring º¯È¯ ¼öÁ¤
+		string name = Utils::ToString(wstr);  // wstringï¿½ï¿½string ï¿½ï¿½È¯ ï¿½ï¿½ï¿½ï¿½
 
 		bool isSelected = (SELECTED_H == object.first);
 
@@ -81,7 +81,7 @@ void Hiearchy::ShowHiearchy()
 		else
 			ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.2f, 0.2f, 0.2f, 0.2f)); // Default background
 
-		if (ImGui::Selectable(name.c_str(), isSelected, ImGuiSelectableFlags_SpanAllColumns))  // ½°Ç¥ ¿¬»êÀÚ ¹ö±× ¼öÁ¤
+		if (ImGui::Selectable(name.c_str(), isSelected, ImGuiSelectableFlags_SpanAllColumns))  // ï¿½ï¿½Ç¥ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 		{
 			CUR_SCENE->UnPickAll();
 			TOOL->SetSelectedObjH(object.first);
@@ -156,6 +156,29 @@ void Hiearchy::ShowHiearchy()
 				id = CreateRain();
 			}
 
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::BeginMenu("Light"))
+		{
+			if (ImGui::MenuItem("Directional Light"))
+			{
+				id = GUI->CreateLight(0);
+				TOOL->SetSelectedObjH(id);
+				ADDLOG("Create Directional Light", LogFilter::Info);
+			}
+			if (ImGui::MenuItem("Point Light"))
+			{
+				id = GUI->CreateLight(1);
+				TOOL->SetSelectedObjH(id);
+				ADDLOG("Create Point Light", LogFilter::Info);
+			}
+			if (ImGui::MenuItem("Spot Light"))
+			{
+				id = GUI->CreateLight(2);
+				TOOL->SetSelectedObjH(id);
+				ADDLOG("Create Spot Light", LogFilter::Info);
+			}
 			ImGui::EndMenu();
 		}
 

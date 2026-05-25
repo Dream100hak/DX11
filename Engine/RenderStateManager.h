@@ -32,7 +32,8 @@ enum class DepthStencilStateType : uint8
 	NoDepthWrite,     // Depth Read Only (불투명 오브젝트)
 	DisableDepth,     // 깊이 비활성 (포스트프로세스 풀스크린 패스)
 	OutlineMark,      // 스텐실 쓰기 (아웃라인 1패스)
-	OutlineDraw,// 스텐실 읽기 (아웃라인 2패스)
+	OutlineDraw,      // 스텐실 읽기 (아웃라인 2패스)
+	SkyBoxDepth,      // 깊이 읽기 전용 + LESS_EQUAL (스카이박스 전용)
 	End
 };
 

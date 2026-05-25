@@ -14,6 +14,7 @@ void Camera::SortGameObject()
 
 	_vecForward.clear();
 	_vecOpaque.clear();
+	_vecBackground.clear();
 	_vecTransparent.clear();
 
 	// 매 프레임 절두체 갱신
@@ -50,6 +51,8 @@ void Camera::SortGameObject()
 
 		if (static_cast<int32>(queue) >= static_cast<int32>(RenderQueue::Transparent))
 			_vecTransparent.push_back(gameObject);
+		else if (queue == RenderQueue::Background)
+			_vecBackground.push_back(gameObject);
 		else
 			_vecOpaque.push_back(gameObject);
 
@@ -125,8 +128,11 @@ void Camera::Render_Forward()
 	// 1) 불투명 렌더 패스 (Front-to-Back, Depth Write ON)
 	GET_SINGLE(InstancingManager)->Render(baseCtx, _vecOpaque);
 
-	// 2) 투명 렌더 패스 (Back-to-Front, Depth Write OFF 처리)
-	//    투명도 정확 처리는 BlendState를 Material/HlslShader 레벨에서 처리 권장
+	// 2) Background 렌더 패스 (스카이박스: 모든 불투명 지오메트리 이후, 투명 이전)
+	//    SkyBoxDepth DSS (LESS_EQUAL + 깊이 쓰기 없음)로 빈 배경만 채움
+	GET_SINGLE(InstancingManager)->Render(baseCtx, _vecBackground);
+
+	// 3) 투명 렌더 패스 (Back-to-Front)
 	GET_SINGLE(InstancingManager)->Render(baseCtx, _vecTransparent);
 }
 

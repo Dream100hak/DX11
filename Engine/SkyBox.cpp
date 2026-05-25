@@ -2,6 +2,8 @@
 #include "SkyBox.h"
 #include "Material.h"
 #include "MeshRenderer.h"
+#include "HlslShader.h"
+#include "RenderStateManager.h"
 
 SkyBox::SkyBox() : Super(ComponentType::SkyBox)
 {
@@ -25,11 +27,11 @@ void SkyBox::Init()
 	auto hlslShader = RESOURCES->GetOrAddHlslShader(L"Sky_HLSL", skyDesc);
 
 	hlslShader->SetRasterizerState(RENDER_STATES->GetRS(RasterizerStateType::FrontCounterCW));
-	hlslShader->SetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::DisableDepth));
+	hlslShader->SetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::SkyBoxDepth));
 
 	shared_ptr<Material> material = make_shared<Material>();
 	material->SetHlslShader(hlslShader);
-	material->SetRenderQueue(RenderQueue::Opaque);   // 항상 오파크 큐에 등록
+	material->SetRenderQueue(RenderQueue::Background); // 모든 불투명 지오메트리 이후 렌더
 
 	auto texture = RESOURCES->Load<Texture>(L"Sky", L"../Resources/Assets/Textures/Sky.jpg");
 	material->SetDiffuseMap(texture);

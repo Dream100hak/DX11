@@ -4,8 +4,8 @@
 
 enum class ProjectionType
 {
-	Perspective = 0, // ¿ø±Ù Åõ¿µ
-	Orthographic, // Á÷±³ Åõ¿µ
+	Perspective = 0, // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
+	Orthographic, // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 };
 
 class Camera : public Component
@@ -25,13 +25,13 @@ public:
 		ImGui::DragFloat("Near", (float*)&_near, 0.01f);
 		ImGui::DragFloat("Far", (float*)&_far, 0.01f);
 
-		// ProjectionType ÄÞº¸ ¹Ú½º Ãß°¡
+		// ProjectionType ï¿½Þºï¿½ ï¿½Ú½ï¿½ ï¿½ß°ï¿½
 		const char* projectionTypes[] = { "Perspective", "Orthographic" };
-		int currentProjection = static_cast<int>(_type); // ÇöÀç ¼±ÅÃµÈ ProjectionTypeÀ» int·Î º¯È¯
+		int currentProjection = static_cast<int>(_type); // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ãµï¿½ ProjectionTypeï¿½ï¿½ intï¿½ï¿½ ï¿½ï¿½È¯
 
 		if (ImGui::Combo("Projection Type", &currentProjection, projectionTypes, IM_ARRAYSIZE(projectionTypes)))
 		{
-			_type = static_cast<ProjectionType>(currentProjection); // »ç¿ëÀÚ ¼±ÅÃ¿¡ µû¶ó _type ¾÷µ¥ÀÌÆ®
+			_type = static_cast<ProjectionType>(currentProjection); // ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ã¿ï¿½ ï¿½ï¿½ï¿½ï¿½ _type ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ®
 		}
 	}
 
@@ -89,8 +89,9 @@ public:
 
 private:
 	uint32 _cullingMask = 0;
-	vector<shared_ptr<GameObject>> _vecForward;    // ÀüÃ¼ (·¹°Å½Ã / È£È¯¿ë)
-	vector<shared_ptr<GameObject>> _vecOpaque;     // Background + Opaque + AlphaTest
-	vector<shared_ptr<GameObject>> _vecTransparent;// Transparent + Overlay
+	vector<shared_ptr<GameObject>> _vecForward;
+	vector<shared_ptr<GameObject>> _vecOpaque;
+	vector<shared_ptr<GameObject>> _vecBackground;
+	vector<shared_ptr<GameObject>> _vecTransparent;
 	Frustum _frustum;
 };

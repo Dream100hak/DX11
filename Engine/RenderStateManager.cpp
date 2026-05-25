@@ -197,6 +197,17 @@ void RenderStateManager::CreateDepthStencilStates()
 		desc.BackFace = desc.FrontFace;
 		CHECK(DEVICE->CreateDepthStencilState(&desc, _depthStencilStates[static_cast<int>(DepthStencilStateType::OutlineDraw)].GetAddressOf()));
 	}
+
+	// SkyBoxDepth : 깊이 읽기 전용 + LESS_EQUAL (스카이박스 전용)
+	// xyww 트릭으로 depth=1.0 → 다른 지오메트리가 그린 픽셀(depth<1)은 실패, 빈 배경만 통과
+	{
+		D3D11_DEPTH_STENCIL_DESC desc{};
+		desc.DepthEnable = true;
+		desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+		desc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
+		desc.StencilEnable = false;
+		CHECK(DEVICE->CreateDepthStencilState(&desc, _depthStencilStates[static_cast<int>(DepthStencilStateType::SkyBoxDepth)].GetAddressOf()));
+	}
 }
 
 // ==========================================================================

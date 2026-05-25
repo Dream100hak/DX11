@@ -376,7 +376,7 @@ void Ssao::Draw()
 	
 	SetNormalDepthRenderTarget(GRAPHICS->GetDsv());
 	
-	// ? RenderContext ��� ȣ��
+	// RenderContext 설정 및 호출
 	RenderContext ctx;
 	ctx.tech = 0;
 	ctx.view = V;

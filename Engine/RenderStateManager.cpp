@@ -14,7 +14,7 @@ void RenderStateManager::Init()
 // ==========================================================================
 void RenderStateManager::CreateBlendStates()
 {
-	// Default : ������ ����
+	// Default : 알파블렌드 비활성
 	{
 		D3D11_BLEND_DESC desc{};
 		desc.AlphaToCoverageEnable = false;
@@ -81,7 +81,7 @@ void RenderStateManager::CreateBlendStates()
 // ==========================================================================
 void RenderStateManager::CreateRasterizerStates()
 {
-	// SolidCullBack (�⺻)
+	// SolidCullBack (기본)
 	{
 		D3D11_RASTERIZER_DESC desc{};
 		desc.FillMode = D3D11_FILL_SOLID;
@@ -100,7 +100,7 @@ void RenderStateManager::CreateRasterizerStates()
 		CHECK(DEVICE->CreateRasterizerState(&desc, _rasterizerStates[static_cast<int>(RasterizerStateType::SolidCullNone)].GetAddressOf()));
 	}
 
-	// SolidCullFront (�ƿ����� 2�н�)
+	// SolidCullFront (아웃라인 2패스)
 	{
 		D3D11_RASTERIZER_DESC desc{};
 		desc.FillMode = D3D11_FILL_SOLID;
@@ -118,7 +118,7 @@ void RenderStateManager::CreateRasterizerStates()
 		CHECK(DEVICE->CreateRasterizerState(&desc, _rasterizerStates[static_cast<int>(RasterizerStateType::Wireframe)].GetAddressOf()));
 	}
 
-	// FrontCounterCW (��ī�̹ڽ�)
+	// FrontCounterCW (스카이박스)
 	{
 		D3D11_RASTERIZER_DESC desc{};
 		desc.FillMode = D3D11_FILL_SOLID;
@@ -134,7 +134,7 @@ void RenderStateManager::CreateRasterizerStates()
 // ==========================================================================
 void RenderStateManager::CreateDepthStencilStates()
 {
-	// Default : Depth R/W Ȱ��
+	// Default : Depth R/W 활성
 	{
 		D3D11_DEPTH_STENCIL_DESC desc{};
 		desc.DepthEnable = true;
@@ -144,7 +144,7 @@ void RenderStateManager::CreateDepthStencilStates()
 		CHECK(DEVICE->CreateDepthStencilState(&desc, _depthStencilStates[static_cast<int>(DepthStencilStateType::Default)].GetAddressOf()));
 	}
 
-	// NoDepthWrite : �б⸸ (���� ������Ʈ)
+	// NoDepthWrite : 읽기만 (불투명 오브젝트)
 	{
 		D3D11_DEPTH_STENCIL_DESC desc{};
 		desc.DepthEnable = true;
@@ -154,7 +154,7 @@ void RenderStateManager::CreateDepthStencilStates()
 		CHECK(DEVICE->CreateDepthStencilState(&desc, _depthStencilStates[static_cast<int>(DepthStencilStateType::NoDepthWrite)].GetAddressOf()));
 	}
 
-	// DisableDepth : ���� ��Ȱ�� (����Ʈ���μ��� Ǯ��ũ�� ����)
+	// DisableDepth : 깊이 비활성 (포스트프로세스 풀스크린 패스)
 	{
 		D3D11_DEPTH_STENCIL_DESC desc{};
 		desc.DepthEnable = false;
@@ -164,7 +164,7 @@ void RenderStateManager::CreateDepthStencilStates()
 		CHECK(DEVICE->CreateDepthStencilState(&desc, _depthStencilStates[static_cast<int>(DepthStencilStateType::DisableDepth)].GetAddressOf()));
 	}
 
-	// OutlineMark : ���ٽ� ���� (�ƿ����� 1�н�)
+	// OutlineMark : 스텐실 쓰기 (아웃라인 1패스)
 	{
 		D3D11_DEPTH_STENCIL_DESC desc{};
 		desc.DepthEnable = true;
@@ -181,7 +181,7 @@ void RenderStateManager::CreateDepthStencilStates()
 		CHECK(DEVICE->CreateDepthStencilState(&desc, _depthStencilStates[static_cast<int>(DepthStencilStateType::OutlineMark)].GetAddressOf()));
 	}
 
-	// OutlineDraw : ���ٽ� �б� (�ƿ����� 2�н�)
+	// OutlineDraw : 스텐실 읽기 (아웃라인 2패스)
 	{
 		D3D11_DEPTH_STENCIL_DESC desc{};
 		desc.DepthEnable = false;
@@ -200,7 +200,7 @@ void RenderStateManager::CreateDepthStencilStates()
 }
 
 // ==========================================================================
-// Sampler States   (Global.fx �� �ִ� �� ����)
+// Sampler States   (Global.fx 에 있던 샘플러들)
 // ==========================================================================
 void RenderStateManager::CreateSamplerStates()
 {
@@ -256,7 +256,7 @@ void RenderStateManager::CreateSamplerStates()
 		CHECK(DEVICE->CreateSamplerState(&desc, _samplerStates[static_cast<int>(SamplerStateType::Shadow)].GetAddressOf()));
 	}
 
-	// Heightmap (���� ���̸�)
+	// Heightmap (지형 높이맵)
 	{
 		D3D11_SAMPLER_DESC desc{};
 		desc.Filter = D3D11_FILTER_MIN_MAG_LINEAR_MIP_POINT;
@@ -290,7 +290,7 @@ ComPtr<ID3D11SamplerState> RenderStateManager::GetSampler(SamplerStateType type)
 	return _samplerStates[static_cast<int>(type)];
 }
 
-// ��ü Sampler �� PS ���� s0~s4 �� �ѹ��� ���ε�
+// 전체 Sampler 를 PS 스테이지 s0~s4 에 한번에 바인딩
 void RenderStateManager::BindAllSamplersPS() const
 {
 	ID3D11SamplerState* samplers[SS_COUNT]{};

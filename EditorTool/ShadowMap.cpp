@@ -94,7 +94,7 @@ void ShadowMap::Draw()
 
 	//DCT->RSSetState(light->GetDepthRS().Get()); 
 
-	// ? RenderContext ��� ȣ��
+	// RenderContext 설정 및 호출
 	RenderContext ctx;
 	ctx.tech = 0;
 	ctx.view = V;

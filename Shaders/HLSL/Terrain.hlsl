@@ -1,11 +1,11 @@
 // Terrain.hlsl
-// Tessellation ���� : VS �� HS �� DS �� PS
-// CB ����: b0(Global) b2(Light) b3(Material) b8(Terrain)
+// Tessellation 파이프라인 : VS -> HS -> DS -> PS
+// CB 레이아웃: b0(Global) b2(Light) b3(Material) b8(Terrain)
 
 #include "Lighting.hlsli"
 #include "Shadow.hlsli"
 
-// ���� Terrain ���� CB ��������������������������������������������������������������������������������������
+// ---- Terrain용 CB ────────────────────────────────────────────────────────
 // Layout must match C++ TerrainBuffer struct exactly
 cbuffer TerrainBuffer : register(b8)
 {
@@ -31,13 +31,13 @@ cbuffer TerrainBuffer : register(b8)
     float4 WorldFrustumPlanes[6]; // c5~c10
 };
 
-// ���� Textures ����������������������������������������������������������������������������������������������������
+// ---- Textures ─────────────────────────────────────────────────────────────
 Texture2DArray LayerMapArray : register(t0);
 Texture2D      BlendMap      : register(t1);
 Texture2D      HeightMap     : register(t2);
 Texture2D    ShadowMap     : register(t3);
 
-// ���� Vertex Input ��������������������������������������������������������������������������������������������
+// ---- Vertex Input ──────────────────────────────────────────────────────────
 struct VertexTerrain
 {
     float3 PosL  : POS;
@@ -46,7 +46,7 @@ struct VertexTerrain
     float3 Normal  : NORMAL;
 };
 
-// ���� VS Output (HS Input) ����������������������������������������������������������������������������
+// ---- VS Output (HS Input) ──────────────────────────────────────────────────
 struct VertexOut
 {
     float3 PosW    : POS;
@@ -55,7 +55,7 @@ struct VertexOut
     float3 Normal  : NORMAL;
 };
 
-// ���� Frustum Culling ��������������������������������������������������������������������������������������
+// ---- Frustum Culling ───────────────────────────────────────────────────────
 bool AabbBehindPlane(float3 center, float3 extents, float4 plane)
 {
 float r = dot(extents, abs(plane.xyz));
@@ -70,7 +70,7 @@ bool AabbOutsideFrustum(float3 center, float3 extents, float4 planes[6])
     return false;
 }
 
-// ���� VS ��������������������������������������������������������������������������������������������������������������
+// ---- VS ────────────────────────────────────────────────────────────────────
 VertexOut VS_Main(VertexTerrain vin)
 {
     VertexOut vout;
@@ -82,7 +82,7 @@ VertexOut VS_Main(VertexTerrain vin)
   return vout;
 }
 
-// ���� Tess Factor ����������������������������������������������������������������������������������������������
+// ---- Tess Factor 계산 ──────────────────────────────────────────────────────
 float CalcTessFactor(float3 p)
 {
     float d = distance(p, CameraPositionWS());
@@ -90,7 +90,7 @@ float CalcTessFactor(float3 p)
     return pow(2.f, lerp(MaxTess, MinTess, s));
 }
 
-// ���� HS ��������������������������������������������������������������������������������������������������������������
+// ---- HS ────────────────────────────────────────────────────────────────────
 struct PatchTess
 {
     float EdgeTess[4]   : SV_TessFactor;
@@ -152,7 +152,7 @@ HullOut HS_Main(InputPatch<VertexOut, 4> p,
     return hout;
 }
 
-// ���� DS Output (PS Input) ��������������������������������������������������������������������������
+// ---- DS Output (PS Input) ──────────────────────────────────────────────────
 struct DomainOut
 {
     float4 PosH     : SV_POSITION;
@@ -174,17 +174,17 @@ lerp(quad[2].PosW, quad[3].PosW, uv.x), uv.y);
    lerp(quad[2].Tex,  quad[3].Tex,  uv.x), uv.y);
     dout.TiledTex = dout.Tex * TexScale;
 
-    // ���̸� displacement
+    // 높이맵 displacement
     dout.PosW.y  = HeightMap.SampleLevel(HeightmapSampler, dout.Tex, 0).r;
   dout.Shadow  = CalcShadowCoord(dout.PosW);
     dout.PosH    = mul(float4(dout.PosW, 1.f), VP);
     return dout;
 }
 
-// ���� PS ��������������������������������������������������������������������������������������������������������������
+// ---- PS ────────────────────────────────────────────────────────────────────
 float4 PS_Main(DomainOut pin) : SV_TARGET
 {
-    // �߾��������� ���� ���
+    // 인접 텍셀 샘플 좌표
     float2 leftTex   = pin.Tex + float2(-TexelCellSpaceU, 0.f);
     float2 rightTex  = pin.Tex + float2( TexelCellSpaceU, 0.f);
     float2 bottomTex = pin.Tex + float2(0.f,  TexelCellSpaceV);
@@ -201,7 +201,7 @@ float4 PS_Main(DomainOut pin) : SV_TARGET
 
     float3 toEye = normalize(CameraPositionWS() - pin.PosW);
 
-    // ���̾� �ؽ�ó ������
+    // 레이어 텍스처 블렌딩
     float4 c0 = LayerMapArray.Sample(LinearSampler, float3(pin.TiledTex, 0.f));
   float4 c1 = LayerMapArray.Sample(LinearSampler, float3(pin.TiledTex, 1.f));
     float4 c2 = LayerMapArray.Sample(LinearSampler, float3(pin.TiledTex, 2.f));
@@ -215,7 +215,7 @@ float4 PS_Main(DomainOut pin) : SV_TARGET
     texColor = lerp(texColor, c3, t.b);
     texColor = lerp(texColor, c4, t.a);
 
-    // ������
+    // 조명 계산
   float shadowFactor = CalcShadowFactor(ShadowMap, pin.Shadow);
 
     float4 A, D, S;

@@ -16,7 +16,7 @@ void SkyBox::Init()
 	GetGameObject()->SetEnableOutline(false);
 	GetGameObject()->SetIgnoredTransformEdit(true);
 
-	// HlslShader ½ºÄ«ÀÌ¹Ú½º
+	// HlslShader ìŠ¤ì¹´ì´ë°•ìŠ¤
 	HlslShaderDesc skyDesc;
 	skyDesc.vsFile   = L"Sky.hlsl";
 	skyDesc.psFile   = L"Sky.hlsl";
@@ -25,11 +25,11 @@ void SkyBox::Init()
 	auto hlslShader = RESOURCES->GetOrAddHlslShader(L"Sky_HLSL", skyDesc);
 
 	hlslShader->SetRasterizerState(RENDER_STATES->GetRS(RasterizerStateType::FrontCounterCW));
-	hlslShader->SetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::NoDepthWrite));
+	hlslShader->SetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::DisableDepth));
 
 	shared_ptr<Material> material = make_shared<Material>();
 	material->SetHlslShader(hlslShader);
-	material->SetRenderQueue(RenderQueue::Opaque);   // Ç×»ó °¡Àå ¸ÕÀú ·»´õ
+	material->SetRenderQueue(RenderQueue::Opaque);   // í•­ìƒ ì˜¤íŒŒí¬ íì— ë“±ë¡
 
 	auto texture = RESOURCES->Load<Texture>(L"Sky", L"../Resources/Assets/Textures/Sky.jpg");
 	material->SetDiffuseMap(texture);
@@ -54,13 +54,13 @@ void SkyBox::Init()
 		GetGameObject()->GetMeshRenderer()->SetMaterial(mat);
 	}
 
-	// Ä«¸Þ¶ó Far planeº¸´Ù ÃæºÐÈ÷ Å« ½ºÄÉÀÏ·Î ¼³Á¤
+	// ì¹´ë©”ë¼ Far planeë³´ë‹¤ ì‚´ì§ ìž‘ì€ ìŠ¤í”¼ì–´ë¡œ ìƒì„±
 	GetGameObject()->GetOrAddTransform()->SetScale(Vec3(500.f, 500.f, 500.f));
 }
 
 void SkyBox::Update()
 {
-	// Ç×»ó Ä«¸Þ¶ó À§Ä¡¿¡ ½ºÄ«ÀÌ¹Ú½º¸¦ µû¶óºÙÀÓ (Frustum Culling È¸ÇÇ)
+	// í•­ìƒ ì¹´ë©”ë¼ ìœ„ì¹˜ì— ìŠ¤ì¹´ì´ë°•ìŠ¤ë¥¼ ë°°ì¹˜ (Frustum Culling íšŒí”¼)
 	auto mainCamObj = SCENE->GetCurrentScene()->GetMainCamera();
 	if (mainCamObj)
 	{

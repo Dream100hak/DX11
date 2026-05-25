@@ -5,11 +5,11 @@
 
 // -----------------------------------------------------------
 // HlslShader
-//  - FX11 ���� ����Ƽ�� DX11 ���̴��� ���� �ε�/���ε��ϴ� ����
-//  - VS / PS / GS / CS ����
-//  - Constant Buffer�� ���� ��ȣ�� ���� ���ε� (b0~b7)
-//  - SRV / Sampler �� ���� ���
-//  - BlendState / RasterizerState / DepthStencilState C++ ����
+//  - FX11 대신 네이티브 DX11 셰이더 바인드/언바인드용 래퍼
+//  - VS / PS / GS / CS 지원
+//  - Constant Buffer를 슬롯 번호로 명시 바인드 (b0~b7)
+//  - SRV / Sampler 등 슬롯 직접 설정
+//  - BlendState / RasterizerState / DepthStencilState C++ 관리
 // -----------------------------------------------------------
 
 enum class HlslShaderType : uint8
@@ -43,20 +43,20 @@ public:
 	HlslShader();
 	virtual ~HlslShader();
 
-	// ���̴� �ε� (HlslShaderDesc ���)
+	// 셰이더 생성 (HlslShaderDesc 사용)
 	void Create(const HlslShaderDesc& desc);
 
-	// ---- ���� ���� ���� ----
+	// ---- 렌더 상태 설정 ----
 	void SetBlendState(ComPtr<ID3D11BlendState> bs, const float blendFactor[4] = nullptr, UINT sampleMask = 0xFFFFFFFF);
 	void SetRasterizerState(ComPtr<ID3D11RasterizerState> rs);
 	void SetDepthStencilState(ComPtr<ID3D11DepthStencilState> dss, UINT stencilRef = 0);
 
-	// ---- ���������� ���ε� ----
-	void Bind();   // IA ~ OM ��ü ���ε�
-	void Unbind();// SRV ���� ����
+	// ---- 파이프라인 바인드 ----
+	void Bind();   // IA ~ OM 전체 바인드
+	void Unbind();// SRV 클리어 해제
 
-	// ---- Constant Buffer (���� ���� ���ε�) ----
-	// data �� GPU �޸𸮿� �̹� ���ε�� CB�� raw ptr
+	// ---- Constant Buffer (명시적 슬롯 바인드) ----
+	// data 를 GPU 메모리에 올린 후 호출 - CB의 raw ptr
 	void SetVSConstantBuffer(UINT slot, ID3D11Buffer* buffer);
 	void SetPSConstantBuffer(UINT slot, ID3D11Buffer* buffer);
 	void SetGSConstantBuffer(UINT slot, ID3D11Buffer* buffer);
@@ -72,7 +72,7 @@ public:
 	void SetDSSRV(UINT slot, ID3D11ShaderResourceView* srv);
 	void SetCSSRV(UINT slot, ID3D11ShaderResourceView* srv);
 
-	// ---- UAV (CS ����) ----
+	// ---- UAV (CS 전용) ----
 	void SetCSUAV(UINT slot, ID3D11UnorderedAccessView* uav);
 
 	// ---- Sampler ----
@@ -81,7 +81,7 @@ public:
 	void SetHSSampler(UINT slot, ID3D11SamplerState* sampler);
 	void SetDSSampler(UINT slot, ID3D11SamplerState* sampler);
 
-	// ---- Draw ȣ�� ----
+	// ---- Draw 호출 ----
 	void Draw(UINT vertexCount, UINT startVertex = 0);
 	void DrawIndexed(UINT indexCount, UINT startIndex = 0, INT baseVertex = 0);
 	void DrawInstanced(UINT vertexCountPerInstance, UINT instanceCount, UINT startVertex = 0, UINT startInstance = 0);
@@ -89,7 +89,7 @@ public:
 	void DrawTerrainIndexed(UINT indexCount, UINT startIndex = 0, INT baseVertex = 0);
 	void Dispatch(UINT x, UINT y, UINT z);
 
-	// ---- ���� Push (���� Shader �Ķ���� ����) ----
+	// ---- 공통 Push (공통 Shader 파라미터 설정) ----
 	void PushGlobalData(const Matrix& view, const Matrix& projection);
 	void PushTransformData(const TransformDesc& desc);
 	void PushLightData(const LightDesc& desc);
@@ -97,21 +97,21 @@ public:
 	void PushBoneData(const BoneDesc& desc);
 	void PushKeyframeData(const KeyframeDesc& desc);
 	void PushTweenData(const InstancedTweenDesc& desc);
-	void PushLightArrayData(const LightArrayDesc& desc); // ? ���ο� �޼���
+	void PushLightArrayData(const LightArrayDesc& desc); // 멀티 라이트 배열
 
 	// ---- InputLayout ----
 	ComPtr<ID3D11InputLayout> GetInputLayout() const { return _inputLayout; }
 
 private:
-	// ���̴� ���� ������ �� Blob
+	// 셰이더 파일 컴파일 후 Blob 반환
 	ComPtr<ID3DBlob> CompileShaderFromFile(const wstring& filePath, const string& entryPoint, const string& target);
-	// InputLayout �ڵ� �ݿ� (VS Blob�� �ñ״�ó ���÷���)
+	// InputLayout 자동 생성 (VS Blob에서 리플렉션)
 	void CreateInputLayoutFromVS(ComPtr<ID3DBlob> vsBlob);
 
 private:
 	wstring _shaderPath = L"..\\Shaders\\HLSL\\";
 
-	// ���̴� ������Ʈ
+	// 셰이더 오브젝트
 	ComPtr<ID3D11VertexShader>   _vs;
 	ComPtr<ID3D11PixelShader>    _ps;
 	ComPtr<ID3D11GeometryShader> _gs;
@@ -121,7 +121,7 @@ private:
 
 	ComPtr<ID3D11InputLayout>    _inputLayout;
 
-	// ���� ���� (nullptr�̸� ���������� ����Ʈ ���)
+	// 렌더 상태 (nullptr이면 기본값으로 리셋 처리)
 	ComPtr<ID3D11BlendState>         _blendState;
 	float           _blendFactor[4] = { 0,0,0,0 };
 	UINT     _sampleMask = 0xFFFFFFFF;
@@ -130,7 +130,7 @@ private:
 	ComPtr<ID3D11DepthStencilState>  _depthStencilState;
 	UINT            _stencilRef = 0;
 
-	// Constant Buffer (���� 0~7 ���� ����)
+	// Constant Buffer (슬롯 0~7 내부 관리)
 	shared_ptr<ConstantBuffer<GlobalDesc>>          _globalCB;
 	shared_ptr<ConstantBuffer<TransformDesc>>        _transformCB;
 	shared_ptr<ConstantBuffer<LightDesc>>         _lightCB;
@@ -138,11 +138,11 @@ private:
 	shared_ptr<ConstantBuffer<BoneDesc>>      _boneCB;
 	shared_ptr<ConstantBuffer<KeyframeDesc>>         _keyframeCB;
 	shared_ptr<ConstantBuffer<InstancedTweenDesc>>   _tweenCB;
-	shared_ptr<ConstantBuffer<LightArrayDesc>> _lightArrayCB; // ? ���ο� CB
+	shared_ptr<ConstantBuffer<LightArrayDesc>> _lightArrayCB; // 멀티 라이트 CB
 
-	// CB ���� ��� (Common.hlsli �� �����ϰ� ����)
+	// CB 슬롯 규칙 (Common.hlsli 와 동일하게 맞춤)
 	// b0: GlobalBuffer, b1: TransformBuffer, b2: LightBuffer
 	// b3: MaterialBuffer, b4: BoneBuffer, b5: KeyframeBuffer, b6: TweenBuffer
 
-	bool _hasCBs = false; // ���� Push �� ����
+	bool _hasCBs = false; // 최초 Push 여부 확인
 };

@@ -29,7 +29,7 @@ void SkyBox::Init()
 
 	shared_ptr<Material> material = make_shared<Material>();
 	material->SetHlslShader(hlslShader);
-	material->SetRenderQueue(RenderQueue::Background);   // 항상 가장 먼저 렌더
+	material->SetRenderQueue(RenderQueue::Opaque);   // 항상 가장 먼저 렌더
 
 	auto texture = RESOURCES->Load<Texture>(L"Sky", L"../Resources/Assets/Textures/Sky.jpg");
 	material->SetDiffuseMap(texture);

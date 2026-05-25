@@ -12,12 +12,15 @@ struct TerrainInfo
 	float cellSpacing = 0.f;
 };
 
+// HLSL cbuffer packing (register b8)
+// Must match Terrain.hlsl TerrainBuffer layout exactly
 struct TerrainBuffer
 {
 	float FogStart;
 	float FogRange;
+	Vec2 fogPad;             // padding (HLSL: float4 FogColor crosses 16-byte boundary)
+
 	Color FogColor;
-	Vec2 dummy0;
 
 	float MinDist;
 	float MaxDist;
@@ -27,10 +30,10 @@ struct TerrainBuffer
 	float TexelCellSpaceU;
 	float TexelCellSpaceV;
 	float WorldCellSpace;
-	float dummy1;
+	float texPad;
 
 	Vec2 TexScale = Vec2(50.0f, 50.f);
-	Vec2 dummy2 = Vec2::Zero;
+	Vec2 scalePad = Vec2::Zero;
 
 	Vec4 WorldFrustumPlanes[6];
 };
@@ -48,16 +51,15 @@ public:
 	void Update() override;
 
 	void Init(const TerrainInfo& initInfo , shared_ptr<Material> mat);
-	void ChangeShader(shared_ptr<Shader> shader);
 
 	float GetHeight(float x, float z) const;
 	shared_ptr<Texture> GetLayerMap() { return _layerMapArray; }
 
-	void TerrainRenderer(shared_ptr<Shader> shader , Matrix V , Matrix P);
-	void TerrainRendererNotPS(shared_ptr<Shader> shader, Matrix V, Matrix P);
+	void TerrainRenderer(Matrix V, Matrix P);
+	void TerrainRendererNotPS(Matrix V, Matrix P);
 
 private:
-	
+
 	void CreateInspectorLayerViews();
 	void CreateHeightmapSRV();
 
@@ -68,31 +70,29 @@ private:
 	shared_ptr<Texture> _layerMapArray;
 	ComPtr<ID3D11ShaderResourceView> _heightMapSRV;
 
-	std::vector<shared_ptr<Texture>> _layerViews; // °ü»ó¿ë
+	std::vector<shared_ptr<Texture>> _layerViews;
 
-	ComPtr<ID3DX11EffectShaderResourceVariable>  _layerMapArrayEffectBuffer;
-	ComPtr<ID3DX11EffectShaderResourceVariable>  _blendMapBuffer;
-	ComPtr<ID3DX11EffectShaderResourceVariable>  _heightMapBuffer;
+	shared_ptr<class HlslShader> _hlslShader;
+	shared_ptr<class HlslShader> _hlslShaderShadow;
 
 	TerrainInfo _info;
 
-	shared_ptr<class TerrainMesh> _mesh = nullptr;  
+	shared_ptr<class TerrainMesh> _mesh = nullptr;
 
 	TerrainBuffer _terrainDesc;
 	shared_ptr<ConstantBuffer<TerrainBuffer>> _terrainBuffer;
-	ComPtr<ID3DX11EffectConstantBuffer> _terrainEffectBuffer;
 
 	shared_ptr<Material> _mat;
 
 private:
 
 	float _fogStart = 100.f;
-	float _fogRange = 300.f; 
+	float _fogRange = 300.f;
 	Color _fogColor = { 0.69f, 0.77f, 0.87f, 0.0f };
 
 
 	float _minDist = 20.f;
 	float _maxDist = 500.f;
 	float _minTess = 0.f;
-	float _maxTess = 6.f; 
+	float _maxTess = 6.f;
 };

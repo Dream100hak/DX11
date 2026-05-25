@@ -5,11 +5,11 @@
 
 // -----------------------------------------------------------
 // HlslShader
-//  - FX11 ¾øÀÌ ³×ÀÌÆ¼ºê DX11 ¼ÎÀÌ´õ¸¦ Á÷Á¢ ·Îµå/¹ÙÀÎµùÇÏ´Â ·¡ÆÛ
-//  - VS / PS / GS / CS Áö¿ø
-//  - Constant Buffer´Â ½½·Ô ¹øÈ£·Î Á÷Á¢ ¹ÙÀÎµù (b0~b7)
-//  - SRV / Sampler µµ ½½·Ô ±â¹Ý
-//  - BlendState / RasterizerState / DepthStencilState C++ Á¦¾î
+//  - FX11 ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Æ¼ï¿½ï¿½ DX11 ï¿½ï¿½ï¿½Ì´ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Îµï¿½/ï¿½ï¿½ï¿½Îµï¿½ï¿½Ï´ï¿½ ï¿½ï¿½ï¿½ï¿½
+//  - VS / PS / GS / CS ï¿½ï¿½ï¿½ï¿½
+//  - Constant Bufferï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½È£ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Îµï¿½ (b0~b7)
+//  - SRV / Sampler ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½
+//  - BlendState / RasterizerState / DepthStencilState C++ ï¿½ï¿½ï¿½ï¿½
 // -----------------------------------------------------------
 
 enum class HlslShaderType : uint8
@@ -20,14 +20,18 @@ enum class HlslShaderType : uint8
 
 struct HlslShaderDesc
 {
-	wstring vsFile;// e.g. L"Standard_VS.hlsl"
+	wstring vsFile;   // e.g. L"Standard_VS.hlsl"
 	wstring psFile;   // e.g. L"Standard_PS.hlsl"
 	wstring gsFile;   // optional
-	wstring csFile;   // CS only ¸ðµå
+	wstring hsFile;   // optional (Hull Shader)
+	wstring dsFile;   // optional (Domain Shader)
+	wstring csFile;   // CS only
 
 	string vsEntry = "VS_Main";
 	string psEntry = "PS_Main";
 	string gsEntry = "GS_Main";
+	string hsEntry = "HS_Main";
+	string dsEntry = "DS_Main";
 	string csEntry = "CS_Main";
 };
 
@@ -39,46 +43,53 @@ public:
 	HlslShader();
 	virtual ~HlslShader();
 
-	// ¼ÎÀÌ´õ ·Îµå (HlslShaderDesc ±â¹Ý)
+	// ï¿½ï¿½ï¿½Ì´ï¿½ ï¿½Îµï¿½ (HlslShaderDesc ï¿½ï¿½ï¿½)
 	void Create(const HlslShaderDesc& desc);
 
-	// ---- ·»´õ »óÅÂ ¼³Á¤ ----
+	// ---- ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ----
 	void SetBlendState(ComPtr<ID3D11BlendState> bs, const float blendFactor[4] = nullptr, UINT sampleMask = 0xFFFFFFFF);
 	void SetRasterizerState(ComPtr<ID3D11RasterizerState> rs);
 	void SetDepthStencilState(ComPtr<ID3D11DepthStencilState> dss, UINT stencilRef = 0);
 
-	// ---- ÆÄÀÌÇÁ¶óÀÎ ¹ÙÀÎµù ----
-	void Bind();   // IA ~ OM ÀüÃ¼ ¹ÙÀÎµù
-	void Unbind();// SRV ½½·Ô ÇØÁ¦
+	// ---- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Îµï¿½ ----
+	void Bind();   // IA ~ OM ï¿½ï¿½Ã¼ ï¿½ï¿½ï¿½Îµï¿½
+	void Unbind();// SRV ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 
-	// ---- Constant Buffer (½½·Ô Á÷Á¢ ¹ÙÀÎµù) ----
-	// data ´Â GPU ¸Þ¸ð¸®¿¡ ÀÌ¹Ì ¾÷·ÎµåµÈ CBÀÇ raw ptr
+	// ---- Constant Buffer (ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Îµï¿½) ----
+	// data ï¿½ï¿½ GPU ï¿½Þ¸ð¸®¿ï¿½ ï¿½Ì¹ï¿½ ï¿½ï¿½ï¿½Îµï¿½ï¿½ CBï¿½ï¿½ raw ptr
 	void SetVSConstantBuffer(UINT slot, ID3D11Buffer* buffer);
 	void SetPSConstantBuffer(UINT slot, ID3D11Buffer* buffer);
 	void SetGSConstantBuffer(UINT slot, ID3D11Buffer* buffer);
+	void SetHSConstantBuffer(UINT slot, ID3D11Buffer* buffer);
+	void SetDSConstantBuffer(UINT slot, ID3D11Buffer* buffer);
 	void SetCSConstantBuffer(UINT slot, ID3D11Buffer* buffer);
 
 	// ---- SRV ----
 	void SetVSSRV(UINT slot, ID3D11ShaderResourceView* srv);
 	void SetPSSRV(UINT slot, ID3D11ShaderResourceView* srv);
 	void SetGSSRV(UINT slot, ID3D11ShaderResourceView* srv);
+	void SetHSSRV(UINT slot, ID3D11ShaderResourceView* srv);
+	void SetDSSRV(UINT slot, ID3D11ShaderResourceView* srv);
 	void SetCSSRV(UINT slot, ID3D11ShaderResourceView* srv);
 
-	// ---- UAV (CS Àü¿ë) ----
+	// ---- UAV (CS ï¿½ï¿½ï¿½ï¿½) ----
 	void SetCSUAV(UINT slot, ID3D11UnorderedAccessView* uav);
 
 	// ---- Sampler ----
 	void SetVSSampler(UINT slot, ID3D11SamplerState* sampler);
 	void SetPSSampler(UINT slot, ID3D11SamplerState* sampler);
+	void SetHSSampler(UINT slot, ID3D11SamplerState* sampler);
+	void SetDSSampler(UINT slot, ID3D11SamplerState* sampler);
 
-	// ---- Draw È£Ãâ ----
+	// ---- Draw È£ï¿½ï¿½ ----
 	void Draw(UINT vertexCount, UINT startVertex = 0);
 	void DrawIndexed(UINT indexCount, UINT startIndex = 0, INT baseVertex = 0);
 	void DrawInstanced(UINT vertexCountPerInstance, UINT instanceCount, UINT startVertex = 0, UINT startInstance = 0);
 	void DrawIndexedInstanced(UINT indexCountPerInstance, UINT instanceCount, UINT startIndex = 0, INT baseVertex = 0, UINT startInstance = 0);
+	void DrawTerrainIndexed(UINT indexCount, UINT startIndex = 0, INT baseVertex = 0);
 	void Dispatch(UINT x, UINT y, UINT z);
 
-	// ---- ·»´õ Push (°¢Á¾ Shader ÆÄ¶ó¹ÌÅÍ Àü´Þ) ----
+	// ---- ï¿½ï¿½ï¿½ï¿½ Push (ï¿½ï¿½ï¿½ï¿½ Shader ï¿½Ä¶ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½) ----
 	void PushGlobalData(const Matrix& view, const Matrix& projection);
 	void PushTransformData(const TransformDesc& desc);
 	void PushLightData(const LightDesc& desc);
@@ -86,29 +97,31 @@ public:
 	void PushBoneData(const BoneDesc& desc);
 	void PushKeyframeData(const KeyframeDesc& desc);
 	void PushTweenData(const InstancedTweenDesc& desc);
-	void PushLightArrayData(const LightArrayDesc& desc); // ? »õ·Î¿î ¸Þ¼­µå
+	void PushLightArrayData(const LightArrayDesc& desc); // ? ï¿½ï¿½ï¿½Î¿ï¿½ ï¿½Þ¼ï¿½ï¿½ï¿½
 
 	// ---- InputLayout ----
 	ComPtr<ID3D11InputLayout> GetInputLayout() const { return _inputLayout; }
 
 private:
-	// ¼ÎÀÌ´õ ÆÄÀÏ ÄÄÆÄÀÏ ¡æ Blob
+	// ï¿½ï¿½ï¿½Ì´ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ Blob
 	ComPtr<ID3DBlob> CompileShaderFromFile(const wstring& filePath, const string& entryPoint, const string& target);
-	// InputLayout ÀÚµ¿ ¹Ý¿µ (VS BlobÀÇ ½Ã±×´ÏÃ³ ¸®ÇÃ·º¼Ç)
+	// InputLayout ï¿½Úµï¿½ ï¿½Ý¿ï¿½ (VS Blobï¿½ï¿½ ï¿½Ã±×´ï¿½Ã³ ï¿½ï¿½ï¿½Ã·ï¿½ï¿½ï¿½)
 	void CreateInputLayoutFromVS(ComPtr<ID3DBlob> vsBlob);
 
 private:
 	wstring _shaderPath = L"..\\Shaders\\HLSL\\";
 
-	// ¼ÎÀÌ´õ ¿ÀºêÁ§Æ®
+	// ï¿½ï¿½ï¿½Ì´ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ®
 	ComPtr<ID3D11VertexShader>   _vs;
 	ComPtr<ID3D11PixelShader>    _ps;
 	ComPtr<ID3D11GeometryShader> _gs;
+	ComPtr<ID3D11HullShader>     _hs;
+	ComPtr<ID3D11DomainShader>   _ds;
 	ComPtr<ID3D11ComputeShader>  _cs;
 
 	ComPtr<ID3D11InputLayout>    _inputLayout;
 
-	// ·»´õ »óÅÂ (nullptrÀÌ¸é ÆÄÀÌÇÁ¶óÀÎ µðÆúÆ® »ç¿ë)
+	// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ (nullptrï¿½Ì¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Æ® ï¿½ï¿½ï¿½)
 	ComPtr<ID3D11BlendState>         _blendState;
 	float           _blendFactor[4] = { 0,0,0,0 };
 	UINT     _sampleMask = 0xFFFFFFFF;
@@ -117,7 +130,7 @@ private:
 	ComPtr<ID3D11DepthStencilState>  _depthStencilState;
 	UINT            _stencilRef = 0;
 
-	// Constant Buffer (½½·Ô 0~7 »çÀü »ý¼º)
+	// Constant Buffer (ï¿½ï¿½ï¿½ï¿½ 0~7 ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
 	shared_ptr<ConstantBuffer<GlobalDesc>>          _globalCB;
 	shared_ptr<ConstantBuffer<TransformDesc>>        _transformCB;
 	shared_ptr<ConstantBuffer<LightDesc>>         _lightCB;
@@ -125,11 +138,11 @@ private:
 	shared_ptr<ConstantBuffer<BoneDesc>>      _boneCB;
 	shared_ptr<ConstantBuffer<KeyframeDesc>>         _keyframeCB;
 	shared_ptr<ConstantBuffer<InstancedTweenDesc>>   _tweenCB;
-	shared_ptr<ConstantBuffer<LightArrayDesc>> _lightArrayCB; // ? »õ·Î¿î CB
+	shared_ptr<ConstantBuffer<LightArrayDesc>> _lightArrayCB; // ? ï¿½ï¿½ï¿½Î¿ï¿½ CB
 
-	// CB ½½·Ô ¾à¼Ó (Common.hlsli ¿Í µ¿ÀÏÇÏ°Ô ¸ÂÃã)
+	// CB ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ (Common.hlsli ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï°ï¿½ ï¿½ï¿½ï¿½ï¿½)
 	// b0: GlobalBuffer, b1: TransformBuffer, b2: LightBuffer
 	// b3: MaterialBuffer, b4: BoneBuffer, b5: KeyframeBuffer, b6: TweenBuffer
 
-	bool _hasCBs = false; // ÃÖÃÊ Push ½Ã »ý¼º
+	bool _hasCBs = false; // ï¿½ï¿½ï¿½ï¿½ Push ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 };

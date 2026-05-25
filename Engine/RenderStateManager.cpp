@@ -14,7 +14,7 @@ void RenderStateManager::Init()
 // ==========================================================================
 void RenderStateManager::CreateBlendStates()
 {
-	// Default : ºí·»µù ¾øÀ½
+	// Default : ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 	{
 		D3D11_BLEND_DESC desc{};
 		desc.AlphaToCoverageEnable = false;
@@ -81,7 +81,7 @@ void RenderStateManager::CreateBlendStates()
 // ==========================================================================
 void RenderStateManager::CreateRasterizerStates()
 {
-	// SolidCullBack (±âº»)
+	// SolidCullBack (ï¿½âº»)
 	{
 		D3D11_RASTERIZER_DESC desc{};
 		desc.FillMode = D3D11_FILL_SOLID;
@@ -100,7 +100,7 @@ void RenderStateManager::CreateRasterizerStates()
 		CHECK(DEVICE->CreateRasterizerState(&desc, _rasterizerStates[static_cast<int>(RasterizerStateType::SolidCullNone)].GetAddressOf()));
 	}
 
-	// SolidCullFront (¾Æ¿ô¶óÀÎ 2ÆÐ½º)
+	// SolidCullFront (ï¿½Æ¿ï¿½ï¿½ï¿½ï¿½ï¿½ 2ï¿½Ð½ï¿½)
 	{
 		D3D11_RASTERIZER_DESC desc{};
 		desc.FillMode = D3D11_FILL_SOLID;
@@ -118,7 +118,7 @@ void RenderStateManager::CreateRasterizerStates()
 		CHECK(DEVICE->CreateRasterizerState(&desc, _rasterizerStates[static_cast<int>(RasterizerStateType::Wireframe)].GetAddressOf()));
 	}
 
-	// FrontCounterCW (½ºÄ«ÀÌ¹Ú½º)
+	// FrontCounterCW (ï¿½ï¿½Ä«ï¿½Ì¹Ú½ï¿½)
 	{
 		D3D11_RASTERIZER_DESC desc{};
 		desc.FillMode = D3D11_FILL_SOLID;
@@ -134,7 +134,7 @@ void RenderStateManager::CreateRasterizerStates()
 // ==========================================================================
 void RenderStateManager::CreateDepthStencilStates()
 {
-	// Default : Depth R/W È°¼º
+	// Default : Depth R/W È°ï¿½ï¿½
 	{
 		D3D11_DEPTH_STENCIL_DESC desc{};
 		desc.DepthEnable = true;
@@ -144,7 +144,7 @@ void RenderStateManager::CreateDepthStencilStates()
 		CHECK(DEVICE->CreateDepthStencilState(&desc, _depthStencilStates[static_cast<int>(DepthStencilStateType::Default)].GetAddressOf()));
 	}
 
-	// NoDepthWrite : ÀÐ±â¸¸ (Åõ¸í ¿ÀºêÁ§Æ®)
+	// NoDepthWrite : ï¿½Ð±â¸¸ (ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ®)
 	{
 		D3D11_DEPTH_STENCIL_DESC desc{};
 		desc.DepthEnable = true;
@@ -154,7 +154,7 @@ void RenderStateManager::CreateDepthStencilStates()
 		CHECK(DEVICE->CreateDepthStencilState(&desc, _depthStencilStates[static_cast<int>(DepthStencilStateType::NoDepthWrite)].GetAddressOf()));
 	}
 
-	// DisableDepth : ¿ÏÀü ºñÈ°¼º (Æ÷½ºÆ®ÇÁ·Î¼¼½º Ç®½ºÅ©¸° Äõµå)
+	// DisableDepth : ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½È°ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½Æ®ï¿½ï¿½ï¿½Î¼ï¿½ï¿½ï¿½ Ç®ï¿½ï¿½Å©ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
 	{
 		D3D11_DEPTH_STENCIL_DESC desc{};
 		desc.DepthEnable = false;
@@ -164,7 +164,7 @@ void RenderStateManager::CreateDepthStencilStates()
 		CHECK(DEVICE->CreateDepthStencilState(&desc, _depthStencilStates[static_cast<int>(DepthStencilStateType::DisableDepth)].GetAddressOf()));
 	}
 
-	// OutlineMark : ½ºÅÙ½Ç ¾²±â (¾Æ¿ô¶óÀÎ 1ÆÐ½º)
+	// OutlineMark : ï¿½ï¿½ï¿½Ù½ï¿½ ï¿½ï¿½ï¿½ï¿½ (ï¿½Æ¿ï¿½ï¿½ï¿½ï¿½ï¿½ 1ï¿½Ð½ï¿½)
 	{
 		D3D11_DEPTH_STENCIL_DESC desc{};
 		desc.DepthEnable = true;
@@ -181,7 +181,7 @@ void RenderStateManager::CreateDepthStencilStates()
 		CHECK(DEVICE->CreateDepthStencilState(&desc, _depthStencilStates[static_cast<int>(DepthStencilStateType::OutlineMark)].GetAddressOf()));
 	}
 
-	// OutlineDraw : ½ºÅÙ½Ç ÀÐ±â (¾Æ¿ô¶óÀÎ 2ÆÐ½º)
+	// OutlineDraw : ï¿½ï¿½ï¿½Ù½ï¿½ ï¿½Ð±ï¿½ (ï¿½Æ¿ï¿½ï¿½ï¿½ï¿½ï¿½ 2ï¿½Ð½ï¿½)
 	{
 		D3D11_DEPTH_STENCIL_DESC desc{};
 		desc.DepthEnable = false;
@@ -200,7 +200,7 @@ void RenderStateManager::CreateDepthStencilStates()
 }
 
 // ==========================================================================
-// Sampler States   (Global.fx ¿¡ ÀÖ´ø °Í ÀÌÀü)
+// Sampler States   (Global.fx ï¿½ï¿½ ï¿½Ö´ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
 // ==========================================================================
 void RenderStateManager::CreateSamplerStates()
 {
@@ -256,7 +256,7 @@ void RenderStateManager::CreateSamplerStates()
 		CHECK(DEVICE->CreateSamplerState(&desc, _samplerStates[static_cast<int>(SamplerStateType::Shadow)].GetAddressOf()));
 	}
 
-	// Heightmap (ÁöÇü ³ôÀÌ¸Ê)
+	// Heightmap (ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ì¸ï¿½)
 	{
 		D3D11_SAMPLER_DESC desc{};
 		desc.Filter = D3D11_FILTER_MIN_MAG_LINEAR_MIP_POINT;
@@ -290,7 +290,7 @@ ComPtr<ID3D11SamplerState> RenderStateManager::GetSampler(SamplerStateType type)
 	return _samplerStates[static_cast<int>(type)];
 }
 
-// ÀüÃ¼ Sampler ¸¦ PS ½½·Ô s0~s4 ¿¡ ÇÑ¹ø¿¡ ¹ÙÀÎµù
+// ï¿½ï¿½Ã¼ Sampler ï¿½ï¿½ PS ï¿½ï¿½ï¿½ï¿½ s0~s4 ï¿½ï¿½ ï¿½Ñ¹ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Îµï¿½
 void RenderStateManager::BindAllSamplersPS() const
 {
 	ID3D11SamplerState* samplers[SS_COUNT]{};
@@ -305,4 +305,20 @@ void RenderStateManager::BindAllSamplersVS() const
 	for (int i = 0; i < SS_COUNT; i++)
 		samplers[i] = _samplerStates[i].Get();
 	DCT->VSSetSamplers(0, SS_COUNT, samplers);
+}
+
+void RenderStateManager::BindAllSamplersHS() const
+{
+	ID3D11SamplerState* samplers[SS_COUNT]{};
+	for (int i = 0; i < SS_COUNT; i++)
+		samplers[i] = _samplerStates[i].Get();
+	DCT->HSSetSamplers(0, SS_COUNT, samplers);
+}
+
+void RenderStateManager::BindAllSamplersDS() const
+{
+	ID3D11SamplerState* samplers[SS_COUNT]{};
+	for (int i = 0; i < SS_COUNT; i++)
+		samplers[i] = _samplerStates[i].Get();
+	DCT->DSSetSamplers(0, SS_COUNT, samplers);
 }

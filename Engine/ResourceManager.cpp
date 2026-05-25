@@ -40,7 +40,7 @@ std::shared_ptr<Texture> ResourceManager::GetOrAddTexture(const wstring& key, co
 
 shared_ptr<HlslShader> ResourceManager::GetOrAddHlslShader(const wstring& key, const HlslShaderDesc& desc)
 {
-	// Shader ¹öÅ¶¿¡ ÀúÀå (ResourceType::Shader °øÀ¯)
+	// Shader ï¿½ï¿½Å¶ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ (ResourceType::Shader ï¿½ï¿½ï¿½ï¿½)
 	auto& bucket = _resources[static_cast<uint8>(ResourceType::Shader)];
 	auto it = bucket.find(key);
 	if (it != bucket.end())
@@ -74,22 +74,22 @@ void ResourceManager::CreateDefaultMesh()
 
 void ResourceManager::CreateDefaultShader()
 {
-	// HlslShader Standard ¼ÎÀÌ´õ
+	// HlslShader Standard ï¿½ï¿½ï¿½Ì´ï¿½
 	HlslShaderDesc hlslDesc;
 	hlslDesc.vsFile  = L"Standard_VS.hlsl";
 	hlslDesc.psFile  = L"Standard_PS.hlsl";
-	hlslDesc.vsEntry = "VS_Mesh";   // Standard_VS.hlsl ÀÇ ÁøÀÔÁ¡
+	hlslDesc.vsEntry = "VS_Mesh";   // Standard_VS.hlsl ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	hlslDesc.psEntry = "PS_Main";
 	GetOrAddHlslShader(L"Standard_HLSL", hlslDesc);
 
-	// ·¹°Å½Ã FX11 Standard (Terrain µî ¹ÌÀÌÀü ÄÄÆ÷³ÍÆ®¿¡¼­ ÂüÁ¶ÇÒ ¼ö ÀÖÀ¸¹Ç·Î À¯Áö)
+	// ï¿½ï¿½ï¿½Å½ï¿½ FX11 Standard (Terrain ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ®ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ ï¿½ï¿½ï¿½ï¿½)
 	shared_ptr<Shader> shader = make_shared<Shader>(L"01. Standard.fx");
 	Add(L"Standard", shader);
 }
 
 void ResourceManager::CreateDefaultMaterial()
 {
-	// HlslShader ±â¹Ý ±âº» ¸ÓÆ¼¸®¾ó
+	// HlslShader ï¿½ï¿½ï¿½ ï¿½âº» ï¿½ï¿½Æ¼ï¿½ï¿½ï¿½ï¿½
 	auto hlslShader = Get<HlslShader>(L"Standard_HLSL");
 	shared_ptr<Material> material = make_shared<Material>();
 	if (hlslShader)
@@ -110,10 +110,10 @@ void ResourceManager::CreateShadowMapShader()
 	desc.vsFile  = L"ShadowMap_VS.hlsl";
 	desc.psFile  = L"ShadowMap_PS.hlsl";
 	desc.vsEntry = "VS_Mesh";
-	desc.psEntry = "PS_AlphaClip";  // ShadowMap_PS.hlsl ÀÇ ÁøÀÔÁ¡
+	desc.psEntry = "PS_AlphaClip";  // ShadowMap_PS.hlsl ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	GetOrAddHlslShader(L"Shadow_HLSL", desc);
 
-	// ·¹°Å½Ã FX11 (Terrain ¼¨µµ¿ì µî)
+	// ï¿½ï¿½ï¿½Å½ï¿½ FX11 (Terrain ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½)
 	shared_ptr<Shader> shader = make_shared<Shader>(L"00. ShadowMap.fx");
 	RESOURCES->Add(L"Shadow", shader);
 }
@@ -127,7 +127,7 @@ void ResourceManager::CreateOutlineShader()
 	desc.vsEntry = "VS_MeshOutline";
 	GetOrAddHlslShader(L"Outline_HLSL", desc);
 
-	// ·¹°Å½Ã FX11
+	// ï¿½ï¿½ï¿½Å½ï¿½ FX11
 	shared_ptr<Shader> shader = make_shared<Shader>(L"01. Outline.fx");
 	RESOURCES->Add(L"Outline", shader);
 }
@@ -138,18 +138,18 @@ void ResourceManager::CreateThumbnailShader()
 	HlslShaderDesc desc;
 	desc.vsFile  = L"Standard_VS.hlsl";
 	desc.psFile  = L"Thumbnail.hlsl";
-	desc.vsEntry = "VS_Mesh";   // Standard_VS.hlsl ÀÇ ÁøÀÔÁ¡
+	desc.vsEntry = "VS_Mesh";   // Standard_VS.hlsl ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	desc.psEntry = "PS_Solid";
 	GetOrAddHlslShader(L"Thumbnail_HLSL", desc);
 
-	// ·¹°Å½Ã FX11
+	// ï¿½ï¿½ï¿½Å½ï¿½ FX11
 	shared_ptr<Shader> shader = make_shared<Shader>(L"01. Thumbnail.fx");
 	RESOURCES->Add(L"Thumbnail", shader);
 }
 
 void ResourceManager::CreateSSAOShader()
 {
-	// SSAO´Â ¾ÆÁ÷ FX11 À¯Áö (HLSL ¹ÌÀÌÀü)
+	// SSAOï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ FX11 ï¿½ï¿½ï¿½ï¿½ (HLSL ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)
 	{
 		shared_ptr<Shader> shader = make_shared<Shader>(L"00. Ssao.fx");
 		RESOURCES->Add(L"Ssao", shader);
@@ -166,7 +166,29 @@ void ResourceManager::CreateSSAOShader()
 
 void ResourceManager::CreateTerrainShader()
 {
-	// TerrainÀº Tessellation(HS/DS) ¶§¹®¿¡ FX11 À¯Áö
-	shared_ptr<Shader> shader = make_shared<Shader>(L"01. Terrain.fx");
-	RESOURCES->Add(L"Terrain", shader);
+	// Terrain HLSL (VS + HS + DS + PS)
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Terrain.hlsl";
+		desc.hsFile  = L"Terrain.hlsl";
+		desc.dsFile  = L"Terrain.hlsl";
+		desc.psFile  = L"Terrain.hlsl";
+		desc.vsEntry = "VS_Main";
+		desc.hsEntry = "HS_Main";
+		desc.dsEntry = "DS_Main";
+		desc.psEntry = "PS_Main";
+		GetOrAddHlslShader(L"Terrain_HLSL", desc);
+	}
+
+	// Terrain Shadow HLSL (VS + HS + DS only, depth-only pass)
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Terrain.hlsl";
+		desc.hsFile  = L"Terrain.hlsl";
+		desc.dsFile  = L"Terrain.hlsl";
+		desc.vsEntry = "VS_Main";
+		desc.hsEntry = "HS_Main";
+		desc.dsEntry = "DS_Main";
+		GetOrAddHlslShader(L"Terrain_Shadow_HLSL", desc);
+	}
 }

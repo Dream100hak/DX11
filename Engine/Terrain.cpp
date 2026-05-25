@@ -6,6 +6,8 @@
 #include "Light.h"
 #include "TerrainMesh.h"
 #include "Material.h"
+#include "HlslShader.h"
+#include "RenderStateManager.h"
 
 
 Terrain::Terrain() : Super(ComponentType::Terrain)
@@ -19,10 +21,6 @@ Terrain::~Terrain()
 void Terrain::OnInspectorGUI()
 {
 	Super::OnInspectorGUI();
-
-	//ImGui::DragFloat("Fog Start", (float*)&_fogStart, 0.1f);
-	//ImGui::DragFloat("Fog Range", (float*)&_fogRange, 0.1f);
-	//ImGui::ColorEdit4("Fog Color",(float*)&_fogColor);
 
 	if (_mat != nullptr)
 	{
@@ -44,7 +42,7 @@ void Terrain::OnInspectorGUI()
 
 	ImGui::Separator();
 
-	ImGui::Text("Layer Textures"); 
+	ImGui::Text("Layer Textures");
 
 	for (int32 i = 0; i < _layerViews.size(); ++i)
 	{
@@ -66,14 +64,6 @@ void Terrain::OnInspectorGUI()
 	ImGui::Image(_blendMap->GetComPtr().Get(), ImVec2(75, 75));
 	ImGui::TextColored(color, "Blend Map");
 	ImGui::EndGroup();
-}
-
-void Terrain::ChangeShader(shared_ptr<Shader> shader)
-{
-	_layerMapArrayEffectBuffer = shader->GetSRV("LayerMapArray");
-	_blendMapBuffer = shader->GetSRV("BlendMap");
-	_heightMapBuffer = shader->GetSRV("HeightMap");
-	_terrainEffectBuffer = shader->GetConstantBuffer("TerrainBuffer");
 }
 
 float Terrain::GetHeight(float x, float z) const
@@ -99,6 +89,9 @@ void Terrain::Init(const TerrainInfo& initInfo , shared_ptr<Material> mat)
 	_layerMapArray->CreateTexture2DArraySRV(_info.layerMapFilenames);
 
 	_blendMap = RESOURCES->Load<Texture>(_info.blendMapFilename, _info.blendMapFilename);
+
+	_hlslShader = RESOURCES->Get<HlslShader>(L"Terrain_HLSL");
+	_hlslShaderShadow = RESOURCES->Get<HlslShader>(L"Terrain_Shadow_HLSL");
 }
 
 void Terrain::Update()
@@ -106,30 +99,36 @@ void Terrain::Update()
 	if (INPUT->GetButton(KEY_TYPE::KEY_1))
 		DCT->RSSetState(GRAPHICS->GetWireframeRS().Get());
 
-	auto shader = RESOURCES->Get<Shader>(L"Terrain");
 	shared_ptr<Camera> camera = MAIN_CAM;
-
-	TerrainRenderer(shader, camera->GetViewMatrix() , camera->GetProjectionMatrix());
+	TerrainRenderer(camera->GetViewMatrix(), camera->GetProjectionMatrix());
 
 	DCT->RSSetState(0);
 }
 
-void Terrain::TerrainRenderer(shared_ptr<Shader> shader, Matrix V, Matrix P)
+void Terrain::TerrainRenderer(Matrix V, Matrix P)
 {
-
-	ChangeShader(shader);
+	auto shader = _hlslShader;
+	if (!shader) return;
 
 	Vec4 worldPlanes[6];
-
 	MathUtils::ExtractFrustumPlanes(worldPlanes, V * P);
 
-	// GlobalData
-	_mat->SetShader(shader);
-	_mat->Update();
+	// Bind samplers to all stages that sample textures
+	RENDER_STATES->BindAllSamplersVS();
+	RENDER_STATES->BindAllSamplersPS();
+	RENDER_STATES->BindAllSamplersDS();
 
-	shader->PushGlobalData(V , P);
+	// GlobalData (b0) -> VS, HS, DS, PS
+	shader->PushGlobalData(V, P);
+
+	// LightData (b2) -> PS
 	shader->PushLightData(CUR_SCENE->GetLight()->GetLight()->GetLightDesc());
 
+	// MaterialData (b3) -> PS
+	if (_mat)
+		shader->PushMaterialData(_mat->GetMaterialDesc());
+
+	// TerrainBuffer (b8) -> HS, DS, PS
 	TerrainBuffer terrainDesc = TerrainBuffer{};
 
 	terrainDesc.FogStart = _fogStart;
@@ -151,24 +150,48 @@ void Terrain::TerrainRenderer(shared_ptr<Shader> shader, Matrix V, Matrix P)
 	_terrainDesc = terrainDesc;
 
 	_terrainBuffer->CopyData(_terrainDesc);
-	_terrainEffectBuffer->SetConstantBuffer(_terrainBuffer->GetComPtr().Get());
+	auto terrainBuf = _terrainBuffer->GetComPtr().Get();
+	shader->SetHSConstantBuffer(8, terrainBuf);
+	shader->SetDSConstantBuffer(8, terrainBuf);
+	shader->SetPSConstantBuffer(8, terrainBuf);
 
-	_layerMapArrayEffectBuffer->SetResource(_layerMapArray->GetComPtr().Get());
-	_blendMapBuffer->SetResource(_blendMap->GetComPtr().Get());
-	_heightMapBuffer->SetResource(_heightMapSRV.Get());
+	// SRV bindings
+	// t0: LayerMapArray (PS)
+	shader->SetPSSRV(0, _layerMapArray->GetComPtr().Get());
+	// t1: BlendMap (PS)
+	shader->SetPSSRV(1, _blendMap->GetComPtr().Get());
+	// t2: HeightMap (VS + DS + PS)
+	shader->SetVSSRV(2, _heightMapSRV.Get());
+	shader->SetDSSRV(2, _heightMapSRV.Get());
+	shader->SetPSSRV(2, _heightMapSRV.Get());
+	// t3: ShadowMap (PS)
+	if (_mat && _mat->GetShadowMap())
+		shader->SetPSSRV(3, _mat->GetShadowMap()->GetComPtr().Get());
 
+	// Vertex/Index buffer
 	_mesh->GetVertexBuffer()->PushData();
 	_mesh->GetIndexBuffer()->PushData();
 
-	shader->DrawTerrainIndexed(0, 0, _mesh->GetIndexBuffer()->GetCount() * 4, 0, 0);
+	// Draw with 4-control-point patch list topology
+	shader->DrawTerrainIndexed(_mesh->GetIndexBuffer()->GetCount() * 4, 0, 0);
+
+	// Cleanup HS/DS to avoid affecting subsequent draws
+	shader->Unbind();
 }
 
-void Terrain::TerrainRendererNotPS(shared_ptr<Shader> shader, Matrix V, Matrix P)
+void Terrain::TerrainRendererNotPS(Matrix V, Matrix P)
 {
-	ChangeShader(shader);
+	auto shader = _hlslShaderShadow;
+	if (!shader) return;
 
-	// GlobalData
+	// Bind samplers for VS/DS HeightMap sampling
+	RENDER_STATES->BindAllSamplersVS();
+	RENDER_STATES->BindAllSamplersDS();
+
+	// GlobalData (b0) -> VS, HS, DS
 	shader->PushGlobalData(V, P);
+
+	// TerrainBuffer (b8) -> HS, DS (tess factors only, no frustum cull for shadow)
 	TerrainBuffer terrainDesc = TerrainBuffer{};
 
 	terrainDesc.MinDist = _minDist;
@@ -176,23 +199,28 @@ void Terrain::TerrainRendererNotPS(shared_ptr<Shader> shader, Matrix V, Matrix P
 	terrainDesc.MinTess = _minTess;
 	terrainDesc.MaxTess = _maxTess;
 
-	_terrainDesc = terrainDesc;
+	_terrainBuffer->CopyData(terrainDesc);
+	auto terrainBuf = _terrainBuffer->GetComPtr().Get();
+	shader->SetHSConstantBuffer(8, terrainBuf);
+	shader->SetDSConstantBuffer(8, terrainBuf);
 
-	_terrainBuffer->CopyData(_terrainDesc);
-	_terrainEffectBuffer->SetConstantBuffer(_terrainBuffer->GetComPtr().Get());
+	// t2: HeightMap (VS + DS)
+	shader->SetVSSRV(2, _heightMapSRV.Get());
+	shader->SetDSSRV(2, _heightMapSRV.Get());
 
-	_heightMapBuffer->SetResource(_heightMapSRV.Get());
-
+	// Vertex/Index buffer
 	_mesh->GetVertexBuffer()->PushData();
 	_mesh->GetIndexBuffer()->PushData();
 
-	shader->DrawTerrainIndexed(1, 0, _mesh->GetIndexBuffer()->GetCount() * 4, 0, 0);
+	shader->DrawTerrainIndexed(_mesh->GetIndexBuffer()->GetCount() * 4, 0, 0);
+
+	shader->Unbind();
 }
 
 void Terrain::CreateInspectorLayerViews()
 {
-	for (int32 i = 0; i < _info.layerMapFilenames.size(); i++) 
-	{	
+	for (int32 i = 0; i < _info.layerMapFilenames.size(); i++)
+	{
 		shared_ptr<Texture> tex = make_shared<Texture>();
 		tex->Load(_info.layerMapFilenames[i]);
 		_layerViews.push_back(tex);
@@ -216,7 +244,6 @@ void Terrain::CreateHeightmapSRV()
 
 	std::vector<float> heightmap = _mesh->GetHeightMap();
 
-	// HALF is defined in xnamath.h, for storing 16-bit float.
 	std::vector<uint16> hmap(heightmap.size());
 	std::transform(heightmap.begin(), heightmap.end(), hmap.begin(), MathUtils::ConvertFloatToHalf);
 

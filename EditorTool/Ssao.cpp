@@ -376,7 +376,7 @@ void Ssao::Draw()
 	
 	SetNormalDepthRenderTarget(GRAPHICS->GetDsv());
 	
-	// ? RenderContext ±â¹Ý È£Ãâ
+	// ? RenderContext ï¿½ï¿½ï¿½ È£ï¿½ï¿½
 	RenderContext ctx;
 	ctx.tech = 0;
 	ctx.view = V;
@@ -390,7 +390,7 @@ void Ssao::Draw()
 	INSTANCING->Render(ctx, vecForward);
 
 	if (terrain)
-		terrain->TerrainRendererNotPS(shader , V , P);
+		terrain->TerrainRendererNotPS(V , P);
 
 	/////////////////////////////////////////////////////////
 	ComputeSsao(P);

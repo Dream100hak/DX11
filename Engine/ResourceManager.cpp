@@ -129,10 +129,7 @@ void ResourceManager::CreateOutlineShader()
 	desc.psFile  = L"Outline_PS.hlsl";
 	desc.vsEntry = "VS_MeshOutline";
 	GetOrAddHlslShader(L"Outline_HLSL", desc);
-
-	// 임시 FX11
-	shared_ptr<Shader> shader = make_shared<Shader>(L"01. Outline.fx");
-	RESOURCES->Add(L"Outline", shader);
+	// FX11 01. Outline.fx 는 소비처가 없어 제거됨 (Outline_HLSL 만 사용)
 }
 
 void ResourceManager::CreateThumbnailShader()

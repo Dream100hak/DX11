@@ -61,6 +61,17 @@ void GBuffer::BindAsTarget()
 		rtvs[i] = _rtvs[i].Get();
 
 	DCT->OMSetRenderTargets(RT_COUNT, rtvs, _dsv.Get());
+
+	// G-Buffer 텍스처는 (0,0) 원점에 풀사이즈로 채워야 한다.
+	// (씬 윈도우 뷰포트는 x/y 오프셋이 있으므로 여기서 원점 뷰포트로 덮어쓴다)
+	D3D11_VIEWPORT vp{};
+	vp.TopLeftX = 0.f;
+	vp.TopLeftY = 0.f;
+	vp.Width    = static_cast<float>(_width);
+	vp.Height   = static_cast<float>(_height);
+	vp.MinDepth = 0.f;
+	vp.MaxDepth = 1.f;
+	DCT->RSSetViewports(1, &vp);
 }
 
 void GBuffer::Clear()

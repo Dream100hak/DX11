@@ -158,9 +158,16 @@ void Camera::Render_Deferred()
 
 	auto lightArray = CollectLights(scene);
 
-	// G-Buffer lazy init
-	uint32 w = static_cast<uint32>(_width);
-	uint32 h = static_cast<uint32>(_height);
+	// G-Buffer lazy init — 실제 씬 뷰포트 크기에 맞춰 생성 (씬 윈도우 리사이즈 대응)
+	// 카메라 _width/_height 가 갱신되지 않아 GBuffer가 고정 크기로 만들어지던 버그 수정
+	uint32 w = static_cast<uint32>(GRAPHICS->GetViewport().GetWidth());
+	uint32 h = static_cast<uint32>(GRAPHICS->GetViewport().GetHeight());
+	if (w == 0 || h == 0)
+		return;
+
+	_width  = static_cast<float>(w);
+	_height = static_cast<float>(h);
+
 	if (!_gBuffer || _gBuffer->GetWidth() != w || _gBuffer->GetHeight() != h)
 	{
 		_gBuffer = make_shared<GBuffer>();
@@ -202,7 +209,9 @@ void Camera::Render_Deferred()
 		lightingShader->PushMaterialData(defaultMat);
 
 		DCT->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		DCT->OMSetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::DisableDepth).Get(), 0);
 		DCT->Draw(3, 0);
+		DCT->OMSetDepthStencilState(nullptr, 0);
 
 		_gBuffer->UnbindSRVsPS(0);
 	}

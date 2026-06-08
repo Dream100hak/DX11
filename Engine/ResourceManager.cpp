@@ -176,6 +176,16 @@ void ResourceManager::CreateDeferredShaders()
 		GetOrAddHlslShader(L"GBuffer_HLSL", desc);
 	}
 
+	// G-Buffer fill for static models (VS_Model + GBuffer PS)
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Standard_VS.hlsl";
+		desc.psFile  = L"GBuffer_PS.hlsl";
+		desc.vsEntry = "VS_Model";
+		desc.psEntry = "PS_GBuffer";
+		GetOrAddHlslShader(L"GBufferModel_HLSL", desc);
+	}
+
 	// Deferred Lighting (fullscreen triangle, no vertex buffer)
 	{
 		HlslShaderDesc desc;

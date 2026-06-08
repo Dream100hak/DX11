@@ -96,6 +96,7 @@ public:
 	void PushLightData(const LightDesc& desc);
 	void PushMaterialData(const MaterialDesc& desc);
 	void PushBoneData(const BoneDesc& desc);
+	void PushModelBoneData(const Matrix& boneTransform); // b5: ModelRenderer per-mesh 본
 	void PushKeyframeData(const KeyframeDesc& desc);
 	void PushTweenData(const InstancedTweenDesc& desc);
 	void PushLightArrayData(const LightArrayDesc& desc); // 멀???�이??배열
@@ -137,6 +138,7 @@ private:
 	shared_ptr<ConstantBuffer<LightDesc>>         _lightCB;
 	shared_ptr<ConstantBuffer<MaterialDesc>>       _materialCB;
 	shared_ptr<ConstantBuffer<BoneDesc>>      _boneCB;
+	shared_ptr<ConstantBuffer<Matrix>>        _modelBoneCB;
 	shared_ptr<ConstantBuffer<KeyframeDesc>>         _keyframeCB;
 	shared_ptr<ConstantBuffer<InstancedTweenDesc>>   _tweenCB;
 	shared_ptr<ConstantBuffer<LightArrayDesc>> _lightArrayCB; // 멀???�이??CB

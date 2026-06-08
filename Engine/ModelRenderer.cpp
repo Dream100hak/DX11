@@ -8,6 +8,9 @@
 #include "MathUtils.h"
 #include "Utils.h"
 #include "RenderContext.h"
+#include "HlslShader.h"
+#include "RenderStateManager.h"
+#include "Texture.h"
 
 ModelRenderer::ModelRenderer(shared_ptr<Shader> shader)
 	: Super(RendererType::Model), _shader(shader)
@@ -58,7 +61,7 @@ void ModelRenderer::OnInspectorGUI()
 		auto& mat = mats[i];
 		MaterialDesc& desc = mat->GetMaterialDesc();
 
-		// ¸ÅÅÍ¸®¾ó ³ëµå
+		// ï¿½ï¿½ï¿½Í¸ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½
 		if (ImGui::TreeNodeEx( Utils::ToString(mat->GetName()).c_str() , ImGuiTreeNodeFlags_DefaultOpen))
 		{
 	
@@ -82,7 +85,7 @@ void ModelRenderer::OnInspectorGUI()
 				ImGui::EndGroup();
 			}		
 
-			ImGui::SameLine(0.f, -2.f); // °°Àº ÁÙ¿¡ ¹èÄ¡
+			ImGui::SameLine(0.f, -2.f); // ï¿½ï¿½ï¿½ï¿½ ï¿½Ù¿ï¿½ ï¿½ï¿½Ä¡
 
 			// Normal Map
 			{
@@ -96,7 +99,7 @@ void ModelRenderer::OnInspectorGUI()
 
 				ImGui::EndGroup();
 			}
-			ImGui::SameLine(); // °°Àº ÁÙ¿¡ ¹èÄ¡
+			ImGui::SameLine(); // ï¿½ï¿½ï¿½ï¿½ ï¿½Ù¿ï¿½ ï¿½ï¿½Ä¡
 
 			// Specular Map
 			{
@@ -138,12 +141,56 @@ void ModelRenderer::ChangeShader(shared_ptr<Shader> shader)
 }
 
 // ============================================================
-// Draw() ? ´ÜÀÏ ÁøÀÔÁ¡
+// Draw() ? ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 // ============================================================
 void ModelRenderer::Draw(const RenderContext& ctx)
 {
 	if (_model == nullptr)
 		return;
+
+	// â”€â”€ Deferred G-Buffer ê²½ë¡œ (HLSL, ì •ì  ëª¨ë¸) â”€â”€
+	if (ctx.deferredPass)
+	{
+		auto gbuf = RESOURCES->Get<HlslShader>(L"GBufferModel_HLSL");
+		if (!gbuf) return;
+
+		gbuf->Bind();
+		gbuf->PushGlobalData(ctx.view, ctx.proj);
+		if (!ctx.buffer)
+			gbuf->PushTransformData(TransformDesc{ GetTransform()->GetWorldMatrix() });
+
+		const auto& meshes = _model->GetMeshes();
+		for (auto& mesh : meshes)
+		{
+			// ë©”ì‹œë³„ ë³¸ ë³€í™˜ (FX ì˜ BoneIndex ìŠ¤ì¹¼ë¼ ëŒ€ì²´)
+			gbuf->PushModelBoneData(_model->GetBoneByIndex(mesh->boneIndex)->transform);
+
+			if (mesh->material)
+			{
+				MaterialDesc& md = mesh->material->GetMaterialDesc();
+				md.useTexture = mesh->material->GetDiffuseMap() ? 1 : 0;
+				gbuf->PushMaterialData(md);
+
+				auto diffuse = mesh->material->GetDiffuseMap();
+				auto normal  = mesh->material->GetNormalMap();
+				gbuf->SetPSSRV(0, diffuse ? diffuse->GetComPtr().Get() : nullptr);
+				gbuf->SetPSSRV(2, normal  ? normal->GetComPtr().Get()  : nullptr);
+			}
+			RENDER_STATES->BindAllSamplersPS();
+
+			mesh->vertexBuffer->PushData();
+			mesh->indexBuffer->PushData();
+
+			if (!ctx.buffer)
+				gbuf->DrawIndexed(mesh->indexBuffer->GetCount(), 0, 0);
+			else
+			{
+				ctx.buffer->PushData();
+				gbuf->DrawIndexedInstanced(mesh->indexBuffer->GetCount(), ctx.buffer->GetCount());
+			}
+		}
+		return;
+	}
 
 	auto prevShader = _shader;
 	if (ctx.shaderOverride)
@@ -157,10 +204,10 @@ void ModelRenderer::Draw(const RenderContext& ctx)
 	ChangeShader(prevShader);
 }
 
-// ¸Þ½Ã ·çÇÁ (Single / Instanced °øÅë)
+// ï¿½Þ½ï¿½ ï¿½ï¿½ï¿½ï¿½ (Single / Instanced ï¿½ï¿½ï¿½ï¿½)
 void ModelRenderer::PushMeshes(const RenderContext& ctx, bool instanced)
 {
-	// Bone µ¥ÀÌÅÍ
+	// Bone ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	BoneDesc boneDesc;
 	const uint32 boneCount = _model->GetBoneCount();
 	for (uint32 i = 0; i < boneCount; i++)
@@ -214,7 +261,7 @@ bool ModelRenderer::Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& dis
 	vector<shared_ptr<ModelMesh>>& meshes = _model->GetMeshes();
 	vector<shared_ptr<ModelBone>>& bones = _model->GetBones();
 
-	//¸Þ½Ã°¡ ÇÏ³ª ÀÏ °æ¿ì
+	//ï¿½Þ½Ã°ï¿½ ï¿½Ï³ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½
 	TransformBoundingBox();
 	float dist = 0.f;
 

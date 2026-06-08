@@ -348,6 +348,19 @@ void HlslShader::PushBoneData(const BoneDesc& desc)
 	DCT->VSSetConstantBuffers(4, 1, &buf);
 }
 
+void HlslShader::PushModelBoneData(const Matrix& boneTransform)
+{
+	if (!_modelBoneCB)
+	{
+		_modelBoneCB = make_shared<ConstantBuffer<Matrix>>();
+		_modelBoneCB->Create();
+	}
+	Matrix m = boneTransform;
+	_modelBoneCB->CopyData(m);
+	auto buf = _modelBoneCB->GetComPtr().Get();
+	DCT->VSSetConstantBuffers(5, 1, &buf);
+}
+
 void HlslShader::PushKeyframeData(const KeyframeDesc& desc)
 {
 	if (!_keyframeCB)

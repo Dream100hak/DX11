@@ -62,9 +62,9 @@ DX11/
 ## Architecture & Rendering Pipeline
 
 ### Shader System
-- Migration from FX11 to native HLSL complete (Terrain/SSAO remain on FX due to HS/DS not supported)
-- `HlslShader`: VS/PS compile, auto InputLayout creation, cbuffer Push methods
-- `Shader`: Legacy FX11 wrapper (Terrain, SSAO only)
+- FX11 -> native HLSL migration mostly done (Terrain already HLSL incl. HS/DS). Remaining FX: SSAO, particles (Fire/Rain, Stream-Output), and model shadow/SSAO + Standard/Thumbnail FX `_shader` (see Current Progress).
+- `HlslShader`: VS/PS/HS/DS/GS/CS compile, auto InputLayout creation, cbuffer Push methods, DrawLineIndexed
+- `Shader`: Legacy FX11 wrapper (SSAO, particles, and not-yet-removed model shadow/ssao overrides)
 
 ### Rendering Flow
 ```
@@ -111,29 +111,31 @@ Camera::Render_Forward()
 - Sampler: s0~s4 (DiffuseMap, SpecularMap, NormalMap, ShadowMap, SsaoMap)
 - Texture SRV: t0~t4 mapping
 
-## Current Progress (Preparing Step 14)
+## Current Progress (Deferred + FX11 removal in progress, ~commit 52)
 
-### Completed (Step 1~13)
-- HlslShader wrapper implementation
-- RenderStateManager implementation
-- FX -> HLSL migration (Standard, ShadowMap, Outline, Sky)
-- Frustum Culling (p-vertex AABB)
-- Render Queue (Opaque/Transparent separated sorting)
-- RenderContext single entry point
-- InstancingManager signature cleanup
-- Multi-light support (MAX_LIGHTS=16)
+### Completed
+- HlslShader wrapper, RenderStateManager, Frustum Culling, Render Queue, RenderContext, Multi-light (MAX_LIGHTS=16)
+- **Deferred Rendering working** (GBuffer + multi-light lighting pass). Scene-view bug fixed: GBuffer now sized to actual scene viewport + `GBuffer::BindAsTarget` forces (0,0,w,h) origin viewport.
+- **FX11 removal underway** (commits 47~52):
+  - Deleted ~35 dead/migrated `.fx` (demo files, Sky, Terrain, Triangle, Outline, etc.)
+  - Editor shaders SceneGrid/Collider/CubeMap/DebugTexture -> HLSL
+  - **ModelRenderer/ModelAnimator -> HLSL**: static + animated models render in deferred GBuffer (`GBufferModel_HLSL`/`GBufferAnim_HLSL`); preview/thumbnails render lit via HLSL (`ModelPreview_HLSL`/`AnimPreview_HLSL` + `Thumbnail.hlsl PS_PreviewLit`). VS_Model uses per-mesh bone via `ModelBoneBuffer` (b5).
+  - Fixed preview-corruption bug (FX preview render leaked render-state -> deferred scene models turned black; moving preview to HLSL fixed it).
 
-### Next Steps
-- **Step 14**: Deferred Rendering (Phase 2 start)
-- RenderStateManager Sampler integration (currently nullptr temp binding)
-- Rendering visual tests (texture, lighting verification)
+### Next Steps (to finish FX11 removal)
+- **Stage 4**: Model shadow/SSAO still use FX overrides (`Shadow`/`SsaoNormalDepth`) -> migrate to HLSL. (SsaoNormalDepth incl. terrain HS/DS = heaviest.)
+- **Stage 5**: Remove ModelRenderer/ModelAnimator FX `_shader` member + caller FX args -> delete `Standard.fx`/`Thumbnail.fx`/`ShadowMap.fx`.
+- SSAO itself FX->HLSL (VS/PS only; not wired into deferred lighting yet, ssao map shows full-red).
+- Particles (Fire/Rain/RainSO): need Stream-Output support in HlslShader.
+- Then remove `Shader.h`/FX11 + TextureRenderer(FX).
+- Editor gap: clip (.clip) has no scene drag-drop source (FolderContents CLIP branch lacks `DragModelFileToGUIWnd`); `CreateModelAnimatorMesh`/SceneWindow CLIP-drop branch already added, just needs the drag source.
 
 ## Known Issues
 
 ### Engine
-- Terrain/SSAO shaders remain on FX11 (Hull/Domain Shader not supported, so not migrated)
+- Remaining FX11: SSAO (3), Standard/Thumbnail/ShadowMap (model shadow/ssao + FX `_shader`), particles (Fire/Rain, Stream-Output). NOTE: Terrain is already HLSL (HS/DS supported); the old "Terrain/SSAO can't migrate due to HS/DS" note was wrong.
 - Material Sampler nullptr temp binding (needs RenderStateManager integration)
-- Material creation missing auto HlslShader assignment (ImGuiManager::CreateMesh)
+- Deferred Pass 3 (skybox/transparent) may misalign vs GBuffer depth when scene window has x/y offset (opaque unaffected).
 
 ### Editor
 - `Hiearchy.cpp`: ImGui::Selectable comma operator bug (isSelected ignored)

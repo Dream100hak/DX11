@@ -5,6 +5,7 @@
 #include "Material.h"
 #include "GeometryHelper.h"
 #include "Camera.h"
+#include "HlslShader.h"
 
 
 struct BVHNode {
@@ -12,7 +13,7 @@ struct BVHNode {
 	BoundingBox boundingBox;
 	shared_ptr<BVHNode> leftChild;
 	shared_ptr<BVHNode> rightChild;
-	vector<shared_ptr<ModelMesh>> meshes; // LEAF ³ëµå¿¡ ´ëÇÑ ¸Þ½Ã ¸ñ·Ï
+	vector<shared_ptr<ModelMesh>> meshes; // LEAF ï¿½ï¿½å¿¡ ï¿½ï¿½ï¿½ï¿½ ï¿½Þ½ï¿½ ï¿½ï¿½ï¿½
 
 	void Start()
 	{
@@ -21,8 +22,7 @@ struct BVHNode {
 		if (mat == nullptr)
 		{
 			mat = make_shared<Material>();
-			auto shader = make_shared<Shader>(L"01. Collider.fx");
-			mat->SetShader(shader);
+			mat->SetHlslShader(RESOURCES->Get<HlslShader>(L"Collider_HLSL"));
 			MaterialDesc& desc = mat->GetMaterialDesc();
 			desc.diffuse = Vec4(0.f, 1.f, 0.f, 1.f);
 
@@ -45,7 +45,7 @@ struct BVHNode {
 		if (material == nullptr || geometry == nullptr)
 			return;
 
-		auto shader = material->GetShader();
+		auto shader = material->GetHlslShader();
 		if (shader == nullptr)
 			return;
 
@@ -55,16 +55,14 @@ struct BVHNode {
 
 		world = matScale * matTranslation;
 
-		shader->PushTransformData(TransformDesc{ world });
-
 		auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
-		// GlobalData
 		shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
+		shader->PushTransformData(TransformDesc{ world });
 
 		vertexBuffer->PushData();
 		indexBuffer->PushData();
 
-		shader->DrawLineIndexed(0, pass, indexBuffer->GetCount());
+		shader->DrawLineIndexed(indexBuffer->GetCount());
 	}
 
 	shared_ptr<Geometry<VertexColorData>> geometry;
@@ -91,13 +89,13 @@ public:
 			 return false;
 		 }
 
-		 // ·¹ÀÌ¿Í ³ëµåÀÇ ¹Ù¿îµù º¼·ý ±³Â÷ °Ë»ç
+		 // ï¿½ï¿½ï¿½Ì¿ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ù¿ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ë»ï¿½
 		 float distance;
 		 if (!ray.Intersects(node->boundingBox, OUT distance)) {
 			 return false;
 		 }
 
-		 // ÀÙ ³ëµåÀÎ °æ¿ì, ¸Þ½Ãµé°úÀÇ ±³Â÷ °Ë»ç
+		 // ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½, ï¿½Þ½Ãµï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ë»ï¿½
 		 if (!node->leftChild && !node->rightChild)
 		 {
 			 for (const auto& mesh : node->meshes)
@@ -124,7 +122,7 @@ public:
 					 }
 				 }
 			 }
-			 // ¸®ÇÁ ³ëµåÀÇ ¸ðµç ¸Þ½Ã¿Í ±³Â÷ÇÏÁö ¾Ê´Â °æ¿ì
+			 // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½Þ½Ã¿ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ê´ï¿½ ï¿½ï¿½ï¿½
 			 return false;
 		 }
 

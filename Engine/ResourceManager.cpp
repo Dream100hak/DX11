@@ -4,6 +4,7 @@
 #include "Mesh.h"
 #include "Material.h"
 #include "HlslShader.h"
+#include "RenderStateManager.h"
 #include <filesystem>
 
 void ResourceManager::Init()
@@ -18,6 +19,7 @@ void ResourceManager::Init()
 	CreateSSAOShader();
 	CreateTerrainShader();
 	CreateDeferredShaders();
+	CreateEditorMiscShaders();
 }
 
 std::shared_ptr<Texture> ResourceManager::GetOrAddTexture(const wstring& key, const wstring& path)
@@ -195,6 +197,43 @@ void ResourceManager::CreateDeferredShaders()
 		desc.vsEntry = "VS_Main";
 		desc.psEntry = "PS_Main";
 		GetOrAddHlslShader(L"GBufferDebug_HLSL", desc);
+	}
+}
+
+void ResourceManager::CreateEditorMiscShaders()
+{
+	// SceneGrid (라인 리스트, 알파블렌드 그리드) — FX11 01. SceneGrid.fx 대체
+	{
+		HlslShaderDesc desc;
+		desc.vsFile = L"SceneGrid.hlsl";
+		desc.psFile = L"SceneGrid.hlsl";
+		GetOrAddHlslShader(L"SceneGrid_HLSL", desc);
+	}
+
+	// Collider (라인 박스, 정점 컬러) — FX11 01. Collider.fx 대체
+	{
+		HlslShaderDesc desc;
+		desc.vsFile = L"Collider.hlsl";
+		desc.psFile = L"Collider.hlsl";
+		auto shader = GetOrAddHlslShader(L"Collider_HLSL", desc);
+		if (shader)
+		{
+			shader->SetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::Default));
+			shader->SetRasterizerState(RENDER_STATES->GetRS(RasterizerStateType::SolidCullNone));
+		}
+	}
+
+	// CubeMap 스카이박스 (SkyCubeMap, 에디터) — FX11 01. CubeMap.fx 대체
+	{
+		HlslShaderDesc desc;
+		desc.vsFile = L"CubeMap.hlsl";
+		desc.psFile = L"CubeMap.hlsl";
+		auto shader = GetOrAddHlslShader(L"CubeMap_HLSL", desc);
+		if (shader)
+		{
+			shader->SetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::SkyBoxDepth));
+			shader->SetRasterizerState(RENDER_STATES->GetRS(RasterizerStateType::FrontCounterCW));
+		}
 	}
 }
 

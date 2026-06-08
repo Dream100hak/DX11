@@ -26,8 +26,7 @@ private:
 	shared_ptr<VertexBuffer> _vertexBuffer;
 	shared_ptr<IndexBuffer> _indexBuffer;
 
-	shared_ptr<Shader> _shader; 
-	uint8 _pass = 0;
+	shared_ptr<class HlslShader> _shader;
 
 };
 

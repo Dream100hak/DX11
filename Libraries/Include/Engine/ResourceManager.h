@@ -40,6 +40,7 @@ private:
 	void CreateSSAOShader();
 	void CreateTerrainShader();
 	void CreateDeferredShaders();
+	void CreateEditorMiscShaders();
 
 private:
 	wstring _resourcePath;

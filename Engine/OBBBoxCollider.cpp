@@ -6,6 +6,7 @@
 #include "GeometryHelper.h"
 #include "Material.h"
 #include "Camera.h"
+#include "HlslShader.h"
 
 OBBBoxCollider::OBBBoxCollider() : BaseCollider(ColliderType::OBB)
 {
@@ -23,8 +24,7 @@ void OBBBoxCollider::Start()
 	if (material == nullptr)
 	{
 		material = make_shared<Material>();
-		auto shader = make_shared<Shader>(L"01. Collider.fx");
-		material->SetShader(shader);
+		material->SetHlslShader(RESOURCES->Get<HlslShader>(L"Collider_HLSL"));
 		MaterialDesc& desc = material->GetMaterialDesc();
 		desc.diffuse = Vec4(0.f, 1.f, 0.f, 1.f);
 
@@ -44,7 +44,7 @@ void OBBBoxCollider::Update()
 	if (_material == nullptr || _geometry == nullptr)
 		return;
 
-	auto shader = _material->GetShader();
+	auto shader = _material->GetHlslShader();
 	if (shader == nullptr)
 		return;
 
@@ -56,16 +56,14 @@ void OBBBoxCollider::Update()
 
 	world = matScale * matTranslation;
 
-	shader->PushTransformData(TransformDesc{ world });
-
 	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
-	// GlobalData
 	shader->PushGlobalData(cam->GetViewMatrix(), cam->GetProjectionMatrix());
+	shader->PushTransformData(TransformDesc{ world });
 
 	GetVertexBuffer()->PushData();
 	GetIndexBuffer()->PushData();
 
-	shader->DrawLineIndexed(0, _pass, GetIndexBuffer()->GetCount());
+	shader->DrawLineIndexed(GetIndexBuffer()->GetCount());
 }
 
 bool OBBBoxCollider::Intersects(Ray& ray, OUT float& distance)

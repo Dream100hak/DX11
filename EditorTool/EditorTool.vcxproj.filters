@@ -220,18 +220,6 @@
     <FxCompile Include="..\Shaders\01. Standard.fx">
       <Filter>Shaders\Contents</Filter>
     </FxCompile>
-    <FxCompile Include="..\Shaders\01. Collider.fx">
-      <Filter>Shaders\Contents</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\01. SceneGrid.fx">
-      <Filter>Shaders\Contents</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\01. CubeMap.fx">
-      <Filter>Shaders\Contents</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\01. DebugTexture.fx">
-      <Filter>Shaders\Contents</Filter>
-    </FxCompile>
     <FxCompile Include="..\Shaders\01. Outline.fx">
       <Filter>Shaders\Contents</Filter>
     </FxCompile>

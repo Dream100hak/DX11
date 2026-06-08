@@ -19,20 +19,8 @@ void TextureManager::Init()
 	mat->SetShadowMap(_smap);
 	mat->SetSsaoMap(_ssao->GetAmbientPtr());
 
-	shared_ptr<Shader> debugShader = make_shared<Shader>(L"01. DebugTexture.fx");
-
-	_smapDebugTexture = make_shared<TextureRenderer>();
-	_smapDebugTexture->SetShader(debugShader);
-	_smapDebugTexture->SetDiffuseMap(_smap->GetComPtr().Get());
-
-	_ssaoAmbientDebugTexture = make_shared<TextureRenderer>();
-	_ssaoAmbientDebugTexture->SetShader(debugShader);
-	_ssaoAmbientDebugTexture->SetDiffuseMap(_ssao->GetAmbientPtr().Get());
-
-	_ssaoNormalDebugTexture = make_shared<TextureRenderer>();
-	_ssaoNormalDebugTexture->SetShader(debugShader);
-	_ssaoNormalDebugTexture->SetDiffuseMap(_ssao->GetNormalDepthPtr().Get());
-
+	// 디버그 텍스처는 현재 ImGui::Image(EditorTool::DrawRenderTextures)로 표시하므로
+	// FX11 기반 TextureRenderer 경로(01. DebugTexture.fx)는 사용하지 않음 — 제거.
 }
 
 void TextureManager::Update()

@@ -1,6 +1,8 @@
 #include "pch.h"
 #include "SkyCubeMap.h"
 #include "MeshRenderer.h"
+#include "Material.h"
+#include "HlslShader.h"
 #include "Utils.h"
 
 SkyCubeMap::SkyCubeMap()
@@ -14,15 +16,12 @@ SkyCubeMap::~SkyCubeMap()
 
 void SkyCubeMap::Init(wstring fileName)
 {
-	_shader = make_shared<Shader>(L"01. CubeMap.fx");
-	_cubeMapEffectBuffer = _shader->GetSRV("CubeMap");
-
-	shared_ptr<Material> material = make_shared<Material>();
-	material->SetShader(_shader);
-
 	_cubeMap = RESOURCES->Load<Texture>(L"CubeMap", fileName);
 
-	_cubeMapEffectBuffer->SetResource(_cubeMap->GetComPtr().Get());
+	// FX11 01. CubeMap.fx → HLSL CubeMap.hlsl. 큐브 텍스처는 머티리얼 DiffuseMap(t0)으로 전달.
+	shared_ptr<Material> material = make_shared<Material>();
+	material->SetHlslShader(RESOURCES->Get<HlslShader>(L"CubeMap_HLSL"));
+	material->SetDiffuseMap(_cubeMap);
 
 	if (GetGameObject()->GetMeshRenderer() == nullptr)
 	{

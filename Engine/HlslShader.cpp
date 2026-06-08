@@ -12,11 +12,11 @@ HlslShader::~HlslShader()
 }
 
 // --------------------------------------------------------------------------
-// Create : HlslShaderDescë¥?ë°›ì•„ ê°??°ì´?”ë? ?ì„±?˜ëŠ” ?¨ìˆ˜
+// Create : HlslShaderDescï¿½?ë°›ì•„ ï¿½??ï¿½ì´?ï¿½ï¿½? ?ï¿½ì„±?ï¿½ëŠ” ?ï¿½ìˆ˜
 // --------------------------------------------------------------------------
 void HlslShader::Create(const HlslShaderDesc& desc)
 {
-	// Compute Shader ?„ìš©
+	// Compute Shader ?ï¿½ìš©
 	if (!desc.csFile.empty())
 	{
 		auto csBlob = CompileShaderFromFile(_shaderPath + desc.csFile, desc.csEntry, "cs_5_0");
@@ -25,7 +25,7 @@ void HlslShader::Create(const HlslShaderDesc& desc)
 		return;
 	}
 
-	// VS (?„ìˆ˜)
+	// VS (?ï¿½ìˆ˜)
 	if (!desc.vsFile.empty())
 	{
 		auto vsBlob = CompileShaderFromFile(_shaderPath + desc.vsFile, desc.vsEntry, "vs_5_0");
@@ -34,7 +34,7 @@ void HlslShader::Create(const HlslShaderDesc& desc)
 		CreateInputLayoutFromVS(vsBlob);
 	}
 
-	// PS (? íƒ)
+	// PS (?ï¿½íƒ)
 	if (!desc.psFile.empty())
 	{
 		auto psBlob = CompileShaderFromFile(_shaderPath + desc.psFile, desc.psEntry, "ps_5_0");
@@ -42,7 +42,7 @@ void HlslShader::Create(const HlslShaderDesc& desc)
 		CHECK(hr);
 	}
 
-	// GS (? íƒ)
+	// GS (?ï¿½íƒ)
 	if (!desc.gsFile.empty())
 	{
 		auto gsBlob = CompileShaderFromFile(_shaderPath + desc.gsFile, desc.gsEntry, "gs_5_0");
@@ -50,7 +50,7 @@ void HlslShader::Create(const HlslShaderDesc& desc)
 		CHECK(hr);
 	}
 
-	// HS (? íƒ)
+	// HS (?ï¿½íƒ)
 	if (!desc.hsFile.empty())
 	{
 		auto hsBlob = CompileShaderFromFile(_shaderPath + desc.hsFile, desc.hsEntry, "hs_5_0");
@@ -58,7 +58,7 @@ void HlslShader::Create(const HlslShaderDesc& desc)
 		CHECK(hr);
 	}
 
-	// DS (? íƒ)
+	// DS (?ï¿½íƒ)
 	if (!desc.dsFile.empty())
 	{
 		auto dsBlob = CompileShaderFromFile(_shaderPath + desc.dsFile, desc.dsEntry, "ds_5_0");
@@ -68,7 +68,7 @@ void HlslShader::Create(const HlslShaderDesc& desc)
 }
 
 // --------------------------------------------------------------------------
-// ?Œë” ?íƒœ ?¤ì •
+// ?ï¿½ë” ?ï¿½íƒœ ?ï¿½ì •
 // --------------------------------------------------------------------------
 void HlslShader::SetBlendState(ComPtr<ID3D11BlendState> bs, const float blendFactor[4], UINT sampleMask)
 {
@@ -90,7 +90,7 @@ void HlslShader::SetDepthStencilState(ComPtr<ID3D11DepthStencilState> dss, UINT 
 }
 
 // --------------------------------------------------------------------------
-// Bind : ?Œì´?„ë¼?¸ì— ?°ì´?”ë? ë°”ì¸??
+// Bind : ?ï¿½ì´?ï¿½ë¼?ï¿½ì— ?ï¿½ì´?ï¿½ï¿½? ë°”ì¸??
 // --------------------------------------------------------------------------
 void HlslShader::Bind()
 {
@@ -185,7 +185,7 @@ void HlslShader::SetCSSRV(UINT slot, ID3D11ShaderResourceView* srv)
 }
 
 // --------------------------------------------------------------------------
-// UAV (CS ?„ìš©)
+// UAV (CS ?ï¿½ìš©)
 // --------------------------------------------------------------------------
 void HlslShader::SetCSUAV(UINT slot, ID3D11UnorderedAccessView* uav)
 {
@@ -229,6 +229,13 @@ void HlslShader::DrawIndexed(UINT indexCount, UINT startIndex, INT baseVertex)
 	DCT->DrawIndexed(indexCount, startIndex, baseVertex);
 }
 
+void HlslShader::DrawLineIndexed(UINT indexCount, UINT startIndex, INT baseVertex)
+{
+	DCT->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
+	Bind();
+	DCT->DrawIndexed(indexCount, startIndex, baseVertex);
+}
+
 void HlslShader::DrawInstanced(UINT vertexCountPerInstance, UINT instanceCount, UINT startVertex, UINT startInstance)
 {
 	DCT->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -257,7 +264,7 @@ void HlslShader::Dispatch(UINT x, UINT y, UINT z)
 }
 
 // --------------------------------------------------------------------------
-// Push ?¨ìˆ˜??(ê³µí†µ Shader ?Œë¼ë¯¸í„° ?¤ì •, b0~b6, VS+PS ?™ì‹œ ë°”ì¸??
+// Push ?ï¿½ìˆ˜??(ê³µí†µ Shader ?ï¿½ë¼ë¯¸í„° ?ï¿½ì •, b0~b6, VS+PS ?ï¿½ì‹œ ë°”ì¸??
 // --------------------------------------------------------------------------
 void HlslShader::PushGlobalData(const Matrix& view, const Matrix& projection)
 {
@@ -365,9 +372,9 @@ void HlslShader::PushTweenData(const InstancedTweenDesc& desc)
 	DCT->VSSetConstantBuffers(6, 1, &buf);
 }
 
-// ?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€
-// PushLightArrayData - ë©€???¼ì´??ë°°ì—´ ?„ì†¡
-// ?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€?€
+// ?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½
+// PushLightArrayData - ë©€???ï¿½ì´??ë°°ì—´ ?ï¿½ì†¡
+// ?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½?ï¿½
 void HlslShader::PushLightArrayData(const LightArrayDesc& desc)
 {
 	if (!_lightArrayCB)
@@ -382,7 +389,7 @@ void HlslShader::PushLightArrayData(const LightArrayDesc& desc)
 }
 
 // --------------------------------------------------------------------------
-// Internal : HLSL ?°ì´??ì»´íŒŒ??
+// Internal : HLSL ?ï¿½ì´??ì»´íŒŒ??
 // --------------------------------------------------------------------------
 ComPtr<ID3DBlob> HlslShader::CompileShaderFromFile(const wstring& filePath, const string& entryPoint, const string& target)
 {
@@ -422,7 +429,7 @@ ComPtr<ID3DBlob> HlslShader::CompileShaderFromFile(const wstring& filePath, cons
 }
 
 // --------------------------------------------------------------------------
-// Internal : VS Blob ë¦¬í”Œ?‰ì…˜?¼ë¡œ InputLayout ?ë™ ?ì„±
+// Internal : VS Blob ë¦¬í”Œ?ï¿½ì…˜?ï¿½ë¡œ InputLayout ?ï¿½ë™ ?ï¿½ì„±
 // --------------------------------------------------------------------------
 void HlslShader::CreateInputLayoutFromVS(ComPtr<ID3DBlob> vsBlob)
 {
@@ -454,7 +461,7 @@ void HlslShader::CreateInputLayoutFromVS(ComPtr<ID3DBlob> vsBlob)
 		D3D11_SIGNATURE_PARAMETER_DESC paramDesc;
 		reflection->GetInputParameterDesc(i, &paramDesc);
 
-		// SV_ ?œìŠ¤???œë§¨??InputLayout?ì„œ ?œì™¸
+		// SV_ ?ï¿½ìŠ¤???ï¿½ë§¨??InputLayout?ï¿½ì„œ ?ï¿½ì™¸
 		string semantic = paramDesc.SemanticName;
 		if (semantic.rfind("SV_", 0) == 0)
 			continue;
@@ -467,7 +474,7 @@ void HlslShader::CreateInputLayoutFromVS(ComPtr<ID3DBlob> vsBlob)
 		elem.InstanceDataStepRate = 0;
 		elem.InputSlot = 0;
 
-		// ?¬ë§· ì¶”ë¡  (ê¸°ë³¸)
+		// ?ï¿½ë§· ì¶”ë¡  (ê¸°ë³¸)
 		if      (paramDesc.Mask == 1)   elem.Format = (paramDesc.ComponentType == D3D_REGISTER_COMPONENT_FLOAT32) ? DXGI_FORMAT_R32_FLOAT    : DXGI_FORMAT_R32_UINT;
 		else if (paramDesc.Mask <= 3)   elem.Format = (paramDesc.ComponentType == D3D_REGISTER_COMPONENT_FLOAT32) ? DXGI_FORMAT_R32G32_FLOAT      : DXGI_FORMAT_R32G32_UINT;
 		else if (paramDesc.Mask <= 7)   elem.Format = (paramDesc.ComponentType == D3D_REGISTER_COMPONENT_FLOAT32) ? DXGI_FORMAT_R32G32B32_FLOAT   : DXGI_FORMAT_R32G32B32_UINT;
@@ -476,11 +483,11 @@ void HlslShader::CreateInputLayoutFromVS(ComPtr<ID3DBlob> vsBlob)
 		string name = semantic;
 		transform(name.begin(), name.end(), name.begin(), ::toupper);
 
-		// POSITION?€ ??ƒ R32G32B32_FLOAT
+		// POSITION?ï¿½ ??ï¿½ï¿½ R32G32B32_FLOAT
 		if (name == "POSITION")
 			elem.Format = DXGI_FORMAT_R32G32B32_FLOAT;
 
-		// INST* (Instancing) ?ëŠ” PICKED??InputSlot 1??? ë‹¹
+		// INST* (Instancing) ?ï¿½ëŠ” PICKED??InputSlot 1???ï¿½ë‹¹
 		if (name.rfind("INST", 0) == 0 || name == "PICKED")
 		{
 			elem.InputSlot = 1;
@@ -491,8 +498,8 @@ void HlslShader::CreateInputLayoutFromVS(ComPtr<ID3DBlob> vsBlob)
 				elem.Format = DXGI_FORMAT_R32_UINT;
 		}
 
-		// INST_WORLD (matrix): 4ê°œì˜ float4ë¡?ë¶„ë¦¬ - ë¦¬í”Œ?‰ì…˜??index 0~3???„í•´
-		// index 0?ì„œë§?4ê°?ì¶”ê??˜ê³ , ?˜ë¨¸ì§€ index(1~3)???¤í‚µ
+		// INST_WORLD (matrix): 4ê°œì˜ float4ï¿½?ë¶„ë¦¬ - ë¦¬í”Œ?ï¿½ì…˜??index 0~3???ï¿½í•´
+		// index 0?ï¿½ì„œï¿½?4ï¿½?ì¶”ï¿½??ï¿½ê³ , ?ï¿½ë¨¸ì§€ index(1~3)???ï¿½í‚µ
 		if (name == "INST_WORLD")
 		{
 			if (paramDesc.SemanticIndex == 0)
@@ -510,13 +517,13 @@ void HlslShader::CreateInputLayoutFromVS(ComPtr<ID3DBlob> vsBlob)
 					inputLayout.push_back(matElem);
 				}
 			}
-			continue;  // index 0~3 ëª¨ë‘ ?¤í‚µ (?„ì—???´ë? 4ê°?ì¶”ê???
+			continue;  // index 0~3 ëª¨ë‘ ?ï¿½í‚µ (?ï¿½ì—???ï¿½ï¿½? 4ï¿½?ì¶”ï¿½???
 		}
 
 		inputLayout.push_back(elem);
 	}
 
-	// InputLayout???ˆëŠ” ê²½ìš°?ë§Œ ?ì„±
+	// InputLayout???ï¿½ëŠ” ê²½ìš°?ï¿½ë§Œ ?ï¿½ì„±
 	if (!inputLayout.empty())
 	{
 		hr = DEVICE->CreateInputLayout(
@@ -529,7 +536,7 @@ void HlslShader::CreateInputLayoutFromVS(ComPtr<ID3DBlob> vsBlob)
 
 		if (FAILED(hr))
 		{
-			// ?¤ë¥˜ ë¡œê·¸
+			// ?ï¿½ë¥˜ ë¡œê·¸
 			assert(false && "HlslShader: CreateInputLayout failed");
 			return;
 		}

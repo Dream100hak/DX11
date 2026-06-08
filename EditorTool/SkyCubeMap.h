@@ -13,12 +13,7 @@ public:
 
 private:
 
-	shared_ptr<Shader> _shader = nullptr;
 	shared_ptr<Texture> _cubeMap = nullptr;
-
-
-	ComPtr<ID3DX11EffectShaderResourceVariable> _cubeMapEffectBuffer;
-
 
 };
 

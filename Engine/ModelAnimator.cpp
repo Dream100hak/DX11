@@ -89,6 +89,44 @@ void ModelAnimator::Draw(const RenderContext& ctx)
 		return;
 	}
 
+	// ── Preview/Thumbnail lit 경로 (HLSL) : override 없는 포워드 = 프리뷰 ──
+	if (ctx.shaderOverride == nullptr && ctx.buffer != nullptr)
+	{
+		auto lit = RESOURCES->Get<HlslShader>(L"AnimPreview_HLSL");
+		if (lit)
+		{
+			lit->Bind();
+			lit->PushGlobalData(ctx.view, ctx.proj);
+			lit->SetVSSRV(5, _srv.Get()); // TransformMap (t5)
+
+			// 트윈(b6) — 프리뷰는 InstancingManager 를 안 거치므로 직접 push
+			auto tween = make_shared<InstancedTweenDesc>();
+			tween->tweens[0] = _tweenDesc;
+			lit->PushTweenData(*tween);
+
+			const auto& meshes = _model->GetMeshes();
+			for (auto& mesh : meshes)
+			{
+				if (mesh->material)
+				{
+					MaterialDesc& md = mesh->material->GetMaterialDesc();
+					md.useTexture = mesh->material->GetDiffuseMap() ? 1 : 0;
+					lit->PushMaterialData(md);
+					auto diffuse = mesh->material->GetDiffuseMap();
+					lit->SetPSSRV(0, diffuse ? diffuse->GetComPtr().Get() : nullptr);
+				}
+				RENDER_STATES->BindAllSamplersPS();
+
+				mesh->vertexBuffer->PushData();
+				mesh->indexBuffer->PushData();
+				ctx.buffer->PushData();
+
+				lit->DrawIndexedInstanced(mesh->indexBuffer->GetCount(), ctx.buffer->GetCount());
+			}
+			return;
+		}
+	}
+
 	_shader->PushGlobalData(ctx.view, ctx.proj);
 
 	auto buf = ctx.buffer;

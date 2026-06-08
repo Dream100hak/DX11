@@ -252,6 +252,26 @@ void ResourceManager::CreateEditorMiscShaders()
 			shader->SetRasterizerState(RENDER_STATES->GetRS(RasterizerStateType::FrontCounterCW));
 		}
 	}
+
+	// 모델 프리뷰/썸네일 (정적) — VS_Model + PS_PreviewLit. FX Standard/Thumbnail 대체
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Standard_VS.hlsl";
+		desc.psFile  = L"Thumbnail.hlsl";
+		desc.vsEntry = "VS_Model";
+		desc.psEntry = "PS_PreviewLit";
+		GetOrAddHlslShader(L"ModelPreview_HLSL", desc);
+	}
+
+	// 모델 프리뷰/썸네일 (애니메이션) — VS_Animation + PS_PreviewLit
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Standard_VS.hlsl";
+		desc.psFile  = L"Thumbnail.hlsl";
+		desc.vsEntry = "VS_Animation";
+		desc.psEntry = "PS_PreviewLit";
+		GetOrAddHlslShader(L"AnimPreview_HLSL", desc);
+	}
 }
 
 void ResourceManager::CreateTerrainShader()

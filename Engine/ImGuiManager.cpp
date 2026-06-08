@@ -4,6 +4,7 @@
 #include "MeshRenderer.h"
 #include "Material.h"
 #include "ModelRenderer.h"
+#include "ModelAnimator.h"
 #include "Light.h"
 
 #include "Model.h"
@@ -222,6 +223,36 @@ int32 ImGuiManager::CreateModelMesh(shared_ptr<Model> model, Vec3 position /*= V
 	obj->AddComponent(make_shared<ModelRenderer>(shader));
 	obj->GetModelRenderer()->SetModel(model);
 	obj->GetModelRenderer()->SetPass(1);
+
+	CUR_SCENE->Add(obj);
+
+	return obj->GetId();
+}
+
+int32 ImGuiManager::CreateModelAnimatorMesh(shared_ptr<Model> model, Vec3 position /*= Vec3(0,0,0)*/, int32 animIndex /*= 0*/)
+{
+	auto obj = make_shared<GameObject>();
+	auto shader = RESOURCES->Get<Shader>(L"Standard");
+
+	BoundingBox box = model->CalculateModelBoundingBox();
+	float modelScale = max(max(box.Extents.x, box.Extents.y), box.Extents.z) * 2.0f;
+	float globalScale = MODEL_GLOBAL_SCALE;
+
+	if (modelScale > 10.f)
+		modelScale = globalScale;
+
+	float scale = (globalScale / modelScale) * 6;
+
+	obj->SetObjectName(FindEmptyName(CreatedObjType::MODEL));
+	obj->GetOrAddTransform()->SetPosition(position);
+	obj->GetOrAddTransform()->SetRotation(Vec3(0, 0, 0));
+	obj->GetOrAddTransform()->SetScale(Vec3(scale, scale, scale));
+
+	obj->AddComponent(make_shared<ModelAnimator>(shader));
+	obj->GetModelAnimator()->SetModel(model);
+	obj->GetModelAnimator()->SetPass(2);
+	if (animIndex >= 0)
+		obj->GetModelAnimator()->GetTweenDesc().curr.animIndex = animIndex;
 
 	CUR_SCENE->Add(obj);
 

@@ -192,6 +192,48 @@ void ModelRenderer::Draw(const RenderContext& ctx)
 		return;
 	}
 
+	// ── Preview/Thumbnail lit 경로 (HLSL) : override 없는 포워드 = 프리뷰 ──
+	// FX Standard/Thumbnail 프리뷰 렌더를 HLSL 로 대체 (FX 상태 누수로 인한 씬 오염 해소)
+	if (ctx.shaderOverride == nullptr)
+	{
+		auto lit = RESOURCES->Get<HlslShader>(L"ModelPreview_HLSL");
+		if (lit)
+		{
+			lit->Bind();
+			lit->PushGlobalData(ctx.view, ctx.proj);
+			if (!ctx.buffer)
+				lit->PushTransformData(TransformDesc{ GetTransform()->GetWorldMatrix() });
+
+			const auto& meshes = _model->GetMeshes();
+			for (auto& mesh : meshes)
+			{
+				lit->PushModelBoneData(_model->GetBoneByIndex(mesh->boneIndex)->transform);
+
+				if (mesh->material)
+				{
+					MaterialDesc& md = mesh->material->GetMaterialDesc();
+					md.useTexture = mesh->material->GetDiffuseMap() ? 1 : 0;
+					lit->PushMaterialData(md);
+					auto diffuse = mesh->material->GetDiffuseMap();
+					lit->SetPSSRV(0, diffuse ? diffuse->GetComPtr().Get() : nullptr);
+				}
+				RENDER_STATES->BindAllSamplersPS();
+
+				mesh->vertexBuffer->PushData();
+				mesh->indexBuffer->PushData();
+
+				if (!ctx.buffer)
+					lit->DrawIndexed(mesh->indexBuffer->GetCount(), 0, 0);
+				else
+				{
+					ctx.buffer->PushData();
+					lit->DrawIndexedInstanced(mesh->indexBuffer->GetCount(), ctx.buffer->GetCount());
+				}
+			}
+			return;
+		}
+	}
+
 	auto prevShader = _shader;
 	if (ctx.shaderOverride)
 		ChangeShader(ctx.shaderOverride);

@@ -45,6 +45,7 @@ public:
 
 	int32 CreateMesh(CreatedObjType type);
 	int32 CreateModelMesh(shared_ptr<Model> model, Vec3 position = Vec3(0, 0, 0));
+	int32 CreateModelAnimatorMesh(shared_ptr<Model> model, Vec3 position = Vec3(0, 0, 0), int32 animIndex = 0);
 	int32 CreateLight(int32 lightType);
 
 	// �ӽ� Enum �� String ��ȯ (magic_enum �߰� ��)

@@ -178,6 +178,12 @@ void Camera::Render_Deferred()
 	_gBuffer->Clear();
 	_gBuffer->BindAsTarget();
 
+	// 외부 패스(인스펙터 프리뷰 FX 렌더 등)가 남긴 렌더 상태에 영향받지 않도록
+	// 불투명 GBuffer fill 상태를 명시적으로 강제한다.
+	DCT->OMSetBlendState(RENDER_STATES->GetBS(BlendStateType::Default).Get(), nullptr, 0xFFFFFFFF);
+	DCT->OMSetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::Default).Get(), 0);
+	DCT->RSSetState(RENDER_STATES->GetRS(RasterizerStateType::SolidCullBack).Get());
+
 	RenderContext gbufCtx;
 	gbufCtx.view = V;
 	gbufCtx.proj = P;

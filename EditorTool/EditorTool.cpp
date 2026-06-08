@@ -222,30 +222,30 @@ void EditorTool::Init()
 	 //}
 		//{
 
-		//	shared_ptr<class Model> m2 = make_shared<Model>();
-		//	m2->ReadModel(L"Kachujin/Kachujin");
-		//	m2->ReadMaterial(L"Kachujin/Kachujin");
-		//	m2->ReadAnimation(L"Kachujin/Idle");
-		//	m2->ReadAnimation(L"Kachujin/Run");
-		//	m2->ReadAnimation(L"Kachujin/Slash");
+		//	shared_ptr<class model> m2 = make_shared<model>();
+		//	m2->readmodel(l"kachujin/kachujin");
+		//	m2->readmaterial(l"kachujin/kachujin");
+		//	m2->readanimation(l"kachujin/idle");
+		//	m2->readanimation(l"kachujin/run");
+		//	m2->readanimation(l"kachujin/slash");
 
 		//	for (int i = 200; i < 201; i++)
 		//	{
-		//		auto obj = make_shared<GameObject>();
-		//		wstring name = L"Ani_" + to_wstring(i);
-		//		obj->SetObjectName(name);
+		//		auto obj = make_shared<gameobject>();
+		//		wstring name = l"ani_" + to_wstring(i);
+		//		obj->setobjectname(name);
 
-		//		float randX = MathUtils::Random(100.f, 150.f);
-		//		float randZ = MathUtils::Random(-20.f, 20.f);
+		//		float randx = mathutils::random(100.f, 150.f);
+		//		float randz = mathutils::random(-20.f, 20.f);
 
-		//		obj->GetOrAddTransform()->SetPosition(Vec3(randX, 0, randZ));
-		//		//obj->GetOrAddTransform()->SetScale(Vec3(0.1f));
+		//		obj->getoraddtransform()->setposition(vec3(randx, 0, randz));
+		//		//obj->getoraddtransform()->setscale(vec3(0.1f));
 
-		//		obj->AddComponent(make_shared<ModelAnimator>(shader));
-		//		obj->GetModelAnimator()->SetModel(m2);
-		//		obj->GetModelAnimator()->SetPass(2);
+		//		obj->addcomponent(make_shared<modelanimator>(shader));
+		//		obj->getmodelanimator()->setmodel(m2);
+		//		obj->getmodelanimator()->setpass(2);
 
-		//		CUR_SCENE->Add(obj);
+		//		cur_scene->add(obj);
 		//	}
 		//}
 	

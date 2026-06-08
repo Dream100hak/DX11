@@ -10,12 +10,13 @@
 #include "Light.h"
 #include "SceneGrid.h"
 #include "FolderContents.h"
-#include "RenderContext.h"  // ? Ãß°¡
-#include "MeshRenderer.h"   // ? Ãß°¡
-#include "ModelRenderer.h"  // ? Ãß°¡
-#include "ModelAnimator.h"  // ? Ãß°¡
+#include "RenderContext.h"  // ? ï¿½ß°ï¿½
+#include "MeshRenderer.h"   // ? ï¿½ß°ï¿½
+#include "ModelRenderer.h"  // ? ï¿½ß°ï¿½
+#include "ModelAnimator.h"  // ? ï¿½ß°ï¿½
 
 #include "Model.h"
+#include <filesystem>
 
 const char* SceneWindow::s_translationInfoMask[] = { "X : %5.3f", "Y : %5.3f", "Z : %5.3f",
    "Y : %5.3f Z : %5.3f", "X : %5.3f Z : %5.3f", "X : %5.3f Y : %5.3f",
@@ -37,7 +38,7 @@ SceneWindow::~SceneWindow()
 
 void SceneWindow::Init()
 {
-	// ? ·»´õ Å¸°Ù »ı¼º (ÃÊ±â Å©±â: 800x530)
+	// ? ï¿½ï¿½ï¿½ï¿½ Å¸ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ (ï¿½Ê±ï¿½ Å©ï¿½ï¿½: 800x530)
 	CreateRenderTarget(_sceneWidth, _sceneHeight);
 }
 
@@ -46,7 +47,7 @@ void SceneWindow::CreateRenderTarget(uint32 width, uint32 height)
 	_sceneWidth = width;
 	_sceneHeight = height;
 
-	// ? 1. Texture2D »ı¼º (RTV + SRV¿ë)
+	// ? 1. Texture2D ï¿½ï¿½ï¿½ï¿½ (RTV + SRVï¿½ï¿½)
 	{
 		D3D11_TEXTURE2D_DESC texDesc;
 		ZeroMemory(&texDesc, sizeof(texDesc));
@@ -66,7 +67,7 @@ void SceneWindow::CreateRenderTarget(uint32 width, uint32 height)
 		CHECK(hr);
 	}
 
-	// ? 2. RenderTargetView »ı¼º
+	// ? 2. RenderTargetView ï¿½ï¿½ï¿½ï¿½
 	{
 		D3D11_RENDER_TARGET_VIEW_DESC rtvDesc;
 		ZeroMemory(&rtvDesc, sizeof(rtvDesc));
@@ -77,7 +78,7 @@ void SceneWindow::CreateRenderTarget(uint32 width, uint32 height)
 		CHECK(hr);
 	}
 
-	// ? 3. ShaderResourceView »ı¼º (ImGui¿¡¼­ Ç¥½Ã¿ë)
+	// ? 3. ShaderResourceView ï¿½ï¿½ï¿½ï¿½ (ImGuiï¿½ï¿½ï¿½ï¿½ Ç¥ï¿½Ã¿ï¿½)
 	{
 		D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
 		ZeroMemory(&srvDesc, sizeof(srvDesc));
@@ -90,7 +91,7 @@ void SceneWindow::CreateRenderTarget(uint32 width, uint32 height)
 		CHECK(hr);
 	}
 
-	// ? 4. DepthStencil »ı¼º
+	// ? 4. DepthStencil ï¿½ï¿½ï¿½ï¿½
 	{
 		D3D11_TEXTURE2D_DESC depthDesc;
 		ZeroMemory(&depthDesc, sizeof(depthDesc));
@@ -120,22 +121,22 @@ void SceneWindow::CreateRenderTarget(uint32 width, uint32 height)
 		CHECK(hr);
 	}
 
-	// ? 5. Viewport ¼³Á¤
+	// ? 5. Viewport ï¿½ï¿½ï¿½ï¿½
 	_sceneViewport.Set(width, height, 0, 0);
 }
 
 void SceneWindow::RenderScene()
 {
-	// ? ·»´õ Å¸°ÙÀ» SceneWindow¿ëÀ¸·Î º¯°æ
+	// ? ï¿½ï¿½ï¿½ï¿½ Å¸ï¿½ï¿½ï¿½ï¿½ SceneWindowï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 	_sceneViewport.RSSetViewport();
 	DCT->OMSetRenderTargets(1, _sceneRTV.GetAddressOf(), _sceneDSV.Get());
 	
-	// ? ¼öÁ¤: Color ÀÓ½Ã º¯¼ö »ç¿ë
+	// ? ï¿½ï¿½ï¿½ï¿½: Color ï¿½Ó½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½
 	Color clearColor(0.2f, 0.2f, 0.2f, 1.0f);
 	DCT->ClearRenderTargetView(_sceneRTV.Get(), (float*)&clearColor);
 	DCT->ClearDepthStencilView(_sceneDSV.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
-	// ? Scene ·»´õ¸µ (±âÁ¸ ·ÎÁ÷)
+	// ? Scene ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
 	auto scene = SCENE->GetCurrentScene();
 	if (!scene) return;
 
@@ -147,11 +148,11 @@ void SceneWindow::RenderScene()
 
 	if (!camera) return;
 
-	// ? Ä«¸Ş¶ó Á¤·Ä ¹× ·»´õ¸µ
+	// ? Ä«ï¿½Ş¶ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	camera->SortGameObject();
 	camera->Render_Forward();
 
-	// ? SceneWindow RT »ç¿ë ¿Ï·á ¡æ ¸ŞÀÎ ¹é¹öÆÛ RTV·Î º¹±¸ (ImGui°¡ ¹é¹öÆÛ¿¡ ±×·ÁÁöµµ·Ï)
+	// ? SceneWindow RT ï¿½ï¿½ï¿½ ï¿½Ï·ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ RTVï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ (ImGuiï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Û¿ï¿½ ï¿½×·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)
 	GRAPHICS->RestoreMainRenderTarget();
 }
 
@@ -163,7 +164,7 @@ void SceneWindow::Update()
 
 void SceneWindow::Render()
 {
-	// ? Ãß°¡: SceneWindow ·»´õ¸µ ÇÔ¼ö (¸ŞÀÎ ·»´õ¸µ ·çÇÁ¿¡¼­ È£ÃâµÊ)
+	// ? ï¿½ß°ï¿½: SceneWindow ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ô¼ï¿½ (ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ È£ï¿½ï¿½ï¿½)
 }
 
 void SceneWindow::ShowSceneWindow()
@@ -190,17 +191,34 @@ void SceneWindow::ShowSceneWindow()
 			shared_ptr<GameObject> obj =  prviewObjs[droppedMesh->fileFullPath + L"/" + droppedMesh->fileName];
 			CUR_SCENE->Remove(obj);
 		
-			shared_ptr<Model> model = make_shared<Model>();
-			wstring modelName = droppedMesh->fileName.substr(0, droppedMesh->fileName.find('.'));
-			model->ReadModel(modelName + L'/' + modelName);
-			model->ReadMaterialByXml(modelName + L'/' + modelName);
-
-			int32 id = GUI->CreateModelMesh(model , obj->GetTransform()->GetPosition());
-			CUR_SCENE->UnPickAll();
-			TOOL->SetSelectedObjH(id);
-			
-			shared_ptr<GameObject> makeObj = CUR_SCENE->GetCreatedObject(id);
-			CUR_SCENE->GetCreatedObject(id)->SetUIPicked(true);
+			int32 id = -1;
+			if (droppedMesh->metaType == MetaType::CLIP)
+			{
+				// í´ë¦½ ë“œë¡­ â†’ ì• ë‹ˆë©”ì´í„° ë°°ì¹˜ (í´ë”ëª… = ëª¨ë¸ëª…, ëª¨ë¸ì€ ì´ë¯¸ ë¡œë“œë¨)
+				wstring modelName = filesystem::path(droppedMesh->fileFullPath).filename().wstring();
+				wstring modelPath = droppedMesh->fileFullPath + L'/' + modelName;
+				auto model = RESOURCES->Get<Model>(modelPath);
+				if (model)
+				{
+					int32 animIndex = model->GetAnimIndexByFileName(droppedMesh->fileName);
+					id = GUI->CreateModelAnimatorMesh(model, obj->GetTransform()->GetPosition(), animIndex);
+				}
+			}
+			else
+			{
+				// ë©”ì‹œ ë“œë¡­ â†’ ì •ì  ëª¨ë¸ ë°°ì¹˜
+				shared_ptr<Model> model = make_shared<Model>();
+				wstring modelName = droppedMesh->fileName.substr(0, droppedMesh->fileName.find('.'));
+				model->ReadModel(modelName + L'/' + modelName);
+				model->ReadMaterialByXml(modelName + L'/' + modelName);
+				id = GUI->CreateModelMesh(model, obj->GetTransform()->GetPosition());
+			}
+			if (id != -1)
+			{
+				CUR_SCENE->UnPickAll();
+				TOOL->SetSelectedObjH(id);
+				CUR_SCENE->GetCreatedObject(id)->SetUIPicked(true);
+			}
 
 			ADDLOG("Create Object : " + Utils::ToString(droppedMesh->fileName) , LogFilter::Warn);
 			SetCursor(LoadCursor(NULL, IDC_ARROW));
@@ -566,7 +584,7 @@ float SceneWindow::IntersectRayPlane(const XMVECTOR& rOrigin, const XMVECTOR& rV
 	float denom = Dot3(plane, rVector);
 
 	if (fabsf(denom) < FLT_EPSILON) {
-		return -1.0f;  // Æò¸é°ú ·¹ÀÌ°¡ ÆòÇàÇÏ¸é ±³Â÷Á¡ ¾øÀ½
+		return -1.0f;  // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ì°ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 	}
 
 	return -(numer / denom);
@@ -920,16 +938,16 @@ void SceneWindow::DrawTranslationGizmo(OPERATION op, int32 type)
 	Vec3 camToGizmoDir = _model.Translation() - MAIN_CAM->GetTransform()->GetLocalPosition();
 	camToGizmoDir.Normalize();
 
-	// Ä«¸Ş¶ó ½Ã¼± ¹æÇâ
+	// Ä«ï¿½Ş¶ï¿½ ï¿½Ã¼ï¿½ ï¿½ï¿½ï¿½ï¿½
 	Vec3 camForwardDir = MAIN_CAM->GetTransform()->GetLook();
 	camForwardDir.Normalize();
 
-	// °¢µµ °è»ê
+	// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½
 	float dotProduct = camToGizmoDir.Dot(camForwardDir);
 	float angle = acos(dotProduct);
 
-	// ±âÁî¸ğ °¡½Ã¼º °áÁ¤
-	if (angle >= MathUtils::PI / 2) // 90µµ ÀÌ»óÀÌ¸é return
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ã¼ï¿½ ï¿½ï¿½ï¿½ï¿½
+	if (angle >= MathUtils::PI / 2) // 90ï¿½ï¿½ ï¿½Ì»ï¿½ï¿½Ì¸ï¿½ return
 		return;
 
 	for (int i = 0; i < 3; ++i)

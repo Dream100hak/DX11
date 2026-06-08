@@ -9,6 +9,7 @@
 #include "Camera.h"
 #include "MathUtils.h"
 #include "RenderContext.h"
+#include "HlslShader.h"
 
 void InstancingManager::Render(const RenderContext& baseCtx, vector<shared_ptr<GameObject>>& gameObjects)
 {
@@ -40,7 +41,7 @@ void InstancingManager::RenderStaticObject(const RenderContext& baseCtx, vector<
 			AddData(id, data);
 		}
 
-		// RenderContext º¹»ç ÈÄ buffer ¼³Á¤
+		// RenderContext ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ buffer ï¿½ï¿½ï¿½ï¿½
 		RenderContext ctx = baseCtx;
 		ctx.buffer = _buffers[id];
 
@@ -75,9 +76,16 @@ void InstancingManager::RenderAnimRenderer(const RenderContext& baseCtx, vector<
 			tweenDesc->tweens[i] = vec[i]->GetModelAnimator()->GetTweenDesc();
 		}
 
-		vec[0]->GetModelAnimator()->GetShader()->PushTweenData(*tweenDesc);
+		// ë””í¼ë“œ: HLSL ì• ë‹ˆ ì…°ì´ë”(b6)ë¡œ, ê·¸ ì™¸: ê¸°ì¡´ FX ì…°ì´ë”ë¡œ íŠ¸ìœˆ ë°ì´í„° push
+		if (baseCtx.deferredPass)
+		{
+			if (auto animShader = RESOURCES->Get<HlslShader>(L"GBufferAnim_HLSL"))
+				animShader->PushTweenData(*tweenDesc);
+		}
+		else
+			vec[0]->GetModelAnimator()->GetShader()->PushTweenData(*tweenDesc);
 
-		// RenderContext º¹»ç ÈÄ buffer ¼³Á¤
+		// RenderContext ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ buffer ï¿½ï¿½ï¿½ï¿½
 		RenderContext ctx = baseCtx;
 		ctx.buffer = _buffers[id];
 

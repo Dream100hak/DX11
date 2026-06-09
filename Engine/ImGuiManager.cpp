@@ -107,13 +107,6 @@ int32 ImGuiManager::CreateMesh(CreatedObjType type)
 	auto mat = RESOURCES->Get<Material>(L"DefaultMaterial")->Clone();
 	mat->GetMaterialDesc().lightCount = MAX_LIGHTS;
 	mat->SetRenderQueue(RenderQueue::Opaque);
-	
-	if (!mat->GetHlslShader())
-	{
-		auto shader = RESOURCES->Get<Shader>(L"Standard");
-		if (shader)
-			mat->SetShader(shader);
-	}
 
 	wstring name;
 
@@ -201,7 +194,6 @@ int32 ImGuiManager::CreateLight(int32 lightType)
 int32 ImGuiManager::CreateModelMesh(shared_ptr<Model> model, Vec3 position /*= Vec3(0,0,0)*/)
 {
 	auto obj = make_shared<GameObject>();
-	auto shader = RESOURCES->Get<Shader>(L"Standard");
 
 	BoundingBox box = model->CalculateModelBoundingBox();
 	float modelScale = max(max(box.Extents.x, box.Extents.y), box.Extents.z) * 2.0f;
@@ -220,9 +212,8 @@ int32 ImGuiManager::CreateModelMesh(shared_ptr<Model> model, Vec3 position /*= V
 	obj->GetOrAddTransform()->SetRotation(Vec3(0, 0, 0));
 	obj->GetOrAddTransform()->SetScale(Vec3(scale, scale, scale));
 
-	obj->AddComponent(make_shared<ModelRenderer>(shader));
+	obj->AddComponent(make_shared<ModelRenderer>());
 	obj->GetModelRenderer()->SetModel(model);
-	obj->GetModelRenderer()->SetPass(1);
 
 	CUR_SCENE->Add(obj);
 
@@ -232,7 +223,6 @@ int32 ImGuiManager::CreateModelMesh(shared_ptr<Model> model, Vec3 position /*= V
 int32 ImGuiManager::CreateModelAnimatorMesh(shared_ptr<Model> model, Vec3 position /*= Vec3(0,0,0)*/, int32 animIndex /*= 0*/)
 {
 	auto obj = make_shared<GameObject>();
-	auto shader = RESOURCES->Get<Shader>(L"Standard");
 
 	BoundingBox box = model->CalculateModelBoundingBox();
 	float modelScale = max(max(box.Extents.x, box.Extents.y), box.Extents.z) * 2.0f;
@@ -248,9 +238,8 @@ int32 ImGuiManager::CreateModelAnimatorMesh(shared_ptr<Model> model, Vec3 positi
 	obj->GetOrAddTransform()->SetRotation(Vec3(0, 0, 0));
 	obj->GetOrAddTransform()->SetScale(Vec3(scale, scale, scale));
 
-	obj->AddComponent(make_shared<ModelAnimator>(shader));
+	obj->AddComponent(make_shared<ModelAnimator>());
 	obj->GetModelAnimator()->SetModel(model);
-	obj->GetModelAnimator()->SetPass(2);
 	if (animIndex >= 0)
 		obj->GetModelAnimator()->GetTweenDesc().curr.animIndex = animIndex;
 

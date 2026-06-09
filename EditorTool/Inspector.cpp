@@ -716,7 +716,6 @@ void Inspector::CreateMeshPreviewObj()
 	wstring modelName = metaData->fileName.substr(0, metaData->fileName.find('.'));
 	wstring modelPath = metaData->fileFullPath + L'/' + modelName;
 
-	auto shader = RESOURCES->Get<Shader>(L"Thumbnail");
 	auto model = RESOURCES->Get<Model>(modelPath);
 
 	BoundingBox box = model->CalculateModelBoundingBox();
@@ -735,9 +734,8 @@ void Inspector::CreateMeshPreviewObj()
 	_meshPreviewObj->GetOrAddTransform()->SetRotation(Vec3(0.f, 0.f, 0.f));
 	_meshPreviewObj->GetOrAddTransform()->SetScale(Vec3(scale, scale, scale));
 
-	_meshPreviewObj->AddComponent(make_shared<ModelRenderer>(shader));
+	_meshPreviewObj->AddComponent(make_shared<ModelRenderer>());
 	_meshPreviewObj->GetModelRenderer()->SetModel(model);
-	_meshPreviewObj->GetModelRenderer()->SetPass(1);
 }
 
 
@@ -752,7 +750,6 @@ void Inspector::CreateAniPreviewObj()
 	wstring modelName = path.filename().wstring();
 	wstring modelPath = metaData->fileFullPath + L'/' + modelName;
 
-	auto shader = RESOURCES->Get<Shader>(L"Standard");
 	auto model = RESOURCES->Get<Model>(modelPath);
 
 	BoundingBox box = model->CalculateModelBoundingBox();
@@ -771,9 +768,8 @@ void Inspector::CreateAniPreviewObj()
 	_meshPreviewObj->GetOrAddTransform()->SetRotation(Vec3(0.f, 0.f, 0.f));
 	_meshPreviewObj->GetOrAddTransform()->SetScale(Vec3(scale, scale, scale));
 
-	_meshPreviewObj->AddComponent(make_shared<ModelAnimator>(shader));
+	_meshPreviewObj->AddComponent(make_shared<ModelAnimator>());
 	_meshPreviewObj->GetModelAnimator()->SetModel(model);
-	_meshPreviewObj->GetModelAnimator()->SetPass(2);
 
 	_meshPreviewCamera->GetTransform()->SetParent(_meshPreviewObj->GetTransform());
 }

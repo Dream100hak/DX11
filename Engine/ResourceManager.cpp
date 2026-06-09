@@ -77,31 +77,20 @@ void ResourceManager::CreateDefaultMesh()
 
 void ResourceManager::CreateDefaultShader()
 {
-	// HlslShader Standard 셰이더
+	// HlslShader Standard 셰이더 (FX 01. Standard.fx 는 제거됨)
 	HlslShaderDesc hlslDesc;
 	hlslDesc.vsFile  = L"Standard_VS.hlsl";
 	hlslDesc.psFile  = L"Standard_PS.hlsl";
 	hlslDesc.vsEntry = "VS_Mesh";   // Standard_VS.hlsl 의 엔트리포인트
 	hlslDesc.psEntry = "PS_Main";
 	GetOrAddHlslShader(L"Standard_HLSL", hlslDesc);
-
-	// 임시 FX11 Standard (Terrain 등 컴포넌트가 참조하므로 잠시 유지)
-	shared_ptr<Shader> shader = make_shared<Shader>(L"01. Standard.fx");
-	Add(L"Standard", shader);
 }
 
 void ResourceManager::CreateDefaultMaterial()
 {
 	// HlslShader 용 기본 머티리얼
-	auto hlslShader = Get<HlslShader>(L"Standard_HLSL");
 	shared_ptr<Material> material = make_shared<Material>();
-	if (hlslShader)
-		material->SetHlslShader(hlslShader);
-	else
-	{
-		auto shader = Get<Shader>(L"Standard");
-		material->SetShader(shader);
-	}
+	material->SetHlslShader(Get<HlslShader>(L"Standard_HLSL"));
 	MaterialDesc& desc = material->GetMaterialDesc();
 	RESOURCES->Add(L"DefaultMaterial", material);
 }
@@ -138,10 +127,6 @@ void ResourceManager::CreateShadowMapShader()
 		desc.psEntry = "PS_AlphaClip";
 		if (auto s = GetOrAddHlslShader(L"ShadowAnim_HLSL", desc)) s->SetRasterizerState(shadowRS);
 	}
-
-	// 임시 FX11 (Terrain 그림자 용 — Terrain_Shadow_HLSL 로 대체 진행 중)
-	shared_ptr<Shader> shader = make_shared<Shader>(L"00. ShadowMap.fx");
-	RESOURCES->Add(L"Shadow", shader);
 }
 
 void ResourceManager::CreateOutlineShader()
@@ -157,17 +142,13 @@ void ResourceManager::CreateOutlineShader()
 
 void ResourceManager::CreateThumbnailShader()
 {
-	// HLSL
+	// HLSL (FX 01. Thumbnail.fx 는 제거됨 — 프리뷰는 ModelPreview_HLSL/AnimPreview_HLSL)
 	HlslShaderDesc desc;
 	desc.vsFile  = L"Standard_VS.hlsl";
 	desc.psFile  = L"Thumbnail.hlsl";
 	desc.vsEntry = "VS_Mesh";   // Standard_VS.hlsl 의 엔트리포인트
 	desc.psEntry = "PS_Solid";
 	GetOrAddHlslShader(L"Thumbnail_HLSL", desc);
-
-	// 임시 FX11
-	shared_ptr<Shader> shader = make_shared<Shader>(L"01. Thumbnail.fx");
-	RESOURCES->Add(L"Thumbnail", shader);
 }
 
 void ResourceManager::CreateSSAOShader()

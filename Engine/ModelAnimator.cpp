@@ -13,12 +13,9 @@
 #include "RenderContext.h"
 #include "ResourceManager.h"
 
-ModelAnimator::ModelAnimator(shared_ptr<Shader> shader)
-	: Super(RendererType::Animator), _shader(shader)
+ModelAnimator::ModelAnimator()
+	: Super(RendererType::Animator)
 {
-	// TEST
-//	_tweenDesc.next.animIndex = rand() % 3;
-//	_tweenDesc.tweenSumTime += rand() % 100;
 }
 
 ModelAnimator::~ModelAnimator()
@@ -122,61 +119,50 @@ void ModelAnimator::Draw(const RenderContext& ctx)
 		return;
 	}
 
-	// ── Preview/Thumbnail lit 경로 (HLSL) : override 없는 포워드 = 프리뷰 ──
-	if (ctx.shaderOverride == nullptr && ctx.buffer != nullptr)
+	// ── Preview/Thumbnail/Forward lit 경로 (HLSL) ──
+	if (ctx.buffer == nullptr)
+		return;
+
+	auto lit = RESOURCES->Get<HlslShader>(L"AnimPreview_HLSL");
+	if (!lit) return;
+
+	lit->Bind();
+	lit->PushGlobalData(ctx.view, ctx.proj);
+	lit->SetVSSRV(5, _srv.Get()); // TransformMap (t5)
+
+	// 트윈(b6) — 단일 인스턴스(프리뷰 등)는 직접 push.
+	// 다중 인스턴스는 InstancingManager 가 전체 트윈 배열을 이미 push 했으므로 덮어쓰지 않는다.
+	if (ctx.buffer->GetCount() <= 1)
 	{
-		auto lit = RESOURCES->Get<HlslShader>(L"AnimPreview_HLSL");
-		if (lit)
-		{
-			lit->Bind();
-			lit->PushGlobalData(ctx.view, ctx.proj);
-			lit->SetVSSRV(5, _srv.Get()); // TransformMap (t5)
-
-			// 트윈(b6) — 프리뷰는 InstancingManager 를 안 거치므로 직접 push
-			auto tween = make_shared<InstancedTweenDesc>();
-			tween->tweens[0] = _tweenDesc;
-			lit->PushTweenData(*tween);
-
-			const auto& meshes = _model->GetMeshes();
-			for (auto& mesh : meshes)
-			{
-				if (mesh->material)
-				{
-					MaterialDesc& md = mesh->material->GetMaterialDesc();
-					md.useTexture = mesh->material->GetDiffuseMap() ? 1 : 0;
-					lit->PushMaterialData(md);
-					auto diffuse = mesh->material->GetDiffuseMap();
-					lit->SetPSSRV(0, diffuse ? diffuse->GetComPtr().Get() : nullptr);
-				}
-				RENDER_STATES->BindAllSamplersPS();
-
-				mesh->vertexBuffer->PushData();
-				mesh->indexBuffer->PushData();
-				ctx.buffer->PushData();
-
-				lit->DrawIndexedInstanced(mesh->indexBuffer->GetCount(), ctx.buffer->GetCount());
-			}
-			return;
-		}
+		auto tween = make_shared<InstancedTweenDesc>();
+		tween->tweens[0] = _tweenDesc;
+		lit->PushTweenData(*tween);
 	}
 
-	_shader->PushGlobalData(ctx.view, ctx.proj);
+	const auto& meshes = _model->GetMeshes();
+	for (auto& mesh : meshes)
+	{
+		if (mesh->material)
+		{
+			MaterialDesc& md = mesh->material->GetMaterialDesc();
+			md.useTexture = mesh->material->GetDiffuseMap() ? 1 : 0;
+			lit->PushMaterialData(md);
+			auto diffuse = mesh->material->GetDiffuseMap();
+			lit->SetPSSRV(0, diffuse ? diffuse->GetComPtr().Get() : nullptr);
+		}
+		RENDER_STATES->BindAllSamplersPS();
 
-	auto buf = ctx.buffer;
-	PushBufferInstancing(ctx.tech, _pass, ctx.light, buf);
+		mesh->vertexBuffer->PushData();
+		mesh->indexBuffer->PushData();
+		ctx.buffer->PushData();
+
+		lit->DrawIndexedInstanced(mesh->indexBuffer->GetCount(), ctx.buffer->GetCount());
+	}
 }
 
 void ModelAnimator::SetModel(shared_ptr<Model> model)
 {
 	_model = model;
-
-	const auto& materials = _model->GetMaterials();
-	for (auto& material : materials)
-	{
-		material->SetShader(_shader);
-		material->SetShadowMap(_shadowMap);
-		material->SetSsaoMap(_ssaoMap);
-	}
 }
 
 void ModelAnimator::UpdateTweenData()
@@ -235,46 +221,9 @@ void ModelAnimator::UpdateTweenData()
 }
 
 
-void ModelAnimator::PushBufferInstancing(uint8 technique, uint8 pass, shared_ptr<Light> light, shared_ptr<InstancingBuffer>& buffer)
-{
-	// Light
-	if (light)
-		_shader->PushLightData(light->GetLightDesc());
-
-	_shader->GetSRV("TransformMap")->SetResource(_srv.Get());
-
-	// Bones
-	BoneDesc boneDesc;
-
-	const uint32 boneCount = _model->GetBoneCount();
-	for (uint32 i = 0; i < boneCount; i++)
-	{
-		shared_ptr<ModelBone> bone = _model->GetBoneByIndex(i);
-		boneDesc.transforms[i] = bone->transform;
-	}
-	_shader->PushBoneData(boneDesc);
-
-	const auto& meshes = _model->GetMeshes();
-	for (auto& mesh : meshes)
-	{
-		if (mesh->material)
-			mesh->material->Update();
-
-		// BoneIndex
-		_shader->GetScalar("BoneIndex")->SetInt(mesh->boneIndex);
-
-		mesh->vertexBuffer->PushData();
-		mesh->indexBuffer->PushData();
-
-		buffer->PushData();
-
-		_shader->DrawIndexedInstanced(technique, pass, mesh->indexBuffer->GetCount(), buffer->GetCount());
-	}
-}
-
 InstanceID ModelAnimator::GetInstanceID()
 {
-	return make_pair((uint64)_model.get(), (uint64)_shader.get());
+	return make_pair((uint64)_model.get(), (uint64)0);
 }
 
 bool ModelAnimator::Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& distance)

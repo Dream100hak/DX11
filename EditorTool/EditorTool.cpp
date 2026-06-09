@@ -77,8 +77,6 @@ void EditorTool::Init()
 
 	GET_SINGLE(TextureManager)->Init();
 
-	auto shader = RESOURCES->Get<Shader>(L"Standard");
-
 	{
 		//auto simpleGrid = make_shared<GameObject>();
 		//simpleGrid->SetObjectName(L"grid");

@@ -130,8 +130,15 @@ Camera::Render_Forward()
     - Build clean (x64 Debug). NOTE: `ShadowMap_VS.hlsl` now dead (Shadow_HLSL repointed to Standard_VS) but left in tree/vcxproj; FX `Shadow`/`SsaoNormalDepth` resources no longer consumed (FX `Shadow` still registered). Delete in Stage 5.
     - **Runtime VERIFIED** (screenshot test with Kachujin static + animated models): both cast sharp character-shaped shadows onto terrain in the deferred scene; both render into the SSAO normal-depth map with view-space normals. "Models don't get shadows" reports are a **light shadow-bounds coverage issue, not a shader bug**: Light's shadow bounding sphere defaults to center=(0,0,0) radius=150, while the usual editing area (terrain path, camera spawn x≈181) sits at/outside that boundary — casters outside the sphere are clipped from the light's ortho frustum and receivers fall outside the shadow-UV guard. Adjust via Direction Light inspector (Shadow Bounding Box Center/Radius).
 
+  - **Stage 5 done — model FX `_shader` removed, 4 .fx deleted**:
+    - ModelRenderer/ModelAnimator: no-arg ctors, `_shader`/`ChangeShader`/`PushMeshes`/`PushBufferInstancing`/FX Draw fallbacks removed; preview HLSL path is now the unconditional forward tail. `GetInstanceID` = (model, 0).
+    - Deleted `01. Standard.fx`, `01. Thumbnail.fx`, `00. ShadowMap.fx`, `00. SsaoNormalDepth.fx`, dead `ShadowMap_VS.hlsl` (+ vcxproj/filters entries). FX registrations `Standard`/`Thumbnail`/`Shadow` removed from ResourceManager.
+    - `Material::Load`: "Standard" shader string -> `Standard_HLSL` only (no FX compile); AsConverter/FolderContents write a literal `"01. Standard.fx"` for .mat format compat.
+    - InstancingManager pushes tween (b6) to the pass-appropriate HLSL shader incl. `AnimPreview_HLSL`; ModelAnimator self-pushes tween only for single-instance draws (preview) to avoid clobbering the instanced array.
+    - **Fixed latent UB crash**: `GameObject::GetMeshRenderer/GetModelRenderer/GetModelAnimator` blindly static_cast the shared `ComponentType::Renderer` slot — Camera::SortGameObject read a garbage Material through a ModelRenderer-as-MeshRenderer cast (previously masked because `_shader` occupied that memory offset). Now type-checked via `GetRenderType()` before casting.
+    - Runtime verified: editor stable 60s+ with a model in scene; deferred render + shadow OK.
+
 ### Next Steps (to finish FX11 removal)
-- **Stage 5**: Remove ModelRenderer/ModelAnimator FX `_shader` member + caller FX args -> delete `Standard.fx`/`Thumbnail.fx`/`ShadowMap.fx`/`SsaoNormalDepth.fx` (+ dead `ShadowMap_VS.hlsl`).
 - SSAO itself FX->HLSL (VS/PS only; not wired into deferred lighting yet, ssao map shows full-red). Also: terrain writes only depth (no normals) into the SSAO normal-depth map — `TerrainRendererNotPS` shares the PS-less `Terrain_Shadow_HLSL`, but FX-era SsaoNormalDepth T1 had a PS writing normal+depth. Needs a Terrain normal-depth PS variant when SSAO is finished.
 - ~~Shadow UX: light shadow bounds fixed at origin~~ **FIXED**: shadow sphere now auto-fits to the camera focus point each frame (`Light::UpdateMatrix` — `_autoFitShadow`, default on, toggleable in inspector) with light-space texel snapping to prevent shadow shimmer while the camera moves. Verified: model at (150,0,-10) (formerly outside bounds, shadowless) now casts a proper shadow.
 - Particles (Fire/Rain/RainSO): need Stream-Output support in HlslShader.
@@ -141,7 +148,7 @@ Camera::Render_Forward()
 ## Known Issues
 
 ### Engine
-- Remaining FX11: SSAO compute/blur (`Ssao`/`SsaoBlur`), Standard/Thumbnail (FX `_shader` member still held by ModelRenderer/ModelAnimator), particles (Fire/Rain, Stream-Output). Model shadow + SSAO normal-depth now HLSL (Stage 4). NOTE: Terrain is already HLSL (HS/DS supported).
+- Remaining FX11: SSAO compute/blur (`Ssao`/`SsaoBlur`) + particles (Fire/Rain/RainSO, need Stream-Output in HlslShader) + shared includes (`00. Global/Light/Render.fx`). Model/shadow/SSAO-normal-depth all HLSL now (Stage 4~5). NOTE: Terrain is already HLSL (HS/DS supported).
 - Material Sampler nullptr temp binding (needs RenderStateManager integration)
 - Deferred Pass 3 (skybox/transparent) may misalign vs GBuffer depth when scene window has x/y offset (opaque unaffected).
 

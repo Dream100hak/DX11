@@ -12,8 +12,8 @@
 #include "RenderStateManager.h"
 #include "Texture.h"
 
-ModelRenderer::ModelRenderer(shared_ptr<Shader> shader)
-	: Super(RendererType::Model), _shader(shader)
+ModelRenderer::ModelRenderer()
+	: Super(RendererType::Model)
 {
 
 }
@@ -122,22 +122,6 @@ void ModelRenderer::OnInspectorGUI()
 void ModelRenderer::SetModel(shared_ptr<Model> model)
 {
 	_model = model;
-	ChangeShader(_shader);
-
-}
-
-void ModelRenderer::ChangeShader(shared_ptr<Shader> shader)
-{
-	_shader = shader;
-
-	const auto& materials = _model->GetMaterials();
-
-	for (auto& material : materials)
-	{
-		material->SetShader(shader);
-		material->SetShadowMap(_shadowMap);
-		material->SetSsaoMap(_ssaoMap);
-	}
 }
 
 // ============================================================
@@ -232,95 +216,47 @@ void ModelRenderer::Draw(const RenderContext& ctx)
 		return;
 	}
 
-	// ── Preview/Thumbnail lit 경로 (HLSL) : override 없는 포워드 = 프리뷰 ──
+	// ── Preview/Thumbnail/Forward lit 경로 (HLSL) ──
 	// FX Standard/Thumbnail 프리뷰 렌더를 HLSL 로 대체 (FX 상태 누수로 인한 씬 오염 해소)
-	if (ctx.shaderOverride == nullptr)
-	{
-		auto lit = RESOURCES->Get<HlslShader>(L"ModelPreview_HLSL");
-		if (lit)
-		{
-			lit->Bind();
-			lit->PushGlobalData(ctx.view, ctx.proj);
-			if (!ctx.buffer)
-				lit->PushTransformData(TransformDesc{ GetTransform()->GetWorldMatrix() });
+	auto lit = RESOURCES->Get<HlslShader>(L"ModelPreview_HLSL");
+	if (!lit) return;
 
-			const auto& meshes = _model->GetMeshes();
-			for (auto& mesh : meshes)
-			{
-				lit->PushModelBoneData(_model->GetBoneByIndex(mesh->boneIndex)->transform);
-
-				if (mesh->material)
-				{
-					MaterialDesc& md = mesh->material->GetMaterialDesc();
-					md.useTexture = mesh->material->GetDiffuseMap() ? 1 : 0;
-					lit->PushMaterialData(md);
-					auto diffuse = mesh->material->GetDiffuseMap();
-					lit->SetPSSRV(0, diffuse ? diffuse->GetComPtr().Get() : nullptr);
-				}
-				RENDER_STATES->BindAllSamplersPS();
-
-				mesh->vertexBuffer->PushData();
-				mesh->indexBuffer->PushData();
-
-				if (!ctx.buffer)
-					lit->DrawIndexed(mesh->indexBuffer->GetCount(), 0, 0);
-				else
-				{
-					ctx.buffer->PushData();
-					lit->DrawIndexedInstanced(mesh->indexBuffer->GetCount(), ctx.buffer->GetCount());
-				}
-			}
-			return;
-		}
-	}
-
-	auto prevShader = _shader;
-	if (ctx.shaderOverride)
-		ChangeShader(ctx.shaderOverride);
-
-	_shader->PushGlobalData(ctx.view, ctx.proj);
-	if (ctx.light) _shader->PushLightData(ctx.light->GetLightDesc());
-
-	PushMeshes(ctx, ctx.buffer != nullptr);
-
-	ChangeShader(prevShader);
-}
-
-// �޽� ���� (Single / Instanced ����)
-void ModelRenderer::PushMeshes(const RenderContext& ctx, bool instanced)
-{
-	// Bone ������
-	BoneDesc boneDesc;
-	const uint32 boneCount = _model->GetBoneCount();
-	for (uint32 i = 0; i < boneCount; i++)
-		boneDesc.transforms[i] = _model->GetBoneByIndex(i)->transform;
-	_shader->PushBoneData(boneDesc);
-
-	if (!instanced)
-		_shader->PushTransformData(TransformDesc{ GetTransform()->GetWorldMatrix() });
+	lit->Bind();
+	lit->PushGlobalData(ctx.view, ctx.proj);
+	if (!ctx.buffer)
+		lit->PushTransformData(TransformDesc{ GetTransform()->GetWorldMatrix() });
 
 	const auto& meshes = _model->GetMeshes();
 	for (auto& mesh : meshes)
 	{
-		if (mesh->material) mesh->material->Update();
-		_shader->GetScalar("BoneIndex")->SetInt(mesh->boneIndex);
+		lit->PushModelBoneData(_model->GetBoneByIndex(mesh->boneIndex)->transform);
+
+		if (mesh->material)
+		{
+			MaterialDesc& md = mesh->material->GetMaterialDesc();
+			md.useTexture = mesh->material->GetDiffuseMap() ? 1 : 0;
+			lit->PushMaterialData(md);
+			auto diffuse = mesh->material->GetDiffuseMap();
+			lit->SetPSSRV(0, diffuse ? diffuse->GetComPtr().Get() : nullptr);
+		}
+		RENDER_STATES->BindAllSamplersPS();
 
 		mesh->vertexBuffer->PushData();
 		mesh->indexBuffer->PushData();
 
-		if (!instanced)
-			_shader->DrawIndexed(0, _pass, mesh->indexBuffer->GetCount(), 0, 0);
+		if (!ctx.buffer)
+			lit->DrawIndexed(mesh->indexBuffer->GetCount(), 0, 0);
 		else
 		{
 			ctx.buffer->PushData();
-			_shader->DrawIndexedInstanced(ctx.tech, _pass, mesh->indexBuffer->GetCount(), ctx.buffer->GetCount());
+			lit->DrawIndexedInstanced(mesh->indexBuffer->GetCount(), ctx.buffer->GetCount());
 		}
 	}
 }
 
 InstanceID ModelRenderer::GetInstanceID()
 {
-	return make_pair((uint64)_model.get(), (uint64)_shader.get());
+	return make_pair((uint64)_model.get(), (uint64)0);
 }
 
 bool ModelRenderer::Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& distance)

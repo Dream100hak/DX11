@@ -112,23 +112,11 @@
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
     </FxCompile>
-    <FxCompile Include="..\Shaders\00. SsaoNormalDepth.fx">
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-      </EntryPointName>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
-    </FxCompile>
     <FxCompile Include="..\Shaders\01. Fire.fx">
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
       </EntryPointName>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\00. ShadowMap.fx">
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-      </EntryPointName>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
     </FxCompile>
     <FxCompile Include="..\Shaders\01. Rain.fx">
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -136,20 +124,6 @@
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
     </FxCompile>
-    <FxCompile Include="..\Shaders\01. Thumbnail.fx">
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-      </EntryPointName>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\01. Standard.fx">
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-      </EntryPointName>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
-    </FxCompile>
-    
-    
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Shaders\HLSL\Common.hlsli" />
@@ -157,7 +131,6 @@
       <None Include="..\Shaders\HLSL\Shadow.hlsli" />
     <None Include="..\Shaders\HLSL\Standard_VS.hlsl" />
   <None Include="..\Shaders\HLSL\Standard_PS.hlsl" />
-    <None Include="..\Shaders\HLSL\ShadowMap_VS.hlsl" />
     <None Include="..\Shaders\HLSL\ShadowMap_PS.hlsl" />
     <None Include="..\Shaders\HLSL\Outline_VS.hlsl" />
     <None Include="..\Shaders\HLSL\Outline_PS.hlsl" />

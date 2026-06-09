@@ -217,18 +217,6 @@
     <FxCompile Include="..\Shaders\00. Light.fx">
       <Filter>Shaders\Common</Filter>
     </FxCompile>
-    <FxCompile Include="..\Shaders\01. Standard.fx">
-      <Filter>Shaders\Contents</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\01. Thumbnail.fx">
-      <Filter>Shaders\Contents</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\00. ShadowMap.fx">
-      <Filter>Shaders\Common</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\00. SsaoNormalDepth.fx">
-      <Filter>Shaders\Common</Filter>
-    </FxCompile>
     <FxCompile Include="..\Shaders\00. Ssao.fx">
       <Filter>Shaders\Common</Filter>
     </FxCompile>
@@ -273,9 +261,6 @@
       <Filter>Shaders\HLSL</Filter>
     </None>
     <None Include="..\Shaders\HLSL\ShadowMap_PS.hlsl">
-      <Filter>Shaders\HLSL</Filter>
-    </None>
-    <None Include="..\Shaders\HLSL\ShadowMap_VS.hlsl">
       <Filter>Shaders\HLSL</Filter>
     </None>
     <None Include="..\Shaders\HLSL\Sky.hlsl">

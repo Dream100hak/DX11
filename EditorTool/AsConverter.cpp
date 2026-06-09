@@ -157,7 +157,7 @@ void AsConverter::ReadModelData(aiNode* node, int32 index, int32 parent)
 	// Mesh
 	ReadMeshData(node, index);
 
-	// Àç±Í ÇÔ¼ö
+	// ï¿½ï¿½ï¿½ ï¿½Ô¼ï¿½
 	for (uint32 i = 0; i < node->mNumChildren; i++)
 		ReadModelData(node->mChildren[i], _bones.size(), index);
 }
@@ -232,7 +232,7 @@ void AsConverter::ReadSkinData()
 		vector<asBoneWeights> tempVertexBoneWeights;
 		tempVertexBoneWeights.resize(mesh->vertices.size());
 
-		// BoneÀ» ¼øÈ¸ÇÏ¸é¼­ ¿¬°üµÈ VertexId, Weight¸¦ ±¸ÇØ¼­ ±â·ÏÇÑ´Ù.
+		// Boneï¿½ï¿½ ï¿½ï¿½È¸ï¿½Ï¸é¼­ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ VertexId, Weightï¿½ï¿½ ï¿½ï¿½ï¿½Ø¼ï¿½ ï¿½ï¿½ï¿½ï¿½Ñ´ï¿½.
 		for (uint32 b = 0; b < srcMesh->mNumBones; b++)
 		{
 			aiBone* srcMeshBone = srcMesh->mBones[b];
@@ -250,7 +250,7 @@ void AsConverter::ReadSkinData()
 			}
 		}
 
-		// ÃÖÁ¾ °á°ú °è»ê
+		// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½
 		for (uint32 v = 0; v < tempVertexBoneWeights.size(); v++)
 		{
 			tempVertexBoneWeights[v].Normalize();
@@ -266,7 +266,7 @@ void AsConverter::WriteModelFile(wstring finalPath)
 {
 	auto path = filesystem::path(finalPath);
 
-	// Æú´õ°¡ ¾øÀ¸¸é ¸¸µç´Ù.
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½.
 	filesystem::create_directory(path.parent_path());
 
 	shared_ptr<FileUtils> file = make_shared<FileUtils>();
@@ -353,7 +353,7 @@ void AsConverter::WriteMaterialDataByXml(wstring finalPath)
 {
 	auto path = filesystem::path(finalPath);
 
-	// Æú´õ°¡ ¾øÀ¸¸é ¸¸µç´Ù.
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½.
 	filesystem::create_directory(path.parent_path());
 
 	string folder = path.parent_path().string();
@@ -425,16 +425,15 @@ void AsConverter::WriteMaterialDataByMat(shared_ptr<asMaterial> material,  wstri
 {
 	wstring fullPath = finalPath + L".mat";
 	auto path = filesystem::path(fullPath);
-	// Æú´õ°¡ ¾øÀ¸¸é ¸¸µç´Ù.
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½.
 	filesystem::create_directory(path.parent_path());
 	string folder = path.parent_path().string();
 
 	shared_ptr<FileUtils> file = make_shared<FileUtils>();
 	file->Open(fullPath, FileMode::Write);
 
-	auto shader = RESOURCES->Get<Shader>(L"Standard");
-
-	file->Write<string>(Utils::ToString(shader->GetFile()));
+	// .mat í¬ë§· í˜¸í™˜ìš© ì…°ì´ë” ë¬¸ìžì—´ â€” ë¡œë”(Material::Load)ê°€ "Standard" ë¥¼ Standard_HLSL ë¡œ ë§¤í•‘
+	file->Write<string>(string("01. Standard.fx"));
 	file->Write<string>(WriteTexture(folder, material->diffuseFile).c_str());
 	file->Write<string>(WriteTexture(folder, material->specularFile).c_str());
 	file->Write<string>(WriteTexture(folder, material->normalFile).c_str());
@@ -515,10 +514,10 @@ std::shared_ptr<asAnimation> AsConverter::ReadAnimationData(aiAnimation* srcAnim
 	{
 		aiNodeAnim* srcNode = srcAnimation->mChannels[i];
 
-		// ¾Ö´Ï¸ÞÀÌ¼Ç ³ëµå µ¥ÀÌÅÍ ÆÄ½Ì
+		// ï¿½Ö´Ï¸ï¿½ï¿½Ì¼ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ä½ï¿½
 		shared_ptr<asAnimationNode> node = ParseAnimationNode(animation, srcNode);
 
-		// ÇöÀç Ã£Àº ³ëµå Áß¿¡ Á¦ÀÏ ±ä ½Ã°£À¸·Î ¾Ö´Ï¸ÞÀÌ¼Ç ½Ã°£ °»½Å
+		// ï¿½ï¿½ï¿½ï¿½ Ã£ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ß¿ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½Ã°ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ö´Ï¸ï¿½ï¿½Ì¼ï¿½ ï¿½Ã°ï¿½ ï¿½ï¿½ï¿½ï¿½
 		animation->duration = max(animation->duration, node->keyframe.back().time);
 
 		cacheAnimNodes[srcNode->mNodeName.C_Str()] = node;
@@ -581,7 +580,7 @@ std::shared_ptr<asAnimationNode> AsConverter::ParseAnimationNode(shared_ptr<asAn
 			node->keyframe.push_back(frameData);
 	}
 
-	// Keyframe ´Ã·ÁÁÖ±â
+	// Keyframe ï¿½Ã·ï¿½ï¿½Ö±ï¿½
 	if (node->keyframe.size() < animation->frameCount)
 	{
 		uint32 count = animation->frameCount - node->keyframe.size();
@@ -620,7 +619,7 @@ void AsConverter::ReadKeyframeData(shared_ptr<asAnimation> animation, aiNode* sr
 		keyframe->transforms.push_back(frameData);
 	}
 
-	// ¾Ö´Ï¸ÞÀÌ¼Ç Å°ÇÁ·¹ÀÓ Ã¤¿ì±â
+	// ï¿½Ö´Ï¸ï¿½ï¿½Ì¼ï¿½ Å°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ã¤ï¿½ï¿½ï¿½
 	animation->keyframes.push_back(keyframe);
 
 	for (uint32 i = 0; i < srcNode->mNumChildren; i++)
@@ -631,7 +630,7 @@ void AsConverter::WriteAnimationData(shared_ptr<asAnimation> animation, wstring 
 {
 	auto path = filesystem::path(finalPath);
 
-	// Æú´õ°¡ ¾øÀ¸¸é ¸¸µç´Ù.
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½.
 	filesystem::create_directory(path.parent_path());
 
 	shared_ptr<FileUtils> file = make_shared<FileUtils>();

@@ -141,13 +141,13 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 
 	float cellWidth = ImGui::GetColumnWidth();
 
-	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.1f, 0.1f, 1.0f)); // Åõ¸í ¹è°æ
-	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.25f, 0.25f, 1.0f)); // ¸¶¿ì½º ¿À¹ö½Ã °ËÁ¤»ö
-	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.4f, 0.4f, 0.4f, 1.0f)); // Å¬¸¯½Ã °ËÁ¤»ö
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.1f, 0.1f, 1.0f)); // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.25f, 0.25f, 1.0f)); // ï¿½ï¿½ï¿½ì½º ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.4f, 0.4f, 0.4f, 1.0f)); // Å¬ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
-	float cursorX = (cellWidth - 75) * 0.5f; // Áß¾Ó Á¤·Ä °è»ê
+	float cursorX = (cellWidth - 75) * 0.5f; // ï¿½ß¾ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + cursorX);
-	// Æú´õ Ã³¸®
+	// ï¿½ï¿½ï¿½ï¿½ Ã³ï¿½ï¿½
 	if (meta->metaType == MetaType::FOLDER)
 	{
 		auto tex = RESOURCES->Get<Texture>(L"Folder");
@@ -158,19 +158,19 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 		});
 	}
 
-	// ÀÌ¹ÌÁö ÆÄÀÏ Ã³¸®
+	// ï¿½Ì¹ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ Ã³ï¿½ï¿½
 	else if (meta->metaType == MetaType::IMAGE)
 	{
 		auto tex = RESOURCES->Get<Texture>(L"TEX_" + meta->fileName);
 		RefreshButton(tex->GetComPtr().Get(), meta, id, []() {});
 	}
-	// ¹®¼­ ÆÄÀÏ Ã³¸®
+	// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ Ã³ï¿½ï¿½
 	else if (meta->metaType == MetaType::XML)
 	{
 		auto tex = RESOURCES->Get<Texture>(L"Text");
 		RefreshButton(tex->GetComPtr().Get(), meta, id, []() {});
 	}
-	// ¸ÅÅÍ¸®¾ó ÆÄÀÏ Ã³¸®
+	// ï¿½ï¿½ï¿½Í¸ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ Ã³ï¿½ï¿½
 	else if (meta->metaType == MetaType::MATERIAL)
 	{
 		shared_ptr<GameObject> obj = nullptr;
@@ -193,7 +193,7 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 
 		RefreshButton(thumbnail->GetComPtr().Get(), meta, id, []() {});
 	}
-	// ¸Þ½Ã ÆÄÀÏ Ã³¸®
+	// ï¿½Þ½ï¿½ ï¿½ï¿½ï¿½ï¿½ Ã³ï¿½ï¿½
 	if (meta->metaType == MetaType::MESH)
 	{
 		shared_ptr<GameObject> obj = nullptr;
@@ -222,7 +222,7 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 
 		DragModelFileToGUIWnd(meta, modelPath , obj);
 	}
-	// ¾Ö´Ï¸ÞÀÌ¼Ç Ã³¸®
+	// ï¿½Ö´Ï¸ï¿½ï¿½Ì¼ï¿½ Ã³ï¿½ï¿½
 	else if (meta->metaType == MetaType::CLIP)
 	{
 		shared_ptr<GameObject> obj = nullptr;
@@ -255,7 +255,7 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 		RefreshButton(tex->GetComPtr().Get(), meta, id, []() {});
 	}
 
-	// ¿¹¿Ü ÆÄÀÏ Ã³¸®
+	// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ Ã³ï¿½ï¿½
 	else if (meta->metaType == MetaType::Unknown)
 	{
 		auto tex = RESOURCES->Get<Texture>(L"Text");
@@ -267,10 +267,10 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 	string itemName = AdjustItemNameToFit(Utils::ToString(meta->fileName), _displayBtnWidth);
 	ImVec2 textSize = ImGui::CalcTextSize(itemName.c_str());
 
-	cursorX = (cellWidth - textSize.x) * 0.5f; // Áß¾Ó Á¤·Ä °è»ê
+	cursorX = (cellWidth - textSize.x) * 0.5f; // ï¿½ß¾ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + cursorX);
 
-	ImGui::Text(itemName.c_str()); // ÀÌ¸§ Ç¥½Ã
+	ImGui::Text(itemName.c_str()); // ï¿½Ì¸ï¿½ Ç¥ï¿½ï¿½
 }
 
 void FolderContents::RefreshButton(ID3D11ShaderResourceView* srv, shared_ptr<MetaData>& meta, int32 id, std::function<void()> onDoubleClickCallback)
@@ -306,7 +306,8 @@ void FolderContents::CreateMaterial()
 	shared_ptr<FileUtils> file = make_shared<FileUtils>();
 	file->Open(finalPath, FileMode::Write);
 
-	file->Write<wstring>(material->GetShader()->GetFile());
+	// .mat í¬ë§· í˜¸í™˜ìš© ì…°ì´ë” ë¬¸ìžì—´ â€” DefaultMaterial ì€ HLSL ì „ìš©(FX _shader ì—†ìŒ)ì´ë¼ ë¦¬í„°ëŸ´ ê¸°ë¡
+	file->Write<wstring>(wstring(L"01. Standard.fx"));
 	int32 materialSize = 1;
 	file->Write<uint32>(materialSize);
 	
@@ -355,7 +356,6 @@ void FolderContents::CreateMeshPreviewObj(shared_ptr<MetaData>& meta)
 
 void FolderContents::CreateModelPreviewObj(shared_ptr<MetaData>& meta)
 {
-	auto shader = RESOURCES->Get<Shader>(L"Thumbnail");
 	wstring modelName = meta->fileName.substr(0, meta->fileName.find('.'));
 	wstring modelPath = meta->fileFullPath + L'/' + modelName;
 
@@ -378,9 +378,8 @@ void FolderContents::CreateModelPreviewObj(shared_ptr<MetaData>& meta)
 	obj->GetOrAddTransform()->SetRotation(Vec3(0.f, 0.f, 0.f));
 	obj->GetOrAddTransform()->SetScale(Vec3(scale, scale, scale));
 
-	obj->AddComponent(make_shared<ModelRenderer>(shader));
+	obj->AddComponent(make_shared<ModelRenderer>());
 	obj->GetModelRenderer()->SetModel(model);
-	obj->GetModelRenderer()->SetPass(1);
 
 	_meshPreviewObjs.insert(make_pair(meta->fileFullPath + L'/' + meta->fileName, obj));
 	_meshScales.insert(make_pair(meta->fileFullPath + L'/' + meta->fileName, scale));
@@ -389,7 +388,6 @@ void FolderContents::CreateModelPreviewObj(shared_ptr<MetaData>& meta)
 
 void FolderContents::CreateAniPreviewObj(shared_ptr<MetaData>& meta)
 {
-	auto shader = RESOURCES->Get<Shader>(L"Standard");
 	auto path = filesystem::path(meta->fileFullPath);
 	wstring modelName = path.filename().wstring();
 	wstring modelPath = meta->fileFullPath + L'/' + modelName;
@@ -405,7 +403,7 @@ void FolderContents::CreateAniPreviewObj(shared_ptr<MetaData>& meta)
 	if (modelScale > 10.f)
 		modelScale = globalScale;
 
-	//TODO : »èÁ¦ ¿¹Á¤
+	//TODO : ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 	//modelScale = .5f;
 
 	float scale = globalScale / modelScale;
@@ -415,9 +413,8 @@ void FolderContents::CreateAniPreviewObj(shared_ptr<MetaData>& meta)
 	obj->GetOrAddTransform()->SetRotation(Vec3(0.f, 0.f, 0.f));
 	obj->GetOrAddTransform()->SetScale(Vec3(scale, scale, scale));
 
-	obj->AddComponent(make_shared<ModelAnimator>(shader));
+	obj->AddComponent(make_shared<ModelAnimator>());
 	obj->GetModelAnimator()->SetModel(model);
-	obj->GetModelAnimator()->SetPass(2);
 
 	_meshPreviewObjs.insert(make_pair(meta->fileFullPath + L'/' + meta->fileName, obj));
 	_meshScales.insert(make_pair(meta->fileFullPath + L'/' + meta->fileName, scale));

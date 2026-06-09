@@ -76,19 +76,14 @@ void InstancingManager::RenderAnimRenderer(const RenderContext& baseCtx, vector<
 			tweenDesc->tweens[i] = vec[i]->GetModelAnimator()->GetTweenDesc();
 		}
 
-		// 패스별 HLSL 애니 셰이더(b6)에 트윈 데이터 push. (그 외: 프리뷰 등은 FX 셰이더)
-		const wchar_t* animShaderKey = nullptr;
-		if (baseCtx.deferredPass)   animShaderKey = L"GBufferAnim_HLSL";
+		// 패스별 HLSL 애니 셰이더(b6)에 트윈 데이터 push
+		const wchar_t* animShaderKey = L"AnimPreview_HLSL"; // 포워드/프리뷰 기본
+		if (baseCtx.deferredPass)    animShaderKey = L"GBufferAnim_HLSL";
 		else if (baseCtx.shadowPass) animShaderKey = L"ShadowAnim_HLSL";
 		else if (baseCtx.ssaoPass)   animShaderKey = L"SsaoNormalDepthAnim_HLSL";
 
-		if (animShaderKey)
-		{
-			if (auto animShader = RESOURCES->Get<HlslShader>(animShaderKey))
-				animShader->PushTweenData(*tweenDesc);
-		}
-		else
-			vec[0]->GetModelAnimator()->GetShader()->PushTweenData(*tweenDesc);
+		if (auto animShader = RESOURCES->Get<HlslShader>(animShaderKey))
+			animShader->PushTweenData(*tweenDesc);
 
 		// RenderContext ���� �� buffer ����
 		RenderContext ctx = baseCtx;

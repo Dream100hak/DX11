@@ -440,3 +440,7 @@ FodyWeavers.xsd
 # Intermediate build files
 Intermediate/
 Binaries/
+
+# Engine build outputs / auto-copied headers (replaced by ProjectReference)
+Libraries/Lib/Engine/
+Libraries/Include/Engine/

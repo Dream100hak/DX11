@@ -1,6 +1,6 @@
 #pragma once
 
-#pragma comment(lib, "Engine/Engine.lib")
+// Engine.lib 링크는 ProjectReference(EditorTool.vcxproj)가 자동 처리
 #include "Engine/EnginePch.h"
 
 #include "Define.h"

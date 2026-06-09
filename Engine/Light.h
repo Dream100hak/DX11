@@ -49,9 +49,7 @@ public:
 		{
 			ImGui::Separator();
 			ImGui::Text("Shadow Bounding Box");
-			ImGui::Checkbox("Auto Fit To Camera", &_autoFitShadow);
-			if (!_autoFitShadow)
-				ImGui::DragFloat3("Center", (float*)&_center);
+			ImGui::DragFloat3("Center", (float*)&_center);
 			ImGui::DragFloat("Radius", &_radius);
 
 			ImGui::Text("Depth Bias Settings");
@@ -106,9 +104,6 @@ private:
 	BoundingSphere _sceneBounds;
 	Vec3 _center = Vec3::Zero;
 	float _radius = 150.f;
-	// 그림자 스피어를 매 프레임 카메라 포커스 지점으로 이동 (어디서 작업하든 그림자 유지)
-	bool _autoFitShadow = true;
-	static constexpr float SHADOW_MAP_SIZE = 2048.f; // EditorTool ShadowMap 해상도와 동일 (텍셀 스냅용)
 
 	float _depthBias = 100000;
 	float _slopeScaledDepthBias = 1.0f;

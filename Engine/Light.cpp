@@ -1,5 +1,7 @@
 #include "pch.h"
 #include "Light.h"
+#include "Scene.h"
+#include "Camera.h"
 
 Matrix Light::S_MatView = Matrix::Identity;
 Matrix Light::S_MatProjection = Matrix::Identity;
@@ -36,25 +38,55 @@ void Light::UpdateMatrix()
 {
 	// Only the first "main" light casts a shadow.
 	Vec3 lightDir = _desc.direction;
-	Vec3 lightPos = -2.0f * _sceneBounds.Radius * lightDir;
-	Vec3 upDirection = Vec3::Up;
-	Vec3 targetPos = _sceneBounds.Center;
-	Vec3 up = Vec3::Up;
+	lightDir.Normalize();
 
-	Matrix V = ::XMMatrixLookAtLH(lightPos, targetPos, upDirection);
-	
+	const float radius = _sceneBounds.Radius;
+
+	// 그림자 스피어 중심을 카메라 포커스 지점으로 이동.
+	// 고정 center(0,0,0)일 때 반경 밖 오브젝트가 그림자 캐스팅/수신을 못 하던 문제 해결.
+	if (_autoFitShadow)
+	{
+		if (auto scene = SCENE->GetCurrentScene())
+		{
+			if (auto camGo = scene->GetMainCamera())
+			{
+				Vec3 camPos = camGo->GetTransform()->GetPosition();
+				Vec3 look   = camGo->GetTransform()->GetLook();
+				_sceneBounds.Center = camPos + look * (radius * 0.5f);
+			}
+		}
+	}
+
+	Vec3 targetPos = _sceneBounds.Center;
+
+	// 텍셀 스냅: 라이트 공간 XY를 셰도우맵 텍셀 단위로 고정.
+	// auto-fit 으로 중심이 매 프레임 움직이므로, 스냅 없이는 그림자 가장자리가 흔들린다(shimmer).
+	{
+		Matrix rotView = ::XMMatrixLookAtLH(Vec3::Zero, lightDir, Vec3::Up);
+		Vec3 t = Vec3::Transform(targetPos, rotView);
+		const float texel = (2.f * radius) / SHADOW_MAP_SIZE;
+		t.x = floorf(t.x / texel) * texel;
+		t.y = floorf(t.y / texel) * texel;
+		targetPos = Vec3::Transform(t, rotView.Invert());
+	}
+
+	// 기존엔 lightPos 가 원점 기준(-2r*dir)이라 center 이동 시 어긋남 — target 기준으로 수정
+	Vec3 lightPos = targetPos - 2.0f * radius * lightDir;
+
+	Matrix V = ::XMMatrixLookAtLH(lightPos, targetPos, Vec3::Up);
+
 	S_MatView = V;
 	// Transform bounding sphere to light space.
 
 	Vec3 sphereCenter = Vec3::Transform(targetPos, V);
 
 	// Ortho frustum in light space encloses scene.
-	float l = sphereCenter.x - _sceneBounds.Radius;
-	float b = sphereCenter.y - _sceneBounds.Radius;
-	float n = sphereCenter.z - _sceneBounds.Radius;
-	float r = sphereCenter.x + _sceneBounds.Radius;
-	float t = sphereCenter.y + _sceneBounds.Radius;
-	float f = sphereCenter.z + _sceneBounds.Radius;
+	float l = sphereCenter.x - radius;
+	float b = sphereCenter.y - radius;
+	float n = sphereCenter.z - radius;
+	float r = sphereCenter.x + radius;
+	float t = sphereCenter.y + radius;
+	float f = sphereCenter.z + radius;
 	Matrix P = ::XMMatrixOrthographicOffCenterLH(l, r, b, t, n, f);
 	S_MatProjection = P;
 

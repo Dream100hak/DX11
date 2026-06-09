@@ -16,6 +16,7 @@ Texture2D GBufferAlbedo   : register(t0);
 Texture2D GBufferNormal   : register(t1);
 Texture2D GBufferPosition : register(t2);
 Texture2D ShadowMap       : register(t3);
+Texture2D SsaoMap         : register(t4); // ambient access (1 = 가림 없음)
 
 // Multi-light data reused from Lighting.hlsli
 struct LightData
@@ -126,6 +127,13 @@ float4 PS_Main(LightingVSOutput input) : SV_TARGET
     {
         totalAmbient = MatAmbient * float4(0.3f, 0.3f, 0.3f, 1.0f);
         totalDiffuse = MatDiffuse * 0.5f;
+    }
+
+    // SSAO: ambient 항에 가림도 적용 (UseSsao 머티리얼 플래그로 토글)
+    if (UseSsao)
+    {
+        float ssaoFactor = SsaoMap.SampleLevel(LinearSampler, input.uv, 0.0f).r;
+        totalAmbient *= ssaoFactor;
     }
 
     float4 litColor = albedo * (totalAmbient + shadowFactor * totalDiffuse) + shadowFactor * totalSpecular;

@@ -92,6 +92,7 @@ void Terrain::Init(const TerrainInfo& initInfo , shared_ptr<Material> mat)
 
 	_hlslShader = RESOURCES->Get<HlslShader>(L"Terrain_HLSL");
 	_hlslShaderShadow = RESOURCES->Get<HlslShader>(L"Terrain_Shadow_HLSL");
+	_hlslShaderNormalDepth = RESOURCES->Get<HlslShader>(L"Terrain_NormalDepth_HLSL");
 }
 
 void Terrain::Update()
@@ -209,6 +210,51 @@ void Terrain::TerrainRendererNotPS(Matrix V, Matrix P)
 	shader->SetDSSRV(2, _heightMapSRV.Get());
 
 	// Vertex/Index buffer
+	_mesh->GetVertexBuffer()->PushData();
+	_mesh->GetIndexBuffer()->PushData();
+
+	shader->DrawTerrainIndexed(_mesh->GetIndexBuffer()->GetCount() * 4, 0, 0);
+
+	shader->Unbind();
+}
+
+// SSAO normal-depth 패스: view-space normal + depth 기록 (PS_NormalDepth)
+void Terrain::TerrainRendererNormalDepth(Matrix V, Matrix P)
+{
+	auto shader = _hlslShaderNormalDepth;
+	if (!shader) return;
+
+	// VS/DS HeightMap 샘플링 + PS 노멀 계산용 샘플러
+	RENDER_STATES->BindAllSamplersVS();
+	RENDER_STATES->BindAllSamplersDS();
+	RENDER_STATES->BindAllSamplersPS();
+
+	// GlobalData (b0) -> VS, HS, DS, PS (PS 는 V 로 view-space 변환)
+	shader->PushGlobalData(V, P);
+
+	// TerrainBuffer (b8) -> HS, DS (테셀레이션) + PS (TexelCellSpace/WorldCellSpace 노멀 계산)
+	TerrainBuffer terrainDesc = TerrainBuffer{};
+
+	terrainDesc.MinDist = _minDist;
+	terrainDesc.MaxDist = _maxDist;
+	terrainDesc.MinTess = _minTess;
+	terrainDesc.MaxTess = _maxTess;
+
+	terrainDesc.TexelCellSpaceU = 1.f / _info.heightmapWidth;
+	terrainDesc.TexelCellSpaceV = 1.f / _info.heightmapHeight;
+	terrainDesc.WorldCellSpace = _info.cellSpacing;
+
+	_terrainBuffer->CopyData(terrainDesc);
+	auto terrainBuf = _terrainBuffer->GetComPtr().Get();
+	shader->SetHSConstantBuffer(8, terrainBuf);
+	shader->SetDSConstantBuffer(8, terrainBuf);
+	shader->SetPSConstantBuffer(8, terrainBuf);
+
+	// t2: HeightMap (VS + DS + PS)
+	shader->SetVSSRV(2, _heightMapSRV.Get());
+	shader->SetDSSRV(2, _heightMapSRV.Get());
+	shader->SetPSSRV(2, _heightMapSRV.Get());
+
 	_mesh->GetVertexBuffer()->PushData();
 	_mesh->GetIndexBuffer()->PushData();
 

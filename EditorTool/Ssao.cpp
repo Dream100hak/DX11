@@ -66,37 +66,44 @@ void Ssao::OnSize(int32 width, int32 height, float fovy, float farZ)
 
 void Ssao::SetShader()
 {
-	// SSAO //
+	// SSAO / Blur — HLSL (FX 00. Ssao.fx / 00. SsaoBlur.fx 대체)
+	_ssaoShader     = RESOURCES->Get<HlslShader>(L"Ssao_HLSL");
+	_ssaoBlurShader = RESOURCES->Get<HlslShader>(L"SsaoBlur_HLSL");
 
-	auto ssaoShader = RESOURCES->Get<Shader>(L"Ssao");
+	_ssaoBuffer = make_shared<ConstantBuffer<SsaoBuffer>>();
+	_ssaoBuffer->Create();
 
-	_ssaoShader = ssaoShader;
+	_ssaoBlurBuffer = make_shared<ConstantBuffer<SsaoBlurBuffer>>();
+	_ssaoBlurBuffer->Create();
 
-	_normalDepthEffectBuffer = ssaoShader->GetSRV("NormalDepthMap");
-	_randomEffectBuffer = ssaoShader->GetSRV("RandomVecMap");
+	CreateSamplers();
+}
 
-	if (_ssaoEffectBuffer == nullptr)
-	{
-		_ssaoBuffer = make_shared<ConstantBuffer<SsaoBuffer>>();
-		_ssaoBuffer->Create();
-		_ssaoEffectBuffer = ssaoShader->GetConstantBuffer("SsaoBuffer");
-	}
+void Ssao::CreateSamplers()
+{
+	// FX 셰이더 안에 정의돼 있던 샘플러들을 C++ 에서 생성
+	D3D11_SAMPLER_DESC desc{};
+	desc.Filter = D3D11_FILTER_MIN_MAG_LINEAR_MIP_POINT;
+	desc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+	desc.MaxLOD = D3D11_FLOAT32_MAX;
 
-	// SSAO BLUR //
+	// BORDER(0,0,0,1e5): 맵 밖 샘플은 매우 먼 깊이로 처리해 false occlusion 방지
+	desc.AddressU = D3D11_TEXTURE_ADDRESS_BORDER;
+	desc.AddressV = D3D11_TEXTURE_ADDRESS_BORDER;
+	desc.AddressW = D3D11_TEXTURE_ADDRESS_BORDER;
+	desc.BorderColor[0] = 0.f; desc.BorderColor[1] = 0.f;
+	desc.BorderColor[2] = 0.f; desc.BorderColor[3] = 1e5f;
+	CHECK(DEVICE->CreateSamplerState(&desc, _samBorder.GetAddressOf()));
 
-	auto ssaoBlurShader = RESOURCES->Get<Shader>(L"SsaoBlur");
+	desc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+	desc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+	desc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+	CHECK(DEVICE->CreateSamplerState(&desc, _samWrap.GetAddressOf()));
 
-	_ssaoBlurShader = ssaoBlurShader;
-
-	_normalDepthBlurEffectBuffer = ssaoBlurShader->GetSRV("NormalDepthMap");
-	_inputBlurEffectBuffer = ssaoBlurShader->GetSRV("InputImage");
-
-	if (_ssaoBlurEffectBuffer == nullptr)
-	{
-		_ssaoBlurBuffer = make_shared<ConstantBuffer<SsaoBlurBuffer>>();
-		_ssaoBlurBuffer->Create();
-		_ssaoBlurEffectBuffer = ssaoBlurShader->GetConstantBuffer("SsaoBlurBuffer");
-	}
+	desc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+	desc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+	desc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+	CHECK(DEVICE->CreateSamplerState(&desc, _samClamp.GetAddressOf()));
 }
 
 void Ssao::SetNormalDepthRenderTarget(ComPtr<ID3D11DepthStencilView> dsv)
@@ -288,14 +295,26 @@ void Ssao::ComputeSsao(Matrix& P)
 	_ssaoDesc.SurfaceEpsilon = 0.05f;
 
 	_ssaoBuffer->CopyData(_ssaoDesc);
-	_ssaoEffectBuffer->SetConstantBuffer(_ssaoBuffer->GetComPtr().Get());
 
-	_normalDepthEffectBuffer->SetResource(_normalDepthSRV.Get());
-	_randomEffectBuffer->SetResource(_randomVectorSRV.Get());
+	auto shader = _ssaoShader;
+	shader->Bind();
+
+	auto buf = _ssaoBuffer->GetComPtr().Get();
+	shader->SetVSConstantBuffer(8, buf); // FrustumCorners (VS)
+	shader->SetPSConstantBuffer(8, buf);
+
+	shader->SetPSSRV(0, _normalDepthSRV.Get());
+	shader->SetPSSRV(1, _randomVectorSRV.Get());
+	shader->SetPSSampler(0, _samBorder.Get());
+	shader->SetPSSampler(1, _samWrap.Get());
+
+	DCT->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	_vertexBuffer->PushData();
 	_indexBuffer->PushData();
-	_ssaoShader->DrawIndexed(0, 0, 6, 0, 0);
+	shader->DrawIndexed(6, 0, 0);
+
+	shader->SetPSSRV(0, nullptr); // normal-depth 는 다음 패스에서 RT 로 쓰일 수 있어 해제
 }
 
 
@@ -325,18 +344,27 @@ void Ssao::BlurAmbientMap(ComPtr<ID3D11ShaderResourceView> inputSRV, ComPtr<ID3D
 	_ssaoBlurDesc = SsaoBlurBuffer {} ;
 	_ssaoBlurDesc.TexelWidth =  1.f / _vp.GetWidth();
 	_ssaoBlurDesc.TexelHeight = 1.f / _vp.GetHeight();
+	_ssaoBlurDesc.HorzBlur = horzBlur ? 1.f : 0.f;
 
 	_ssaoBlurBuffer->CopyData(_ssaoBlurDesc);
-	_ssaoBlurEffectBuffer->SetConstantBuffer(_ssaoBlurBuffer->GetComPtr().Get());
 
-	_normalDepthBlurEffectBuffer->SetResource(_normalDepthSRV.Get());
-	_inputBlurEffectBuffer->SetResource(inputSRV.Get());
+	auto shader = _ssaoBlurShader;
+	shader->Bind();
+
+	shader->SetPSConstantBuffer(8, _ssaoBlurBuffer->GetComPtr().Get());
+	shader->SetPSSRV(0, _normalDepthSRV.Get());
+	shader->SetPSSRV(1, inputSRV.Get());
+	shader->SetPSSampler(0, _samClamp.Get());
+
+	DCT->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	_vertexBuffer->PushData();
 	_indexBuffer->PushData();
 
-	_ssaoBlurShader->DrawIndexed(horzBlur, 0, 6, 0, 0);
+	shader->DrawIndexed(6, 0, 0);
 
+	// 핑퐁: 이번 입력 SRV 가 다음 패스의 RT 가 되므로 반드시 해제
+	shader->SetPSSRV(1, nullptr);
 }
 
 void Ssao::Draw()
@@ -388,8 +416,9 @@ void Ssao::Draw()
 
 	INSTANCING->Render(ctx, vecForward);
 
+	// 터레인은 view-space normal+depth 를 기록 (PS 없는 depth-only 패스였던 갭 해소)
 	if (terrain)
-		terrain->TerrainRendererNotPS(V , P);
+		terrain->TerrainRendererNormalDepth(V , P);
 
 	/////////////////////////////////////////////////////////
 	ComputeSsao(P);

@@ -180,14 +180,19 @@ void ResourceManager::CreateSSAOShader()
 		GetOrAddHlslShader(L"SsaoNormalDepthAnim_HLSL", desc);
 	}
 
-	// SSAO compute / blur 는 아직 FX11 유지 (별도 단계에서 HLSL 이전 예정)
+	// SSAO compute (HLSL) — FX 00. Ssao.fx 대체. 샘플러는 Ssao 클래스에서 직접 바인딩.
 	{
-		shared_ptr<Shader> shader = make_shared<Shader>(L"00. Ssao.fx");
-		RESOURCES->Add(L"Ssao", shader);
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Ssao.hlsl";
+		desc.psFile  = L"Ssao.hlsl";
+		GetOrAddHlslShader(L"Ssao_HLSL", desc);
 	}
+	// SSAO blur (HLSL) — FX 00. SsaoBlur.fx 대체. 가로/세로는 cbuffer HorzBlur 로 분기.
 	{
-		shared_ptr<Shader> shader = make_shared<Shader>(L"00. SsaoBlur.fx");
-		RESOURCES->Add(L"SsaoBlur", shader);
+		HlslShaderDesc desc;
+		desc.vsFile  = L"SsaoBlur.hlsl";
+		desc.psFile  = L"SsaoBlur.hlsl";
+		GetOrAddHlslShader(L"SsaoBlur_HLSL", desc);
 	}
 }
 
@@ -327,5 +332,20 @@ void ResourceManager::CreateTerrainShader()
 		desc.hsEntry = "HS_Main";
 		desc.dsEntry = "DS_Main";
 		GetOrAddHlslShader(L"Terrain_Shadow_HLSL", desc);
+	}
+
+	// Terrain SSAO normal-depth HLSL (VS + HS + DS + PS_NormalDepth)
+	// SSAO 패스에서 터레인이 view-space normal+depth 를 기록하도록 (depth 만 쓰던 갭 해소)
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Terrain.hlsl";
+		desc.hsFile  = L"Terrain.hlsl";
+		desc.dsFile  = L"Terrain.hlsl";
+		desc.psFile  = L"Terrain.hlsl";
+		desc.vsEntry = "VS_Main";
+		desc.hsEntry = "HS_Main";
+		desc.dsEntry = "DS_Main";
+		desc.psEntry = "PS_NormalDepth";
+		GetOrAddHlslShader(L"Terrain_NormalDepth_HLSL", desc);
 	}
 }

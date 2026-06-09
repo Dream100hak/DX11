@@ -57,6 +57,7 @@ public:
 
 	void TerrainRenderer(Matrix V, Matrix P);
 	void TerrainRendererNotPS(Matrix V, Matrix P);
+	void TerrainRendererNormalDepth(Matrix V, Matrix P); // SSAO 입력 (view-space normal+depth)
 
 private:
 
@@ -74,6 +75,7 @@ private:
 
 	shared_ptr<class HlslShader> _hlslShader;
 	shared_ptr<class HlslShader> _hlslShaderShadow;
+	shared_ptr<class HlslShader> _hlslShaderNormalDepth;
 
 	TerrainInfo _info;
 

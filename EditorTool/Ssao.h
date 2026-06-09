@@ -15,7 +15,8 @@ struct SsaoBlurBuffer
 {
 	float TexelWidth;
 	float TexelHeight;
-	Vec2 Dummy = Vec2::Zero;
+	float HorzBlur = 0.f; // 1 = 가로 블러, 0 = 세로 블러 (FX uniform bool 테크닉 분기 대체)
+	float BlurPad = 0.f;
 };
 
 struct VertexSsao
@@ -42,6 +43,7 @@ private:
 	void CreateBuffer();
 	void CreateTwoAmbientTexture();
 	void CreateRandomVectorTexture();
+	void CreateSamplers();
 	void SetShader();
 
 	void OnSize(int32 width, int32 height, float fovy, float farZ);
@@ -72,25 +74,22 @@ private:
 	Vec4 _frustumFarCorner[4];
 	Vec4 _offsets[14];
 
-	//SSAO
-	shared_ptr<Shader> _ssaoShader = nullptr;
+	//SSAO (HLSL)
+	shared_ptr<HlslShader> _ssaoShader = nullptr;
 
 	SsaoBuffer _ssaoDesc;
 	shared_ptr<ConstantBuffer<SsaoBuffer>> _ssaoBuffer;
-	ComPtr<ID3DX11EffectConstantBuffer> _ssaoEffectBuffer;
 
-	ComPtr<ID3DX11EffectShaderResourceVariable> _normalDepthEffectBuffer;
-	ComPtr<ID3DX11EffectShaderResourceVariable> _randomEffectBuffer;
-
-	//SSAO BLUR
-	shared_ptr<Shader> _ssaoBlurShader = nullptr;
+	//SSAO BLUR (HLSL)
+	shared_ptr<HlslShader> _ssaoBlurShader = nullptr;
 
 	SsaoBlurBuffer _ssaoBlurDesc;
 	shared_ptr<ConstantBuffer<SsaoBlurBuffer>> _ssaoBlurBuffer;
-	ComPtr<ID3DX11EffectConstantBuffer> _ssaoBlurEffectBuffer;
 
-	ComPtr<ID3DX11EffectShaderResourceVariable> _normalDepthBlurEffectBuffer;
-	ComPtr<ID3DX11EffectShaderResourceVariable> _inputBlurEffectBuffer;
+	// 샘플러 (FX 셰이더 내 정의를 C++ 로 이전)
+	ComPtr<ID3D11SamplerState> _samBorder; // SSAO s0: LINEAR_MIP_POINT, BORDER(0,0,0,1e5)
+	ComPtr<ID3D11SamplerState> _samWrap;   // SSAO s1: LINEAR_MIP_POINT, WRAP
+	ComPtr<ID3D11SamplerState> _samClamp;  // Blur s0: LINEAR_MIP_POINT, CLAMP
 
 	//Buffer
 	shared_ptr<Geometry<VertexSsao>> _geometry;

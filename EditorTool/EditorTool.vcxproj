@@ -100,18 +100,6 @@
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
     </FxCompile>
-    <FxCompile Include="..\Shaders\00. Ssao.fx">
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-      </EntryPointName>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\00. SsaoBlur.fx">
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-      </EntryPointName>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
-    </FxCompile>
     <FxCompile Include="..\Shaders\01. Fire.fx">
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -138,6 +126,9 @@
   <None Include="..\Shaders\HLSL\Terrain.hlsl" />
     <None Include="..\Shaders\HLSL\Collider.hlsl" />
     <None Include="..\Shaders\HLSL\Thumbnail.hlsl" />
+    <None Include="..\Shaders\HLSL\Ssao.hlsl" />
+    <None Include="..\Shaders\HLSL\SsaoBlur.hlsl" />
+    <None Include="..\Shaders\HLSL\SsaoNormalDepth.hlsl" />
     <None Include="..\Shaders\HLSL\SceneGrid.hlsl" />
     <None Include="..\Shaders\HLSL\DebugTexture.hlsl" />
     <None Include="..\Shaders\HLSL\CubeMap.hlsl" />

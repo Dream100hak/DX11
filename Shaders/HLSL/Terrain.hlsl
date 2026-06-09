@@ -225,3 +225,26 @@ float4 PS_Main(DomainOut pin) : SV_TARGET
     litColor.a = 1.f;
     return litColor;
 }
+
+// ---- PS_NormalDepth ─ SSAO 입력용: view-space normal + view-space depth ─────
+// (FX 00. SsaoNormalDepth.fx T1 PS_Terrain 대체 — PS 없이 depth 만 쓰던 갭 해소)
+float4 PS_NormalDepth(DomainOut pin) : SV_TARGET
+{
+    float2 leftTex   = pin.Tex + float2(-TexelCellSpaceU, 0.f);
+    float2 rightTex  = pin.Tex + float2( TexelCellSpaceU, 0.f);
+    float2 bottomTex = pin.Tex + float2(0.f,  TexelCellSpaceV);
+    float2 topTex    = pin.Tex + float2(0.f, -TexelCellSpaceV);
+
+    float leftY   = HeightMap.SampleLevel(HeightmapSampler, leftTex,   0).r;
+    float rightY  = HeightMap.SampleLevel(HeightmapSampler, rightTex,  0).r;
+    float bottomY = HeightMap.SampleLevel(HeightmapSampler, bottomTex, 0).r;
+    float topY    = HeightMap.SampleLevel(HeightmapSampler, topTex,    0).r;
+
+    float3 tangent = normalize(float3(2.f * WorldCellSpace, rightY - leftY, 0.f));
+    float3 bitan   = normalize(float3(0.f, bottomY - topY, -2.f * WorldCellSpace));
+    float3 normalW = cross(tangent, bitan);
+
+    float3 normalV = normalize(mul(normalW, (float3x3)V));
+    float  depthV  = mul(float4(pin.PosW, 1.f), V).z;
+    return float4(normalV, depthV);
+}

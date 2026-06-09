@@ -217,12 +217,6 @@
     <FxCompile Include="..\Shaders\00. Light.fx">
       <Filter>Shaders\Common</Filter>
     </FxCompile>
-    <FxCompile Include="..\Shaders\00. Ssao.fx">
-      <Filter>Shaders\Common</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\00. SsaoBlur.fx">
-      <Filter>Shaders\Common</Filter>
-    </FxCompile>
     <FxCompile Include="..\Shaders\01. Rain.fx">
       <Filter>Shaders\Contents</Filter>
     </FxCompile>

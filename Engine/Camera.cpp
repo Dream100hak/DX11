@@ -200,9 +200,17 @@ void Camera::Render_Deferred()
 		RENDER_STATES->BindAllSamplersPS();
 		_gBuffer->BindSRVsPS(0);
 
+		bool hasSsao = false;
 		if (auto mat = RESOURCES->Get<Material>(L"DefaultMaterial"))
+		{
 			if (mat->GetShadowMap())
 				lightingShader->SetPSSRV(3, mat->GetShadowMap()->GetComPtr().Get());
+			if (mat->GetSsaoMap())
+			{
+				lightingShader->SetPSSRV(4, mat->GetSsaoMap().Get());
+				hasSsao = true;
+			}
+		}
 
 		lightingShader->Bind();
 		lightingShader->PushGlobalData(V, P);
@@ -212,6 +220,7 @@ void Camera::Render_Deferred()
 		defaultMat.ambient  = Vec4(1.f);
 		defaultMat.diffuse  = Vec4(1.f);
 		defaultMat.specular = Vec4(1.f, 1.f, 1.f, 32.f);
+		defaultMat.useSsao  = hasSsao ? 1 : 0;
 		lightingShader->PushMaterialData(defaultMat);
 
 		DCT->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);

@@ -137,18 +137,23 @@ Camera::Render_Forward()
     - InstancingManager pushes tween (b6) to the pass-appropriate HLSL shader incl. `AnimPreview_HLSL`; ModelAnimator self-pushes tween only for single-instance draws (preview) to avoid clobbering the instanced array.
     - **Fixed latent UB crash**: `GameObject::GetMeshRenderer/GetModelRenderer/GetModelAnimator` blindly static_cast the shared `ComponentType::Renderer` slot — Camera::SortGameObject read a garbage Material through a ModelRenderer-as-MeshRenderer cast (previously masked because `_shader` occupied that memory offset). Now type-checked via `GetRenderType()` before casting.
     - Runtime verified: editor stable 60s+ with a model in scene; deferred render + shadow OK.
+  - **SSAO -> HLSL + deferred wiring done**:
+    - New `Shaders/HLSL/Ssao.hlsl` (14-sample hemisphere AO) + `SsaoBlur.hlsl` (bilateral edge-preserving blur; horizontal/vertical via cbuffer `HorzBlur` instead of FX uniform-bool techniques). Deleted `00. Ssao.fx`/`00. SsaoBlur.fx`. FX samplers (BORDER 1e5 / WRAP / CLAMP) recreated in `Ssao::CreateSamplers` and bound via `SetPSSampler`.
+    - SSAO cbuffers bound at b8 (VS needs FrustumCorners too); topology set explicitly (terrain leaves PATCHLIST); ping-pong input SRV unbound after each blur draw.
+    - **Terrain normal-depth gap fixed**: `Terrain.hlsl PS_NormalDepth` (view-space normal + depth from heightmap finite differences) -> `Terrain_NormalDepth_HLSL`; `Terrain::TerrainRendererNormalDepth` used by the SSAO pass (was PS-less depth-only).
+    - **Deferred lighting now consumes SSAO**: `DeferredLighting.hlsl` samples `SsaoMap` (t4) and multiplies the ambient term when `UseSsao`; Camera Pass 2 binds DefaultMaterial's ssao SRV and sets `useSsao`.
+    - Runtime verified: ssao map shows real AO (ridge creases + model silhouette; previously solid red), depthNormal map now contains terrain normals, scene renders clean.
 
 ### Next Steps (to finish FX11 removal)
-- SSAO itself FX->HLSL (VS/PS only; not wired into deferred lighting yet, ssao map shows full-red). Also: terrain writes only depth (no normals) into the SSAO normal-depth map — `TerrainRendererNotPS` shares the PS-less `Terrain_Shadow_HLSL`, but FX-era SsaoNormalDepth T1 had a PS writing normal+depth. Needs a Terrain normal-depth PS variant when SSAO is finished.
-- ~~Shadow UX: light shadow bounds fixed at origin~~ **FIXED**: shadow sphere now auto-fits to the camera focus point each frame (`Light::UpdateMatrix` — `_autoFitShadow`, default on, toggleable in inspector) with light-space texel snapping to prevent shadow shimmer while the camera moves. Verified: model at (150,0,-10) (formerly outside bounds, shadowless) now casts a proper shadow.
-- Particles (Fire/Rain/RainSO): need Stream-Output support in HlslShader.
-- Then remove `Shader.h`/FX11 + TextureRenderer(FX).
+- Particles (Fire/Rain/RainSO): need Stream-Output support in HlslShader. (Last remaining FX consumers.)
+- Then remove `Shader.h`/FX11 + TextureRenderer(FX) + shared FX includes (`00. Global/Light/Render.fx`).
+- Shadow UX note: a camera-following shadow-sphere auto-fit was implemented then REVERTED by user preference (commit 58) — shadow bounds are the fixed center/radius on the Light inspector; objects outside cast/receive no shadows.
 - Editor gap: clip (.clip) has no scene drag-drop source (FolderContents CLIP branch lacks `DragModelFileToGUIWnd`); `CreateModelAnimatorMesh`/SceneWindow CLIP-drop branch already added, just needs the drag source.
 
 ## Known Issues
 
 ### Engine
-- Remaining FX11: SSAO compute/blur (`Ssao`/`SsaoBlur`) + particles (Fire/Rain/RainSO, need Stream-Output in HlslShader) + shared includes (`00. Global/Light/Render.fx`). Model/shadow/SSAO-normal-depth all HLSL now (Stage 4~5). NOTE: Terrain is already HLSL (HS/DS supported).
+- Remaining FX11: particles only (Fire/Rain/RainSO, need Stream-Output in HlslShader) + their shared includes (`00. Global/Light/Render.fx`). Models/shadow/SSAO/terrain all HLSL now.
 - Material Sampler nullptr temp binding (needs RenderStateManager integration)
 - Deferred Pass 3 (skybox/transparent) may misalign vs GBuffer depth when scene window has x/y offset (opaque unaffected).
 

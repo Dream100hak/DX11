@@ -128,22 +128,30 @@ shared_ptr<Renderer> GameObject::GetRenderer()
 	return static_pointer_cast<Renderer>(component);
 }
 
+// 렌더러는 ComponentType::Renderer 슬롯 하나를 공유하므로 실제 타입을 확인 후 캐스팅한다.
+// (무확인 static_cast 는 다른 렌더러 타입일 때 잘못된 메모리를 읽는 UB — 크래시 원인이었음)
 std::shared_ptr<MeshRenderer> GameObject::GetMeshRenderer()
 {
-	shared_ptr<Component> component = GetFixedComponent(ComponentType::Renderer);
-	return static_pointer_cast<MeshRenderer>(component);
+	shared_ptr<Renderer> renderer = GetRenderer();
+	if (renderer == nullptr || renderer->GetRenderType() != RendererType::Mesh)
+		return nullptr;
+	return static_pointer_cast<MeshRenderer>(renderer);
 }
 
 std::shared_ptr<ModelRenderer> GameObject::GetModelRenderer()
 {
-	shared_ptr<Component> component = GetFixedComponent(ComponentType::Renderer);
-	return static_pointer_cast<ModelRenderer>(component);
+	shared_ptr<Renderer> renderer = GetRenderer();
+	if (renderer == nullptr || renderer->GetRenderType() != RendererType::Model)
+		return nullptr;
+	return static_pointer_cast<ModelRenderer>(renderer);
 }
 
 std::shared_ptr<ModelAnimator> GameObject::GetModelAnimator()
 {
-	shared_ptr<Component> component = GetFixedComponent(ComponentType::Renderer);
-	return static_pointer_cast<ModelAnimator>(component);
+	shared_ptr<Renderer> renderer = GetRenderer();
+	if (renderer == nullptr || renderer->GetRenderType() != RendererType::Animator)
+		return nullptr;
+	return static_pointer_cast<ModelAnimator>(renderer);
 }
 
 std::shared_ptr<Light> GameObject::GetLight()

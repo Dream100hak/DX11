@@ -370,22 +370,21 @@ void Ssao::Draw()
 
 	Matrix V = camera->GetViewMatrix();
 	Matrix P = camera->GetProjectionMatrix();
-	
-	auto shader = RESOURCES->Get<Shader>(L"SsaoNormalDepth");
+
 	//Draw To Normal Depth
-	
 	SetNormalDepthRenderTarget(GRAPHICS->GetDsv());
-	
-	// RenderContext 설정 및 호출
+
+	// RenderContext 설정 및 호출 (HLSL SsaoNormalDepth*_HLSL: view-space normal+depth)
 	RenderContext ctx;
 	ctx.tech = 0;
 	ctx.view = V;
 	ctx.proj = P;
 	ctx.light = light;
-	ctx.shaderOverride = shader;
+	ctx.shaderOverride = nullptr;
 	ctx.hlslOverride = nullptr;
 	ctx.buffer = nullptr;
 	ctx.lightArray = nullptr;
+	ctx.ssaoPass = true;
 
 	INSTANCING->Render(ctx, vecForward);
 

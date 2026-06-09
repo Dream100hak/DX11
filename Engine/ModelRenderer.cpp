@@ -192,6 +192,46 @@ void ModelRenderer::Draw(const RenderContext& ctx)
 		return;
 	}
 
+	// ── Shadow(depth-only) / SSAO(normal-depth) 패스 (HLSL, 정적 모델) ──
+	if (ctx.shadowPass || ctx.ssaoPass)
+	{
+		auto shader = RESOURCES->Get<HlslShader>(ctx.shadowPass ? L"ShadowModel_HLSL" : L"SsaoNormalDepthModel_HLSL");
+		if (!shader) return;
+
+		shader->Bind();
+		shader->PushGlobalData(ctx.view, ctx.proj);
+		if (!ctx.buffer)
+			shader->PushTransformData(TransformDesc{ GetTransform()->GetWorldMatrix() });
+
+		const auto& meshes = _model->GetMeshes();
+		for (auto& mesh : meshes)
+		{
+			shader->PushModelBoneData(_model->GetBoneByIndex(mesh->boneIndex)->transform);
+
+			if (mesh->material)
+			{
+				MaterialDesc& md = mesh->material->GetMaterialDesc();
+				md.useTexture = mesh->material->GetDiffuseMap() ? 1 : 0;
+				shader->PushMaterialData(md);
+				auto diffuse = mesh->material->GetDiffuseMap();
+				shader->SetPSSRV(0, diffuse ? diffuse->GetComPtr().Get() : nullptr); // 알파클립용
+			}
+			RENDER_STATES->BindAllSamplersPS();
+
+			mesh->vertexBuffer->PushData();
+			mesh->indexBuffer->PushData();
+
+			if (!ctx.buffer)
+				shader->DrawIndexed(mesh->indexBuffer->GetCount(), 0, 0);
+			else
+			{
+				ctx.buffer->PushData();
+				shader->DrawIndexedInstanced(mesh->indexBuffer->GetCount(), ctx.buffer->GetCount());
+			}
+		}
+		return;
+	}
+
 	// ── Preview/Thumbnail lit 경로 (HLSL) : override 없는 포워드 = 프리뷰 ──
 	// FX Standard/Thumbnail 프리뷰 렌더를 HLSL 로 대체 (FX 상태 누수로 인한 씬 오염 해소)
 	if (ctx.shaderOverride == nullptr)

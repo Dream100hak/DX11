@@ -108,15 +108,38 @@ void ResourceManager::CreateDefaultMaterial()
 
 void ResourceManager::CreateShadowMapShader()
 {
-	// HLSL
-	HlslShaderDesc desc;
-	desc.vsFile  = L"ShadowMap_VS.hlsl";
-	desc.psFile  = L"ShadowMap_PS.hlsl";
-	desc.vsEntry = "VS_Mesh";
-	desc.psEntry = "PS_AlphaClip";  // ShadowMap_PS.hlsl 의 엔트리포인트
-	GetOrAddHlslShader(L"Shadow_HLSL", desc);
+	// Depth-only 그림자 패스 (HLSL). Standard_VS 의 스키닝/본/트윈 로직을 그대로 재사용하고
+	// light VP 는 PushGlobalData(lightV, lightP) 로 b0 VP 에 들어간다. PS 는 알파클립만 수행.
+	auto shadowRS = RENDER_STATES->GetRS(RasterizerStateType::ShadowDepth);
+	// ── Mesh ──
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Standard_VS.hlsl";
+		desc.psFile  = L"ShadowMap_PS.hlsl";
+		desc.vsEntry = "VS_Mesh";
+		desc.psEntry = "PS_AlphaClip";
+		if (auto s = GetOrAddHlslShader(L"Shadow_HLSL", desc)) s->SetRasterizerState(shadowRS);
+	}
+	// ── 정적 모델 ──
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Standard_VS.hlsl";
+		desc.psFile  = L"ShadowMap_PS.hlsl";
+		desc.vsEntry = "VS_Model";
+		desc.psEntry = "PS_AlphaClip";
+		if (auto s = GetOrAddHlslShader(L"ShadowModel_HLSL", desc)) s->SetRasterizerState(shadowRS);
+	}
+	// ── 애니메이션 모델 ──
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Standard_VS.hlsl";
+		desc.psFile  = L"ShadowMap_PS.hlsl";
+		desc.vsEntry = "VS_Animation";
+		desc.psEntry = "PS_AlphaClip";
+		if (auto s = GetOrAddHlslShader(L"ShadowAnim_HLSL", desc)) s->SetRasterizerState(shadowRS);
+	}
 
-	// 임시 FX11 (Terrain 그림자 용)
+	// 임시 FX11 (Terrain 그림자 용 — Terrain_Shadow_HLSL 로 대체 진행 중)
 	shared_ptr<Shader> shader = make_shared<Shader>(L"00. ShadowMap.fx");
 	RESOURCES->Add(L"Shadow", shader);
 }
@@ -149,14 +172,37 @@ void ResourceManager::CreateThumbnailShader()
 
 void ResourceManager::CreateSSAOShader()
 {
-	// SSAO는 현재 FX11 유지 (HLSL 미지원)
+	// SSAO normal-depth 패스 (모델 렌더) — HLSL. FX 00. SsaoNormalDepth.fx 의 모델 오버라이드 대체.
+	// view-space normal + view-space depth 를 출력.
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"SsaoNormalDepth.hlsl";
+		desc.psFile  = L"SsaoNormalDepth.hlsl";
+		desc.vsEntry = "VS_Mesh";
+		desc.psEntry = "PS_Main";
+		GetOrAddHlslShader(L"SsaoNormalDepth_HLSL", desc);
+	}
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"SsaoNormalDepth.hlsl";
+		desc.psFile  = L"SsaoNormalDepth.hlsl";
+		desc.vsEntry = "VS_Model";
+		desc.psEntry = "PS_Main";
+		GetOrAddHlslShader(L"SsaoNormalDepthModel_HLSL", desc);
+	}
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"SsaoNormalDepth.hlsl";
+		desc.psFile  = L"SsaoNormalDepth.hlsl";
+		desc.vsEntry = "VS_Animation";
+		desc.psEntry = "PS_Main";
+		GetOrAddHlslShader(L"SsaoNormalDepthAnim_HLSL", desc);
+	}
+
+	// SSAO compute / blur 는 아직 FX11 유지 (별도 단계에서 HLSL 이전 예정)
 	{
 		shared_ptr<Shader> shader = make_shared<Shader>(L"00. Ssao.fx");
 		RESOURCES->Add(L"Ssao", shader);
-	}
-	{
-		shared_ptr<Shader> shader = make_shared<Shader>(L"00. SsaoNormalDepth.fx");
-		RESOURCES->Add(L"SsaoNormalDepth", shader);
 	}
 	{
 		shared_ptr<Shader> shader = make_shared<Shader>(L"00. SsaoBlur.fx");

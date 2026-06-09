@@ -127,6 +127,19 @@ void RenderStateManager::CreateRasterizerStates()
 		desc.DepthClipEnable = true;
 		CHECK(DEVICE->CreateRasterizerState(&desc, _rasterizerStates[static_cast<int>(RasterizerStateType::FrontCounterCW)].GetAddressOf()));
 	}
+
+	// ShadowDepth (그림자 맵 depth-only) — FX 00. ShadowMap.fx 의 Depth 래스터라이저 대체
+	{
+		D3D11_RASTERIZER_DESC desc{};
+		desc.FillMode = D3D11_FILL_SOLID;
+		desc.CullMode = D3D11_CULL_BACK;
+		desc.DepthClipEnable = true;
+		// Bias = DepthBias * r + SlopeScaledDepthBias * MaxSlope  (24-bit depth: r = 1/2^24)
+		desc.DepthBias = 100000;
+		desc.DepthBiasClamp = 0.0f;
+		desc.SlopeScaledDepthBias = 1.0f;
+		CHECK(DEVICE->CreateRasterizerState(&desc, _rasterizerStates[static_cast<int>(RasterizerStateType::ShadowDepth)].GetAddressOf()));
+	}
 }
 
 // ==========================================================================

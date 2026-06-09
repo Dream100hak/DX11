@@ -89,6 +89,39 @@ void ModelAnimator::Draw(const RenderContext& ctx)
 		return;
 	}
 
+	// ── Shadow(depth-only) / SSAO(normal-depth) 패스 (HLSL, 애니메이션 스키닝) ──
+	if (ctx.shadowPass || ctx.ssaoPass)
+	{
+		auto shader = RESOURCES->Get<HlslShader>(ctx.shadowPass ? L"ShadowAnim_HLSL" : L"SsaoNormalDepthAnim_HLSL");
+		if (!shader || ctx.buffer == nullptr) return;
+
+		shader->Bind();
+		shader->PushGlobalData(ctx.view, ctx.proj);
+		shader->SetVSSRV(5, _srv.Get()); // TransformMap (t5)
+		// 트윈 데이터(b6)는 InstancingManager 에서 push 됨
+
+		const auto& meshes = _model->GetMeshes();
+		for (auto& mesh : meshes)
+		{
+			if (mesh->material)
+			{
+				MaterialDesc& md = mesh->material->GetMaterialDesc();
+				md.useTexture = mesh->material->GetDiffuseMap() ? 1 : 0;
+				shader->PushMaterialData(md);
+				auto diffuse = mesh->material->GetDiffuseMap();
+				shader->SetPSSRV(0, diffuse ? diffuse->GetComPtr().Get() : nullptr); // 알파클립용
+			}
+			RENDER_STATES->BindAllSamplersPS();
+
+			mesh->vertexBuffer->PushData();
+			mesh->indexBuffer->PushData();
+			ctx.buffer->PushData();
+
+			shader->DrawIndexedInstanced(mesh->indexBuffer->GetCount(), ctx.buffer->GetCount());
+		}
+		return;
+	}
+
 	// ── Preview/Thumbnail lit 경로 (HLSL) : override 없는 포워드 = 프리뷰 ──
 	if (ctx.shaderOverride == nullptr && ctx.buffer != nullptr)
 	{

@@ -23,6 +23,7 @@ enum class RasterizerStateType : uint8
 	SolidCullFront,    // 아웃라인 2패스
 	Wireframe,         // 와이어프레임
 	FrontCounterCW,    // 스카이박스 용
+	ShadowDepth,       // 그림자 맵 depth-only (DepthBias 적용, shadow acne 방지)
 	End
 };
 

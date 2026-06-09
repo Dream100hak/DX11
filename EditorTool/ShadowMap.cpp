@@ -64,7 +64,6 @@ void ShadowMap::Draw()
 	shared_ptr<Scene> scene = CUR_SCENE;
 	unordered_set<shared_ptr<GameObject>>& gameObjects = scene->GetObjects();
 
-	auto shader = RESOURCES->Get<Shader>(L"Shadow");
 	auto camera = scene->GetMainCamera()->GetCamera();
 	auto light = SCENE->GetCurrentScene()->GetLight()->GetLight();
 
@@ -94,16 +93,17 @@ void ShadowMap::Draw()
 
 	//DCT->RSSetState(light->GetDepthRS().Get()); 
 
-	// RenderContext 설정 및 호출
+	// RenderContext 설정 및 호출 (HLSL Shadow*_HLSL depth-only 패스)
 	RenderContext ctx;
 	ctx.tech = 0;
 	ctx.view = V;
 	ctx.proj = P;
 	ctx.light = light;
-	ctx.shaderOverride = shader;
+	ctx.shaderOverride = nullptr;
 	ctx.hlslOverride = nullptr;
 	ctx.buffer = nullptr;
 	ctx.lightArray = nullptr;
+	ctx.shadowPass = true;
 
 	INSTANCING->Render(ctx, vecForward);
 	if(terrain)

@@ -10,6 +10,9 @@
 #include "Utils.h"
 #include "RenderContext.h"
 #include "BindShaderDesc.h"  // ? LightArrayDesc �ʿ�
+#include "RenderStateManager.h"
+#include "Texture.h"
+#include "Material.h"
 
 MeshRenderer::MeshRenderer() : Super(RendererType::Mesh)
 {
@@ -123,6 +126,37 @@ void MeshRenderer::Draw(const RenderContext& ctx)
 		{
 			ctx.buffer->PushData();
 			gbufShader->DrawIndexedInstanced(_mesh->GetIndexBuffer()->GetCount(), ctx.buffer->GetCount());
+		}
+		return;
+	}
+
+	// ── Shadow(depth-only) / SSAO(normal-depth) 패스 (HLSL) ──
+	if (ctx.shadowPass || ctx.ssaoPass)
+	{
+		auto shader = RESOURCES->Get<HlslShader>(ctx.shadowPass ? L"Shadow_HLSL" : L"SsaoNormalDepth_HLSL");
+		if (!shader) return;
+
+		shader->Bind();
+		shader->PushGlobalData(ctx.view, ctx.proj);
+		if (!ctx.buffer)
+			shader->PushTransformData(TransformDesc{ GetTransform()->GetWorldMatrix() });
+
+		MaterialDesc& md = _material->GetMaterialDesc();
+		md.useTexture = _material->GetDiffuseMap() ? 1 : 0;
+		shader->PushMaterialData(md);
+		auto diffuse = _material->GetDiffuseMap();
+		shader->SetPSSRV(0, diffuse ? diffuse->GetComPtr().Get() : nullptr); // 알파클립용
+		RENDER_STATES->BindAllSamplersPS();
+
+		_mesh->GetVertexBuffer()->PushData();
+		_mesh->GetIndexBuffer()->PushData();
+
+		if (!ctx.buffer)
+			shader->DrawIndexed(_mesh->GetIndexBuffer()->GetCount(), 0, 0);
+		else
+		{
+			ctx.buffer->PushData();
+			shader->DrawIndexedInstanced(_mesh->GetIndexBuffer()->GetCount(), ctx.buffer->GetCount());
 		}
 		return;
 	}

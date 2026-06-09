@@ -30,4 +30,6 @@ struct RenderContext
 	shared_ptr<InstancingBuffer> buffer     = nullptr;
 
 	bool deferredPass = false;
+	bool shadowPass   = false; // ShadowMap depth-only 패스 (HLSL: Shadow*_HLSL)
+	bool ssaoPass     = false; // SSAO normal-depth 패스 (HLSL: SsaoNormalDepth*_HLSL)
 };

@@ -7,6 +7,7 @@
 #include "ModelAnimator.h"
 #include "BindShaderDesc.h"
 #include "Light.h"
+#include "Terrain.h"
 #include "GBuffer.h"
 #include "HlslShader.h"
 #include "RenderStateManager.h"
@@ -171,6 +172,7 @@ void Camera::Render_Deferred()
 	{
 		_gBuffer = make_shared<GBuffer>();
 		_gBuffer->Init(w, h);
+		EnsureSceneColor(w, h);
 	}
 
 	// ── Pass 1: G-Buffer fill (opaque only) ──
@@ -190,8 +192,29 @@ void Camera::Render_Deferred()
 	gbufCtx.deferredPass = true;
 	GET_SINGLE(InstancingManager)->Render(gbufCtx, _vecOpaque);
 
-	// ── Pass 2: Deferred lighting (fullscreen) ──
-	GRAPHICS->RestoreMainRenderTarget();
+	// 터레인도 GBuffer 로 (포워드 특수경로 제거 — 디퍼드 라이팅/PBR/SSAO 일괄 적용)
+	if (auto terrainObj = scene->GetTerrain())
+	{
+		if (auto terrain = terrainObj->GetTerrain())
+			terrain->TerrainRendererGBuffer(V, P);
+	}
+
+	// ── Pass 2: Deferred lighting (fullscreen) → HDR sceneColor ──
+	// 백버퍼가 아닌 씬 크기 HDR 버퍼에 라이팅 — GBuffer DSV 와 크기가 일치하므로
+	// Pass 3 의 깊이 테스트(스카이 z=far, 투명체)가 올바르게 동작한다.
+	{
+		float clearBlack[4] = { 0, 0, 0, 0 };
+		DCT->ClearRenderTargetView(_sceneColorRTV.Get(), clearBlack);
+
+		ID3D11RenderTargetView* hdrRTV = _sceneColorRTV.Get();
+		DCT->OMSetRenderTargets(1, &hdrRTV, _gBuffer->GetDSV().Get());
+
+		D3D11_VIEWPORT vp{};
+		vp.Width = static_cast<float>(w);
+		vp.Height = static_cast<float>(h);
+		vp.MaxDepth = 1.f;
+		DCT->RSSetViewports(1, &vp);
+	}
 
 	auto lightingShader = RESOURCES->Get<HlslShader>(L"DeferredLighting_HLSL");
 	if (lightingShader)
@@ -230,16 +253,30 @@ void Camera::Render_Deferred()
 		_gBuffer->UnbindSRVsPS(0);
 	}
 
-	// ── Pass 3: Forward pass (skybox + transparent) using G-Buffer depth ──
-	ID3D11RenderTargetView* mainRTV = GRAPHICS->GetRTV().Get();
-	DCT->OMSetRenderTargets(1, &mainRTV, _gBuffer->GetDSV().Get());
-
+	// ── Pass 3: Forward pass (skybox + transparent) — sceneColor + G-Buffer depth ──
 	RenderContext fwdCtx;
 	fwdCtx.view = V;
 	fwdCtx.proj = P;
 	fwdCtx.lightArray = lightArray;
 	GET_SINGLE(InstancingManager)->Render(fwdCtx, _vecBackground);
 	GET_SINGLE(InstancingManager)->Render(fwdCtx, _vecTransparent);
+
+	// ── Pass 4: Tonemap — HDR sceneColor → 백버퍼 (ACES + 감마) ──
+	GRAPHICS->RestoreMainRenderTarget();
+
+	if (auto tonemapShader = RESOURCES->Get<HlslShader>(L"Tonemap_HLSL"))
+	{
+		RENDER_STATES->BindAllSamplersPS();
+		tonemapShader->Bind();
+		tonemapShader->SetPSSRV(0, _sceneColorSRV.Get());
+
+		DCT->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		DCT->OMSetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::DisableDepth).Get(), 0);
+		DCT->Draw(3, 0);
+		DCT->OMSetDepthStencilState(nullptr, 0);
+
+		tonemapShader->SetPSSRV(0, nullptr);
+	}
 
 	// ── G-Buffer Debug View (KEY_3 toggle) ──
 	if (INPUT->GetButtonDown(KEY_TYPE::KEY_3))
@@ -264,6 +301,27 @@ void Camera::Render_Deferred()
 			_gBuffer->UnbindSRVsPS(0);
 		}
 	}
+}
+
+// 씬 크기 HDR 컬러 버퍼 (재)생성 — GBuffer 재생성 시점에 함께 호출
+void Camera::EnsureSceneColor(uint32 w, uint32 h)
+{
+	_sceneColorTex.Reset();
+	_sceneColorRTV.Reset();
+	_sceneColorSRV.Reset();
+
+	D3D11_TEXTURE2D_DESC desc{};
+	desc.Width = w;
+	desc.Height = h;
+	desc.MipLevels = 1;
+	desc.ArraySize = 1;
+	desc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	desc.SampleDesc.Count = 1;
+	desc.Usage = D3D11_USAGE_DEFAULT;
+	desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+	CHECK(DEVICE->CreateTexture2D(&desc, nullptr, _sceneColorTex.GetAddressOf()));
+	CHECK(DEVICE->CreateRenderTargetView(_sceneColorTex.Get(), nullptr, _sceneColorRTV.GetAddressOf()));
+	CHECK(DEVICE->CreateShaderResourceView(_sceneColorTex.Get(), nullptr, _sceneColorSRV.GetAddressOf()));
 }
 
 Camera::Camera() : Super(ComponentType::Camera)

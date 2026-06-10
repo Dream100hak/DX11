@@ -226,6 +226,55 @@ float4 PS_Main(DomainOut pin) : SV_TARGET
     return litColor;
 }
 
+// ---- PS_GBuffer ─ 디퍼드 GBuffer 출력 ──────────────────────────────────────
+// SV_Target0: albedo.rgb + metallic / SV_Target1: world normal + roughness / SV_Target2: world pos + mask
+// (라이팅/그림자/SSAO 는 디퍼드 라이팅 패스에서 일괄 처리 — 포워드 PS_Main 의 fog 는 미지원)
+struct TerrainGBufferOut
+{
+    float4 albedo   : SV_Target0;
+    float4 normal   : SV_Target1;
+    float4 position : SV_Target2;
+};
+
+TerrainGBufferOut PS_GBuffer(DomainOut pin)
+{
+    // 높이맵 유한차분 월드 노멀
+    float2 leftTex   = pin.Tex + float2(-TexelCellSpaceU, 0.f);
+    float2 rightTex  = pin.Tex + float2( TexelCellSpaceU, 0.f);
+    float2 bottomTex = pin.Tex + float2(0.f,  TexelCellSpaceV);
+    float2 topTex    = pin.Tex + float2(0.f, -TexelCellSpaceV);
+
+    float leftY   = HeightMap.SampleLevel(HeightmapSampler, leftTex,   0).r;
+    float rightY  = HeightMap.SampleLevel(HeightmapSampler, rightTex,  0).r;
+    float bottomY = HeightMap.SampleLevel(HeightmapSampler, bottomTex, 0).r;
+    float topY    = HeightMap.SampleLevel(HeightmapSampler, topTex,    0).r;
+
+    float3 tangent = normalize(float3(2.f * WorldCellSpace, rightY - leftY, 0.f));
+    float3 bitan   = normalize(float3(0.f, bottomY - topY, -2.f * WorldCellSpace));
+    float3 normalW = normalize(cross(tangent, bitan));
+
+    // 레이어 텍스처 블렌딩
+    float4 c0 = LayerMapArray.Sample(LinearSampler, float3(pin.TiledTex, 0.f));
+    float4 c1 = LayerMapArray.Sample(LinearSampler, float3(pin.TiledTex, 1.f));
+    float4 c2 = LayerMapArray.Sample(LinearSampler, float3(pin.TiledTex, 2.f));
+    float4 c3 = LayerMapArray.Sample(LinearSampler, float3(pin.TiledTex, 3.f));
+    float4 c4 = LayerMapArray.Sample(LinearSampler, float3(pin.TiledTex, 4.f));
+    float4 t  = BlendMap.Sample(LinearSampler, pin.Tex);
+
+    float4 texColor = c0;
+    texColor = lerp(texColor, c1, t.r);
+    texColor = lerp(texColor, c2, t.g);
+    texColor = lerp(texColor, c3, t.b);
+    texColor = lerp(texColor, c4, t.a);
+
+    TerrainGBufferOut output;
+    // sRGB(감마) 텍스처 → linear (톤매핑 패스가 감마 인코딩)
+    output.albedo   = float4(pow(abs(texColor.rgb), 2.2f), Metallic);
+    output.normal   = float4(normalW * 0.5f + 0.5f, Roughness);
+    output.position = float4(pin.PosW, 1.f);
+    return output;
+}
+
 // ---- PS_NormalDepth ─ SSAO 입력용: view-space normal + view-space depth ─────
 // (FX 00. SsaoNormalDepth.fx T1 PS_Terrain 대체 — PS 없이 depth 만 쓰던 갭 해소)
 float4 PS_NormalDepth(DomainOut pin) : SV_TARGET

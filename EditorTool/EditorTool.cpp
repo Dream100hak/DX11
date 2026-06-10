@@ -183,6 +183,7 @@ void EditorTool::Init()
 		auto mat = RESOURCES->Get<Material>(L"DefaultMaterial");
 
 		shared_ptr<Material> matClone = mat->Clone();
+		matClone->GetMaterialDesc().roughness = 0.9f; // 지면 — 거의 무광
 		//matClone->SetShadowMap(static_pointer_cast<Texture>(shadow));
 		terrainObj->GetComponent<Terrain>()->Init(info, matClone);
 

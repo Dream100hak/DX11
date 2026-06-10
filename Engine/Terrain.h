@@ -56,6 +56,7 @@ public:
 	shared_ptr<Texture> GetLayerMap() { return _layerMapArray; }
 
 	void TerrainRenderer(Matrix V, Matrix P);
+	void TerrainRendererGBuffer(Matrix V, Matrix P);     // 디퍼드 GBuffer fill (Camera::Render_Deferred Pass 1)
 	void TerrainRendererNotPS(Matrix V, Matrix P);
 	void TerrainRendererNormalDepth(Matrix V, Matrix P); // SSAO 입력 (view-space normal+depth)
 
@@ -74,6 +75,7 @@ private:
 	std::vector<shared_ptr<Texture>> _layerViews;
 
 	shared_ptr<class HlslShader> _hlslShader;
+	shared_ptr<class HlslShader> _hlslShaderGBuffer;
 	shared_ptr<class HlslShader> _hlslShaderShadow;
 	shared_ptr<class HlslShader> _hlslShaderNormalDepth;
 

@@ -306,6 +306,16 @@ void ResourceManager::CreateDeferredShaders()
 		GetOrAddHlslShader(L"DeferredLighting_HLSL", desc);
 	}
 
+	// Tonemap (HDR sceneColor -> 백버퍼, ACES + 감마)
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Tonemap.hlsl";
+		desc.psFile  = L"Tonemap.hlsl";
+		desc.vsEntry = "VS_Main";
+		desc.psEntry = "PS_Main";
+		GetOrAddHlslShader(L"Tonemap_HLSL", desc);
+	}
+
 	// G-Buffer Debug View (4-quadrant split)
 	{
 		HlslShaderDesc desc;
@@ -400,6 +410,20 @@ void ResourceManager::CreateTerrainShader()
 		desc.hsEntry = "HS_Main";
 		desc.dsEntry = "DS_Main";
 		GetOrAddHlslShader(L"Terrain_Shadow_HLSL", desc);
+	}
+
+	// Terrain GBuffer HLSL (VS + HS + DS + PS_GBuffer) — 디퍼드 GBuffer fill
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Terrain.hlsl";
+		desc.hsFile  = L"Terrain.hlsl";
+		desc.dsFile  = L"Terrain.hlsl";
+		desc.psFile  = L"Terrain.hlsl";
+		desc.vsEntry = "VS_Main";
+		desc.hsEntry = "HS_Main";
+		desc.dsEntry = "DS_Main";
+		desc.psEntry = "PS_GBuffer";
+		GetOrAddHlslShader(L"Terrain_GBuffer_HLSL", desc);
 	}
 
 	// Terrain SSAO normal-depth HLSL (VS + HS + DS + PS_NormalDepth)

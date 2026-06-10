@@ -99,5 +99,13 @@ private:
 	shared_ptr<class GBuffer> _gBuffer;
 	bool _showGBufferDebug = false;
 
+	// HDR sceneColor — 디퍼드 라이팅/스카이/투명 패스가 그리는 씬 크기 오프스크린 버퍼.
+	// GBuffer DSV 와 크기가 일치해 Pass 3 깊이 테스트가 올바르게 동작 (백버퍼+GBuffer DSV
+	// 크기 불일치로 OMSetRenderTargets 가 조용히 실패하던 문제 해결). 톤매핑 패스가 백버퍼로 블릿.
+	ComPtr<ID3D11Texture2D>          _sceneColorTex;
+	ComPtr<ID3D11RenderTargetView>   _sceneColorRTV;
+	ComPtr<ID3D11ShaderResourceView> _sceneColorSRV;
+	void EnsureSceneColor(uint32 w, uint32 h);
+
 	shared_ptr<class LightArrayDesc> CollectLights(shared_ptr<class Scene> scene);
 };

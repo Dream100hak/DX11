@@ -91,19 +91,15 @@ void Terrain::Init(const TerrainInfo& initInfo , shared_ptr<Material> mat)
 	_blendMap = RESOURCES->Load<Texture>(_info.blendMapFilename, _info.blendMapFilename);
 
 	_hlslShader = RESOURCES->Get<HlslShader>(L"Terrain_HLSL");
+	_hlslShaderGBuffer = RESOURCES->Get<HlslShader>(L"Terrain_GBuffer_HLSL");
 	_hlslShaderShadow = RESOURCES->Get<HlslShader>(L"Terrain_Shadow_HLSL");
 	_hlslShaderNormalDepth = RESOURCES->Get<HlslShader>(L"Terrain_NormalDepth_HLSL");
 }
 
 void Terrain::Update()
 {
-	if (INPUT->GetButton(KEY_TYPE::KEY_1))
-		DCT->RSSetState(GRAPHICS->GetWireframeRS().Get());
-
-	shared_ptr<Camera> camera = MAIN_CAM;
-	TerrainRenderer(camera->GetViewMatrix(), camera->GetProjectionMatrix());
-
-	DCT->RSSetState(0);
+	// 드로우는 Camera::Render_Deferred Pass 1 에서 TerrainRendererGBuffer 로 수행
+	// (예전엔 여기서 포워드로 백버퍼에 직접 그렸음 — 디퍼드 라이팅/PBR/SSAO 일괄 적용 위해 GBuffer 로 편입)
 }
 
 void Terrain::TerrainRenderer(Matrix V, Matrix P)
@@ -178,6 +174,72 @@ void Terrain::TerrainRenderer(Matrix V, Matrix P)
 
 	// Cleanup HS/DS to avoid affecting subsequent draws
 	shader->Unbind();
+}
+
+// 디퍼드 GBuffer fill — Camera::Render_Deferred Pass 1 (GBuffer MRT 바인딩 상태) 에서 호출
+// 라이팅/그림자/SSAO 는 디퍼드 라이팅 패스가 일괄 처리하므로 albedo/normal/position 만 기록
+void Terrain::TerrainRendererGBuffer(Matrix V, Matrix P)
+{
+	auto shader = _hlslShaderGBuffer;
+	if (!shader) return;
+
+	Vec4 worldPlanes[6];
+	MathUtils::ExtractFrustumPlanes(worldPlanes, V * P);
+
+	// KEY_1: 와이어프레임 디버그 (구 Terrain::Update 동작 유지)
+	if (INPUT->GetButton(KEY_TYPE::KEY_1))
+		DCT->RSSetState(GRAPHICS->GetWireframeRS().Get());
+
+	RENDER_STATES->BindAllSamplersVS();
+	RENDER_STATES->BindAllSamplersPS();
+	RENDER_STATES->BindAllSamplersDS();
+
+	// GlobalData (b0) -> VS, HS, DS, PS
+	shader->PushGlobalData(V, P);
+
+	// MaterialData (b3) -> PS (Roughness/Metallic)
+	if (_mat)
+		shader->PushMaterialData(_mat->GetMaterialDesc());
+
+	// TerrainBuffer (b8) -> HS, DS, PS
+	TerrainBuffer terrainDesc = TerrainBuffer{};
+	terrainDesc.FogStart = _fogStart;
+	terrainDesc.FogRange = _fogRange;
+	terrainDesc.FogColor = _fogColor;
+	terrainDesc.MinDist = _minDist;
+	terrainDesc.MaxDist = _maxDist;
+	terrainDesc.MinTess = _minTess;
+	terrainDesc.MaxTess = _maxTess;
+	terrainDesc.TexelCellSpaceU = 1.f / _info.heightmapWidth;
+	terrainDesc.TexelCellSpaceV = 1.f / _info.heightmapHeight;
+	terrainDesc.WorldCellSpace = _info.cellSpacing;
+
+	for (int i = 0; i < 6; ++i)
+		terrainDesc.WorldFrustumPlanes[i] = worldPlanes[i];
+
+	_terrainDesc = terrainDesc;
+	_terrainBuffer->CopyData(_terrainDesc);
+	auto terrainBuf = _terrainBuffer->GetComPtr().Get();
+	shader->SetHSConstantBuffer(8, terrainBuf);
+	shader->SetDSConstantBuffer(8, terrainBuf);
+	shader->SetPSConstantBuffer(8, terrainBuf);
+
+	// SRV bindings
+	shader->SetPSSRV(0, _layerMapArray->GetComPtr().Get());
+	shader->SetPSSRV(1, _blendMap->GetComPtr().Get());
+	shader->SetVSSRV(2, _heightMapSRV.Get());
+	shader->SetDSSRV(2, _heightMapSRV.Get());
+	shader->SetPSSRV(2, _heightMapSRV.Get());
+
+	_mesh->GetVertexBuffer()->PushData();
+	_mesh->GetIndexBuffer()->PushData();
+
+	shader->DrawTerrainIndexed(_mesh->GetIndexBuffer()->GetCount() * 4, 0, 0);
+
+	shader->Unbind();
+
+	if (INPUT->GetButton(KEY_TYPE::KEY_1))
+		DCT->RSSetState(RENDER_STATES->GetRS(RasterizerStateType::SolidCullBack).Get());
 }
 
 void Terrain::TerrainRendererNotPS(Matrix V, Matrix P)

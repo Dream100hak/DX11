@@ -33,7 +33,8 @@ GBufferOutput PS_GBuffer(MeshOutput input)
             clip(texColor.a - 0.1f);
     }
 
-    output.albedo   = float4(texColor.rgb, Metallic);
+    // sRGB(감마) 텍스처/컬러 → linear (라이팅은 linear 공간, 톤매핑 패스가 감마 인코딩)
+    output.albedo   = float4(pow(abs(texColor.rgb), 2.2f), Metallic);
     output.normal   = float4(input.normal * 0.5f + 0.5f, Roughness);
     output.position = float4(input.worldPosition, 1.0f);
 

@@ -441,6 +441,9 @@ void AsConverter::WriteMaterialDataByMat(shared_ptr<asMaterial> material,  wstri
 	file->Write<Color>(material->diffuse);
 	file->Write<Color>(material->specular);
 	file->Write<Color>(material->emissive);
+	// PBR 확장 필드 (Material::Load 가 TryRead 로 읽음 — 구버전 파일 호환)
+	file->Write<float>(0.5f); // roughness
+	file->Write<float>(0.0f); // metallic
 }
 
 std::string AsConverter::WriteTexture(string saveFolder, string file)

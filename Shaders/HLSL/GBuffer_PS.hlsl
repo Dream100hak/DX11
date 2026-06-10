@@ -2,9 +2,9 @@
 // G-Buffer fill pixel shader - outputs to 3 MRT
 // Paired with Standard_VS.hlsl (VS_Mesh / VS_Model / VS_Animation)
 //
-// SV_Target0 : Albedo (RGBA8)
-// SV_Target1 : World Normal (RGBA16F) - packed [0,1]
-// SV_Target2 : World Position (RGBA16F)
+// SV_Target0 : Albedo.rgb + Metallic (RGBA8)
+// SV_Target1 : World Normal packed [0,1] + Roughness (RGBA16F)
+// SV_Target2 : World Position + mask (RGBA16F, w=1 → 유효 GBuffer 픽셀)
 
 #include "Lighting.hlsli"
 
@@ -33,8 +33,8 @@ GBufferOutput PS_GBuffer(MeshOutput input)
             clip(texColor.a - 0.1f);
     }
 
-    output.albedo   = texColor;
-    output.normal   = float4(input.normal * 0.5f + 0.5f, MatSpecular.w / 256.0f);
+    output.albedo   = float4(texColor.rgb, Metallic);
+    output.normal   = float4(input.normal * 0.5f + 0.5f, Roughness);
     output.position = float4(input.worldPosition, 1.0f);
 
     return output;

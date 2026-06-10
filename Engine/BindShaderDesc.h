@@ -4,8 +4,6 @@
 // ? Forward declaration
 class Light;
 
-class Shader;
-
 struct GlobalDesc
 {
 	Matrix V = Matrix::Identity;
@@ -72,7 +70,12 @@ struct MaterialDesc
 	int useTexture  = 0; // 0 = ����, 1 = �ؽ�ó ����
 	int useAlphaclip = 0;  // 0 = Ŭ�� ����
 	int useSsao     = 0;   // 0 = SSAO ������
-	int lightCount = 0;   // 16����Ʈ ����
+	int lightCount = 0;
+
+	// PBR (Cook-Torrance) - HLSL MaterialBuffer(b3) 와 순서/패킹 일치 필수
+	float roughness = 0.5f;
+	float metallic  = 0.f;
+	Vec2  pbrPadding;   // 16����Ʈ ����
 };
 
 // Bone

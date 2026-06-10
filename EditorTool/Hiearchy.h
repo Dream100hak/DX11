@@ -19,6 +19,7 @@ public:
 	int32 CreateRain();
 	int32 CreateSky();
 	int32 CreateTerrain();
+	void CreatePbrTestGrid();
 
 };
 

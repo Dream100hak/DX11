@@ -49,6 +49,14 @@ void Material::Load(const wstring& path)
 	_desc.diffuse = file->Read<Color>();
 	_desc.specular = file->Read<Color>();
 	_desc.emissive = file->Read<Color>();
+
+	// PBR 확장 필드 (구버전 .mat 에는 없음 — 기본값 유지)
+	float roughness = 0.f, metallic = 0.f;
+	if (file->TryRead(roughness) && file->TryRead(metallic))
+	{
+		_desc.roughness = roughness;
+		_desc.metallic  = metallic;
+	}
 }
 
 void Material::Update()

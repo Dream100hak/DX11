@@ -8,6 +8,8 @@
 
 #include "Utils.h"
 #include "Model.h"
+#include "MeshRenderer.h"
+#include "Material.h"
 
 Hiearchy::Hiearchy(Vec2 pos, Vec2 size)
 {
@@ -141,6 +143,11 @@ void Hiearchy::ShowHiearchy()
 				TOOL->SetSelectedObjH(id);
 				ADDLOG("Create Sphere", LogFilter::Info);
 			}
+			if (ImGui::MenuItem("Create PBR Test Grid"))
+			{
+				CreatePbrTestGrid();
+				ADDLOG("Create PBR Test Grid", LogFilter::Info);
+			}
 
 			ImGui::EndMenu();
 		}
@@ -273,4 +280,48 @@ int32 Hiearchy::CreateSky()
 int32 Hiearchy::CreateTerrain()
 {
 	return 0;
+}
+
+// PBR 검증용 구체 그리드 — 가로 roughness 0→1 (6단), 세로 metallic 0→1 (4단)
+// 카메라 전방에 스폰. 디퍼드 Cook-Torrance 라이팅 확인용.
+void Hiearchy::CreatePbrTestGrid()
+{
+	auto scene = SCENE->GetCurrentScene();
+	auto cam = scene->GetMainCamera();
+	if (cam == nullptr)
+		return;
+
+	auto sphereMesh = RESOURCES->Get<Mesh>(L"Sphere");
+	auto baseMat = RESOURCES->Get<Material>(L"DefaultMaterial");
+	if (sphereMesh == nullptr || baseMat == nullptr)
+		return;
+
+	Vec3 base = cam->GetTransform()->GetLocalPosition() + cam->GetTransform()->GetLook() * 25.f;
+
+	static int32 gridCount = 0;
+	gridCount++;
+
+	for (int32 my = 0; my < 4; ++my)
+	{
+		for (int32 rx = 0; rx < 6; ++rx)
+		{
+			auto obj = make_shared<GameObject>();
+			obj->SetObjectName(L"PbrTest" + to_wstring(gridCount) + L"_m" + to_wstring(my) + L"_r" + to_wstring(rx));
+			obj->GetOrAddTransform()->SetPosition(base + Vec3(rx * 2.4f, my * 2.4f, 0.f));
+			obj->GetOrAddTransform()->SetScale(Vec3(1.f, 1.f, 1.f));
+
+			auto pbrMat = baseMat->Clone();
+			pbrMat->SetDiffuseMap(nullptr); // 순수 컬러로
+			pbrMat->GetMaterialDesc().diffuse = Color(1.0f, 0.3f, 0.25f, 1.f);
+			pbrMat->GetMaterialDesc().roughness = 0.05f + rx * 0.19f;
+			pbrMat->GetMaterialDesc().metallic = my / 3.f;
+			pbrMat->SetRenderQueue(RenderQueue::Opaque);
+
+			auto mr = make_shared<MeshRenderer>();
+			mr->SetMesh(sphereMesh);
+			mr->SetMaterial(pbrMat);
+			obj->AddComponent(mr);
+			CUR_SCENE->Add(obj);
+		}
+	}
 }

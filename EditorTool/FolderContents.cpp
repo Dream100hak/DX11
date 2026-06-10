@@ -315,10 +315,13 @@ void FolderContents::CreateMaterial()
 	file->Write<string>(""); // Diffuse
 	file->Write<string>(""); // Specular
 	file->Write<string>(""); // Normal
-	file->Write<Color>(material->GetMaterialDesc().ambient);	
-	file->Write<Color>(material->GetMaterialDesc().diffuse);	
-	file->Write<Color>(material->GetMaterialDesc().specular);	
+	file->Write<Color>(material->GetMaterialDesc().ambient);
+	file->Write<Color>(material->GetMaterialDesc().diffuse);
+	file->Write<Color>(material->GetMaterialDesc().specular);
 	file->Write<Color>(material->GetMaterialDesc().emissive);
+	// PBR 확장 필드 (Material::Load 가 TryRead 로 읽음 — 구버전 파일 호환)
+	file->Write<float>(material->GetMaterialDesc().roughness);
+	file->Write<float>(material->GetMaterialDesc().metallic);
 
 	wstring fullPath = directory + L"\\" + fileName;
 

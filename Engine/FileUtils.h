@@ -45,6 +45,16 @@ public:
 		return data;
 	}
 
+	// EOF 허용 읽기 — 포맷 확장 필드용 (구버전 파일이면 false)
+	template<typename T>
+	bool TryRead(OUT T& data)
+	{
+		DWORD numOfBytes = 0;
+		if (!::ReadFile(_handle, &data, sizeof(T), (LPDWORD)&numOfBytes, nullptr))
+			return false;
+		return numOfBytes == sizeof(T);
+	}
+
 	void Read(void** data, uint32 dataSize);
 	void Read(OUT string& data);
 

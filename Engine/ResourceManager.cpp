@@ -316,6 +316,42 @@ void ResourceManager::CreateDeferredShaders()
 		GetOrAddHlslShader(L"Tonemap_HLSL", desc);
 	}
 
+	// Bloom: BrightPass / BlurH / BlurV (하프 해상도)
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"PostProcess.hlsl";
+		desc.psFile  = L"PostProcess.hlsl";
+		desc.vsEntry = "VS_Main";
+		desc.psEntry = "PS_BrightPass";
+		GetOrAddHlslShader(L"BloomBright_HLSL", desc);
+	}
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"PostProcess.hlsl";
+		desc.psFile  = L"PostProcess.hlsl";
+		desc.vsEntry = "VS_Main";
+		desc.psEntry = "PS_BlurH";
+		GetOrAddHlslShader(L"BloomBlurH_HLSL", desc);
+	}
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"PostProcess.hlsl";
+		desc.psFile  = L"PostProcess.hlsl";
+		desc.vsEntry = "VS_Main";
+		desc.psEntry = "PS_BlurV";
+		GetOrAddHlslShader(L"BloomBlurV_HLSL", desc);
+	}
+
+	// FXAA (톤매핑 후 LDR 안티앨리어싱)
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Fxaa.hlsl";
+		desc.psFile  = L"Fxaa.hlsl";
+		desc.vsEntry = "VS_Main";
+		desc.psEntry = "PS_Main";
+		GetOrAddHlslShader(L"Fxaa_HLSL", desc);
+	}
+
 	// Pass Viewer (씬뷰 패스 시각화 — Albedo/Normal/Roughness/Metallic/Depth/SSAO/Shadow)
 	{
 		HlslShaderDesc desc;

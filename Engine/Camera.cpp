@@ -261,14 +261,34 @@ void Camera::Render_Deferred()
 	GET_SINGLE(InstancingManager)->Render(fwdCtx, _vecBackground);
 	GET_SINGLE(InstancingManager)->Render(fwdCtx, _vecTransparent);
 
-	// ── Pass 4: Tonemap — HDR sceneColor → 백버퍼 (ACES + 감마) ──
-	GRAPHICS->RestoreMainRenderTarget();
+	// ── Bloom: sceneColor → 하프 해상도 brightpass + 가우시안 블러 ──
+	if (_bloomEnabled)
+		RenderBloom(w, h);
+
+	// ── Pass 4: Tonemap — HDR sceneColor (+Bloom) → 백버퍼 또는 LDR 버퍼 (ACES + 감마) ──
+	// FXAA 켜져 있으면 LDR 중간 버퍼에 톤매핑하고 FXAA 가 백버퍼로 마무리
+	if (_fxaaEnabled)
+	{
+		ID3D11RenderTargetView* ldrRTV = _ldrRTV.Get();
+		DCT->OMSetRenderTargets(1, &ldrRTV, nullptr);
+
+		D3D11_VIEWPORT vp{};
+		vp.Width = static_cast<float>(w);
+		vp.Height = static_cast<float>(h);
+		vp.MaxDepth = 1.f;
+		DCT->RSSetViewports(1, &vp);
+	}
+	else
+	{
+		GRAPHICS->RestoreMainRenderTarget();
+	}
 
 	if (auto tonemapShader = RESOURCES->Get<HlslShader>(L"Tonemap_HLSL"))
 	{
 		RENDER_STATES->BindAllSamplersPS();
 		tonemapShader->Bind();
 		tonemapShader->SetPSSRV(0, _sceneColorSRV.Get());
+		tonemapShader->SetPSSRV(1, _bloomEnabled ? _bloomSRV[0].Get() : nullptr);
 
 		DCT->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		DCT->OMSetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::DisableDepth).Get(), 0);
@@ -276,6 +296,37 @@ void Camera::Render_Deferred()
 		DCT->OMSetDepthStencilState(nullptr, 0);
 
 		tonemapShader->SetPSSRV(0, nullptr);
+		tonemapShader->SetPSSRV(1, nullptr);
+	}
+
+	// ── FXAA: LDR 중간 버퍼 → 백버퍼 ──
+	if (_fxaaEnabled)
+	{
+		GRAPHICS->RestoreMainRenderTarget();
+
+		if (auto fxaaShader = RESOURCES->Get<HlslShader>(L"Fxaa_HLSL"))
+		{
+			if (_postCB == nullptr)
+			{
+				_postCB = make_shared<ConstantBuffer<PostProcessDesc>>();
+				_postCB->Create();
+			}
+			PostProcessDesc pd;
+			pd.texelSize = Vec2(1.f / w, 1.f / h);
+			_postCB->CopyData(pd);
+
+			RENDER_STATES->BindAllSamplersPS();
+			fxaaShader->Bind();
+			fxaaShader->SetPSSRV(0, _ldrSRV.Get());
+			fxaaShader->SetPSConstantBuffer(8, _postCB->GetComPtr().Get());
+
+			DCT->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			DCT->OMSetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::DisableDepth).Get(), 0);
+			DCT->Draw(3, 0);
+			DCT->OMSetDepthStencilState(nullptr, 0);
+
+			fxaaShader->SetPSSRV(0, nullptr);
+		}
 	}
 
 	// ── 씬뷰 패스 뷰어 (에디터 콤보 또는 KEY_4 순환, 0=Final 이면 스킵) ──
@@ -370,6 +421,81 @@ void Camera::EnsureSceneColor(uint32 w, uint32 h)
 	CHECK(DEVICE->CreateTexture2D(&desc, nullptr, _sceneColorTex.GetAddressOf()));
 	CHECK(DEVICE->CreateRenderTargetView(_sceneColorTex.Get(), nullptr, _sceneColorRTV.GetAddressOf()));
 	CHECK(DEVICE->CreateShaderResourceView(_sceneColorTex.Get(), nullptr, _sceneColorSRV.GetAddressOf()));
+
+	// Bloom ping-pong (하프 해상도 HDR)
+	D3D11_TEXTURE2D_DESC bloomDesc = desc;
+	bloomDesc.Width  = max(1u, w / 2);
+	bloomDesc.Height = max(1u, h / 2);
+	for (int i = 0; i < 2; ++i)
+	{
+		_bloomTex[i].Reset(); _bloomRTV[i].Reset(); _bloomSRV[i].Reset();
+		CHECK(DEVICE->CreateTexture2D(&bloomDesc, nullptr, _bloomTex[i].GetAddressOf()));
+		CHECK(DEVICE->CreateRenderTargetView(_bloomTex[i].Get(), nullptr, _bloomRTV[i].GetAddressOf()));
+		CHECK(DEVICE->CreateShaderResourceView(_bloomTex[i].Get(), nullptr, _bloomSRV[i].GetAddressOf()));
+	}
+
+	// FXAA 입력용 LDR 중간 버퍼 (톤매핑 결과)
+	D3D11_TEXTURE2D_DESC ldrDesc = desc;
+	ldrDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	_ldrTex.Reset(); _ldrRTV.Reset(); _ldrSRV.Reset();
+	CHECK(DEVICE->CreateTexture2D(&ldrDesc, nullptr, _ldrTex.GetAddressOf()));
+	CHECK(DEVICE->CreateRenderTargetView(_ldrTex.Get(), nullptr, _ldrRTV.GetAddressOf()));
+	CHECK(DEVICE->CreateShaderResourceView(_ldrTex.Get(), nullptr, _ldrSRV.GetAddressOf()));
+}
+
+// Bloom — sceneColor 에서 임계값 이상 휘도 추출(하프 해상도) 후 분리형 가우시안 블러.
+// 결과는 _bloomSRV[0], 톤매핑 패스가 t1 로 합성.
+void Camera::RenderBloom(uint32 w, uint32 h)
+{
+	auto bright = RESOURCES->Get<HlslShader>(L"BloomBright_HLSL");
+	auto blurH  = RESOURCES->Get<HlslShader>(L"BloomBlurH_HLSL");
+	auto blurV  = RESOURCES->Get<HlslShader>(L"BloomBlurV_HLSL");
+	if (!bright || !blurH || !blurV)
+		return;
+
+	if (_postCB == nullptr)
+	{
+		_postCB = make_shared<ConstantBuffer<PostProcessDesc>>();
+		_postCB->Create();
+	}
+
+	uint32 bw = max(1u, w / 2);
+	uint32 bh = max(1u, h / 2);
+
+	D3D11_VIEWPORT vp{};
+	vp.Width = static_cast<float>(bw);
+	vp.Height = static_cast<float>(bh);
+	vp.MaxDepth = 1.f;
+	DCT->RSSetViewports(1, &vp);
+
+	RENDER_STATES->BindAllSamplersPS();
+	DCT->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	DCT->OMSetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::DisableDepth).Get(), 0);
+
+	auto fullscreenPass = [&](shared_ptr<HlslShader>& shader, ID3D11RenderTargetView* target,
+		ID3D11ShaderResourceView* input, const Vec2& texelSize)
+	{
+		PostProcessDesc pd;
+		pd.texelSize = texelSize;
+		pd.bloomThreshold = _bloomThreshold;
+		pd.bloomIntensity = _bloomIntensity;
+		_postCB->CopyData(pd);
+
+		DCT->OMSetRenderTargets(1, &target, nullptr);
+		shader->Bind();
+		shader->SetPSSRV(0, input);
+		shader->SetPSConstantBuffer(8, _postCB->GetComPtr().Get());
+		DCT->Draw(3, 0);
+		shader->SetPSSRV(0, nullptr);
+	};
+
+	// BrightPass: sceneColor → bloom[0]
+	fullscreenPass(bright, _bloomRTV[0].Get(), _sceneColorSRV.Get(), Vec2(1.f / w, 1.f / h));
+	// BlurH: bloom[0] → bloom[1], BlurV: bloom[1] → bloom[0]
+	fullscreenPass(blurH, _bloomRTV[1].Get(), _bloomSRV[0].Get(), Vec2(1.f / bw, 1.f / bh));
+	fullscreenPass(blurV, _bloomRTV[0].Get(), _bloomSRV[1].Get(), Vec2(1.f / bw, 1.f / bh));
+
+	DCT->OMSetDepthStencilState(nullptr, 0);
 }
 
 Camera::Camera() : Super(ComponentType::Camera)

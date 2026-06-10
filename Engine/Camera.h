@@ -34,6 +34,15 @@ public:
 		{
 			_type = static_cast<ProjectionType>(currentProjection); // ����� ���ÿ� ���� _type ������Ʈ
 		}
+
+		ImGui::SeparatorText("Post Processing");
+		ImGui::Checkbox("Bloom", &_bloomEnabled);
+		if (_bloomEnabled)
+		{
+			ImGui::DragFloat("Bloom Threshold", &_bloomThreshold, 0.01f, 0.f, 5.f);
+			ImGui::DragFloat("Bloom Intensity", &_bloomIntensity, 0.01f, 0.f, 3.f);
+		}
+		ImGui::Checkbox("FXAA", &_fxaaEnabled);
 	}
 
 
@@ -116,6 +125,20 @@ private:
 	int32 _debugViewMode = 0;
 	shared_ptr<ConstantBuffer<PassViewerDesc>> _passViewerCB;
 	void RenderPassViewer(const Matrix& V, const Matrix& P);
+
+	// 포스트프로세싱 — Bloom (하프 해상도 ping-pong) + FXAA (LDR 중간 버퍼)
+	bool  _bloomEnabled = true;
+	float _bloomThreshold = 1.0f;
+	float _bloomIntensity = 0.6f;
+	bool  _fxaaEnabled = true;
+	ComPtr<ID3D11Texture2D>          _bloomTex[2];
+	ComPtr<ID3D11RenderTargetView>   _bloomRTV[2];
+	ComPtr<ID3D11ShaderResourceView> _bloomSRV[2];
+	ComPtr<ID3D11Texture2D>          _ldrTex;
+	ComPtr<ID3D11RenderTargetView>   _ldrRTV;
+	ComPtr<ID3D11ShaderResourceView> _ldrSRV;
+	shared_ptr<ConstantBuffer<PostProcessDesc>> _postCB;
+	void RenderBloom(uint32 w, uint32 h);
 
 	shared_ptr<class LightArrayDesc> CollectLights(shared_ptr<class Scene> scene);
 };

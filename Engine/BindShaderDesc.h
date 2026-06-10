@@ -78,6 +78,14 @@ struct MaterialDesc
 	Vec2  pbrPadding;   // 16����Ʈ ����
 };
 
+// 포스트프로세싱 (b8) — HLSL PostProcess.hlsl / Fxaa.hlsl PostProcessBuffer 와 일치
+struct PostProcessDesc
+{
+	Vec2  texelSize;              // 1/width, 1/height
+	float bloomThreshold = 1.0f;  // 휘도 임계값 (HDR)
+	float bloomIntensity = 0.6f;  // BrightPass 출력 배율
+};
+
 // 패스 뷰어 (b8) — HLSL PassViewer.hlsl PassViewerBuffer 와 일치
 struct PassViewerDesc
 {

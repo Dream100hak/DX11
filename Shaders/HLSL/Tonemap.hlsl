@@ -3,10 +3,12 @@
 // ACES filmic (Narkowicz 근사) + 감마 2.2 인코딩
 //
 // t0 : SceneColor (HDR, linear)
+// t1 : Bloom (하프 해상도 블러 결과, 없으면 null SRV = 0 기여)
 
 #include "Common.hlsli"
 
 Texture2D SceneColor : register(t0);
+Texture2D BloomTex   : register(t1);
 
 struct TonemapVSOutput
 {
@@ -37,6 +39,7 @@ float3 ACESFilm(float3 x)
 float4 PS_Main(TonemapVSOutput input) : SV_TARGET
 {
     float3 hdr = SceneColor.Sample(PointSampler, input.uv).rgb;
+    hdr += BloomTex.Sample(LinearSampler, input.uv).rgb; // Bloom 합성 (강도는 BrightPass 에서 적용)
     float3 ldr = ACESFilm(hdr);
     ldr = pow(abs(ldr), 1.0f / 2.2f); // linear -> 감마 인코딩
     return float4(ldr, 1.0f);

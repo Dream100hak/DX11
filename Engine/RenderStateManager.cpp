@@ -58,6 +58,23 @@ void RenderStateManager::CreateBlendStates()
 		CHECK(DEVICE->CreateBlendState(&desc, _blendStates[static_cast<int>(BlendStateType::Additive)].GetAddressOf()));
 	}
 
+	// AdditiveSrcAlpha : SrcAlpha / One (FX 01. Fire.fx 의 AdditiveBlending 대체)
+	{
+		D3D11_BLEND_DESC desc{};
+		desc.AlphaToCoverageEnable = false;
+		desc.IndependentBlendEnable = false;
+		auto& rt = desc.RenderTarget[0];
+		rt.BlendEnable = true;
+		rt.SrcBlend = D3D11_BLEND_SRC_ALPHA;
+		rt.DestBlend = D3D11_BLEND_ONE;
+		rt.BlendOp = D3D11_BLEND_OP_ADD;
+		rt.SrcBlendAlpha = D3D11_BLEND_ZERO;
+		rt.DestBlendAlpha = D3D11_BLEND_ZERO;
+		rt.BlendOpAlpha = D3D11_BLEND_OP_ADD;
+		rt.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+		CHECK(DEVICE->CreateBlendState(&desc, _blendStates[static_cast<int>(BlendStateType::AdditiveSrcAlpha)].GetAddressOf()));
+	}
+
 	// AlphaToCoverage
 	{
 		D3D11_BLEND_DESC desc{};
@@ -329,6 +346,14 @@ void RenderStateManager::BindAllSamplersVS() const
 	for (int i = 0; i < SS_COUNT; i++)
 		samplers[i] = _samplerStates[i].Get();
 	DCT->VSSetSamplers(0, SS_COUNT, samplers);
+}
+
+void RenderStateManager::BindAllSamplersGS() const
+{
+	ID3D11SamplerState* samplers[SS_COUNT]{};
+	for (int i = 0; i < SS_COUNT; i++)
+		samplers[i] = _samplerStates[i].Get();
+	DCT->GSSetSamplers(0, SS_COUNT, samplers);
 }
 
 void RenderStateManager::BindAllSamplersHS() const

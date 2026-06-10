@@ -13,6 +13,7 @@ enum class BlendStateType : uint8
 	AlphaBlend,  // SrcAlpha / InvSrcAlpha
 	Additive,    // One / One
 	AlphaToCoverage, // MSAA 용 알파클리핑
+	AdditiveSrcAlpha, // SrcAlpha / One (파티클 페이드 — FX Fire AdditiveBlending 대체)
 	End
 };
 
@@ -62,6 +63,7 @@ public:
 
 	void BindAllSamplersPS() const;
 	void BindAllSamplersVS() const;
+	void BindAllSamplersGS() const;
 	void BindAllSamplersHS() const;
 	void BindAllSamplersDS() const;
 

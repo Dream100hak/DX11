@@ -62,9 +62,9 @@ DX11/
 ## Architecture & Rendering Pipeline
 
 ### Shader System
-- FX11 -> native HLSL migration mostly done (Terrain already HLSL incl. HS/DS). Remaining FX: SSAO, particles (Fire/Rain, Stream-Output), and model shadow/SSAO + Standard/Thumbnail FX `_shader` (see Current Progress).
-- `HlslShader`: VS/PS/HS/DS/GS/CS compile, auto InputLayout creation, cbuffer Push methods, DrawLineIndexed
-- `Shader`: Legacy FX11 wrapper (SSAO, particles, and not-yet-removed model shadow/ssao overrides)
+- **FX11 -> native HLSL migration COMPLETE — zero .fx files remain** (`Shaders/HLSL/` only).
+- `HlslShader`: VS/PS/HS/DS/GS/CS compile, auto InputLayout creation, cbuffer Push methods, DrawLineIndexed, **Stream-Output GS** (`soEntries`/`soStride` in desc) + `DrawAuto` (particles)
+- `Shader`: Legacy FX11 wrapper — dead code, pending removal (no .fx left to load)
 
 ### Rendering Flow
 ```
@@ -143,17 +143,23 @@ Camera::Render_Forward()
     - **Terrain normal-depth gap fixed**: `Terrain.hlsl PS_NormalDepth` (view-space normal + depth from heightmap finite differences) -> `Terrain_NormalDepth_HLSL`; `Terrain::TerrainRendererNormalDepth` used by the SSAO pass (was PS-less depth-only).
     - **Deferred lighting now consumes SSAO**: `DeferredLighting.hlsl` samples `SsaoMap` (t4) and multiplies the ambient term when `UseSsao`; Camera Pass 2 binds DefaultMaterial's ssao SRV and sets `useSsao`.
     - Runtime verified: ssao map shows real AO (ridge creases + model silhouette; previously solid red), depthNormal map now contains terrain normals, scene renders clean.
+  - **Particles -> HLSL with Stream-Output (ALL .fx FILES NOW DELETED)**:
+    - `HlslShaderDesc` gained `soEntries`/`soStride`/`soRasterize` -> `CreateGeometryShaderWithStreamOutput` (FX `ConstructGSWithSO` replacement); `HlslShader::DrawAuto`/`SetGSSampler`, `RenderStateManager::BindAllSamplersGS`, `BlendStateType::AdditiveSrcAlpha` (SrcAlpha/One — FX Fire AdditiveBlending) added.
+    - New `Fire.hlsl`/`Rain.hlsl` (VS_StreamOut+GS_StreamOut SO pass, VS_Draw+GS_Draw+PS_Draw billboard/line pass; FX cbFixed -> static const). Registered as `FireSO_HLSL`/`FireDraw_HLSL`/`RainSO_HLSL`/`RainDraw_HLSL` with states baked (SO: DisableDepth; FireDraw: AdditiveSrcAlpha+NoDepthWrite; RainDraw: NoDepthWrite).
+    - ParticleSystem: FX effect-variable members -> `ParticleBuffer` CB (b8: EmitPos/GameTime/EmitDir/TimeStep), `Init(type, names, max)` (no shader arg); SO ping-pong flow kept; GS unbind + state restore after draw.
+    - **GOTCHA**: `HlslShader::Draw/DrawIndexed` force TRIANGLELIST topology internally — the SO kick-off draw must use raw `DCT->Draw(1,0)` to keep POINTLIST (otherwise the emitter never streams out and particles silently never appear).
+    - Deleted ALL remaining .fx: `01. Fire/Rain/RainSO.fx` + shared includes `00. Global/Light/Render.fx` (+ vcxproj FxCompile group). `Shaders/` now contains only `HLSL/`.
+    - Runtime verified: fire (additive flame billboards) + rain (falling line streaks) both render at 60fps.
 
-### Next Steps (to finish FX11 removal)
-- Particles (Fire/Rain/RainSO): need Stream-Output support in HlslShader. (Last remaining FX consumers.)
-- Then remove `Shader.h`/FX11 + TextureRenderer(FX) + shared FX includes (`00. Global/Light/Render.fx`).
+### Next Steps
+- Remove FX11 leftovers: `Shader.h`/`Shader.cpp` (no longer has any .fx to load), FX11 lib/includes, `TextureRenderer`(FX), `Material::_shader` FX path + MeshRenderer FX fallback, `RenderContext::shaderOverride`(now unused).
 - Shadow UX note: a camera-following shadow-sphere auto-fit was implemented then REVERTED by user preference (commit 58) — shadow bounds are the fixed center/radius on the Light inspector; objects outside cast/receive no shadows.
 - Editor gap: clip (.clip) has no scene drag-drop source (FolderContents CLIP branch lacks `DragModelFileToGUIWnd`); `CreateModelAnimatorMesh`/SceneWindow CLIP-drop branch already added, just needs the drag source.
 
 ## Known Issues
 
 ### Engine
-- Remaining FX11: particles only (Fire/Rain/RainSO, need Stream-Output in HlslShader) + their shared includes (`00. Global/Light/Render.fx`). Models/shadow/SSAO/terrain all HLSL now.
+- **All shaders are HLSL now — zero .fx files remain.** FX11 library/`Shader` class are dead code pending removal (see Next Steps).
 - Material Sampler nullptr temp binding (needs RenderStateManager integration)
 - Deferred Pass 3 (skybox/transparent) may misalign vs GBuffer depth when scene window has x/y offset (opaque unaffected).
 

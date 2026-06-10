@@ -46,8 +46,24 @@ void HlslShader::Create(const HlslShaderDesc& desc)
 	if (!desc.gsFile.empty())
 	{
 		auto gsBlob = CompileShaderFromFile(_shaderPath + desc.gsFile, desc.gsEntry, "gs_5_0");
-		HRESULT hr = DEVICE->CreateGeometryShader(gsBlob->GetBufferPointer(), gsBlob->GetBufferSize(), nullptr, _gs.GetAddressOf());
-		CHECK(hr);
+
+		if (!desc.soEntries.empty())
+		{
+			// Stream-Output GS — FX 의 ConstructGSWithSO 대체
+			UINT strides[1] = { desc.soStride };
+			HRESULT hr = DEVICE->CreateGeometryShaderWithStreamOutput(
+				gsBlob->GetBufferPointer(), gsBlob->GetBufferSize(),
+				desc.soEntries.data(), static_cast<UINT>(desc.soEntries.size()),
+				strides, 1,
+				desc.soRasterize ? 0 : D3D11_SO_NO_RASTERIZED_STREAM,
+				nullptr, _gs.GetAddressOf());
+			CHECK(hr);
+		}
+		else
+		{
+			HRESULT hr = DEVICE->CreateGeometryShader(gsBlob->GetBufferPointer(), gsBlob->GetBufferSize(), nullptr, _gs.GetAddressOf());
+			CHECK(hr);
+		}
 	}
 
 	// HS (?�택)
@@ -203,6 +219,10 @@ void HlslShader::SetPSSampler(UINT slot, ID3D11SamplerState* sampler)
 {
 	DCT->PSSetSamplers(slot, 1, &sampler);
 }
+void HlslShader::SetGSSampler(UINT slot, ID3D11SamplerState* sampler)
+{
+	DCT->GSSetSamplers(slot, 1, &sampler);
+}
 void HlslShader::SetHSSampler(UINT slot, ID3D11SamplerState* sampler)
 {
 	DCT->HSSetSamplers(slot, 1, &sampler);
@@ -255,6 +275,11 @@ void HlslShader::DrawTerrainIndexed(UINT indexCount, UINT startIndex, INT baseVe
 	DCT->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_4_CONTROL_POINT_PATCHLIST);
 	Bind();
 	DCT->DrawIndexed(indexCount, startIndex, baseVertex);
+}
+
+void HlslShader::DrawAuto()
+{
+	DCT->DrawAuto();
 }
 
 void HlslShader::Dispatch(UINT x, UINT y, UINT z)

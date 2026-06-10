@@ -20,6 +20,74 @@ void ResourceManager::Init()
 	CreateTerrainShader();
 	CreateDeferredShaders();
 	CreateEditorMiscShaders();
+	CreateParticleShaders();
+}
+
+void ResourceManager::CreateParticleShaders()
+{
+	// 파티클 SO 정점 레이아웃: POS.xyz / VELOCITY.xyz / SIZE.xy / AGE.x / TYPE.x (40 bytes)
+	// FX ConstructGSWithSO("POS.xyz; VELOCITY.xyz; SIZE.xy; AGE.x; TYPE.x") 대체
+	const vector<D3D11_SO_DECLARATION_ENTRY> soEntries =
+	{
+		{ 0, "POS",      0, 0, 3, 0 },
+		{ 0, "VELOCITY", 0, 0, 3, 0 },
+		{ 0, "SIZE",     0, 0, 2, 0 },
+		{ 0, "AGE",      0, 0, 1, 0 },
+		{ 0, "TYPE",     0, 0, 1, 0 },
+	};
+	const uint32 soStride = sizeof(float) * 9 + sizeof(uint32); // 40
+
+	// ── Fire ──
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Fire.hlsl";
+		desc.gsFile  = L"Fire.hlsl";
+		desc.vsEntry = "VS_StreamOut";
+		desc.gsEntry = "GS_StreamOut";
+		desc.soEntries = soEntries;
+		desc.soStride  = soStride;
+		auto s = GetOrAddHlslShader(L"FireSO_HLSL", desc);
+		if (s) s->SetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::DisableDepth));
+	}
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Fire.hlsl";
+		desc.gsFile  = L"Fire.hlsl";
+		desc.psFile  = L"Fire.hlsl";
+		desc.vsEntry = "VS_Draw";
+		desc.gsEntry = "GS_Draw";
+		desc.psEntry = "PS_Draw";
+		auto s = GetOrAddHlslShader(L"FireDraw_HLSL", desc);
+		if (s)
+		{
+			s->SetBlendState(RENDER_STATES->GetBS(BlendStateType::AdditiveSrcAlpha));
+			s->SetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::NoDepthWrite));
+		}
+	}
+
+	// ── Rain ──
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Rain.hlsl";
+		desc.gsFile  = L"Rain.hlsl";
+		desc.vsEntry = "VS_StreamOut";
+		desc.gsEntry = "GS_StreamOut";
+		desc.soEntries = soEntries;
+		desc.soStride  = soStride;
+		auto s = GetOrAddHlslShader(L"RainSO_HLSL", desc);
+		if (s) s->SetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::DisableDepth));
+	}
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Rain.hlsl";
+		desc.gsFile  = L"Rain.hlsl";
+		desc.psFile  = L"Rain.hlsl";
+		desc.vsEntry = "VS_Draw";
+		desc.gsEntry = "GS_Draw";
+		desc.psEntry = "PS_Draw";
+		auto s = GetOrAddHlslShader(L"RainDraw_HLSL", desc);
+		if (s) s->SetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::NoDepthWrite));
+	}
 }
 
 std::shared_ptr<Texture> ResourceManager::GetOrAddTexture(const wstring& key, const wstring& path)

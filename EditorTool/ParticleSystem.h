@@ -14,16 +14,25 @@ struct VertexParticle
 	uint32 Type;
 };
 
+// HLSL ParticleBuffer (b8) — Fire.hlsl / Rain.hlsl 과 레이아웃 일치
+struct ParticleBuffer
+{
+	Vec3  EmitPosW = Vec3::Zero;
+	float GameTime = 0.f;
+	Vec3  EmitDirW = Vec3::Up;
+	float TimeStep = 0.f;
+};
+
 class ParticleSystem : public MonoBehaviour
 {
 public:
-	
+
 	ParticleSystem();
 	virtual ~ParticleSystem();
 
 	void OnInspectorGUI() override;
 
-	void Init(int32 type , shared_ptr<Shader> shader,
+	void Init(int32 type,
 		std::vector<wstring> names,
 		uint32 maxParticles);
 
@@ -33,17 +42,20 @@ public:
 
 private:
 
-	void ChangeShader(shared_ptr<Shader> shader);
 	void CreateBuffer();
-	
+
 public:
 
 	void SetEmitPos(const Vec3& emitPosW) { _emitPosW = emitPosW; }
 	void SetEmitDir(const Vec3& emitDirW) { _emitDirW = emitDirW; }
 
 private:
-	
-	shared_ptr<Shader> _shader = nullptr;
+
+	// HLSL 셰이더 (FX 제거): SO 패스 + Draw 패스
+	shared_ptr<HlslShader> _soShader = nullptr;
+	shared_ptr<HlslShader> _drawShader = nullptr;
+
+	shared_ptr<ConstantBuffer<ParticleBuffer>> _particleCB;
 
 	uint32 _maxParticles = 0;
 	bool _firstRun;
@@ -62,14 +74,5 @@ private:
 
 	shared_ptr<Texture>  _texArray;
 	shared_ptr<Texture> _randomTex;
-
-	ComPtr<ID3DX11EffectShaderResourceVariable>  _texArrayBuffer;
-	ComPtr<ID3DX11EffectShaderResourceVariable>  _randomTexBuffer;
-
-	ComPtr<ID3DX11EffectScalarVariable> _gametimeBuffer;
-	ComPtr<ID3DX11EffectScalarVariable> _timeStepBuffer;
-	ComPtr<ID3DX11EffectVectorVariable> _emitPosBuffer;
-	ComPtr<ID3DX11EffectVectorVariable> _emitDirBuffer;
-
 };
 

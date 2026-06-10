@@ -155,7 +155,7 @@ void EditorTool::Init()
 		CUR_SCENE->Add(light);
 	}
 
-	{		
+	{
 		//SKY
 		hieachy->CreateSky();
 	}

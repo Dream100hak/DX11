@@ -30,11 +30,24 @@ void ParticleSystem::OnInspectorGUI()
 
 }
 
-void ParticleSystem::Init(int32 type, shared_ptr<Shader> shader, std::vector<wstring> names , uint32 maxParticles)
+void ParticleSystem::Init(int32 type, std::vector<wstring> names , uint32 maxParticles)
 {
 	_type = type;
 
-	ChangeShader(shader);
+	// 타입별 HLSL 셰이더 (SO 패스 + Draw 패스)
+	if (_type == PT_FIRE)
+	{
+		_soShader   = RESOURCES->Get<HlslShader>(L"FireSO_HLSL");
+		_drawShader = RESOURCES->Get<HlslShader>(L"FireDraw_HLSL");
+	}
+	else // PT_RAIN (기본)
+	{
+		_soShader   = RESOURCES->Get<HlslShader>(L"RainSO_HLSL");
+		_drawShader = RESOURCES->Get<HlslShader>(L"RainDraw_HLSL");
+	}
+
+	_particleCB = make_shared<ConstantBuffer<ParticleBuffer>>();
+	_particleCB->Create();
 
 	_maxParticles = maxParticles;
 
@@ -45,19 +58,6 @@ void ParticleSystem::Init(int32 type, shared_ptr<Shader> shader, std::vector<wst
 	 _texArray->CreateTexture2DArraySRV(names);
 
 	CreateBuffer();
-}
-
-void ParticleSystem::ChangeShader(shared_ptr<Shader> shader)
-{
-	_shader = shader;
-
-	_texArrayBuffer = _shader->GetSRV("TexArray");
-	_randomTexBuffer = _shader->GetSRV("RandomTex");
-
-	_gametimeBuffer = _shader->GetScalar("GameTime");
-	_timeStepBuffer = _shader->GetScalar("TimeStep");
-	_emitPosBuffer = _shader->GetVector("EmitPosW");
-	_emitDirBuffer = _shader->GetVector("EmitDirW");
 }
 
 void ParticleSystem::Reset()
@@ -87,9 +87,9 @@ void ParticleSystem::Update()
 
 void ParticleSystem::Draw(Vec3 pos, Matrix V, Matrix P)
 {
-	if(_shader == nullptr)
+	if (_soShader == nullptr || _drawShader == nullptr)
 		return;
-	
+
 	if (_type == PT_RAIN)
 	{
 		SetEmitPos(pos);
@@ -97,57 +97,69 @@ void ParticleSystem::Draw(Vec3 pos, Matrix V, Matrix P)
 	else if (_type == PT_FIRE)
 	{
 		Vec3 worldPos = GetTransform()->GetPosition();
-		//SetEmitPos(Vec3(0.0f, 1.0f, 120.0f));
 		SetEmitPos(worldPos);
 	}
-	
-	_shader->PushGlobalData(V , P);
 
-	_gametimeBuffer->SetFloat(_age);
-	_timeStepBuffer->SetFloat(_timeStep);
-	_emitPosBuffer->SetRawValue(&_emitPosW, 0, sizeof(Vec3));
-	_emitDirBuffer->SetRawValue(&_emitDirW, 0, sizeof(Vec3));
-	
-	_texArrayBuffer->SetResource(_texArray->GetComPtr().Get());
-	_randomTexBuffer->SetResource(_randomTex->GetComPtr().Get());
-	
+	// ParticleBuffer (b8) — SO GS(생성/소멸) + Draw 패스 공용
+	ParticleBuffer desc;
+	desc.EmitPosW = _emitPosW;
+	desc.GameTime = _age;
+	desc.EmitDirW = _emitDirW;
+	desc.TimeStep = _timeStep;
+	_particleCB->CopyData(desc);
+	auto cb = _particleCB->GetComPtr().Get();
+
 	uint32 stride = sizeof(VertexParticle);
 	uint32 offset = 0;
 
-	// On the first pass, use the initialization VB.  Otherwise, use
-	// the VB that contains the current particle list.
+	DCT->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
+
+	// ── Pass 1: Stream-Out (입자 생성/소멸, 래스터라이즈 없음) ──
+	_soShader->Bind();
+	_soShader->SetGSConstantBuffer(8, cb);
+	_soShader->SetGSSRV(1, _randomTex->GetComPtr().Get()); // RandomTex (t1)
+	RENDER_STATES->BindAllSamplersGS();                    // LinearSampler (s0)
+
+	// 첫 프레임은 이미터 1개짜리 초기화 VB, 이후엔 현재 입자 리스트 VB
 	if (_firstRun)
 		DCT->IASetVertexBuffers(0, 1, _initVB.GetAddressOf(), &stride, &offset);
 	else
 		DCT->IASetVertexBuffers(0, 1, _drawVB.GetAddressOf(), &stride, &offset);
 
-	// Draw the current particle list using stream-out only to update them.  
-	// The updated vertices are streamed-out to the target VB. 
-
 	DCT->SOSetTargets(1, _streamOutVB.GetAddressOf(), &offset);
 
 	if (_firstRun)
 	{
-		_shader->DrawParticle(0,0,1);
+		// 주의: HlslShader::Draw 는 토폴로지를 TRIANGLELIST 로 강제하므로 직접 호출 (POINTLIST 유지)
+		DCT->Draw(1, 0);
 		_firstRun = false;
 	}
 	else
 	{
-		_shader->DrawParticleAuto(0, 0);
+		_soShader->DrawAuto();
 	}
 
-	// done streaming-out--unbind the vertex buffer
+	// SO 타깃 해제
 	ID3D11Buffer* bufferArray[1] = { 0 };
 	DCT->SOSetTargets(1, bufferArray, &offset);
 
-	// ping-pong the vertex buffers
+	// 핑퐁
 	std::swap(_drawVB, _streamOutVB);
-	
-	// Draw the updated particle system we just streamed-out. 
-	//
+
+	// ── Pass 2: Draw (방금 스트림아웃한 입자 렌더) ──
+	_drawShader->Bind();
+	_drawShader->PushGlobalData(V, P); // b0: VP + VInv(카메라 위치) — GS 에서 사용
+	_drawShader->SetGSConstantBuffer(8, cb);
+	_drawShader->SetPSSRV(0, _texArray->GetComPtr().Get()); // TexArray (t0)
+	RENDER_STATES->BindAllSamplersPS();
 
 	DCT->IASetVertexBuffers(0, 1, _drawVB.GetAddressOf(), &stride, &offset);
-	_shader->DrawParticleAuto(1, 0);
+	_drawShader->DrawAuto();
+
+	// GS 가 이후 드로우에 누수되지 않도록 해제 + 블렌드/뎁스 상태 복원
+	DCT->GSSetShader(nullptr, nullptr, 0);
+	DCT->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
+	DCT->OMSetDepthStencilState(nullptr, 0);
 }
 
 

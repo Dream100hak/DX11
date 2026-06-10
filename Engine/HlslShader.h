@@ -33,6 +33,13 @@ struct HlslShaderDesc
 	string hsEntry = "HS_Main";
 	string dsEntry = "DS_Main";
 	string csEntry = "CS_Main";
+
+	// ---- Stream-Output (파티클 등) ----
+	// soEntries 가 비어있지 않으면 GS 를 CreateGeometryShaderWithStreamOutput 으로 생성.
+	// FX 의 ConstructGSWithSO("POS.xyz; ...") 대체.
+	vector<D3D11_SO_DECLARATION_ENTRY> soEntries;
+	uint32 soStride = 0;          // SO 버퍼(슬롯 0) 정점 스트라이드
+	bool   soRasterize = false;   // false = SO 전용 (래스터라이즈 안 함)
 };
 
 class HlslShader : public ResourceBase
@@ -78,6 +85,7 @@ public:
 	// ---- Sampler ----
 	void SetVSSampler(UINT slot, ID3D11SamplerState* sampler);
 	void SetPSSampler(UINT slot, ID3D11SamplerState* sampler);
+	void SetGSSampler(UINT slot, ID3D11SamplerState* sampler);
 	void SetHSSampler(UINT slot, ID3D11SamplerState* sampler);
 	void SetDSSampler(UINT slot, ID3D11SamplerState* sampler);
 
@@ -88,6 +96,7 @@ public:
 	void DrawInstanced(UINT vertexCountPerInstance, UINT instanceCount, UINT startVertex = 0, UINT startInstance = 0);
 	void DrawIndexedInstanced(UINT indexCountPerInstance, UINT instanceCount, UINT startIndex = 0, INT baseVertex = 0, UINT startInstance = 0);
 	void DrawTerrainIndexed(UINT indexCount, UINT startIndex = 0, INT baseVertex = 0);
+	void DrawAuto(); // Stream-Output 결과 드로우 (정점 수 자동)
 	void Dispatch(UINT x, UINT y, UINT z);
 
 	// ---- 공통 Push (공통 Shader ?�라미터 ?�정) ----

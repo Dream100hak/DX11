@@ -229,12 +229,9 @@ int32 Hiearchy::CreateFire()
 	fire->GetOrAddTransform()->SetPosition(pos);
 	fire->AddComponent(make_shared<class ParticleSystem>());
 
-	shared_ptr<Shader> shader = make_shared<Shader>(L"01. Fire.fx");
-	RESOURCES->Add(L"Fire", shader);
-
 	std::vector<wstring> names = { L"../Resources/Assets/Textures/flare0.dds" };
 
-	fire->GetComponent<ParticleSystem>()->Init(2, shader, names, 500);
+	fire->GetComponent<ParticleSystem>()->Init(PT_FIRE, names, 500);
 	ADDLOG("Create Fire", LogFilter::Info);
 	
 	return id;
@@ -250,11 +247,8 @@ int32 Hiearchy::CreateRain()
 	rainDrop->GetOrAddTransform()->SetPosition(Vec3::Zero);
 	rainDrop->AddComponent(make_shared<class ParticleSystem>());
 
-	shared_ptr<Shader> shader = make_shared<Shader>(L"01. Rain.fx");
-	RESOURCES->Add(L"RainDrop", shader);
-
 	std::vector<wstring> names = { L"../Resources/Assets/Textures/raindrop.dds" };
-	rainDrop->GetComponent<ParticleSystem>()->Init(1, shader, names, 10000);
+	rainDrop->GetComponent<ParticleSystem>()->Init(PT_RAIN, names, 10000);
 
 	ADDLOG("Create Rain", LogFilter::Info);
 

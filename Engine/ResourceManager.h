@@ -41,6 +41,7 @@ private:
 	void CreateTerrainShader();
 	void CreateDeferredShaders();
 	void CreateEditorMiscShaders();
+	void CreateParticleShaders();
 
 private:
 	wstring _resourcePath;

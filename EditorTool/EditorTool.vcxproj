@@ -82,38 +82,6 @@
     <ClCompile Include="TextureRenderer.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="..\Shaders\00. Global.fx">
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-      </EntryPointName>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\00. Light.fx">
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-      </EntryPointName>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\00. Render.fx">
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-      </EntryPointName>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\01. Fire.fx">
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-      </EntryPointName>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\01. Rain.fx">
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-      </EntryPointName>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Effect</ShaderType>
-    </FxCompile>
-  </ItemGroup>
-  <ItemGroup>
     <None Include="..\Shaders\HLSL\Common.hlsli" />
     <None Include="..\Shaders\HLSL\Lighting.hlsli" />
       <None Include="..\Shaders\HLSL\Shadow.hlsli" />
@@ -128,6 +96,8 @@
     <None Include="..\Shaders\HLSL\Thumbnail.hlsl" />
     <None Include="..\Shaders\HLSL\Ssao.hlsl" />
     <None Include="..\Shaders\HLSL\SsaoBlur.hlsl" />
+    <None Include="..\Shaders\HLSL\Fire.hlsl" />
+    <None Include="..\Shaders\HLSL\Rain.hlsl" />
     <None Include="..\Shaders\HLSL\SsaoNormalDepth.hlsl" />
     <None Include="..\Shaders\HLSL\SceneGrid.hlsl" />
     <None Include="..\Shaders\HLSL\DebugTexture.hlsl" />

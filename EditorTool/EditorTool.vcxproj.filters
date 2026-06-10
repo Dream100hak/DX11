@@ -208,23 +208,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="..\Shaders\00. Render.fx">
-      <Filter>Shaders\Common</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\00. Global.fx">
-      <Filter>Shaders\Common</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\00. Light.fx">
-      <Filter>Shaders\Common</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\01. Rain.fx">
-      <Filter>Shaders\Contents</Filter>
-    </FxCompile>
-    <FxCompile Include="..\Shaders\01. Fire.fx">
-      <Filter>Shaders\Contents</Filter>
-    </FxCompile>
-  </ItemGroup>
-  <ItemGroup>
     <None Include="..\Shaders\HLSL\Shadow.hlsli">
       <Filter>Shaders\HLSL</Filter>
     </None>

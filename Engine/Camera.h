@@ -140,5 +140,8 @@ private:
 	shared_ptr<ConstantBuffer<PostProcessDesc>> _postCB;
 	void RenderBloom(uint32 w, uint32 h);
 
+	// IBL (DeferredLighting b8)
+	shared_ptr<ConstantBuffer<IblDesc>> _iblCB;
+
 	shared_ptr<class LightArrayDesc> CollectLights(shared_ptr<class Scene> scene);
 };

@@ -34,6 +34,7 @@
 #include "Ssao.h"
 #include "ParticleSystem.h"
 #include "SkyCubeMap.h"
+#include "Ibl.h"
 
 #include "Hiearchy.h"
 #include "SceneWindow.h"
@@ -154,9 +155,17 @@ void EditorTool::Init()
 		CUR_SCENE->Add(light);
 	}
 
+	// IBL 프리컴퓨트 — 데저트 환경맵에서 irradiance/prefiltered/BRDF LUT 베이크 (1회)
+	Ibl::Init(L"../Resources/Assets/Textures/desertcube1024.dds");
+
 	{
-		//SKY
-		hieachy->CreateSky();
+		//SKY — 데저트 큐브맵 (IBL 환경과 일치)
+		auto skyObj = make_shared<GameObject>();
+		skyObj->SetObjectName(L"SkyBox");
+		skyObj->GetOrAddTransform()->SetPosition(Vec3::Zero);
+		skyObj->AddComponent(make_shared<SkyCubeMap>());
+		skyObj->GetComponent<SkyCubeMap>()->Init(L"../Resources/Assets/Textures/desertcube1024.dds");
+		CUR_SCENE->Add(skyObj);
 	}
 
 	// Model

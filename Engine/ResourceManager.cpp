@@ -316,6 +316,32 @@ void ResourceManager::CreateDeferredShaders()
 		GetOrAddHlslShader(L"Tonemap_HLSL", desc);
 	}
 
+	// IBL 베이크 (시작 시 1회 — Ibl::Init)
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"IblBake.hlsl";
+		desc.psFile  = L"IblBake.hlsl";
+		desc.vsEntry = "VS_Main";
+		desc.psEntry = "PS_Irradiance";
+		GetOrAddHlslShader(L"IblIrradiance_HLSL", desc);
+	}
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"IblBake.hlsl";
+		desc.psFile  = L"IblBake.hlsl";
+		desc.vsEntry = "VS_Main";
+		desc.psEntry = "PS_Prefilter";
+		GetOrAddHlslShader(L"IblPrefilter_HLSL", desc);
+	}
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"IblBake.hlsl";
+		desc.psFile  = L"IblBake.hlsl";
+		desc.vsEntry = "VS_Main";
+		desc.psEntry = "PS_BrdfLut";
+		GetOrAddHlslShader(L"IblBrdf_HLSL", desc);
+	}
+
 	// Bloom: BrightPass / BlurH / BlurV (하프 해상도)
 	{
 		HlslShaderDesc desc;

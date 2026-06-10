@@ -18,6 +18,20 @@ Texture2D GBufferPosition : register(t2);
 Texture2D ShadowMap       : register(t3);
 Texture2D SsaoMap         : register(t4);
 
+// IBL (Ibl::Init 에서 베이크)
+TextureCube IrradianceMap  : register(t5);
+TextureCube PrefilteredEnv : register(t6);
+Texture2D   BrdfLut        : register(t7);
+
+cbuffer IblBuffer : register(b8)
+{
+    int    UseIbl;
+    float  EnvIntensity;
+    float2 IblPad;
+};
+
+static const float PREFILTER_MAX_MIP = 4.0f; // Ibl::PREFILTER_MIPS - 1
+
 // Multi-light data reused from Lighting.hlsli
 struct LightData
 {
@@ -85,6 +99,13 @@ float3 FresnelSchlick(float cosTheta, float3 F0)
     return F0 + (1.0f - F0) * pow(saturate(1.0f - cosTheta), 5.0f);
 }
 
+// 러프니스 보정 Fresnel (IBL 앰비언트용)
+float3 FresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)
+{
+    float3 fMax = max(float3(1.0f - roughness, 1.0f - roughness, 1.0f - roughness), F0);
+    return F0 + (fMax - F0) * pow(saturate(1.0f - cosTheta), 5.0f);
+}
+
 float4 PS_Main(LightingVSOutput input) : SV_TARGET
 {
     float4 albedoData   = GBufferAlbedo.Sample(PointSampler, input.uv);
@@ -122,7 +143,7 @@ float4 PS_Main(LightingVSOutput input) : SV_TARGET
     [unroll(16)]
     for (int i = 0; i < lightCount; ++i)
     {
-        float3 L;
+        float3 L = float3(0, 0, 1);
         float att = 1.0f;
 
         if (lights[i].type == 0)
@@ -176,7 +197,28 @@ float4 PS_Main(LightingVSOutput input) : SV_TARGET
     if (UseSsao)
         ssaoFactor = SsaoMap.SampleLevel(LinearSampler, input.uv, 0.0f).r;
 
-    float3 ambient = ambientAccum * albedo * ssaoFactor;
+    // 앰비언트: IBL (환경맵 디퓨즈 + 스펙큘러) 또는 라이트 ambient 폴백
+    float3 ambient;
+    if (UseIbl)
+    {
+        float3 F  = FresnelSchlickRoughness(NdotV, F0, roughness);
+        float3 kd = (1.0f - F) * (1.0f - metallic);
+
+        float3 irradiance  = IrradianceMap.SampleLevel(LinearSampler, N, 0).rgb;
+        float3 diffuseIBL  = kd * irradiance * albedo;
+
+        float3 R = reflect(-V_, N);
+        float3 prefiltered = PrefilteredEnv.SampleLevel(LinearSampler, R, roughness * PREFILTER_MAX_MIP).rgb;
+        float2 brdf = BrdfLut.SampleLevel(LinearSampler, float2(NdotV, roughness), 0).rg;
+        float3 specularIBL = prefiltered * (F0 * brdf.x + brdf.y);
+
+        ambient = (diffuseIBL + specularIBL) * EnvIntensity * ssaoFactor;
+    }
+    else
+    {
+        ambient = ambientAccum * albedo * ssaoFactor;
+    }
+
     float3 litColor = ambient + shadowFactor * Lo;
 
     return float4(litColor, 1.0f);

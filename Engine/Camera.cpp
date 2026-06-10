@@ -8,6 +8,7 @@
 #include "BindShaderDesc.h"
 #include "Light.h"
 #include "Terrain.h"
+#include "Ibl.h"
 #include "GBuffer.h"
 #include "HlslShader.h"
 #include "RenderStateManager.h"
@@ -234,6 +235,24 @@ void Camera::Render_Deferred()
 			}
 		}
 
+		// IBL (t5~t7 + b8)
+		if (Ibl::IsReady())
+		{
+			lightingShader->SetPSSRV(5, Ibl::GetIrradiance().Get());
+			lightingShader->SetPSSRV(6, Ibl::GetPrefiltered().Get());
+			lightingShader->SetPSSRV(7, Ibl::GetBrdfLut().Get());
+		}
+		if (_iblCB == nullptr)
+		{
+			_iblCB = make_shared<ConstantBuffer<IblDesc>>();
+			_iblCB->Create();
+		}
+		IblDesc iblDesc;
+		iblDesc.useIbl = Ibl::IsReady() ? 1 : 0;
+		iblDesc.envIntensity = 1.f;
+		_iblCB->CopyData(iblDesc);
+		lightingShader->SetPSConstantBuffer(8, _iblCB->GetComPtr().Get());
+
 		lightingShader->Bind();
 		lightingShader->PushGlobalData(V, P);
 		lightingShader->PushLightArrayData(*lightArray);
@@ -251,6 +270,9 @@ void Camera::Render_Deferred()
 		DCT->OMSetDepthStencilState(nullptr, 0);
 
 		_gBuffer->UnbindSRVsPS(0);
+		lightingShader->SetPSSRV(5, nullptr);
+		lightingShader->SetPSSRV(6, nullptr);
+		lightingShader->SetPSSRV(7, nullptr);
 	}
 
 	// ── Pass 3: Forward pass (skybox + transparent) — sceneColor + G-Buffer depth ──

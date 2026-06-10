@@ -86,6 +86,22 @@ struct PostProcessDesc
 	float bloomIntensity = 0.6f;  // BrightPass 출력 배율
 };
 
+// IBL 베이크 (b8) — HLSL IblBake.hlsl IblBakeBuffer 와 일치
+struct IblBakeDesc
+{
+	int32 faceIndex = 0;   // 큐브맵 face 0..5
+	float roughness = 0.f; // prefilter mip 별 roughness
+	Vec2  padding;
+};
+
+// IBL 런타임 (b8, DeferredLighting) — HLSL IblBuffer 와 일치
+struct IblDesc
+{
+	int32 useIbl = 0;
+	float envIntensity = 1.f;
+	Vec2  padding;
+};
+
 // 패스 뷰어 (b8) — HLSL PassViewer.hlsl PassViewerBuffer 와 일치
 struct PassViewerDesc
 {

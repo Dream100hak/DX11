@@ -22,6 +22,7 @@ void SkyCubeMap::Init(wstring fileName)
 	shared_ptr<Material> material = make_shared<Material>();
 	material->SetHlslShader(RESOURCES->Get<HlslShader>(L"CubeMap_HLSL"));
 	material->SetDiffuseMap(_cubeMap);
+	material->SetRenderQueue(RenderQueue::Background); // 불투명 이후 (디퍼드 Pass 3)
 
 	if (GetGameObject()->GetMeshRenderer() == nullptr)
 	{

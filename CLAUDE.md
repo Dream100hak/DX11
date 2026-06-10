@@ -64,23 +64,30 @@ DX11/
 - **FX11 FULLY REMOVED** — zero .fx files, no FX11 library/headers, no `Shader` class. Everything is native HLSL (`Shaders/HLSL/` + `HlslShader`).
 - `HlslShader`: VS/PS/HS/DS/GS/CS compile, auto InputLayout creation, cbuffer Push methods, DrawLineIndexed, **Stream-Output GS** (`soEntries`/`soStride` in desc) + `DrawAuto` (particles)
 
-### Rendering Flow
+### Rendering Flow (Deferred PBR + HDR, ~commit 68)
 ```
-Camera::Render_Forward()
-  -> RenderContext setup (tech, view, proj, lightArray)
-  -> Opaque: Front-to-Back sort (Early-Z)
-  -> Transparent: Back-to-Front sort (alpha blending)
-  -> InstancingManager::Render(RenderContext, gameObjects)
-    -> MeshRenderer::Draw(RenderContext)
-      -> HlslShader::Bind() -> Push*Data(b0~b4) -> SetPSSRV(t0~t4) -> DrawIndexed()
+Camera::Render_Deferred()
+  Pass 1: GBuffer fill (opaque, Front-to-Back) — albedo+metallic / normal+roughness / worldpos+mask
+          + Terrain::TerrainRendererGBuffer (터레인도 GBuffer 직행, 포워드 특수경로 없음)
+  Pass 2: DeferredLighting fullscreen -> HDR sceneColor(R16G16B16A16F, 씬 크기) + GBuffer DSV
+          Cook-Torrance(GGX+Smith+Schlick) 직접광 + IBL 앰비언트(t5 irradiance/t6 prefiltered/t7 BRDF LUT)
+          + Shadow(t3) + SSAO(t4)
+  Pass 3: Background(스카이 z=far)/Transparent/Overlay -> sceneColor (GBuffer 깊이로 올바른 차폐)
+  Bloom:  BrightPass(하프) -> BlurH -> BlurV (b8 PostProcessBuffer)
+  Pass 4: Tonemap(ACES+감마, Bloom 합성 t1) -> FXAA 켜면 LDR 중간버퍼 -> FXAA -> 백버퍼
+  + PassViewer 오버레이 (KEY_4 순환 / 씬뷰 콤보), KEY_3 GBuffer 4분할 디버그
 ```
+- 색공간: 알베도(GBuffer/터레인/스카이)는 기록 시 linear 변환, 톤매핑 패스가 최종 감마 인코딩
+- IBL: `Engine/Ibl` 시작 시 1회 베이크 (`IblBake.hlsl` — irradiance 32 큐브 / prefiltered 128 큐브 5mip / BRDF LUT 512). 환경맵 = desertcube1024.dds (스카이박스와 공유)
+- 포스트프로세싱 토글/파라미터: Camera 인스펙터 (Bloom on/off+Threshold+Intensity, FXAA)
 
 ### Constant Buffer Layout
 - `b0`: GlobalData (V, P, VP, VInv, Shadow, Time)
 - `b1`: TransformData (World)
 - `b2`: LightData (Ambient, Diffuse, Specular, Direction)
-- `b3`: MaterialData (Mat properties, UseTexture, UseAlphaClip)
+- `b3`: MaterialData (Mat properties, UseTexture/UseAlphaClip/UseSsao + **Roughness/Metallic (PBR)**)
 - `b4`: BoneData (Transforms[250])
+- `b8`: 패스별 전용 (Terrain/Ssao/SsaoBlur/Particle/IblBake/Ibl/PostProcess/PassViewer)
 
 ### Multi-Light
 - `MAX_LIGHTS = 16` (Define.h)
@@ -109,7 +116,26 @@ Camera::Render_Forward()
 - Sampler: s0~s4 (DiffuseMap, SpecularMap, NormalMap, ShadowMap, SsaoMap)
 - Texture SRV: t0~t4 mapping
 
-## Current Progress (FX11 removal COMPLETE, ~commit 63)
+## Current Progress (PBR/HDR/IBL/포스트프로세싱 COMPLETE, ~commit 68)
+
+### PBR 렌더링 아크 (commits 64~68)
+- **64. PBR 직접광**: GBuffer 패킹 albedo.a=metallic / normal.w=roughness, DeferredLighting Phong->Cook-Torrance,
+  MaterialDesc/MaterialBuffer(b3) roughness/metallic, Inspector PBR 슬라이더, .mat 포맷 확장(`FileUtils::TryRead` 구버전 호환),
+  Hiearchy "Create PBR Test Grid" 메뉴 (roughness x metallic 구체 그리드 — PBR 검증용)
+- **65. 터레인 디퍼드 편입 + HDR**: `Terrain.hlsl PS_GBuffer` + `Terrain_GBuffer_HLSL`, Terrain::Update 의 포워드 직그리기 제거
+  (Camera Pass 1 에서 `TerrainRendererGBuffer` 호출). 라이팅/스카이/투명 -> 씬 크기 HDR sceneColor + Tonemap(ACES+감마) 블릿.
+  **버그픽스**: Pass 3 가 백버퍼 RTV + GBuffer DSV 를 섞어 바인딩 -> 크기 불일치로 OMSetRenderTargets 조용히 실패
+  (이전엔 터레인 포워드 깊이가 메인 DSV 에 있어서 우연히 동작). sceneColor/GBuffer DSV 크기 일치로 해소
+- **66. 씬뷰 패스 뷰어**: `PassViewer.hlsl` (Albedo/Normal/Roughness/Metallic/WorldPos/Depth/SSAO/Shadow), 씬뷰 좌상단 콤보
+  + KEY_4 순환. Camera::RenderPassViewer 가 톤매핑 뒤 오버레이
+- **67. Bloom + FXAA**: `PostProcess.hlsl`(BrightPass soft-knee + 분리 가우시안, 하프 해상도 ping-pong), `Fxaa.hlsl`(FXAA 3.11),
+  Camera 인스펙터 토글. **빌드 버그픽스**: Engine/EditorTool 이 같은 IntDir 공유 -> pch.obj 충돌이 반복 stale-pch 의 근본 원인,
+  `$(ProjectName)` 하위로 분리
+- **68. IBL**: `IblBake.hlsl` + `Engine/Ibl` (시작 시 1회: irradiance 코사인 컨볼루션 / GGX prefiltered mip 체인 / Karis BRDF LUT),
+  DeferredLighting 앰비언트가 IBL 디퓨즈+스펙큘러 (UseIbl=0 폴백 = 기존 라이트 ambient). 스카이박스를 데저트 큐브맵(SkyCubeMap)으로
+  교체해 IBL 환경과 일치. 메탈릭 머티리얼이 환경 반사 (IBL 전엔 검은색 — 정상이었음)
+- 런타임 검증 패턴: EditorTool::Init 임시 구체 그리드 -> 스크린샷 -> 제거. 크래시는 링커 맵(GenerateMapFile, 켜져 있음) + 이벤트로그
+  오프셋으로 심볼 역추적 (68 에서 SkyBox GameObject Transform 누락 null deref 를 이걸로 잡음)
 
 ### Completed
 - HlslShader wrapper, RenderStateManager, Frustum Culling, Render Queue, RenderContext, Multi-light (MAX_LIGHTS=16)
@@ -157,6 +183,10 @@ Camera::Render_Forward()
     - Runtime verified: editor stable, deferred + shadow + ssao all render clean.
 
 ### Next Steps
+- 파티클(Fire/Rain)을 Transparent 큐로 편입: 현재 `JOB_POST_RENDER` 로 톤매핑 뒤 백버퍼에 그림 — 동작은 하지만
+  HDR/Bloom 미적용 + 씬 깊이 차폐 없음 (메인 DSV 가 비어 지형 뒤 파티클이 보임). Renderer 파생으로 바꾸면 Pass 3 에서 해결
+- 프리뷰/썸네일(ModelPreview/AnimPreview/Thumbnail)은 여전히 Phong 포워드 — PBR 일관성 원하면 PS 교체
+- IBL 환경맵 교체 UI (현재 desertcube1024.dds 고정), EnvIntensity 인스펙터 노출
 - Shadow UX note: a camera-following shadow-sphere auto-fit was implemented then REVERTED by user preference (commit 58) — shadow bounds are the fixed center/radius on the Light inspector; objects outside cast/receive no shadows.
 - Editor gap: clip (.clip) has no scene drag-drop source (FolderContents CLIP branch lacks `DragModelFileToGUIWnd`); `CreateModelAnimatorMesh`/SceneWindow CLIP-drop branch already added, just needs the drag source.
 
@@ -165,7 +195,8 @@ Camera::Render_Forward()
 ### Engine
 - **FX11 is fully gone** — all rendering is native HLSL via `HlslShader`.
 - Material Sampler nullptr temp binding (needs RenderStateManager integration)
-- Deferred Pass 3 (skybox/transparent) may misalign vs GBuffer depth when scene window has x/y offset (opaque unaffected).
+- ~~Deferred Pass 3 misalign~~ — **FIXED in commit 65** (HDR sceneColor + GBuffer DSV 크기 일치)
+- 파티클이 톤매핑 이후 LDR 백버퍼에 그려짐 (Next Steps 참조)
 
 ### Editor
 - `Hiearchy.cpp`: ImGui::Selectable comma operator bug (isSelected ignored)

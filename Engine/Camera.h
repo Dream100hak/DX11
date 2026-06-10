@@ -1,6 +1,7 @@
 #pragma once
 #include "Component.h"
 #include "Frustum.h"
+#include "BindShaderDesc.h" // PassViewerDesc + ConstantBuffer
 
 enum class ProjectionType
 {
@@ -58,6 +59,10 @@ public:
 	float GetFov() { return _fov; }
 	float GetFar() { return _far; }
 
+	// 씬뷰 패스 뷰어 (0=Final, PassViewerDesc 주석 참조)
+	int32 GetDebugViewMode() const { return _debugViewMode; }
+	void  SetDebugViewMode(int32 mode) { _debugViewMode = mode; }
+
 private:
 	ProjectionType _type = ProjectionType::Perspective;
 	Matrix _matView = Matrix::Identity;
@@ -106,6 +111,11 @@ private:
 	ComPtr<ID3D11RenderTargetView>   _sceneColorRTV;
 	ComPtr<ID3D11ShaderResourceView> _sceneColorSRV;
 	void EnsureSceneColor(uint32 w, uint32 h);
+
+	// 씬뷰 패스 뷰어
+	int32 _debugViewMode = 0;
+	shared_ptr<ConstantBuffer<PassViewerDesc>> _passViewerCB;
+	void RenderPassViewer(const Matrix& V, const Matrix& P);
 
 	shared_ptr<class LightArrayDesc> CollectLights(shared_ptr<class Scene> scene);
 };

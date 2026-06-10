@@ -181,6 +181,25 @@ void SceneWindow::ShowSceneWindow()
 	ImVec2 scenePos(GAME->GetSceneDesc().x, GAME->GetSceneDesc().y);
 	ImVec2 sceneSize(GAME->GetSceneDesc().width, GAME->GetSceneDesc().height);
 
+	// ── 패스 뷰어 콤보 (씬 뷰 좌상단 오버레이) ──
+	{
+		ImGui::SetNextWindowPos(ImVec2(scenePos.x + 8.f, scenePos.y + 8.f));
+		ImGui::SetNextWindowBgAlpha(0.6f);
+		ImGuiWindowFlags overlayFlags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+			ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
+		if (ImGui::Begin("PassViewerOverlay", nullptr, overlayFlags))
+		{
+			int mode = MAIN_CAM->GetDebugViewMode();
+			ImGui::SetNextItemWidth(110.f);
+			if (ImGui::Combo("##PassView", &mode,
+				"Final\0Albedo\0Normal\0Roughness\0Metallic\0World Pos\0Depth\0SSAO\0Shadow\0"))
+			{
+				MAIN_CAM->SetDebugViewMode(mode);
+			}
+		}
+		ImGui::End();
+	}
+
 	if (ImGui::BeginDragDropTargetCustom(ImRect(scenePos, scenePos + sceneSize), ImGui::GetID("Scene"))) 
 	{	
 		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MeshPayload"))

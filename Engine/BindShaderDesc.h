@@ -78,6 +78,13 @@ struct MaterialDesc
 	Vec2  pbrPadding;   // 16����Ʈ ����
 };
 
+// 패스 뷰어 (b8) — HLSL PassViewer.hlsl PassViewerBuffer 와 일치
+struct PassViewerDesc
+{
+	int32 viewMode = 0; // 0=Final 1=Albedo 2=Normal 3=Roughness 4=Metallic 5=WorldPos 6=Depth 7=SSAO 8=Shadow
+	Vec3  padding;
+};
+
 // Bone
 #define MAX_MODEL_TRANSFORMS 1000
 #define MAX_MODEL_KEYFRAMES 500

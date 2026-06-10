@@ -278,6 +278,13 @@ void Camera::Render_Deferred()
 		tonemapShader->SetPSSRV(0, nullptr);
 	}
 
+	// ── 씬뷰 패스 뷰어 (에디터 콤보 또는 KEY_4 순환, 0=Final 이면 스킵) ──
+	if (INPUT->GetButtonDown(KEY_TYPE::KEY_4))
+		_debugViewMode = (_debugViewMode + 1) % 9;
+
+	if (_debugViewMode != 0)
+		RenderPassViewer(V, P);
+
 	// ── G-Buffer Debug View (KEY_3 toggle) ──
 	if (INPUT->GetButtonDown(KEY_TYPE::KEY_3))
 		_showGBufferDebug = !_showGBufferDebug;
@@ -301,6 +308,47 @@ void Camera::Render_Deferred()
 			_gBuffer->UnbindSRVsPS(0);
 		}
 	}
+}
+
+// 씬뷰 패스 뷰어 — GBuffer/SSAO/Shadow 채널을 풀스크린으로 시각화 (톤매핑 결과 위에 덮어씀)
+void Camera::RenderPassViewer(const Matrix& V, const Matrix& P)
+{
+	auto viewerShader = RESOURCES->Get<HlslShader>(L"PassViewer_HLSL");
+	if (!viewerShader || !_gBuffer)
+		return;
+
+	RENDER_STATES->BindAllSamplersPS();
+	_gBuffer->BindSRVsPS(0);
+
+	if (auto mat = RESOURCES->Get<Material>(L"DefaultMaterial"))
+	{
+		if (mat->GetSsaoMap())
+			viewerShader->SetPSSRV(3, mat->GetSsaoMap().Get());
+		if (mat->GetShadowMap())
+			viewerShader->SetPSSRV(4, mat->GetShadowMap()->GetComPtr().Get());
+	}
+
+	viewerShader->Bind();
+	viewerShader->PushGlobalData(V, P);
+
+	if (_passViewerCB == nullptr)
+	{
+		_passViewerCB = make_shared<ConstantBuffer<PassViewerDesc>>();
+		_passViewerCB->Create();
+	}
+	PassViewerDesc pv;
+	pv.viewMode = _debugViewMode;
+	_passViewerCB->CopyData(pv);
+	viewerShader->SetPSConstantBuffer(8, _passViewerCB->GetComPtr().Get());
+
+	DCT->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	DCT->OMSetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::DisableDepth).Get(), 0);
+	DCT->Draw(3, 0);
+	DCT->OMSetDepthStencilState(nullptr, 0);
+
+	_gBuffer->UnbindSRVsPS(0);
+	viewerShader->SetPSSRV(3, nullptr);
+	viewerShader->SetPSSRV(4, nullptr);
 }
 
 // 씬 크기 HDR 컬러 버퍼 (재)생성 — GBuffer 재생성 시점에 함께 호출

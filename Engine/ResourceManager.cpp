@@ -316,6 +316,16 @@ void ResourceManager::CreateDeferredShaders()
 		GetOrAddHlslShader(L"Tonemap_HLSL", desc);
 	}
 
+	// Pass Viewer (씬뷰 패스 시각화 — Albedo/Normal/Roughness/Metallic/Depth/SSAO/Shadow)
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"PassViewer.hlsl";
+		desc.psFile  = L"PassViewer.hlsl";
+		desc.vsEntry = "VS_Main";
+		desc.psEntry = "PS_Main";
+		GetOrAddHlslShader(L"PassViewer_HLSL", desc);
+	}
+
 	// G-Buffer Debug View (4-quadrant split)
 	{
 		HlslShaderDesc desc;

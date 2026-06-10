@@ -441,8 +441,9 @@ void Inspector::ShowInfoProject()
 		MaterialDesc& desc = material->GetMaterialDesc();
 		ImVec4 color = ImVec4(0.85f, 0.94f, 0.f, 1.f);
 
-		shared_ptr<Shader> shader = material->GetShader();
-		std::string shaderName = Utils::ToString(shader->GetName());
+		std::string shaderName = "(no shader)";
+		if (auto hlsl = material->GetHlslShader())
+			shaderName = Utils::ToString(hlsl->GetName());
 
 		ImGui::Text(shaderName.c_str());
 

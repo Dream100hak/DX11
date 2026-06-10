@@ -25,7 +25,6 @@ DX11/
 +-- Engine/                 # Core engine (static library)
 |   +-- Graphics.h/.cpp     # D3D11 device/swapchain
 |   +-- HlslShader.h/.cpp   # Native HLSL shader wrapper
-|   +-- Shader.h/.cpp       # Legacy FX11 shader (Terrain/SSAO only)
 |   +-- Material.h/.cpp     # Material system
 |   +-- MeshRenderer.cpp    # Draw(RenderContext) single entry point
 |   +-- ModelRenderer.cpp   # Static model renderer
@@ -62,9 +61,8 @@ DX11/
 ## Architecture & Rendering Pipeline
 
 ### Shader System
-- **FX11 -> native HLSL migration COMPLETE — zero .fx files remain** (`Shaders/HLSL/` only).
+- **FX11 FULLY REMOVED** — zero .fx files, no FX11 library/headers, no `Shader` class. Everything is native HLSL (`Shaders/HLSL/` + `HlslShader`).
 - `HlslShader`: VS/PS/HS/DS/GS/CS compile, auto InputLayout creation, cbuffer Push methods, DrawLineIndexed, **Stream-Output GS** (`soEntries`/`soStride` in desc) + `DrawAuto` (particles)
-- `Shader`: Legacy FX11 wrapper — dead code, pending removal (no .fx left to load)
 
 ### Rendering Flow
 ```
@@ -111,7 +109,7 @@ Camera::Render_Forward()
 - Sampler: s0~s4 (DiffuseMap, SpecularMap, NormalMap, ShadowMap, SsaoMap)
 - Texture SRV: t0~t4 mapping
 
-## Current Progress (Deferred + FX11 removal in progress, ~commit 53 + Stage 4)
+## Current Progress (FX11 removal COMPLETE, ~commit 63)
 
 ### Completed
 - HlslShader wrapper, RenderStateManager, Frustum Culling, Render Queue, RenderContext, Multi-light (MAX_LIGHTS=16)
@@ -151,15 +149,21 @@ Camera::Render_Forward()
     - Deleted ALL remaining .fx: `01. Fire/Rain/RainSO.fx` + shared includes `00. Global/Light/Render.fx` (+ vcxproj FxCompile group). `Shaders/` now contains only `HLSL/`.
     - Runtime verified: fire (additive flame billboards) + rain (falling line streaks) both render at 60fps.
 
+  - **FX11 leftovers REMOVED (cleanup complete)**:
+    - Deleted `Shader.h/.cpp`, `Pass.h/.cpp`, `Technique.h/.cpp` (Engine), `TextureRenderer.h/.cpp`, `Effects.h/.cpp` (EditorTool, fully dead) + FX11 lib/include dirs (`Libraries/Include/FX11`, `Libraries/Lib/FX11`).
+    - `Material`: `_shader`/`SetShader`/`GetShader` removed — HLSL only; `.mat` loader reads the shader string for format compat and always binds `Standard_HLSL`. MeshRenderer FX fallback tail removed (no HLSL shader = no draw). `RenderContext::shaderOverride` removed.
+    - Billboard (dormant component) switched to `GetHlslShader` (needs a dedicated billboard HLSL shader if ever used).
+    - GOTCHA: removing Effects11 lib broke `IID_ID3D11ShaderReflection` linkage (FX11 lib was providing the GUID) — fixed by linking `dxguid.lib` in EnginePch.
+    - Runtime verified: editor stable, deferred + shadow + ssao all render clean.
+
 ### Next Steps
-- Remove FX11 leftovers: `Shader.h`/`Shader.cpp` (no longer has any .fx to load), FX11 lib/includes, `TextureRenderer`(FX), `Material::_shader` FX path + MeshRenderer FX fallback, `RenderContext::shaderOverride`(now unused).
 - Shadow UX note: a camera-following shadow-sphere auto-fit was implemented then REVERTED by user preference (commit 58) — shadow bounds are the fixed center/radius on the Light inspector; objects outside cast/receive no shadows.
 - Editor gap: clip (.clip) has no scene drag-drop source (FolderContents CLIP branch lacks `DragModelFileToGUIWnd`); `CreateModelAnimatorMesh`/SceneWindow CLIP-drop branch already added, just needs the drag source.
 
 ## Known Issues
 
 ### Engine
-- **All shaders are HLSL now — zero .fx files remain.** FX11 library/`Shader` class are dead code pending removal (see Next Steps).
+- **FX11 is fully gone** — all rendering is native HLSL via `HlslShader`.
 - Material Sampler nullptr temp binding (needs RenderStateManager integration)
 - Deferred Pass 3 (skybox/transparent) may misalign vs GBuffer depth when scene window has x/y offset (opaque unaffected).
 
@@ -179,11 +183,10 @@ Camera::Render_Forward()
 ### Build structure (post header-xcopy removal)
 - EditorTool references Engine via **ProjectReference** (auto lib link + correct build order; parallel `-m` builds work).
 - EditorTool includes Engine headers **directly from `Engine\`** (include dirs: `$(SolutionDir)` + `$(SolutionDir)Engine\`). The old `xcopy *.h -> Libraries\Include\Engine` PreBuildEvent is gone — that copy caused stale-pch bugs (EditorTool compiling against outdated header copies).
-- `Libraries\Include\` now holds **external** headers only (Assimp/DirectXTex/FX11/magic_enum). `Libraries\Lib\Engine\` (Engine.lib output) and `Libraries\Include\Engine\` are git-ignored.
+- `Libraries\Include\` now holds **external** headers only (Assimp/DirectXTex/magic_enum). `Libraries\Lib\Engine\` (Engine.lib output) and `Libraries\Include\Engine\` are git-ignored.
 
 ## Dependencies
 
 - DirectX 11 SDK (included in Windows SDK)
-- FX11 (Effects 11) - for legacy shaders
 - ImGui - editor UI
 - Assimp - model import (AsConverter)

@@ -99,7 +99,6 @@ void ShadowMap::Draw()
 	ctx.view = V;
 	ctx.proj = P;
 	ctx.light = light;
-	ctx.shaderOverride = nullptr;
 	ctx.hlslOverride = nullptr;
 	ctx.buffer = nullptr;
 	ctx.lightArray = nullptr;

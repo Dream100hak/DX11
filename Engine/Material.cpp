@@ -22,23 +22,10 @@ void Material::Load(const wstring& path)
 	shared_ptr<FileUtils> file = make_shared<FileUtils>();
 	file->Open(fullPath, FileMode::Read);
 
-	//Shader
+	//Shader — .mat 의 셰이더 문자열은 포맷 호환용으로만 읽음 (FX11 제거, 항상 Standard_HLSL)
 	wstring shaderFile = Utils::ToWString(file->Read<string>());
-
-	// Standard.fx 계열은 FX 제거됨 — Standard_HLSL 로 직행 (.mat 파일의 셰이더 문자열은 포맷 호환용)
-	if (shaderFile.find(L"Standard") != wstring::npos)
-	{
-		auto hlslShader = RESOURCES->Get<HlslShader>(L"Standard_HLSL");
-		if (hlslShader)
-			SetHlslShader(hlslShader);
-	}
-	else
-	{
-		shared_ptr<Shader> shader = RESOURCES->Get<Shader>(shaderFile);
-		if (shader == nullptr)
-			shader = make_shared<Shader>(shaderFile);
-		SetShader(shader);
-	}
+	if (auto hlslShader = RESOURCES->Get<HlslShader>(L"Standard_HLSL"))
+		SetHlslShader(hlslShader);
 
 	wstring diffuseStr = Utils::ToWString(file->Read<string>());
 	if (diffuseStr.length() > 0)
@@ -64,21 +51,8 @@ void Material::Load(const wstring& path)
 	_desc.emissive = file->Read<Color>();
 }
 
-void Material::SetShader(shared_ptr<Shader> shader)
-{
-	_shader = shader;
-}
-
 void Material::Update()
 {
-	// ���� FX11 ��� (Terrain �� ���Ž�) ��������������������������������������������������
-	if (_shader)
-	{
-		_desc.useTexture = _diffuseMap ? 1 : 0;
-		_shader->PushMaterialData(_desc);
-	}
-
-	// ////// HlslShader ////// (////// - ////// ////// ///////////////////////)
 	if (_hlslShader)
 	{
 		_desc.useTexture = _diffuseMap ? 1 : 0;
@@ -116,7 +90,6 @@ std::shared_ptr<Material> Material::Clone()
 {
 	shared_ptr<Material> material = make_shared<Material>();
 
-	material->_shader       = _shader;
 	material->_hlslShader = _hlslShader;
 	material->_desc         = _desc;
 	material->_diffuseMap   = _diffuseMap;

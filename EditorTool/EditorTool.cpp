@@ -29,7 +29,6 @@
 #include "AsConverter.h"
 
 #include "MeshThumbnail.h"
-#include "TextureRenderer.h"
 
 
 #include "Ssao.h"

@@ -3,7 +3,6 @@
 #include "Mesh.h"
 #include "Camera.h"
 #include "Game.h"
-#include "Shader.h"
 #include "HlslShader.h"
 #include "Light.h"
 #include "MathUtils.h"
@@ -27,11 +26,9 @@ void MeshRenderer::OnInspectorGUI()
 {
 	if (_material != nullptr)
 	{
-		// FX11 Shader �Ǵ� HlslShader �̸� ǥ�� (nullptr ���)
+		// HlslShader 이름 표시 (nullptr 방어)
 		std::string name = "(no shader)";
-		if (auto shader = _material->GetShader())
-			name = Utils::ToString(shader->GetName());
-		else if (auto hlsl = _material->GetHlslShader())
+		if (auto hlsl = _material->GetHlslShader())
 			name = Utils::ToString(hlsl->GetName());
 
 		ImGui::Text(name.c_str());
@@ -98,7 +95,6 @@ void MeshRenderer::OnInspectorGUI()
 // Draw() ? ���� ���� ����
 //  ctx.buffer == nullptr  ? ���� ��ο�
 //  ctx.buffer != nullptr  ? �ν��Ͻ� ��ο�
-//  ctx.shaderOverride     ? ���̴� �������̵� (Shadow/Outline �н�)
 //  ctx.hlslOverride       ? HlslShader ��� �������̵�
 // ============================================================
 void MeshRenderer::Draw(const RenderContext& ctx)
@@ -213,33 +209,7 @@ void MeshRenderer::Draw(const RenderContext& ctx)
 		}
 		return;
 	}
-
-	// ���� FX11 ��� ����������������������������������������������������������������������������������������������������������������������������������
-	auto prevShader = _material->GetShader();
-	if (ctx.shaderOverride) _material->SetShader(ctx.shaderOverride);
-
-	auto curShader = _material->GetShader();
-	if (curShader == nullptr) return;
-
-	curShader->PushGlobalData(ctx.view, ctx.proj);
-	if (ctx.light) curShader->PushLightData(ctx.light->GetLightDesc());
-
-	if (!ctx.buffer)
-		curShader->PushTransformData(TransformDesc{ GetTransform()->GetWorldMatrix() });
-
-	_material->Update();
-	_mesh->GetVertexBuffer()->PushData();
-	_mesh->GetIndexBuffer()->PushData();
-
-	if (!ctx.buffer)
-		curShader->DrawIndexed(ctx.tech, _pass, _mesh->GetIndexBuffer()->GetCount(), 0, 0);
-	else
-	{
-		ctx.buffer->PushData();
-		curShader->DrawIndexedInstanced(ctx.tech, _pass, _mesh->GetIndexBuffer()->GetCount(), ctx.buffer->GetCount());
-	}
-
-	_material->SetShader(prevShader);
+	// 머티리얼에 HlslShader 가 없으면 그리지 않음 (FX11 폴백 제거됨)
 }
 
 // ============================================================

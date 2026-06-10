@@ -40,9 +40,6 @@ using namespace std;
 using namespace DirectX;
 using namespace Microsoft::WRL;
 
-// FX11 헤더는 Shader.h / Pass.h 가 직접 포함하므로 여기서는 제거
-// #include <FX11/d3dx11effect.h>
-
 // Assimp
 #include <Assimp/Importer.hpp>
 #include <Assimp/scene.h>
@@ -57,14 +54,13 @@ using namespace Microsoft::WRL;
 // Libs
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "d3dcompiler.lib")
+#pragma comment(lib, "dxguid.lib") // IID_ID3D11ShaderReflection (셰이더 리플렉션 GUID)
 
 #ifdef _DEBUG
 #pragma comment(lib, "DirectXTex/DirectXTex_debug.lib")
-#pragma comment(lib, "FX11/Effects11d.lib")
 #pragma comment(lib, "Assimp/assimp-vc143-mtd.lib")
 #else
 #pragma comment(lib, "DirectXTex/DirectXTex.lib")
-#pragma comment(lib, "FX11/Effects11.lib")
 #pragma comment(lib, "Assimp/assimp-vc143-mt.lib")
 #endif
 
@@ -85,7 +81,6 @@ using namespace Microsoft::WRL;
 #include "VertexBuffer.h"
 #include "IndexBuffer.h"
 #include "ConstantBuffer.h"
-#include "Shader.h"
 #include "HlslShader.h"
 #include "RenderContext.h"
 #include "IExecute.h"

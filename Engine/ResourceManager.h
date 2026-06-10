@@ -5,7 +5,6 @@
 
 class Texture;
 class Mesh;
-class Shader;
 class Material;
 class Model;
 
@@ -100,7 +99,6 @@ ResourceType ResourceManager::GetResourceType()
 	if (std::is_same_v<T, Texture>)    return ResourceType::Texture;
 	if (std::is_same_v<T, Mesh>)       return ResourceType::Mesh;
 	if (std::is_same_v<T, Material>)   return ResourceType::Material;
-	if (std::is_same_v<T, Shader>)     return ResourceType::Shader;
 	if (std::is_same_v<T, HlslShader>) return ResourceType::Shader;
 	if (std::is_same_v<T, Model>)      return ResourceType::Model;
 

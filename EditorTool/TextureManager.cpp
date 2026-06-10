@@ -1,6 +1,5 @@
 #include "pch.h"
 #include "TextureManager.h"
-#include "TextureRenderer.h"
 #include "ShadowMap.h"
 #include "Ssao.h"
 #include "Material.h"
@@ -39,27 +38,5 @@ void TextureManager::DrawTextureMap()
 	{
 		_ssao->Draw();
 	});
-
-	Matrix W1(
-		1.0f, 0.0f, 0.0f, 0.0f,
-		0.0f, 1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f,
-		0.75f, -0.75f, 0.0f, 1.0f);
-
-	//if (_smapDebugTexture)
-	//	_smapDebugTexture->Update(W1);
-
-//	if (_ssaoAmbientDebugTexture)
-	//	_ssaoAmbientDebugTexture->Update(W1);
-
-	Matrix W2(
-		2.0f, 0.0f, 0.0f, 0.0f,
-		0.0f, 2.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f,
-		0.25f, -0.75f, 0.0f, 1.0f);
-
-	//if (_ssaoNormalDebugTexture)
-		//_ssaoNormalDebugTexture->Update(W2);
-
 }
 

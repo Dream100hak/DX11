@@ -22,7 +22,6 @@
     <ClInclude Include="AsConverter.h" />
     <ClInclude Include="AsType.h" />
     <ClInclude Include="EditorWindow.h" />
-    <ClInclude Include="Effects.h" />
     <ClInclude Include="FolderContents.h" />
     <ClInclude Include="GameEditorWindow.h" />
     <ClInclude Include="LogWindow.h" />
@@ -46,13 +45,11 @@
     <ClInclude Include="SkyCubeMap.h" />
     <ClInclude Include="Ssao.h" />
     <ClInclude Include="TextureManager.h" />
-    <ClInclude Include="TextureRenderer.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AsConverter.cpp" />
     <ClCompile Include="AsType.cpp" />
     <ClCompile Include="EditorWindow.cpp" />
-    <ClCompile Include="Effects.cpp" />
     <ClCompile Include="FolderContents.cpp" />
     <ClCompile Include="GameEditorWindow.cpp" />
     <ClCompile Include="LogWindow.cpp" />
@@ -79,7 +76,6 @@
     <ClCompile Include="SkyCubeMap.cpp" />
     <ClCompile Include="Ssao.cpp" />
     <ClCompile Include="TextureManager.cpp" />
-    <ClCompile Include="TextureRenderer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Shaders\HLSL\Common.hlsli" />

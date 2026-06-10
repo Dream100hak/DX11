@@ -198,7 +198,6 @@
     <ClInclude Include="ModelRenderer.h" />
     <ClInclude Include="MonoBehaviour.h" />
     <ClInclude Include="OBBBoxCollider.h" />
-    <ClInclude Include="Pass.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Primitive3D.h" />
     <ClInclude Include="RawBuffer.h" />
@@ -209,12 +208,10 @@
     <ClInclude Include="ResourceManager.h" />
     <ClInclude Include="Scene.h" />
     <ClInclude Include="SceneManager.h" />
-    <ClInclude Include="Shader.h" />
     <ClInclude Include="SimpleMath.h" />
     <ClInclude Include="SkyBox.h" />
     <ClInclude Include="SphereCollider.h" />
     <ClInclude Include="StructuredBuffer.h" />
-    <ClInclude Include="Technique.h" />
     <ClInclude Include="Terrain.h" />
     <ClInclude Include="TerrainMesh.h" />
     <ClInclude Include="Texture.h" />
@@ -290,7 +287,6 @@
     <ClCompile Include="ModelRenderer.cpp" />
     <ClCompile Include="MonoBehaviour.cpp" />
     <ClCompile Include="OBBBoxCollider.cpp" />
-    <ClCompile Include="Pass.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -305,14 +301,12 @@
     <ClCompile Include="ResourceManager.cpp" />
     <ClCompile Include="Scene.cpp" />
     <ClCompile Include="SceneManager.cpp" />
-    <ClCompile Include="Shader.cpp" />
     <ClCompile Include="SimpleMath.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="SkyBox.cpp" />
     <ClCompile Include="SphereCollider.cpp" />
     <ClCompile Include="StructuredBuffer.cpp" />
-    <ClCompile Include="Technique.cpp" />
     <ClCompile Include="Terrain.cpp" />
     <ClCompile Include="TerrainMesh.cpp" />
     <ClCompile Include="Texture.cpp" />

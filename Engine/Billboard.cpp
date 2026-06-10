@@ -38,7 +38,8 @@ void Billboard::Update()
 	if(_material == nullptr)
 		return;
 
-	auto shader = _material->GetShader();
+	// FX11 제거 — HlslShader 기반 (전용 빌보드 HLSL 셰이더 필요 시 별도 작성)
+	auto shader = _material->GetHlslShader();
 
 	if(shader == nullptr)
 		return;
@@ -55,6 +56,8 @@ void Billboard::Update()
 		DCT->Unmap(_vertexBuffer->GetComPtr().Get(), 0);
 	}
 
+	shader->Bind();
+
 	// Transform
 	auto world = GetTransform()->GetWorldMatrix();
 	shader->PushTransformData(TransformDesc{ world });
@@ -70,7 +73,7 @@ void Billboard::Update()
 	_vertexBuffer->PushData();
 	_indexBuffer->PushData();
 
-	shader->DrawIndexed(0, _pass, _drawCount * 6);
+	shader->DrawIndexed(_drawCount * 6, 0, 0);
 }
 
 void Billboard::Add(Vec3 position, Vec2 scale)

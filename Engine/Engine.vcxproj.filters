@@ -109,12 +109,6 @@
     <ClInclude Include="InstancingBuffer.h">
       <Filter>01. Graphics\Buffer</Filter>
     </ClInclude>
-    <ClInclude Include="Technique.h">
-      <Filter>01. Graphics\Shader</Filter>
-    </ClInclude>
-    <ClInclude Include="Pass.h">
-      <Filter>01. Graphics\Shader</Filter>
-    </ClInclude>
     <ClInclude Include="ImGuiManager.h">
       <Filter>02. Managers</Filter>
     </ClInclude>
@@ -192,9 +186,6 @@
     </ClInclude>
     <ClInclude Include="GameObject.h">
       <Filter>04. Object</Filter>
-    </ClInclude>
-    <ClInclude Include="Shader.h">
-      <Filter>01. Graphics\Shader</Filter>
     </ClInclude>
     <ClInclude Include="SkyBox.h">
       <Filter>05. Component</Filter>
@@ -330,15 +321,6 @@
     </ClCompile>
     <ClCompile Include="InstancingBuffer.cpp">
       <Filter>01. Graphics\Buffer</Filter>
-    </ClCompile>
-    <ClCompile Include="Pass.cpp">
-      <Filter>01. Graphics\Shader</Filter>
-    </ClCompile>
-    <ClCompile Include="Shader.cpp">
-      <Filter>01. Graphics\Shader</Filter>
-    </ClCompile>
-    <ClCompile Include="Technique.cpp">
-      <Filter>01. Graphics\Shader</Filter>
     </ClCompile>
     <ClCompile Include="ImGuiManager.cpp">
       <Filter>02. Managers</Filter>

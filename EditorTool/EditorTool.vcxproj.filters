@@ -93,9 +93,6 @@
     <ClInclude Include="Ssao.h">
       <Filter>Textures</Filter>
     </ClInclude>
-    <ClInclude Include="TextureRenderer.h">
-      <Filter>Textures</Filter>
-    </ClInclude>
     <ClInclude Include="TextureManager.h">
       <Filter>Managers</Filter>
     </ClInclude>
@@ -109,9 +106,6 @@
       <Filter>Components</Filter>
     </ClInclude>
     <ClInclude Include="ParticleSystem.h">
-      <Filter>Components</Filter>
-    </ClInclude>
-    <ClInclude Include="Effects.h">
       <Filter>Components</Filter>
     </ClInclude>
     <ClInclude Include="SceneCamera.h">
@@ -176,9 +170,6 @@
     <ClCompile Include="Ssao.cpp">
       <Filter>Textures</Filter>
     </ClCompile>
-    <ClCompile Include="TextureRenderer.cpp">
-      <Filter>Textures</Filter>
-    </ClCompile>
     <ClCompile Include="TextureManager.cpp">
       <Filter>Managers</Filter>
     </ClCompile>
@@ -192,9 +183,6 @@
       <Filter>Components</Filter>
     </ClCompile>
     <ClCompile Include="ParticleSystem.cpp">
-      <Filter>Components</Filter>
-    </ClCompile>
-    <ClCompile Include="Effects.cpp">
       <Filter>Components</Filter>
     </ClCompile>
     <ClCompile Include="SceneCamera.cpp">

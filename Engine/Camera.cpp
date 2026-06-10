@@ -133,7 +133,6 @@ void Camera::Render_Forward()
 	baseCtx.proj   = P;
 	baseCtx.light  = nullptr;
 	baseCtx.lightArray = lightArray;
-	baseCtx.shaderOverride = nullptr;
 	baseCtx.hlslOverride   = nullptr;
 	baseCtx.buffer = nullptr;
 

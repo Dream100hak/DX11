@@ -10,7 +10,6 @@ public:
 
 	virtual void Load(const wstring& path) override;
 
-	shared_ptr<Shader>     GetShader()     { return _shader; }
 	shared_ptr<HlslShader> GetHlslShader() { return _hlslShader; }
 
 	MaterialDesc& GetMaterialDesc()   { return _desc; }
@@ -20,7 +19,6 @@ public:
 	shared_ptr<Texture> GetShadowMap()   { return _shadowMap; }
 	ComPtr<ID3D11ShaderResourceView> GetSsaoMap() { return _ssaoMap; }
 
-	void SetShader(shared_ptr<Shader> shader);
 	void SetHlslShader(shared_ptr<HlslShader> shader) { _hlslShader = shader; }
 
 	void SetDiffuseMap(shared_ptr<Texture> t)  { _diffuseMap  = t; }
@@ -42,13 +40,9 @@ private:
 
 	MaterialDesc _desc;
 
-	// FX11 °æ·Î (Terrain µî ·¹°Å½Ã È£È¯¿ëÀ¸·Î À¯Áö)
-	shared_ptr<Shader> _shader;
-
-	// HlslShader °æ·Î (½Å±Ô)
 	shared_ptr<HlslShader> _hlslShader;
 
-	// °øÀ¯ ÅØ½ºÃ³
+	// ï¿½ï¿½ï¿½ï¿½ ï¿½Ø½ï¿½Ã³
 	shared_ptr<Texture> _diffuseMap;
 	shared_ptr<Texture> _normalMap;
 	shared_ptr<Texture> _specularMap;

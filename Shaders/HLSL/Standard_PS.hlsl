@@ -34,7 +34,7 @@ float4 PS_Main(MeshOutput input) : SV_TARGET
     float4 texColor = MatDiffuse;
     if (UseTexture)
     {
-        texColor = DiffuseMap.Sample(LinearSampler, input.uv);
+        texColor = DiffuseMap.Sample(LinearSampler, input.uv) * MatDiffuse; // 틴트 곱 (GBuffer 와 동일 규약)
 
         if (UseAlphaClip)
    clip(texColor.a - 0.1f);

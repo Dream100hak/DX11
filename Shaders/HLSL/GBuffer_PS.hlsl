@@ -25,10 +25,11 @@ GBufferOutput PS_GBuffer(MeshOutput input)
     input.normal = normalize(input.normal);
     ComputeNormalMapping(input.normal, input.tangent, input.uv, NormalMap);
 
+    // MatDiffuse 는 틴트로 곱함 — 대체해 버리면 인스펙터 Diffuse 색이 텍스처 머티리얼에 안 먹음
     float4 texColor = MatDiffuse;
     if (UseTexture)
     {
-        texColor = DiffuseMap.Sample(LinearSampler, input.uv);
+        texColor = DiffuseMap.Sample(LinearSampler, input.uv) * MatDiffuse;
         if (UseAlphaClip)
             clip(texColor.a - 0.1f);
     }

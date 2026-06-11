@@ -36,6 +36,12 @@ void MeshThumbnail::Draw(vector<shared_ptr<Renderer>> renderers, Matrix V, Matri
 		ctx.proj   = P;
 		ctx.light  = light;
 		ctx.buffer = buffers[i];
+
+		// 머티리얼 프리뷰 구체(MeshRenderer)는 PS_PreviewLit 강제
+		// — 씬용 Standard_PS 는 섀도우맵(미바인딩=0)/라이트배열 의존이라 썸네일이 검게 나옴
+		if (renderers[i]->GetRenderType() == RendererType::Mesh)
+			ctx.hlslOverride = RESOURCES->Get<HlslShader>(L"MeshPreview_HLSL");
+
 		renderers[i]->Draw(ctx);
 	}
 }

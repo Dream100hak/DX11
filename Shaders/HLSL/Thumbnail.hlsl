@@ -40,7 +40,7 @@ float4 PS_PreviewLit(MeshOutput input) : SV_TARGET
 
     float4 tex = MatDiffuse;
     if (UseTexture)
-        tex = DiffuseMap.Sample(LinearSampler, input.uv);
+        tex = DiffuseMap.Sample(LinearSampler, input.uv) * MatDiffuse; // 틴트 곱 (GBuffer 와 동일 규약)
     float3 albedo = pow(abs(tex.rgb), 2.2f); // sRGB -> linear
 
     float roughness = max(Roughness, 0.04f);

@@ -217,6 +217,17 @@ void ResourceManager::CreateThumbnailShader()
 	desc.vsEntry = "VS_Mesh";   // Standard_VS.hlsl의 메시 버텍스 셰이더 진입점
 	desc.psEntry = "PS_Solid";
 	GetOrAddHlslShader(L"Thumbnail_HLSL", desc);
+
+	// 머티리얼 프리뷰 구체 (정적 메시) — 모델 썸네일과 동일한 PS_PreviewLit
+	// (씬용 Standard_PS 는 섀도우맵/라이트배열 의존이라 썸네일 패스에서 검게 나옴)
+	{
+		HlslShaderDesc meshPrev;
+		meshPrev.vsFile  = L"Standard_VS.hlsl";
+		meshPrev.psFile  = L"Thumbnail.hlsl";
+		meshPrev.vsEntry = "VS_Mesh";
+		meshPrev.psEntry = "PS_PreviewLit";
+		GetOrAddHlslShader(L"MeshPreview_HLSL", meshPrev);
+	}
 }
 
 void ResourceManager::CreateSSAOShader()

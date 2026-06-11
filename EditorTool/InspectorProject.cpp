@@ -136,6 +136,7 @@ void Inspector::ShowProjectMaterial(shared_ptr<MetaData>& metaData, ID3D11Shader
 	if (ImGui::ColorEdit3("Ambient", (float*)&desc.ambient)) { changed = true; }
 	if (ImGui::ColorEdit3("Emissive", (float*)&desc.emissive)) { changed = true; }
 	if (ImGui::ColorEdit3("Specular", (float*)&desc.specular)) { changed = true; }
+	ImGui::TextDisabled("Ambient/Emissive/Specular: Forward(Transparent) only - Deferred uses Diffuse+PBR");
 
 	ImGui::SeparatorText("PBR");
 	if (ImGui::SliderFloat("Roughness", &desc.roughness, 0.f, 1.f)) { changed = true; }

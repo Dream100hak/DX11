@@ -250,7 +250,8 @@ void SceneWindow::ShowSceneWindow()
 
 	if (_bUsing == false)
 	{
-		if (io.MouseClicked[0])
+		// PassViewer 콤보 등 씬뷰 위 ImGui 오버레이 클릭이 픽킹으로 흘러가지 않게 가드
+		if (io.MouseClicked[0] && GUI->IsHoveringWindow())
 		{
 			int32 x = INPUT->GetMousePos().x;
 			int32 y = INPUT->GetMousePos().y;

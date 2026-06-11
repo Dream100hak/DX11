@@ -226,8 +226,60 @@ InstanceID ModelAnimator::GetInstanceID()
 	return make_pair((uint64)_model.get(), (uint64)0);
 }
 
+// 바인드포즈(T-pose) 기준 삼각형 픽킹 — 애니메이션으로 크게 변형된 포즈는 판정이 부정확할 수 있음
 bool ModelAnimator::Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& distance)
 {
+	if (_model == nullptr)
+		return false;
+
+	auto cam = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
+	Matrix V = cam->GetViewMatrix();
+	Matrix P = cam->GetProjectionMatrix();
+	Matrix W = GetTransform()->GetWorldMatrix();
+
+	Viewport& vp = GRAPHICS->GetViewport();
+
+	Vec3 n = vp.Unproject(Vec3(screenX, screenY, 0), Matrix::Identity, V, P);
+	Vec3 f = vp.Unproject(Vec3(screenX, screenY, 1), Matrix::Identity, V, P);
+	Vec3 start = n;
+	Vec3 direction = f - n;
+	direction.Normalize();
+	Ray ray = Ray(start, direction);
+	vector<shared_ptr<ModelMesh>>& meshes = _model->GetMeshes();
+	vector<shared_ptr<ModelBone>>& bones = _model->GetBones();
+
+	// 바운딩 박스 선판정
+	TransformBoundingBox();
+	float dist = 0.f;
+
+	if (_boundingBox.Intersects(ray.position, ray.direction, dist))
+	{
+		for (auto mesh : meshes)
+		{
+			Matrix boneWorldMatrix = bones[mesh->boneIndex]->transform * W;
+
+			const auto& vertices = mesh->GetGeometry()->GetVertices();
+			const auto& indices = mesh->GetGeometry()->GetIndices();
+
+			for (uint32 i = 0; i < indices.size() / 3; ++i)
+			{
+				uint32 i0 = indices[i * 3 + 0];
+				uint32 i1 = indices[i * 3 + 1];
+				uint32 i2 = indices[i * 3 + 2];
+
+				Vec3 v0 = XMVector3TransformCoord(vertices[i0].position, boneWorldMatrix);
+				Vec3 v1 = XMVector3TransformCoord(vertices[i1].position, boneWorldMatrix);
+				Vec3 v2 = XMVector3TransformCoord(vertices[i2].position, boneWorldMatrix);
+
+				if (ray.Intersects(v0, v1, v2, OUT distance))
+				{
+					pickPos = ray.position + ray.direction * distance;
+					return true;
+				}
+			}
+		}
+	}
+
 	return false;
 }
 

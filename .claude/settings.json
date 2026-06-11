@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(awk -F: '{print $1}')",
+      "Bash(cat /tmp/broken_korean_full.txt | grep -v 'imgui\\\\|tinyxml2\\\\|imstb' > /tmp/broken_korean_project_only.txt && wc -l /tmp/broken_korean_project_only.txt)",
+      "Bash(awk -F: '{print $1\":\"$2}')",
+      "Bash(awk -F: '{if \\(prev != $1\\) {if \\(prev != \"\"\\) print \"\"; prev=$1; printf \"%s:\\\\n\", $1} printf \" Line %s\\\\n\", $2}')",
+      "Bash(awk 'BEGIN {prev=\"\"} { *)",
+      "Bash(read file *)",
+      "Bash(grep ^__TRACKED_VAR__: /tmp/broken_korean_project_only.txt)"
+    ],
+    "additionalDirectories": [
+      "\\tmp"
+    ]
+  }
+}

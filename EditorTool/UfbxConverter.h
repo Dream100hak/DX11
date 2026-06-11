@@ -40,6 +40,7 @@ public:
 	void ExportAnimationData(wstring savePath, uint32 index = 0);
 
 	uint32 GetAnimationCount() const { return _scene ? (uint32)_scene->anim_stacks.count : 0; }
+	bool HasMesh() const { return _scene && _scene->meshes.count > 0; }
 
 private:
 	// Model / Mesh / Skin

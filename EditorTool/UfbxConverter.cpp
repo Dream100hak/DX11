@@ -38,7 +38,8 @@ UfbxConverter::~UfbxConverter()
 
 void UfbxConverter::ReadAssetFile(wstring file)
 {
-	wstring fileStr = _assetPath + file;
+	// 절대 경로면 그대로, 아니면 PrevConverted 기준 상대 경로
+	wstring fileStr = filesystem::path(file).is_absolute() ? file : _assetPath + file;
 
 	auto p = std::filesystem::path(fileStr);
 	assert(std::filesystem::exists(p));

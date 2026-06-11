@@ -3,6 +3,11 @@
 #include "ShortcutManager.h"
 #include "EditorToolManager.h"
 #include "LogWindow.h"
+#include "UfbxConverter.h"
+#include "Utils.h"
+#include <filesystem>
+#include <commdlg.h>
+#pragma comment(lib, "comdlg32.lib")
 
 
 MainMenuBar::MainMenuBar()
@@ -71,12 +76,54 @@ void MainMenuBar::ShowMainMenuBar()
 	}
 }
 
+// FBX 선택 다이얼로그 -> ufbx 변환
+// 출력 규칙: Models/<FBX 부모 폴더명>/ 에 모델(.mesh/.mmat/.mat) + 클립(<파일스템>.clip)
+void MainMenuBar::ConvertFbx()
+{
+	wchar_t szFile[MAX_PATH] = L"";
+	OPENFILENAMEW ofn = {};
+	ofn.lStructSize = sizeof(ofn);
+	ofn.lpstrFilter = L"FBX Files (*.fbx)\0*.fbx\0";
+	ofn.lpstrFile = szFile;
+	ofn.nMaxFile = MAX_PATH;
+	ofn.Flags = OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
+
+	if (::GetOpenFileNameW(&ofn) == FALSE)
+		return;
+
+	auto fbxPath = std::filesystem::path(szFile);
+	wstring folderName = fbxPath.parent_path().filename().wstring();
+	wstring stem = fbxPath.stem().wstring();
+
+	shared_ptr<UfbxConverter> conv = make_shared<UfbxConverter>();
+	conv->ReadAssetFile(fbxPath.wstring());
+
+	if (conv->HasMesh())
+	{
+		conv->ExportMaterialDataByMats(folderName + L"/" + folderName);
+		conv->ExportModelData(folderName + L"/" + folderName);
+		ADDLOG("Convert FBX -> .mesh/.mmat : " + Utils::ToString(folderName), LogFilter::Info);
+	}
+
+	if (conv->GetAnimationCount() > 0)
+	{
+		conv->ExportAnimationData(folderName + L"/" + stem);
+		ADDLOG("Convert FBX -> .clip : " + Utils::ToString(folderName + L"/" + stem), LogFilter::Info);
+	}
+
+	if (conv->HasMesh() == false && conv->GetAnimationCount() == 0)
+		ADDLOG("Convert FBX : no mesh/animation found", LogFilter::Warn);
+}
+
 void MainMenuBar::MenuFileList()
 {
 	if (ImGui::MenuItem("New")) {}
 	if (ImGui::MenuItem("Open", "Ctrl+O")) {}
 	if (ImGui::MenuItem("Save", "Ctrl+S")) {}
 	if (ImGui::MenuItem("Save As..")) {}
+
+	ImGui::Separator();
+	if (ImGui::MenuItem("Convert FBX...")) { ConvertFbx(); }
 
 	ImGui::Separator();
 	if (ImGui::BeginMenu("Options"))

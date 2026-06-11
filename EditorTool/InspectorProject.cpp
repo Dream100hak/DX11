@@ -16,6 +16,7 @@
 #include "SimpleGrid.h"
 
 #include "FolderContents.h"
+#include "LogWindow.h"
 #include "Utils.h"
 
 #include "ModelAnimation.h"
@@ -172,6 +173,16 @@ void Inspector::ShowProjectMaterial(shared_ptr<MetaData>& metaData, ID3D11Shader
 		{
 			thumbnail->Draw(renderers, V, P, light, buffers);
 		});
+	}
+
+	// 편집 영속화 — 같은 인스턴스를 쓰는 씬 모델에는 즉시 반영되지만, 파일 저장은 명시적으로
+	ImGui::Spacing();
+	ImGui::Separator();
+	if (ImGui::Button("Save Material", ImVec2(-FLT_MIN, 0)))
+	{
+		wstring stem = metaData->fileName.substr(0, metaData->fileName.find('.'));
+		material->Save(metaData->fileFullPath + L'/' + stem);
+		ADDLOG("Save Material : " + Utils::ToString(metaData->fileName), LogFilter::Info);
 	}
 }
 

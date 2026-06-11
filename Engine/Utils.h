@@ -23,8 +23,12 @@ public:
 	static string ToString(int32 value);
 	static string ToString(float value);
 
-	static wstring GetResourcesName(wstring value , wstring exten);  // 확장자 뺀 이름만 
-	static string  GetResourcesName(string value, string exten);  // 확장자 뺀 이름만 
+	static wstring GetResourcesName(wstring value , wstring exten);  // 확장자 뺀 이름만
+	static string  GetResourcesName(string value, string exten);  // 확장자 뺀 이름만
+
+	// .mat 리소스 캐시 키 정규화 — 같은 파일이 경로 표기 차이(구분자/상대경로/확장자 유무/대소문자)로
+	// 중복 로드되면 인스펙터 편집이 씬 모델에 반영되지 않으므로, 모든 로드 지점이 이 키로 수렴해야 함
+	static wstring ToMaterialKey(const wstring& path);
 
 	static string ConvertWCharToChar(const wchar_t* wideString);
 

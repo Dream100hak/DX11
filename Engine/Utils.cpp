@@ -1,5 +1,24 @@
 #include "pch.h"
 #include "Utils.h"
+#include <filesystem>
+
+wstring Utils::ToMaterialKey(const wstring& path)
+{
+	wstring p = path;
+
+	// 확장자 없이 들어오는 호출(.mmat 의 matName 등)도 같은 키로 수렴
+	if (p.size() < 4 || _wcsicmp(p.substr(p.size() - 4).c_str(), L".mat") != 0)
+		p += L".mat";
+
+	// 구분자(\, /)와 상대 경로(..) 차이 흡수 — 파일이 없어도 동작 (weakly)
+	std::error_code ec;
+	std::filesystem::path canon = std::filesystem::weakly_canonical(std::filesystem::path(p), ec);
+	wstring key = ec ? p : canon.wstring();
+
+	// 윈도우 파일시스템은 대소문자 비구분 — 키도 동일하게
+	std::transform(key.begin(), key.end(), key.begin(), ::towlower);
+	return key;
+}
 
 
 bool Utils::StartsWith(string str, string comp)

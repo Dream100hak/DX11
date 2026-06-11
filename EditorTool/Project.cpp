@@ -88,11 +88,16 @@ void Project::RefreshCasheFileList(const wstring& directory)
 		}
 		else if (meta->metaType == MetaType::MATERIAL)
 		{
-			shared_ptr<Material> material = make_shared<Material>();
-			wstring matName = meta->fileName.substr(0, meta->fileName.find('.'));
+			// 정규화 키 — 모델(.mmat 경유)이 먼저 로드했으면 그 인스턴스를 그대로 공유 (중복 로드 금지)
+			wstring matKey = Utils::ToMaterialKey(meta->fileFullPath + L'/' + meta->fileName);
+			if (RESOURCES->Get<Material>(matKey) == nullptr)
+			{
+				shared_ptr<Material> material = make_shared<Material>();
+				wstring matName = meta->fileName.substr(0, meta->fileName.find('.'));
 
-			material->Load(meta->fileFullPath + L'/' + matName);
-			RESOURCES->Add(meta->fileFullPath + L'/' + meta->fileName, material);
+				material->Load(meta->fileFullPath + L'/' + matName);
+				RESOURCES->Add(matKey, material);
+			}
 		}
 		else if (meta->metaType == MetaType::MESH)
 		{

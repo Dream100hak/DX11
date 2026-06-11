@@ -9,6 +9,7 @@ public:
 	virtual ~Material();
 
 	virtual void Load(const wstring& path) override;
+	void Save(const wstring& path); // .mat 저장 — Load 와 동일 포맷 (인스펙터 편집 영속화)
 
 	shared_ptr<HlslShader> GetHlslShader() { return _hlslShader; }
 

@@ -32,13 +32,16 @@ void Model::ReadMaterial(wstring filename)
 	for (int32 i = 0; i < size; i++)
 	{
 		string matName = file->Read<string>();
-		
-		shared_ptr<Material> material = RESOURCES->Get<Material>(Utils::ToWString(matName));
+
+		// 정규화 키 — 프로젝트 창(.mat 스캔)과 같은 인스턴스를 공유해야
+		// 인스펙터에서 .mat 을 고치면 이 모델도 같이 바뀐다
+		wstring matKey = Utils::ToMaterialKey(Utils::ToWString(matName));
+		shared_ptr<Material> material = RESOURCES->Get<Material>(matKey);
 		if (material == nullptr)
 		{
 			material = make_shared<Material>();
 			material->Load(Utils::ToWString(matName));
-			RESOURCES->Add(Utils::ToWString(matName), material);
+			RESOURCES->Add(matKey, material);
 		}
 			
 		_materials.push_back(material);

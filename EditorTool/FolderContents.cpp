@@ -306,25 +306,9 @@ void FolderContents::CreateMaterial()
 	wstring directory = path.parent_path().wstring();
 	filesystem::create_directory(path.parent_path());
 
-	shared_ptr<FileUtils> file = make_shared<FileUtils>();
-	file->Open(finalPath, FileMode::Write);
-
-	// .mat ?щ㎎ ?명솚???곗씠??臾몄옄????DefaultMaterial ? HLSL ?꾩슜(FX _shader ?놁쓬)?대씪 由ы꽣??湲곕줉
-	file->Write<wstring>(wstring(L"01. Standard.fx"));
-	int32 materialSize = 1;
-	file->Write<uint32>(materialSize);
-	
-	file->Write<wstring>(fileName);
-	file->Write<string>(""); // Diffuse
-	file->Write<string>(""); // Specular
-	file->Write<string>(""); // Normal
-	file->Write<Color>(material->GetMaterialDesc().ambient);
-	file->Write<Color>(material->GetMaterialDesc().diffuse);
-	file->Write<Color>(material->GetMaterialDesc().specular);
-	file->Write<Color>(material->GetMaterialDesc().emissive);
-	// PBR ?뺤옣 ?꾨뱶 (Material::Load 媛 TryRead 濡??쎌쓬 ??援щ쾭???뚯씪 ?명솚)
-	file->Write<float>(material->GetMaterialDesc().roughness);
-	file->Write<float>(material->GetMaterialDesc().metallic);
+	// 기존 수동 직렬화는 Material::Load 와 포맷 불일치(여분 wstring/count 필드)로 깨진 .mat 을 만들었음 — Save 로 교체
+	material->SetName(finalPath);
+	material->Save(finalPath);
 
 	wstring fullPath = directory + L"\\" + fileName;
 
@@ -333,7 +317,7 @@ void FolderContents::CreateMaterial()
 	meta->fileFullPath = directory;
 	meta->metaType = TOOL->GetMetaType(fileName);
 	CASHE_FILE_LIST.insert({ fullPath, meta });
-	RESOURCES->Add(meta->fileFullPath + L'/' + meta->fileName, material);
+	RESOURCES->Add(Utils::ToMaterialKey(meta->fileFullPath + L'/' + meta->fileName), material);
 
 	string logStr = Utils::ToString(L"Create Material : " + finalPath);
 	ADDLOG(logStr, LogFilter::Info);
@@ -342,7 +326,11 @@ void FolderContents::CreateMaterial()
 void FolderContents::CreateMeshPreviewObj(shared_ptr<MetaData>& meta)
 {
 	shared_ptr<Mesh> mesh = make_shared<Mesh>();
-	auto mat = RESOURCES->Get<Material>(meta->fileFullPath + L'/' + meta->fileName);
+
+	// 정규화 키 — 씬 모델과 같은 .mat 인스턴스를 프리뷰/인스펙터가 공유 (편집 즉시 반영)
+	auto mat = RESOURCES->Get<Material>(Utils::ToMaterialKey(meta->fileFullPath + L'/' + meta->fileName));
+	if (mat == nullptr)
+		mat = RESOURCES->Get<Material>(L"DefaultMaterial");
 
 	mesh->CreateSphere();
 	auto obj = make_shared<GameObject>();

@@ -59,6 +59,37 @@ void Material::Load(const wstring& path)
 	}
 }
 
+// .mat 직렬화 — Load 와 1:1 대칭 (셰이더 헤더 / 텍스처 파일명 3종 / 색상 4종 / PBR 2종)
+void Material::Save(const wstring& path)
+{
+	wstring fullPath = path;
+	if (fullPath.size() < 4 || _wcsicmp(fullPath.substr(fullPath.size() - 4).c_str(), L".mat") != 0)
+		fullPath += L".mat";
+
+	// 텍스처는 파일명만 기록 (Load 가 .mat 의 부모 폴더 기준으로 다시 찾음)
+	// GetName 은 비어 있을 수 있어 Texture::Load 가 기록하는 GetPath 사용
+	auto texFileName = [](shared_ptr<Texture> tex) -> string
+	{
+		if (tex == nullptr)
+			return "";
+		return Utils::ToString(filesystem::path(tex->GetPath()).filename().wstring());
+	};
+
+	shared_ptr<FileUtils> file = make_shared<FileUtils>();
+	file->Open(fullPath, FileMode::Write);
+
+	file->Write<string>(string("01. Standard.fx")); // 포맷 호환 헤더 (로더는 문자열만 소비)
+	file->Write<string>(texFileName(_diffuseMap));
+	file->Write<string>(texFileName(_specularMap));
+	file->Write<string>(texFileName(_normalMap));
+	file->Write<Color>(_desc.ambient);
+	file->Write<Color>(_desc.diffuse);
+	file->Write<Color>(_desc.specular);
+	file->Write<Color>(_desc.emissive);
+	file->Write<float>(_desc.roughness);
+	file->Write<float>(_desc.metallic);
+}
+
 void Material::Update()
 {
 	if (_hlslShader)

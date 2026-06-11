@@ -76,24 +76,9 @@ void Inspector::ShowProjectImage(shared_ptr<MetaData>& metaData, ID3D11ShaderRes
 {
 	auto tex = RESOURCES->Get<Texture>(L"FILE_" + metaData->fileName);
 
-	static int32 texType = 0;
-	ImGui::Text("Texture Type ");
-	ImGui::SameLine();
-	ImGui::Combo("##Texture Type", &texType, "Default\0UI\0Wall\0Invisible\0");
-	static int32 texShape = 0;
-	ImGui::Text("Texture Shape");
-	ImGui::SameLine();
-	ImGui::Combo("##Texture Shape", &texShape, "Default\0UI\0Wall\0Invisible\0");
-
+	// Texture Type/Shape 임포트 설정과 RGB 채널 보기는 아직 미구현 — 죽은 UI 제거
 	ImGui::Dummy(ImVec2(0, 50.f));
 	ImGui::SeparatorText("Texture Preview");
-	ImGui::BeginGroup();
-
-	ImGui::Button("RGB"); ImGui::SameLine();
-	ImGui::Button("R"); ImGui::SameLine();
-	ImGui::Button("G"); ImGui::SameLine();
-	ImGui::Button("B");
-	ImGui::EndGroup();
 
 	float width = min(tex->GetSize().x, ImGui::GetCurrentWindow()->Size.x);
 	ImGui::Image(icon, ImVec2(width, width));
@@ -202,15 +187,7 @@ void Inspector::ShowProjectMesh(shared_ptr<MetaData>& metaData)
 
 	shared_ptr<Model> model = _meshPreviewObj->GetModelRenderer()->GetModel();
 
-	ImGui::Dummy(ImVec2(0, 20.f));
-
-	// Add buttons at the top
-	if (ImGui::Button("Model")) {}
-	ImGui::SameLine();
-	if (ImGui::Button("Animation")) {}
-	ImGui::SameLine();
-	if (ImGui::Button("Material")) {}
-
+	// Model/Animation/Material 탭 버튼과 Extract Textures/Materials 버튼은 미구현 — 죽은 UI 제거
 
 	ImGui::Dummy(ImVec2(0, 50.f));
 	ImGui::SeparatorText("Mesh Preview");
@@ -218,27 +195,7 @@ void Inspector::ShowProjectMesh(shared_ptr<MetaData>& metaData)
 
 	ImGui::Dummy(ImVec2(0, 30.f));
 
-	// Textures section
-	ImGui::Text("Textures");
-	ImGui::SameLine();
-	float spaceTextures = ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize("Extract Textures...").x - ImGui::GetStyle().ItemSpacing.x;
-	ImGui::Dummy(ImVec2(spaceTextures - 15, 0)); // Fill the space
-	ImGui::SameLine();
-	if (ImGui::Button("Extract Textures..."))
-	{
-		// Handle Extract Textures button click
-	}
-
-	// Materials section
 	ImGui::Text("Materials");
-	ImGui::SameLine();
-	float spaceMaterials = ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize("Extract Materials...").x - ImGui::GetStyle().ItemSpacing.x;
-	ImGui::Dummy(ImVec2(spaceMaterials - 10, 0)); // Fill the space
-	ImGui::SameLine();
-	if (ImGui::Button("Extract Materials..."))
-	{
-		// Handle Extract Materials button click
-	}
 
 	auto& materials = model->GetMaterials();
 	auto& animations = model->GetAnimations();
@@ -267,6 +224,8 @@ void Inspector::ShowProjectMesh(shared_ptr<MetaData>& metaData)
 	}
 
 	ImGui::Dummy(ImVec2(0, 20.f));
+
+	ImGui::Text("Animations");
 
 	for (auto& ani : animations)
 	{

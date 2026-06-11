@@ -36,6 +36,12 @@ void Light::UpdateMatrix()
 {
 	// Only the first "main" light casts a shadow.
 	Vec3 lightDir = _desc.direction;
+
+	// 방향이 0 벡터면 lightPos == targetPos 가 되어 XMMatrixLookAtLH 의
+	// EyeDirection 어시션으로 크래시 (Add Component 직후 기본 LightDesc) — 하향 방향으로 폴백
+	if (lightDir.LengthSquared() < 1e-6f)
+		lightDir = Vec3(0.f, -1.f, 0.f);
+
 	Vec3 lightPos = -2.0f * _sceneBounds.Radius * lightDir;
 	Vec3 upDirection = Vec3::Up;
 	Vec3 targetPos = _sceneBounds.Center;

@@ -5,14 +5,10 @@
 #include "GameObject.h"
 #include "Camera.h"
 #include "Light.h"
-#include "ModelRenderer.h"
-#include "MeshRenderer.h"
-#include "ModelAnimator.h"
 #include "Billboard.h"
 
 #include "Button.h"
 #include "OBBBoxCollider.h"
-#include "Utils.h"
 
 // -----------------------------------------------------------
 // Inspector — 하이어라키 모드 (선택된 GameObject 의 컴포넌트 표시/편집)
@@ -33,8 +29,11 @@ void Inspector::ShowInfoHiearchy()
 	ImGui::SameLine();
 
 	ImGui::BeginGroup();
+	// Active/Static 토글은 아직 엔진에 연결되지 않음 — 비활성 표시
 	static bool active = false;
+	ImGui::BeginDisabled();
 	ImGui::Checkbox("##ActiveObj", &active);
+	ImGui::EndDisabled();
 
 	ImVec2 layerPos = ImGui::GetItemRectMin();
 
@@ -47,7 +46,9 @@ void Inspector::ShowInfoHiearchy()
 	ImGui::SameLine(0.f, 1.f);
 
 	static bool staticObj = false;
+	ImGui::BeginDisabled();
 	ImGui::Checkbox("Static", &staticObj);
+	ImGui::EndDisabled();
 
 	///////////////////////////////////////////////////
 	//					 LAYER                       //
@@ -121,33 +122,8 @@ void Inspector::ShowInfoHiearchy()
 				ComponentType::BillBoard,
 			};
 
-			std::vector<string> renderTypes =
-			{
-				Utils::GetClassNameEX<MeshRenderer>(),
-				Utils::GetClassNameEX<ModelRenderer>(),
-				Utils::GetClassNameEX<ModelAnimator>(),
-			};
-
-			for (int32 i = 0 ; i < renderTypes.size(); i++)
-			{
-				if (go->GetFixedComponent(ComponentType::Renderer))
-					continue;
-
-				if (ImGui::MenuItem(renderTypes[i].c_str()))
-				{
-					/*		switch (i)
-							{
-							case 0:
-								go->AddComponent(make_shared<MeshRenderer>());
-
-							case 1:
-								go->AddComponent(make_shared<ModelRenderer>());
-
-							case 2:
-								go->AddComponent(make_shared<ModelAnimator>());
-							}*/
-				}
-			}
+			// 렌더러 추가는 모델/메시 에셋 연결이 필요해 메뉴만으로는 동작 불가 — 항목 제거
+			// (모델 배치는 FolderContents 드래그앤드롭 사용)
 
 			for (auto componentType : compTypes)
 			{
@@ -206,7 +182,14 @@ void Inspector::ShowComponentInfo(shared_ptr<Component> component, string name)
 		ImGui::Separator();
 		if (ImGui::Button("Yes", ImVec2(120, 0)))
 		{
-			//go->RemoveComponent(comp);
+			// 메인 카메라의 Camera 는 렌더 루프가 의존하므로 삭제 금지
+			bool isMainCamera = component->GetType() == ComponentType::Camera
+				&& CUR_SCENE->GetMainCamera() == go;
+
+			// Transform 은 RemoveComponent 내부에서 거부됨. MonoBehaviour(Script 타입)도 no-op (범위 외)
+			if (isMainCamera == false)
+				go->RemoveComponent(component->GetType());
+
 			ImGui::CloseCurrentPopup();
 		}
 		ImGui::SetItemDefaultFocus();

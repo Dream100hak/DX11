@@ -201,6 +201,19 @@ std::shared_ptr<Transform> GameObject::GetOrAddTransform()
 	return GetTransform();
 }
 
+// 고정 슬롯 컴포넌트 제거 (Transform 은 모든 컴포넌트의 기반이므로 제거 불가)
+void GameObject::RemoveComponent(ComponentType type)
+{
+	if (type == ComponentType::Transform)
+		return;
+
+	uint8 index = static_cast<uint8>(type);
+	if (index >= FIXED_COMPONENT_COUNT)
+		return;
+
+	_components[index] = nullptr;
+}
+
 void GameObject::AddComponent(shared_ptr<Component> component)
 {
 	component->SetGameObject(shared_from_this());

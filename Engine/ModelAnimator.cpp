@@ -36,9 +36,9 @@ void ModelAnimator::OnInspectorGUI()
 	ImGui::SliderInt("Next Frame", (int*)&_tweenDesc.curr.nextFrame, 0, 1000);
 }
 
-// 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
-// Update: 占쌍니몌옙占싱쇽옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙 (占쏙옙占쏙옙占쏙옙 占싣댐옙 Update 占쌤계에占쏙옙)
-// 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+// 애니메이션 상태 업데이트
+// 애니메이션 상태 업데이트
+// 애니메이션 상태 업데이트
 void ModelAnimator::Update()
 {
 	if (_model == nullptr) return;
@@ -58,8 +58,8 @@ void ModelAnimator::Draw(const RenderContext& ctx)
 
 		gbuf->Bind();
 		gbuf->PushGlobalData(ctx.view, ctx.proj);
-		gbuf->SetVSSRV(5, _srv.Get()); // TransformMap (t5) ???좊땲 蹂?蹂???띿뒪泥?
-		// ?몄쐢 ?곗씠??b6)??InstancingManager ?먯꽌 push ??
+		gbuf->SetVSSRV(5, _srv.Get()); // TransformMap (t5) 바인딩
+		// 트윈(b6)은 InstancingManager에서 push
 
 		const auto& meshes = _model->GetMeshes();
 		for (auto& mesh : meshes)
@@ -94,8 +94,8 @@ void ModelAnimator::Draw(const RenderContext& ctx)
 
 		shader->Bind();
 		shader->PushGlobalData(ctx.view, ctx.proj);
-		shader->SetVSSRV(5, _srv.Get()); // TransformMap (t5)
-		// ?몄쐢 ?곗씠??b6)??InstancingManager ?먯꽌 push ??
+		shader->SetVSSRV(5, _srv.Get()); // TransformMap (t5) 바인딩
+		// 트윈(b6)은 InstancingManager에서 push
 
 		const auto& meshes = _model->GetMeshes();
 		for (auto& mesh : meshes)
@@ -128,10 +128,10 @@ void ModelAnimator::Draw(const RenderContext& ctx)
 
 	lit->Bind();
 	lit->PushGlobalData(ctx.view, ctx.proj);
-	lit->SetVSSRV(5, _srv.Get()); // TransformMap (t5)
+	lit->SetVSSRV(5, _srv.Get()); // TransformMap (t5) 바인딩
 
-	// ?몄쐢(b6) ???⑥씪 ?몄뒪?댁뒪(?꾨━酉?????吏곸젒 push.
-	// ?ㅼ쨷 ?몄뒪?댁뒪??InstancingManager 媛 ?꾩껜 ?몄쐢 諛곗뿴???대? push ?덉쑝誘濡???뼱?곗? ?딅뒗??
+	// 트윈(b6)은 InstancingManager에서 push
+	// 배열 버퍼는 InstancingManager가 전체 배열을 push 하므로 제외
 	if (ctx.buffer->GetCount() <= 1)
 	{
 		auto tween = make_shared<InstancedTweenDesc>();
@@ -170,7 +170,7 @@ void ModelAnimator::UpdateTweenData()
 	TweenDesc& desc = _tweenDesc;
 
 	desc.curr.sumTime += DT;
-	// 占쏙옙占쏙옙 占쌍니몌옙占싱쇽옙
+	// 애니메이션 상태 업데이트
 	{
 		shared_ptr<ModelAnimation> currentAnim = _model->GetAnimationByIndex(desc.curr.animIndex);
 		if (currentAnim)
@@ -187,7 +187,7 @@ void ModelAnimator::UpdateTweenData()
 		}
 	}
 
-	// 占쏙옙占쏙옙 占쌍니몌옙占싱쇽옙占쏙옙 占쏙옙占쏙옙 占실억옙 占쌍다몌옙
+	// 애니메이션 상태 업데이트
 	if (desc.next.animIndex >= 0)
 	{
 		desc.tweenSumTime += DT;
@@ -195,13 +195,13 @@ void ModelAnimator::UpdateTweenData()
 
 		if (desc.tweenRatio >= 1.f)
 		{
-			// 占쌍니몌옙占싱쇽옙 占쏙옙占쏙옙 占쏙옙체
+			// 애니메이션 상태 업데이트
 			desc.curr = desc.next;
 			desc.ClearNextAnim();
 		}
 		else
 		{
-			// 占쏙옙占쏙옙占쏙옙
+			// 애니메이션 상태 업데이트
 			shared_ptr<ModelAnimation> nextAnim = _model->GetAnimationByIndex(desc.next.animIndex);
 			desc.next.sumTime += DT;
 
@@ -247,7 +247,7 @@ void ModelAnimator::CreateTexture()
 		desc.Width = MAX_MODEL_TRANSFORMS * 4;
 		desc.Height = MAX_MODEL_KEYFRAMES;
 		desc.ArraySize = _model->GetAnimationCount();
-		desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT; // 16占쏙옙占쏙옙트
+		desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT; // 애니메이션 상태 업데이트
 		desc.Usage = D3D11_USAGE_IMMUTABLE;
 		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 		desc.MipLevels = 1;
@@ -257,7 +257,7 @@ void ModelAnimator::CreateTexture()
 		const uint32 pageSize = dataSize * MAX_MODEL_KEYFRAMES;
 		void* mallocPtr = ::malloc(pageSize * _model->GetAnimationCount());
 
-		// 占쌍니몌옙占싱쇽옙 占쏙옙占쏙옙占싶몌옙 占쌔븝옙占싼댐옙.
+		// 애니메이션 상태 업데이트
 		for (uint32 c = 0; c < _model->GetAnimationCount(); c++)
 		{
 			uint32 startOffset = c * pageSize;
@@ -271,7 +271,7 @@ void ModelAnimator::CreateTexture()
 			}
 		}
 
-		// 占쏙옙占쌀쏙옙 占십깍옙화
+		// 서브리소스 초기화
 		vector<D3D11_SUBRESOURCE_DATA> subResources(_model->GetAnimationCount());
 
 		for (uint32 c = 0; c < _model->GetAnimationCount(); c++)
@@ -345,7 +345,7 @@ void ModelAnimator::CreateAnimationTransform(uint32 index)
 
 			tempAnimBoneTransforms[b] = matAnimation * matParent;
 
-			// 占쏙옙占쏙옙占?
+			// 애니메이션 상태 업데이트
 			_animTransforms[index].transforms[f][b] = invGlobal * tempAnimBoneTransforms[b];
 		}
 	}

@@ -17,7 +17,7 @@ public:
 
 	void OnInspectorGUI() override;
 
-	// 占쏙옙占쏙옙 占신깍옙 占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+	// 렌더링 함수
 	void Draw(const RenderContext& ctx) override;
 
 	bool Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& distance) override;

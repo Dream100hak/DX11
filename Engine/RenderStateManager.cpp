@@ -14,7 +14,7 @@ void RenderStateManager::Init()
 // ==========================================================================
 void RenderStateManager::CreateBlendStates()
 {
-	// Default : ?뚰뙆釉붾젋??鍮꾪솢??
+	// Default: 확산 블렌드 (비활성화)
 	{
 		D3D11_BLEND_DESC desc{};
 		desc.AlphaToCoverageEnable = false;
@@ -58,7 +58,7 @@ void RenderStateManager::CreateBlendStates()
 		CHECK(DEVICE->CreateBlendState(&desc, _blendStates[static_cast<int>(BlendStateType::Additive)].GetAddressOf()));
 	}
 
-	// AdditiveSrcAlpha : SrcAlpha / One (FX 01. Fire.fx ??AdditiveBlending ?泥?
+	// AdditiveSrcAlpha: SrcAlpha / One (FX 01. Fire.fx의 AdditiveBlending 복제)
 	{
 		D3D11_BLEND_DESC desc{};
 		desc.AlphaToCoverageEnable = false;
@@ -164,7 +164,7 @@ void RenderStateManager::CreateRasterizerStates()
 // ==========================================================================
 void RenderStateManager::CreateDepthStencilStates()
 {
-	// Default : Depth R/W ?쒖꽦
+	// Default: 확산 블렌드 (비활성화)
 	{
 		D3D11_DEPTH_STENCIL_DESC desc{};
 		desc.DepthEnable = true;

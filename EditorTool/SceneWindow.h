@@ -22,11 +22,11 @@ public:
 
 	virtual void Init() override;
 	virtual void Update() override;
-	void Render();  // ? 추가: 렌더링 함수 선언
+	void Render();  // 렌더링 함수 선언
 
 	void ShowSceneWindow();
 
-	// ? 렌더 타겟 관련 함수 추가
+	// 렌더 타겟 관련 함수
 	void CreateRenderTarget(uint32 width, uint32 height);
 	void RenderScene();
 
@@ -166,7 +166,7 @@ private:
 
 	bool _bUsing = false;
 
-	// ? 렌더 타겟 멤버 추가
+	// 렌더 타겟 멤버
 	ComPtr<ID3D11Texture2D> _sceneTexture;
 	ComPtr<ID3D11RenderTargetView> _sceneRTV;
 	ComPtr<ID3D11DepthStencilView> _sceneDSV;

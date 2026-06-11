@@ -10,10 +10,10 @@
 #include "Light.h"
 #include "SceneGrid.h"
 #include "FolderContents.h"
-#include "RenderContext.h"  // ? 占쌩곤옙
-#include "MeshRenderer.h"   // ? 占쌩곤옙
-#include "ModelRenderer.h"  // ? 占쌩곤옙
-#include "ModelAnimator.h"  // ? 占쌩곤옙
+#include "RenderContext.h"  // 렌더 컨텍스트
+#include "MeshRenderer.h"   // 메시 렌더러
+#include "ModelRenderer.h"  // 모델 렌더러
+#include "ModelAnimator.h"  // 모델 애니메이터
 
 #include "Model.h"
 #include <filesystem>
@@ -38,7 +38,7 @@ SceneWindow::~SceneWindow()
 
 void SceneWindow::Init()
 {
-	// ? 占쏙옙占쏙옙 타占쏙옙 占쏙옙占쏙옙 (占십깍옙 크占쏙옙: 800x530)
+	// 씬 윈도우 렌더 타겟 생성 (초기 크기: 800x530)
 	CreateRenderTarget(_sceneWidth, _sceneHeight);
 }
 
@@ -47,7 +47,7 @@ void SceneWindow::CreateRenderTarget(uint32 width, uint32 height)
 	_sceneWidth = width;
 	_sceneHeight = height;
 
-	// ? 1. Texture2D 占쏙옙占쏙옙 (RTV + SRV占쏙옙)
+	// 1. Texture2D 생성 (RTV + SRV용)
 	{
 		D3D11_TEXTURE2D_DESC texDesc;
 		ZeroMemory(&texDesc, sizeof(texDesc));
@@ -67,7 +67,7 @@ void SceneWindow::CreateRenderTarget(uint32 width, uint32 height)
 		CHECK(hr);
 	}
 
-	// ? 2. RenderTargetView 占쏙옙占쏙옙
+	// 2. RenderTargetView 생성
 	{
 		D3D11_RENDER_TARGET_VIEW_DESC rtvDesc;
 		ZeroMemory(&rtvDesc, sizeof(rtvDesc));
@@ -78,7 +78,7 @@ void SceneWindow::CreateRenderTarget(uint32 width, uint32 height)
 		CHECK(hr);
 	}
 
-	// ? 3. ShaderResourceView 占쏙옙占쏙옙 (ImGui占쏙옙占쏙옙 표占시울옙)
+	// 3. ShaderResourceView 생성 (ImGui 렌더링 표시용)
 	{
 		D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
 		ZeroMemory(&srvDesc, sizeof(srvDesc));
@@ -91,7 +91,7 @@ void SceneWindow::CreateRenderTarget(uint32 width, uint32 height)
 		CHECK(hr);
 	}
 
-	// ? 4. DepthStencil 占쏙옙占쏙옙
+	// 4. DepthStencil 생성
 	{
 		D3D11_TEXTURE2D_DESC depthDesc;
 		ZeroMemory(&depthDesc, sizeof(depthDesc));
@@ -121,22 +121,22 @@ void SceneWindow::CreateRenderTarget(uint32 width, uint32 height)
 		CHECK(hr);
 	}
 
-	// ? 5. Viewport 占쏙옙占쏙옙
+	// 5. Viewport 설정
 	_sceneViewport.Set(width, height, 0, 0);
 }
 
 void SceneWindow::RenderScene()
 {
-	// ? 占쏙옙占쏙옙 타占쏙옙占쏙옙 SceneWindow占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙
+	// 렌더 타겟 설정 후 씬 렌더링
 	_sceneViewport.RSSetViewport();
 	DCT->OMSetRenderTargets(1, _sceneRTV.GetAddressOf(), _sceneDSV.Get());
-	
-	// ? 占쏙옙占쏙옙: Color 占쌈쏙옙 占쏙옙占쏙옙 占쏙옙占?
+
+	// 백그라운드: Color 클리어 (초록색)
 	Color clearColor(0.2f, 0.2f, 0.2f, 1.0f);
 	DCT->ClearRenderTargetView(_sceneRTV.Get(), (float*)&clearColor);
 	DCT->ClearDepthStencilView(_sceneDSV.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
-	// ? Scene 占쏙옙占쏙옙占쏙옙 (占쏙옙占쏙옙 占쏙옙占쏙옙)
+	// 씬 정보 획득 (현재 씬)
 	auto scene = SCENE->GetCurrentScene();
 	if (!scene) return;
 
@@ -148,11 +148,11 @@ void SceneWindow::RenderScene()
 
 	if (!camera) return;
 
-	// ? 카占쌨띰옙 占쏙옙占쏙옙 占쏙옙 占쏙옙占쏙옙占쏙옙
+	// 카메라 정렬 및 렌더링
 	camera->SortGameObject();
 	camera->Render_Forward();
 
-	// ? SceneWindow RT 占쏙옙占?占싹뤄옙 占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙占?RTV占쏙옙 占쏙옙占쏙옙 (ImGui占쏙옙 占쏙옙占쏙옙謗占?占쌓뤄옙占쏙옙占쏙옙占쏙옙)
+	// SceneWindow 렌더 타겟 해제 후 메인 렌더 타겟 복원 (ImGui 렌더링을 위한 원래 RTV)
 	GRAPHICS->RestoreMainRenderTarget();
 }
 
@@ -164,7 +164,7 @@ void SceneWindow::Update()
 
 void SceneWindow::Render()
 {
-	// ? 占쌩곤옙: SceneWindow 占쏙옙占쏙옙占쏙옙 占쌉쇽옙 (占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙占쏙옙 호占쏙옙占?
+	// 예약됨: SceneWindow 렌더링 함수 (향후 추가 렌더링 기능 구현)
 }
 
 void SceneWindow::ShowSceneWindow()
@@ -172,7 +172,7 @@ void SceneWindow::ShowSceneWindow()
 
 	const ImGuiIO& io = ImGui::GetIO();
 
-	auto& prviewObjs = 
+	auto& prviewObjs =
 		static_pointer_cast<FolderContents>(TOOL->GetEditorWindow(Utils::GetClassNameEX<FolderContents>()))->GetMeshPreviewObjs();
 
 	auto& scales =
@@ -181,7 +181,7 @@ void SceneWindow::ShowSceneWindow()
 	ImVec2 scenePos(GAME->GetSceneDesc().x, GAME->GetSceneDesc().y);
 	ImVec2 sceneSize(GAME->GetSceneDesc().width, GAME->GetSceneDesc().height);
 
-	// ?? ?⑥뒪 酉곗뼱 肄ㅻ낫 (??酉?醫뚯긽???ㅻ쾭?덉씠) ??
+	// 패스 뷰어 콤보박스 (GBuffer 패스 선택, 씬 윈도우 좌상단)
 	{
 		ImGui::SetNextWindowPos(ImVec2(scenePos.x + 8.f, scenePos.y + 8.f));
 		ImGui::SetNextWindowBgAlpha(0.6f);
@@ -200,8 +200,8 @@ void SceneWindow::ShowSceneWindow()
 		ImGui::End();
 	}
 
-	if (ImGui::BeginDragDropTargetCustom(ImRect(scenePos, scenePos + sceneSize), ImGui::GetID("Scene"))) 
-	{	
+	if (ImGui::BeginDragDropTargetCustom(ImRect(scenePos, scenePos + sceneSize), ImGui::GetID("Scene")))
+	{
 		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MeshPayload"))
 		{
 			MetaData** droppedMeshRawPtr = static_cast<MetaData**>(payload->Data);
@@ -209,11 +209,11 @@ void SceneWindow::ShowSceneWindow()
 
 			shared_ptr<GameObject> obj =  prviewObjs[droppedMesh->fileFullPath + L"/" + droppedMesh->fileName];
 			CUR_SCENE->Remove(obj);
-		
+
 			int32 id = -1;
 			if (droppedMesh->metaType == MetaType::CLIP)
 			{
-				// ?대┰ ?쒕∼ ???좊땲硫붿씠??諛곗튂 (?대뜑紐?= 紐⑤뜽紐? 紐⑤뜽? ?대? 濡쒕뱶??
+				// 클립 파일 로드 (파일명 = 모델명, 경로 = 모델경로 + 파일명으로 로드)
 				wstring modelName = filesystem::path(droppedMesh->fileFullPath).filename().wstring();
 				wstring modelPath = droppedMesh->fileFullPath + L'/' + modelName;
 				auto model = RESOURCES->Get<Model>(modelPath);
@@ -225,7 +225,7 @@ void SceneWindow::ShowSceneWindow()
 			}
 			else
 			{
-				// 硫붿떆 ?쒕∼ ???뺤쟻 紐⑤뜽 諛곗튂
+				// 메시 파일 로드 (일반 모델 배치)
 				shared_ptr<Model> model = make_shared<Model>();
 				wstring modelName = droppedMesh->fileName.substr(0, droppedMesh->fileName.find('.'));
 				model->ReadModel(modelName + L'/' + modelName);
@@ -264,9 +264,9 @@ void SceneWindow::ShowSceneWindow()
 					if (obj->GetUIPickable())
 					{
 						CUR_SCENE->UnPickAll();
-						obj->SetUIPicked(true);			
+						obj->SetUIPicked(true);
 					}
-				
+
 					wstring name = obj->GetObjectName();
 					int64 id = obj->GetId();
 					TOOL->SetSelectedObjH(id);
@@ -279,7 +279,7 @@ void SceneWindow::ShowSceneWindow()
 					TOOL->SetSelectedObjH(-1);
 				}
 			}
-			
+
 		}
 	}
 
@@ -313,8 +313,8 @@ void SceneWindow::EditTransform()
 		_currentGizmoOperation = ROTATE;
 	if (ImGui::IsKeyPressed(ImGuiKey_R)) // r Key
 		_currentGizmoOperation = SCALE;
-	
-	
+
+
 	/*if (ImGui::RadioButton("Translate", _currentGizmoOperation == TRANSLATE))
 		_currentGizmoOperation = TRANSLATE;
 	ImGui::SameLine();
@@ -402,7 +402,7 @@ void SceneWindow::HandleTranslation(OPERATION op, int& type, Mode mode, const fl
 {
 	if (!Intersects(op, TRANSLATE) || type != MT_NONE)
 		return;
-	
+
 	const ImGuiIO& io = ImGui::GetIO();
 	const bool applyRotationLocaly = mode == Local || type == MT_MOVE_SCREEN;
 
@@ -414,7 +414,7 @@ void SceneWindow::HandleTranslation(OPERATION op, int& type, Mode mode, const fl
 		float signedLength =  IntersectRayPlane(_rayOrigin, _rayDir, _translationPlan);
 		float len = fabsf(signedLength);
 		Vec4 newPos = _rayOrigin + _rayDir * len;
-		
+
 		// compute delta
 		const Vec4 newOrigin = newPos - _relativeOrigin * _screenFactor;
 		Vec3 delta = newOrigin - _model.Translation();
@@ -429,15 +429,15 @@ void SceneWindow::HandleTranslation(OPERATION op, int& type, Mode mode, const fl
 		}
 
 		XMMATRIX deltaMatrixTranslation = XMMatrixTranslation(delta.x, delta.y, delta.z);
-	
+
 		XMMATRIX res = XMLoadFloat4x4(&_modelSource) * deltaMatrixTranslation;
 		XMFLOAT4X4 newMatrix;
 		XMStoreFloat4x4(&newMatrix, res);
 		_tr->SetPosition(Vec3(newMatrix._41, newMatrix._42 , newMatrix._43));
 
 		if (!io.MouseDown[0])
-			_bUsing = false; 
-		
+			_bUsing = false;
+
 
 		type = _currentOperation;
 	}
@@ -473,7 +473,7 @@ void SceneWindow::HandleTranslation(OPERATION op, int& type, Mode mode, const fl
 			 float len = IntersectRayPlane(_rayOrigin, _rayDir, _translationPlan);
 			_translationPlanOrigin = _rayOrigin + _rayDir * len;
 			_matrixOrigin = _model.Translation();
-		
+
 			_relativeOrigin = (_translationPlanOrigin - _model.Translation()) * (1.f / _screenFactor);
 		}
 	}
@@ -483,7 +483,7 @@ void SceneWindow::HandleScale(OPERATION op, int& type, Mode mode, const float* s
 {
 	if ((!Intersects(op, SCALE) && !Intersects(op, SCALEU)) || type != MT_NONE || !GUI->IsHoveringWindow())
 		return;
-	
+
 	ImGuiIO& io = ImGui::GetIO();
 
 	if (!_bUsing)
@@ -530,7 +530,7 @@ void SceneWindow::HandleScale(OPERATION op, int& type, Mode mode, const float* s
 
 			Vec3 baseVector = _translationPlanOrigin - _modelLocal.Translation();
 			float ratio = Dot3(axisValue, baseVector + delta) / Dot3(axisValue, baseVector);
-		
+
 			((float*)&newScale)[axisIndex] = max(ratio * ((float*)&_scaleValueOrigin)[axisIndex], 0.001f);
 			_tr->SetLocalScale(newScale);
 		}
@@ -543,7 +543,7 @@ void SceneWindow::HandleScale(OPERATION op, int& type, Mode mode, const float* s
 
 		if (!io.MouseDown[0])
 			_bUsing = false;
-			
+
 
 		type = _currentOperation;
 	}
@@ -566,7 +566,7 @@ void SceneWindow::ComputeContext( Mode mode)
 		_model = _modelLocal;
 	else
 		_model = _tr->GetWorldMatrix();
-	
+
 	_modelSource = _tr->GetWorldMatrix();
 	_modelScaleOrigin = Vec3(_modelSource.Right().Length(), _modelSource.Up().Length(), _modelSource.Backward().Length());
 
@@ -603,7 +603,7 @@ float SceneWindow::IntersectRayPlane(const XMVECTOR& rOrigin, const XMVECTOR& rV
 	float denom = Dot3(plane, rVector);
 
 	if (fabsf(denom) < FLT_EPSILON) {
-		return -1.0f;  // 占쏙옙占쏙옙 占쏙옙占싱곤옙 占쏙옙占쏙옙占싹몌옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙
+		return -1.0f;  // 광선과 평면이 평행하면 교점 없음
 	}
 
 	return -(numer / denom);
@@ -626,7 +626,7 @@ void SceneWindow::DrawHatchedAxis(const Vec3& axis)
 {
 	if (GAME->GetSceneDesc().style.HatchedAxisLineThickness <= 0.0f)
 		return;
-	
+
 	for (int j = 1; j < 10; j++)
 	{
 		ImVec2 baseSSpace2 = GUI->WorldToScreenPos(axis * 0.05f * (float)(j * 2) * _screenFactor, _mvp);
@@ -650,10 +650,10 @@ ImVec2 SceneWindow::PointOnSegment(const ImVec2& point, const ImVec2& vertPos1, 
 
 	if (t < 0.f)
 		return vertPos1;
-	
+
 	if (t > d)
 		return vertPos2;
-	
+
 	return vertPos1 + ImVec2(v.x, v.y) * t;
 }
 
@@ -686,7 +686,7 @@ int32 SceneWindow::GetMoveType(OPERATION op, Vec3& gizmoHitProportion)
 {
 	if (!Intersects(op, TRANSLATE) || _bUsing ||   !GUI->IsHoveringWindow())
 		return MT_NONE;
-	
+
 
 	int type = MT_NONE;
 
@@ -702,7 +702,7 @@ int32 SceneWindow::GetMoveType(OPERATION op, Vec3& gizmoHitProportion)
 
 	ImVec2 screenCoordGUI = io.MousePos - ImVec2(GAME->GetSceneDesc().x, GAME->GetSceneDesc().y);
 
-	// compute
+	// Gizmo 축 계산
 	for (int i = 0; i < 3 && type == MT_NONE; i++)
 	{
 		Vec3 dirPlaneX, dirPlaneY, dirAxis;
@@ -726,8 +726,8 @@ int32 SceneWindow::GetMoveType(OPERATION op, Vec3& gizmoHitProportion)
 		ImVec2 calcPointGUI = closestPointOnAxis - screenCoordGUI;
 		Vec2 calcPoint = Vec2(calcPointGUI.x , calcPointGUI.y);
 
-		if (calcPoint.Length() < 16.f && Intersects(op, static_cast<OPERATION>(TRANSLATE_X << i))) // pixel size
-		{		
+		if (calcPoint.Length() < 16.f && Intersects(op, static_cast<OPERATION>(TRANSLATE_X << i))) // 픽셀 단위 거리 체크
+		{
 			type = MT_MOVE_X + i;
 		}
 
@@ -740,7 +740,7 @@ int32 SceneWindow::GetMoveType(OPERATION op, Vec3& gizmoHitProportion)
 		}
 
 		gizmoHitProportion = Vec3(dx, dy, 0.f);
-		
+
 	}
 	return type;
 }
@@ -794,7 +794,7 @@ int32 SceneWindow::GetScaleType(OPERATION op)
 		}
 	}
 
-	// universal
+	// 균등 스케일 (중심 원 주변)
 
 	Vec4 deltaScreen = { io.MousePos.x - _screenSquareCenter.x, io.MousePos.y - _screenSquareCenter.y, 0.f, 0.f };
 	float dist = deltaScreen.Length();
@@ -814,7 +814,7 @@ int32 SceneWindow::GetScaleType(OPERATION op)
 		bool belowAxisLimit, belowPlaneLimit;
 		ComputeTripodAxisAndVisibility(i, dirAxis, dirPlaneX, dirPlaneY, belowAxisLimit, belowPlaneLimit, true);
 
-		// draw axis
+		// 축 그리기
 		if (belowAxisLimit)
 		{
 			bool hasTranslateOnAxis = Contains(op, static_cast<OPERATION>(TRANSLATE_X << i));
@@ -822,7 +822,7 @@ int32 SceneWindow::GetScaleType(OPERATION op)
 			ImVec2 worldDirSSpace = GUI->WorldToScreenPos((dirAxis * markerScale) * _screenFactor, _modelLocal * _vp);
 
 			float distance = sqrtf(ImLengthSqr(worldDirSSpace - io.MousePos));
-			if (distance < 12.f)
+			if (distance < 12.f) // 픽셀 거리 체크
 			{
 				type = MT_SCALE_X + i;
 			}
@@ -838,7 +838,7 @@ void SceneWindow::ComputeTripodAxisAndVisibility(const int axisIndex, Vec3& dirA
 	 dirPlaneX = directions[(axisIndex + 1) % 3];
 	 dirPlaneY = directions[(axisIndex + 2) % 3];
 
-	 if (_bUsing)
+	 if (_bUsing) // Gizmo 사용 중
 	 {
 		 belowAxisLimit = _belowAxisLimit[axisIndex];
 		 belowPlaneLimit = _belowAxisLimit[axisIndex];
@@ -849,7 +849,7 @@ void SceneWindow::ComputeTripodAxisAndVisibility(const int axisIndex, Vec3& dirA
 	 }
 	 else
 	 {
-		 // new method
+		 // 새로운 방식: 축 가시성 계산
 		 float lenDir = GetSegmentLengthClipSpace(Vec3::Zero, dirAxis, localCoordinates);
 		 float lenDirMinus = GetSegmentLengthClipSpace(Vec3::Zero, -dirAxis, localCoordinates);
 
@@ -859,24 +859,24 @@ void SceneWindow::ComputeTripodAxisAndVisibility(const int axisIndex, Vec3& dirA
 		 float lenDirPlaneY = GetSegmentLengthClipSpace(Vec3::Zero, dirPlaneY, localCoordinates);
 		 float lenDirMinusPlaneY = GetSegmentLengthClipSpace(Vec3::Zero, -dirPlaneY, localCoordinates);
 
-		 // For readability
+		 // 가독성을 위한 참조
 		 bool& allowFlip = _allowFlip;
 		 float mulAxis = (allowFlip && lenDir < lenDirMinus && fabsf(lenDir - lenDirMinus) > FLT_EPSILON) ? -1.f : 1.f;
 		 float mulAxisX = (allowFlip && lenDirPlaneX < lenDirMinusPlaneX && fabsf(lenDirPlaneX - lenDirMinusPlaneX) > FLT_EPSILON) ? -1.f : 1.f;
 		 float mulAxisY = (allowFlip && lenDirPlaneY < lenDirMinusPlaneY && fabsf(lenDirPlaneY - lenDirMinusPlaneY) > FLT_EPSILON) ? -1.f : 1.f;
-		
+
 		 dirAxis *= mulAxis;
 		 dirPlaneX *= mulAxisX;
 		 dirPlaneY *= mulAxisY;
 
-		 // for axis
+		 // 축 길이 클립 공간 계산
 		 float axisLengthInClipSpace = GetSegmentLengthClipSpace(Vec3::Zero, dirAxis * _screenFactor, localCoordinates);
 
 		 float paraSurf = GetParallelogram(Vec3::Zero, dirPlaneX * _screenFactor, dirPlaneY * _screenFactor);
 		 belowPlaneLimit = (paraSurf > _axisLimit);
 		 belowAxisLimit = (axisLengthInClipSpace > _planeLimit);
 
-		 // and store values
+		 // 계산된 값 저장
 		 _axisFactor[axisIndex] = mulAxis;
 		 _axisFactor[(axisIndex + 1) % 3] = mulAxisX;
 		 _axisFactor[(axisIndex + 2) % 3] = mulAxisY;
@@ -917,7 +917,7 @@ float SceneWindow::GetSegmentLengthClipSpace(const Vec3& start, const Vec3& end,
 
 	Vec4 startOfSegment = Vec4::Transform(start4, mvp);
 
-	if (fabsf(startOfSegment.w) > FLT_EPSILON) // check for axis aligned with camera direction
+	if (fabsf(startOfSegment.w) > FLT_EPSILON) // 카메라 방향과 정렬된 축 확인
 	{
 		startOfSegment *= 1.f / startOfSegment.w;
 	}
@@ -925,7 +925,7 @@ float SceneWindow::GetSegmentLengthClipSpace(const Vec3& start, const Vec3& end,
 	Vec4 end4 = Vec4(end.x, end.y , end.z , 1.f);
 	Vec4 endOfSegment = Vec4::Transform(end4, mvp);
 
-	if (fabsf(endOfSegment.w) > FLT_EPSILON) // check for axis aligned with camera direction
+	if (fabsf(endOfSegment.w) > FLT_EPSILON) // 카메라 방향과 정렬된 축 확인
 	{
 		endOfSegment *= 1.f / endOfSegment.w;
 	}
@@ -944,7 +944,7 @@ void SceneWindow::DrawTranslationGizmo(OPERATION op, int32 type)
 
 	if (!Intersects(op, TRANSLATE))
 		return;
-	
+
 	ImU32 colors[7];
 	ComputeColors(colors, type, TRANSLATE);
 
@@ -957,16 +957,16 @@ void SceneWindow::DrawTranslationGizmo(OPERATION op, int32 type)
 	Vec3 camToGizmoDir = _model.Translation() - MAIN_CAM->GetTransform()->GetLocalPosition();
 	camToGizmoDir.Normalize();
 
-	// 카占쌨띰옙 占시쇽옙 占쏙옙占쏙옙
+	// 카메라 정면 방향
 	Vec3 camForwardDir = MAIN_CAM->GetTransform()->GetLook();
 	camForwardDir.Normalize();
 
-	// 占쏙옙占쏙옙 占쏙옙占?
+	// 벡터 사이 각도
 	float dotProduct = camToGizmoDir.Dot(camForwardDir);
 	float angle = acos(dotProduct);
 
-	// 占쏙옙占쏙옙占?占쏙옙占시쇽옙 占쏙옙占쏙옙
-	if (angle >= MathUtils::PI / 2) // 90占쏙옙 占싱삼옙占싱몌옙 return
+	// 카메라와 반대쪽이면 렌더링 안함
+	if (angle >= MathUtils::PI / 2) // 90도 이상이면 카메라 뒤쪽이므로 렌더링 안함
 		return;
 
 	for (int i = 0; i < 3; ++i)
@@ -976,7 +976,7 @@ void SceneWindow::DrawTranslationGizmo(OPERATION op, int32 type)
 
 		if (_bUsing == false || (_bUsing && type == MT_MOVE_X + i))
 		{
-			// draw axis
+			// 축 그리기
 			if (belowAxisLimit && Intersects(op, static_cast<OPERATION>(TRANSLATE_X << i)))
 			{
 
@@ -995,9 +995,9 @@ void SceneWindow::DrawTranslationGizmo(OPERATION op, int32 type)
 				ImVec2 a(worldDirSSpace + dir);
 				GAME->GetSceneDesc().drawList->AddTriangleFilled(worldDirSSpace - dir, a + ortogonalDir, a - ortogonalDir, colors[i + 1]);
 
-				if (_axisFactor[i] < 0.f)				
+				if (_axisFactor[i] < 0.f)
 					DrawHatchedAxis(dirAxis);
-				
+
 			}
 		}
 		// draw plane
@@ -1052,12 +1052,12 @@ void SceneWindow::DrawScaleGizmo(OPERATION op, int32 type)
 
 	if (!Intersects(op, SCALE))
 		return;
-	
-	// colors
+
+	// 색상 계산
 	ImU32 colors[7];
 	ComputeColors(colors, type, SCALE);
 
-	// draw
+	// 렌더링
 	Vec4 scaleDisplay = { 1.f, 1.f, 1.f, 1.f };
 
 	if (_bUsing)
@@ -1078,7 +1078,7 @@ void SceneWindow::DrawScaleGizmo(OPERATION op, int32 type)
 			bool belowAxisLimit, belowPlaneLimit;
 			ComputeTripodAxisAndVisibility(i, dirAxis, dirPlaneX, dirPlaneY, belowAxisLimit, belowPlaneLimit, true);
 			belowAxisLimit = true;
-			// draw axis
+			// 축 그리기
 			if (belowAxisLimit)
 			{
 				bool hasTranslateOnAxis = Contains(op, static_cast<OPERATION>(TRANSLATE_X << i));
@@ -1108,7 +1108,7 @@ void SceneWindow::DrawScaleGizmo(OPERATION op, int32 type)
 		}
 	}
 
-	// draw screen cirle
+	// 화면 중심 원 그리기
 	GAME->GetSceneDesc().drawList->AddCircleFilled(_screenSquareCenter, GAME->GetSceneDesc().style.CenterCircleSize, colors[0], 32);
 
 	if (_bUsing && IsScaleType(type))

@@ -25,18 +25,18 @@ void Frustum::Update(const Matrix& viewProj)
 
 bool Frustum::IsInFrustum(const BoundingBox& box) const
 {
-	// 占쏙옙 占쏙옙涌?占쏙옙占쏙옙 AABB占쏙옙 "占쏙옙占쏙옙 占쏙옙 占쏙옙占쏙옙占쏙옙(p-vertex)"占쏙옙 占쌨몌옙占싱몌옙 占쏙옙占쏙옙 占쏙옙(占시몌옙)
+	// 프러스텀 컬링: AABB와 P-Vertex(가장 먼 꼭짓점) 계산으로 교차 판정
 	XMFLOAT3 c = box.Center;
 	XMFLOAT3 e = box.Extents;
 
 	for (const auto& p : _planes)
 	{
-		// p-vertex: 占쏙옙占?占쏙옙占쏙옙 占쏙옙占썩에占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙占?占쏙옙占쏙옙占쏙옙
+		// P-vertex: 평면 법선 방향에 가장 먼 박스의 꼭짓점
 		float px = (p.x >= 0.f) ? (c.x + e.x) : (c.x - e.x);
 		float py = (p.y >= 0.f) ? (c.y + e.y) : (c.y - e.y);
 		float pz = (p.z >= 0.f) ? (c.z + e.z) : (c.z - e.z);
 
-		// p-vertex 占쏙옙 占쏙옙占?占쌨몌옙占싱몌옙 AABB 占쏙옙占쏙옙 占쏙옙
+		// P-vertex와 평면의 거리 계산으로 AABB 판정
 		if (p.x * px + p.y * py + p.z * pz + p.w < 0.f)
 			return false;
 	}

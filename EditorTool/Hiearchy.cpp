@@ -38,7 +38,7 @@ void Hiearchy::ShowHiearchy()
 
 	ImGui::Begin("Hiearchy", nullptr);
 
-	// 占쏙옙占?占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙
+	// 오브젝트 선택 처리
 	if (ImGui::BeginDragDropTargetCustom(ImRect(GetEWinPos(), GetEWinPos() + GetEWinSize()), ImGui::GetID("Hiearchy")))
 	{
 		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MeshPayload"))
@@ -74,7 +74,7 @@ void Hiearchy::ShowHiearchy()
 		wstring wstr = object.second->GetObjectName();
 		if (wstr.empty())
 			continue;
-		string name = Utils::ToString(wstr);  // wstring占쏙옙string 占쏙옙환 占쏙옙占쏙옙
+		string name = Utils::ToString(wstr);  // wstring을string 변환 처리
 
 		bool isSelected = (SELECTED_H == object.first);
 
@@ -83,7 +83,7 @@ void Hiearchy::ShowHiearchy()
 		else
 			ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.2f, 0.2f, 0.2f, 0.2f)); // Default background
 
-		if (ImGui::Selectable(name.c_str(), isSelected, ImGuiSelectableFlags_SpanAllColumns))  // 占쏙옙표 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙
+		if (ImGui::Selectable(name.c_str(), isSelected, ImGuiSelectableFlags_SpanAllColumns))  // 세로 전체 선택
 		{
 			CUR_SCENE->UnPickAll();
 			TOOL->SetSelectedObjH(object.first);

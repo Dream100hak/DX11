@@ -8,7 +8,7 @@
 #include "MathUtils.h"
 #include "Utils.h"
 #include "RenderContext.h"
-#include "BindShaderDesc.h"  // ? LightArrayDesc 占십울옙
+#include "BindShaderDesc.h"  // Include: LightArrayDesc 정의
 #include "RenderStateManager.h"
 #include "Texture.h"
 #include "Material.h"
@@ -26,7 +26,7 @@ void MeshRenderer::OnInspectorGUI()
 {
 	if (_material != nullptr)
 	{
-		// HlslShader ?대쫫 ?쒖떆 (nullptr 諛⑹뼱)
+		// 멀티라이트를 HlslShader가 없으면 렌더링 건너뜀 (FX11 제거 후 주석만)
 		std::string name = "(no shader)";
 		if (auto hlsl = _material->GetHlslShader())
 			name = Utils::ToString(hlsl->GetName());
@@ -57,7 +57,7 @@ void MeshRenderer::OnInspectorGUI()
 		}
 
 
-		ImGui::SameLine(0.f, -2.f); // 占쏙옙占쏙옙 占쌕울옙 占쏙옙치
+		ImGui::SameLine(0.f, -2.f); // 간격 조정
 
 		// Normal Map
 		{
@@ -73,7 +73,7 @@ void MeshRenderer::OnInspectorGUI()
 		}
 
 
-		ImGui::SameLine(); // 占쏙옙占쏙옙 占쌕울옙 占쏙옙치
+		ImGui::SameLine(); // 간격 조정
 
 		// Specular Map
 		{
@@ -92,10 +92,10 @@ void MeshRenderer::OnInspectorGUI()
 }
 
 // ============================================================
-// Draw() ? 占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙
-//  ctx.buffer == nullptr  ? 占쏙옙占쏙옙 占쏙옙恝占?
-//  ctx.buffer != nullptr  ? 占싸쏙옙占싹쏙옙 占쏙옙恝占?
-//  ctx.hlslOverride       ? HlslShader 占쏙옙占?占쏙옙占쏙옙占쏙옙占싱듸옙
+// Draw() 함수: 메시 렌더링
+//  ctx.buffer == nullptr  -> 단일 그리기
+//  ctx.buffer != nullptr  -> 인스턴싱 그리기
+// 멀티라이트를 HlslShader가 없으면 렌더링 건너뜀 (FX11 제거 후 주석만)
 // ============================================================
 void MeshRenderer::Draw(const RenderContext& ctx)
 {
@@ -181,13 +181,13 @@ void MeshRenderer::Draw(const RenderContext& ctx)
 		return;
 	}
 
-	// 占쏙옙占쏙옙 HlslShader 占쏙옙占?占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+	// 멀티라이트를 HlslShader가 없으면 렌더링 건너뜀 (FX11 제거 후 주석만)
 	if (auto hlsl = _material->GetHlslShader())
 	{
 		hlsl->Bind();
 		hlsl->PushGlobalData(ctx.view, ctx.proj);
 		
-		// ? 占쏙옙占쏙옙트 占썼열 占쎌선, 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙트
+		// 멀티라이트 배열 선택, 없으면 단일 라이트
 		if (ctx.lightArray)
 			hlsl->PushLightArrayData(*ctx.lightArray);
 		else if (ctx.light)
@@ -209,11 +209,11 @@ void MeshRenderer::Draw(const RenderContext& ctx)
 		}
 		return;
 	}
-	// 癒명떚由ъ뼹??HlslShader 媛 ?놁쑝硫?洹몃━吏 ?딆쓬 (FX11 ?대갚 ?쒓굅??
+	// 멀티라이트를 HlslShader가 없으면 렌더링 건너뜀 (FX11 제거 후 주석만)
 }
 
 // ============================================================
-// Pick() - 占쏙옙占쎌스 占쏙옙占쏙옙 占쏙옙占쏙옙
+// Pick() - 마우스 피킹 판정
 // ============================================================
 bool MeshRenderer::Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& distance)
 {

@@ -41,7 +41,7 @@ void InstancingManager::RenderStaticObject(const RenderContext& baseCtx, vector<
 			AddData(id, data);
 		}
 
-		// RenderContext 占쏙옙占쏙옙 占쏙옙 buffer 占쏙옙占쏙옙
+		// RenderContext 복사 후 buffer 설정
 		RenderContext ctx = baseCtx;
 		ctx.buffer = _buffers[id];
 
@@ -77,7 +77,7 @@ void InstancingManager::RenderAnimRenderer(const RenderContext& baseCtx, vector<
 		}
 
 		// ?⑥뒪蹂?HLSL ?좊땲 ?곗씠??b6)???몄쐢 ?곗씠??push
-		const wchar_t* animShaderKey = L"AnimPreview_HLSL"; // ?ъ썙???꾨━酉?湲곕낯
+		const wchar_t* animShaderKey = L"AnimPreview_HLSL"; // 기본값: 미리보기 셰이더
 		if (baseCtx.deferredPass)    animShaderKey = L"GBufferAnim_HLSL";
 		else if (baseCtx.shadowPass) animShaderKey = L"ShadowAnim_HLSL";
 		else if (baseCtx.ssaoPass)   animShaderKey = L"SsaoNormalDepthAnim_HLSL";
@@ -85,7 +85,7 @@ void InstancingManager::RenderAnimRenderer(const RenderContext& baseCtx, vector<
 		if (auto animShader = RESOURCES->Get<HlslShader>(animShaderKey))
 			animShader->PushTweenData(*tweenDesc);
 
-		// RenderContext 占쏙옙占쏙옙 占쏙옙 buffer 占쏙옙占쏙옙
+		// RenderContext 복사 후 buffer 설정
 		RenderContext ctx = baseCtx;
 		ctx.buffer = _buffers[id];
 

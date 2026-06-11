@@ -1,6 +1,6 @@
 #pragma once
-// TODO: magic_enum.hpp占쏙옙 Libraries/Include/占쏙옙 占쌩곤옙占쏙옙 占쏙옙 占쌍쇽옙 占쏙옙占쏙옙
-// #include <magic_enum.hpp>
+// 대신에 magic_enum 라이브러리 사용 가능 (선택 사항)
+// 대신에 magic_enum 라이브러리 사용 가능 (선택 사항)
 #include "Component.h"
 
 class Transform;
@@ -16,7 +16,7 @@ class Billboard;
 
 class Model;
 
-// enum class占쏙옙 占쏙옙占쏙옙占싹울옙 타占쏙옙 占쏙옙占쏙옙占쏙옙 확占쏙옙
+// enum class로 생성되는 객체 타입 확인
 enum class CreatedObjType : uint32
 {
 	GAMEOBJ,
@@ -48,11 +48,11 @@ public:
 	int32 CreateModelAnimatorMesh(shared_ptr<Model> model, Vec3 position = Vec3(0, 0, 0), int32 animIndex = 0);
 	int32 CreateLight(int32 lightType);
 
-	// 占쌈쏙옙 Enum 占쏙옙 String 占쏙옙환 (magic_enum 占쌩곤옙 占쏙옙)
+	// 대신에 magic_enum 라이브러리 사용 가능 (선택 사항)
 	template<typename E>
 	static std::string EnumToString(E e)
 	{
-		// CreatedObjType占쏙옙 占쏙옙占쏙옙
+		// CreatedObjType 정의
 		if constexpr (std::is_same_v<E, CreatedObjType>)
 		{
 			switch (e)
@@ -71,7 +71,7 @@ public:
 		return "(unnamed)";
 	}
 
-	// 占쏙옙占쌩울옙 magic_enum 占쌩곤옙 占쏙옙 占쏙옙占쏙옙占?占쌉쇽옙占쏙옙 (占쌍쇽옙 처占쏙옙)
+	// 대신에 magic_enum 라이브러리 사용 가능 (선택 사항)
 	/*
 	template<typename E>
 	static std::string EnumToString(E e)
@@ -116,21 +116,21 @@ public:
 		ImVec2 position = ImVec2(GAME->GetSceneDesc().x, GAME->GetSceneDesc().y);
 		ImVec2 size = ImVec2(GAME->GetSceneDesc().width, GAME->GetSceneDesc().height);
 
-		// 4D 占쏙옙표占쏙옙 占쏙옙환
+		// 4D 월드좌표 설정
 		Vec4 worldPos4(world.x, world.y, world.z, 1.0f);
-		// 占쏙옙占쏙옙 占쏙옙표占쏙옙 占쏙옙크占쏙옙 占쏙옙표占쏙옙 占쏙옙환
+		// 월드좌표를 화면좌표로
 		Vec4 trans = Vec4::Transform(worldPos4, mat);
 
-		// w 占쏙옙占쏙옙占쏙옙트占쏙옙 占십뱄옙 占쏙옙占쏙옙 占쏙옙占?占쏙옙크占쏙옙 占쏙옙표 占쏙옙환占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙
+		// w 나누기를 통한 관점 투영 변환
 		if (std::abs(trans.w) < std::numeric_limits<float>::epsilon())
 		{
-			return ImVec2(-1, -1); // 占쏙옙 占쏙옙占?占쏙옙크占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占싹곤옙 占쏙옙효占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙표 占쏙옙환
+			return ImVec2(-1, -1); // 카메라 뒤의 점
 		}
 
-		// 占쏙옙占쏙옙 占쏙옙표占쏙옙 占쏙옙크占쏙옙 占쏙옙표占쏙옙 占쏙옙환占쏙옙 占쏙옙, w占쏙옙 占쏙옙占쏙옙臼占?占쏙옙占쏙옙화
+		// 월드좌표를 화면좌표로
 		trans /= trans.w;
 
-		// 占쏙옙크占쏙옙 占쏙옙표占쏙옙 占쏙옙환
+		// 화면좌표 변환
 		ImVec2 screenPos;
 		screenPos.x = (trans.x + 1.0f) * 0.5f * size.x + position.x;
 		screenPos.y = (1.0f - (trans.y + 1.0f) * 0.5f) * size.y + position.y;

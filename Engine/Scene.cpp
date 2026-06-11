@@ -159,16 +159,16 @@ std::shared_ptr<class GameObject> Scene::Pick(int32 screenX, int32 screenY)
 		if (gameObject->GetCollider() == nullptr)
 			continue;
 
-		// ViewSpace占쏙옙占쏙옙占쏙옙 Ray 占쏙옙占쏙옙
+		// ViewSpace에서 Ray 생성
 		Vec4 rayOrigin = Vec4(0.0f, 0.0f, 0.0f, 1.0f);
 		Vec4 rayDir = Vec4(viewX, viewY, 1.0f, 0.0f);
 
-		// WorldSpace占쏙옙占쏙옙占쏙옙 Ray 占쏙옙占쏙옙
+		// WorldSpace에서 Ray 생성
 		Vec3 worldRayOrigin = XMVector3TransformCoord(rayOrigin, viewMatrixInv);
 		Vec3 worldRayDir = XMVector3TransformNormal(rayDir, viewMatrixInv);
 		worldRayDir.Normalize();
 
-		// WorldSpace占쏙옙占쏙옙 占쏙옙占쏙옙
+		// WorldSpace에서 Ray 생성
 		Ray ray = Ray(worldRayOrigin, worldRayDir);
 
 		float distance = 0.f;

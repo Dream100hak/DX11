@@ -61,7 +61,7 @@ void ModelRenderer::OnInspectorGUI()
 		auto& mat = mats[i];
 		MaterialDesc& desc = mat->GetMaterialDesc();
 
-		// 占쏙옙占싶몌옙占쏙옙 占쏙옙占?
+		// 재질 원소별 처리
 		if (ImGui::TreeNodeEx( Utils::ToString(mat->GetName()).c_str() , ImGuiTreeNodeFlags_DefaultOpen))
 		{
 	
@@ -85,7 +85,7 @@ void ModelRenderer::OnInspectorGUI()
 				ImGui::EndGroup();
 			}		
 
-			ImGui::SameLine(0.f, -2.f); // 占쏙옙占쏙옙 占쌕울옙 占쏙옙치
+			ImGui::SameLine(0.f, -2.f); // 간격 조정
 
 			// Normal Map
 			{
@@ -99,7 +99,7 @@ void ModelRenderer::OnInspectorGUI()
 
 				ImGui::EndGroup();
 			}
-			ImGui::SameLine(); // 占쏙옙占쏙옙 占쌕울옙 占쏙옙치
+			ImGui::SameLine(); // 간격 조정
 
 			// Specular Map
 			{
@@ -125,7 +125,7 @@ void ModelRenderer::SetModel(shared_ptr<Model> model)
 }
 
 // ============================================================
-// Draw() ? 占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙
+// Draw() 함수: 렌더링 처리
 // ============================================================
 void ModelRenderer::Draw(const RenderContext& ctx)
 {
@@ -217,7 +217,7 @@ void ModelRenderer::Draw(const RenderContext& ctx)
 	}
 
 	// ?? Preview/Thumbnail/Forward lit 寃쎈줈 (HLSL) ??
-	// FX Standard/Thumbnail ?꾨━酉??뚮뜑瑜?HLSL 濡??泥?(FX ?곹깭 ?꾩닔濡??명븳 ???ㅼ뿼 ?댁냼)
+	// FX Standard/Thumbnail 셰이더를 HLSL로 이전 (FX 제거 후 주석만 남음)
 	auto lit = RESOURCES->Get<HlslShader>(L"ModelPreview_HLSL");
 	if (!lit) return;
 
@@ -279,7 +279,7 @@ bool ModelRenderer::Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& dis
 	vector<shared_ptr<ModelMesh>>& meshes = _model->GetMeshes();
 	vector<shared_ptr<ModelBone>>& bones = _model->GetBones();
 
-	//占쌨시곤옙 占싹놂옙 占쏙옙 占쏙옙占?
+	// 바운딩 박스 변환
 	TransformBoundingBox();
 	float dist = 0.f;
 

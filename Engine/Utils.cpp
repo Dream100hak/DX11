@@ -136,7 +136,7 @@ string Utils::ConvertWCharToChar(const wchar_t* wstr)
 	int bufferSize = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, nullptr, 0, nullptr, nullptr);
 	if (bufferSize == 0)
 	{
-		// 占쏙옙환 占쏙옙占쏙옙
+		// 변환 실패
 		return "";
 	}
 

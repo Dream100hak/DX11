@@ -13,7 +13,7 @@ struct BVHNode {
 	BoundingBox boundingBox;
 	shared_ptr<BVHNode> leftChild;
 	shared_ptr<BVHNode> rightChild;
-	vector<shared_ptr<ModelMesh>> meshes; // LEAF 占쏙옙恙?占쏙옙占쏙옙 占쌨쏙옙 占쏙옙占?
+	vector<shared_ptr<ModelMesh>> meshes; // LEAF 노드일 때만 메시 보관
 
 	void Start()
 	{
@@ -89,13 +89,13 @@ public:
 			 return false;
 		 }
 
-		 // 占쏙옙占싱울옙 占쏙옙占쏙옙占?占쌕울옙占?占쏙옙占쏙옙 占쏙옙占쏙옙 占싯삼옙
+		 // 레이와 바운딩박스 교차 판정
 		 float distance;
 		 if (!ray.Intersects(node->boundingBox, OUT distance)) {
 			 return false;
 		 }
 
-		 // 占쏙옙 占쏙옙占쏙옙占?占쏙옙占? 占쌨시듸옙占쏙옙占?占쏙옙占쏙옙 占싯삼옙
+		 // 리프 노드일 때 삼각형 교차 판정
 		 if (!node->leftChild && !node->rightChild)
 		 {
 			 for (const auto& mesh : node->meshes)
@@ -122,7 +122,7 @@ public:
 					 }
 				 }
 			 }
-			 // 占쏙옙占쏙옙 占쏙옙占쏙옙占?占쏙옙占?占쌨시울옙 占쏙옙占쏙옙占쏙옙占쏙옙 占십댐옙 占쏙옙占?
+			 // 리프 노드일 때 삼각형 교차 판정
 			 return false;
 		 }
 

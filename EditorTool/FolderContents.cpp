@@ -141,13 +141,13 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 
 	float cellWidth = ImGui::GetColumnWidth();
 
-	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.1f, 0.1f, 1.0f)); // 占쏙옙占쏙옙 占쏙옙占?
-	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.25f, 0.25f, 1.0f)); // 占쏙옙占쎌스 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙
-	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.4f, 0.4f, 0.4f, 1.0f)); // 클占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.1f, 0.1f, 1.0f)); // 기본 버튼 색
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.25f, 0.25f, 1.0f)); // 호버 상태 색
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.4f, 0.4f, 0.4f, 1.0f)); // 클릭 상태 버튼 색
 
-	float cursorX = (cellWidth - 75) * 0.5f; // 占쌩억옙 占쏙옙占쏙옙 占쏙옙占?
+	float cursorX = (cellWidth - 75) * 0.5f; // 중앙 정렬 X 위치
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + cursorX);
-	// 占쏙옙占쏙옙 처占쏙옙
+	// 썸네일 처리
 	if (meta->metaType == MetaType::FOLDER)
 	{
 		auto tex = RESOURCES->Get<Texture>(L"Folder");
@@ -158,19 +158,19 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 		});
 	}
 
-	// 占싱뱄옙占쏙옙 占쏙옙占쏙옙 처占쏙옙
+	// 썸네일 처리
 	else if (meta->metaType == MetaType::IMAGE)
 	{
 		auto tex = RESOURCES->Get<Texture>(L"TEX_" + meta->fileName);
 		RefreshButton(tex->GetComPtr().Get(), meta, id, []() {});
 	}
-	// 占쏙옙占쏙옙 占쏙옙占쏙옙 처占쏙옙
+	// 썸네일 처리
 	else if (meta->metaType == MetaType::XML)
 	{
 		auto tex = RESOURCES->Get<Texture>(L"Text");
 		RefreshButton(tex->GetComPtr().Get(), meta, id, []() {});
 	}
-	// 占쏙옙占싶몌옙占쏙옙 占쏙옙占쏙옙 처占쏙옙
+	// 썸네일 처리
 	else if (meta->metaType == MetaType::MATERIAL)
 	{
 		shared_ptr<GameObject> obj = nullptr;
@@ -193,7 +193,7 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 
 		RefreshButton(thumbnail->GetComPtr().Get(), meta, id, []() {});
 	}
-	// 占쌨쏙옙 占쏙옙占쏙옙 처占쏙옙
+	// 썸네일 처리
 	if (meta->metaType == MetaType::MESH)
 	{
 		shared_ptr<GameObject> obj = nullptr;
@@ -222,7 +222,7 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 
 		DragModelFileToGUIWnd(meta, modelPath , obj);
 	}
-	// 占쌍니몌옙占싱쇽옙 처占쏙옙
+	// 애니메이션 처리
 	else if (meta->metaType == MetaType::CLIP)
 	{
 		shared_ptr<GameObject> obj = nullptr;
@@ -258,7 +258,7 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 		RefreshButton(tex->GetComPtr().Get(), meta, id, []() {});
 	}
 
-	// 占쏙옙占쏙옙 占쏙옙占쏙옙 처占쏙옙
+	// 썸네일 처리
 	else if (meta->metaType == MetaType::Unknown)
 	{
 		auto tex = RESOURCES->Get<Texture>(L"Text");
@@ -270,10 +270,10 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 	string itemName = AdjustItemNameToFit(Utils::ToString(meta->fileName), _displayBtnWidth);
 	ImVec2 textSize = ImGui::CalcTextSize(itemName.c_str());
 
-	cursorX = (cellWidth - textSize.x) * 0.5f; // 占쌩억옙 占쏙옙占쏙옙 占쏙옙占?
+	cursorX = (cellWidth - textSize.x) * 0.5f; // 중앙 정렬 X 위치
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + cursorX);
 
-	ImGui::Text(itemName.c_str()); // 占싱몌옙 표占쏙옙
+	ImGui::Text(itemName.c_str()); // 아이템명 표시
 }
 
 void FolderContents::RefreshButton(ID3D11ShaderResourceView* srv, shared_ptr<MetaData>& meta, int32 id, std::function<void()> onDoubleClickCallback)
@@ -409,7 +409,7 @@ void FolderContents::CreateAniPreviewObj(shared_ptr<MetaData>& meta)
 	if (modelScale > 10.f)
 		modelScale = globalScale;
 
-	//TODO : 占쏙옙占쏙옙 占쏙옙占쏙옙
+	// TODO: 추가 기능
 	//modelScale = .5f;
 
 	float scale = globalScale / modelScale;

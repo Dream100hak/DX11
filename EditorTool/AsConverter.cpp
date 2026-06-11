@@ -157,7 +157,7 @@ void AsConverter::ReadModelData(aiNode* node, int32 index, int32 parent)
 	// Mesh
 	ReadMeshData(node, index);
 
-	// 占쏙옙占?占쌉쇽옙
+	// 자식 노드 반복
 	for (uint32 i = 0; i < node->mNumChildren; i++)
 		ReadModelData(node->mChildren[i], _bones.size(), index);
 }
@@ -237,7 +237,7 @@ void AsConverter::ReadSkinData()
 		vector<asBoneWeights> tempVertexBoneWeights;
 		tempVertexBoneWeights.resize(mesh->vertices.size());
 
-		// Bone占쏙옙 占쏙옙회占싹면서 占쏙옙占쏙옙占쏙옙 VertexId, Weight占쏙옙 占쏙옙占쌔쇽옙 占쏙옙占쏙옙磯占?
+		// Bone을 반복하면서 정점별 VertexId, Weight를 저장하는 임시
 		for (uint32 b = 0; b < srcMesh->mNumBones; b++)
 		{
 			aiBone* srcMeshBone = srcMesh->mBones[b];
@@ -255,7 +255,7 @@ void AsConverter::ReadSkinData()
 			}
 		}
 
-		// 占쏙옙占쏙옙 占쏙옙占?占쏙옙占?
+		// 정점별 가중치
 		for (uint32 v = 0; v < tempVertexBoneWeights.size(); v++)
 		{
 			tempVertexBoneWeights[v].Normalize();
@@ -271,7 +271,7 @@ void AsConverter::WriteModelFile(wstring finalPath)
 {
 	auto path = filesystem::path(finalPath);
 
-	// 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占?
+	// 폴더 생성 및 유효성 검증
 	filesystem::create_directory(path.parent_path());
 
 	shared_ptr<FileUtils> file = make_shared<FileUtils>();
@@ -358,7 +358,7 @@ void AsConverter::WriteMaterialDataByXml(wstring finalPath)
 {
 	auto path = filesystem::path(finalPath);
 
-	// 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占?
+	// 폴더 생성 및 유효성 검증
 	filesystem::create_directory(path.parent_path());
 
 	string folder = path.parent_path().string();
@@ -430,14 +430,14 @@ void AsConverter::WriteMaterialDataByMat(shared_ptr<asMaterial> material,  wstri
 {
 	wstring fullPath = finalPath + L".mat";
 	auto path = filesystem::path(fullPath);
-	// 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占?
+	// 폴더 생성 및 유효성 검증
 	filesystem::create_directory(path.parent_path());
 	string folder = path.parent_path().string();
 
 	shared_ptr<FileUtils> file = make_shared<FileUtils>();
 	file->Open(fullPath, FileMode::Write);
 
-	// .mat ?щ㎎ ?명솚???곗씠??臾몄옄????濡쒕뜑(Material::Load)媛 "Standard" 瑜?Standard_HLSL 濡?留ㅽ븨
+	// .mat 형식 호환성: 파일 헤더는 문자열로 저장
 	file->Write<string>(string("01. Standard.fx"));
 	file->Write<string>(WriteTexture(folder, material->diffuseFile).c_str());
 	file->Write<string>(WriteTexture(folder, material->specularFile).c_str());
@@ -446,7 +446,7 @@ void AsConverter::WriteMaterialDataByMat(shared_ptr<asMaterial> material,  wstri
 	file->Write<Color>(material->diffuse);
 	file->Write<Color>(material->specular);
 	file->Write<Color>(material->emissive);
-	// PBR ?뺤옣 ?꾨뱶 (Material::Load 媛 TryRead 濡??쎌쓬 ??援щ쾭???뚯씪 ?명솚)
+	// PBR 저장 필드 (재료 로드 호환성)
 	file->Write<float>(0.5f); // roughness
 	file->Write<float>(0.0f); // metallic
 }
@@ -522,10 +522,10 @@ std::shared_ptr<asAnimation> AsConverter::ReadAnimationData(aiAnimation* srcAnim
 	{
 		aiNodeAnim* srcNode = srcAnimation->mChannels[i];
 
-		// 占쌍니몌옙占싱쇽옙 占쏙옙占?占쏙옙占쏙옙占쏙옙 占식쏙옙
+		// 폴더 생성 및 유효성 검증
 		shared_ptr<asAnimationNode> node = ParseAnimationNode(animation, srcNode);
 
-		// 占쏙옙占쏙옙 찾占쏙옙 占쏙옙占?占쌩울옙 占쏙옙占쏙옙 占쏙옙 占시곤옙占쏙옙占쏙옙 占쌍니몌옙占싱쇽옙 占시곤옙 占쏙옙占쏙옙
+		// 애니메이션 총 길이 추적
 		animation->duration = max(animation->duration, node->keyframe.back().time);
 
 		cacheAnimNodes[srcNode->mNodeName.C_Str()] = node;
@@ -588,7 +588,7 @@ std::shared_ptr<asAnimationNode> AsConverter::ParseAnimationNode(shared_ptr<asAn
 			node->keyframe.push_back(frameData);
 	}
 
-	// Keyframe 占시뤄옙占쌍깍옙
+	// Keyframe 채우기 (프레임 수 맞춤)
 	if (node->keyframe.size() < animation->frameCount)
 	{
 		uint32 count = animation->frameCount - node->keyframe.size();
@@ -627,7 +627,7 @@ void AsConverter::ReadKeyframeData(shared_ptr<asAnimation> animation, aiNode* sr
 		keyframe->transforms.push_back(frameData);
 	}
 
-	// 占쌍니몌옙占싱쇽옙 키占쏙옙占쏙옙占쏙옙 채占쏙옙占?
+	// 폴더 생성 및 유효성 검증
 	animation->keyframes.push_back(keyframe);
 
 	for (uint32 i = 0; i < srcNode->mNumChildren; i++)
@@ -638,7 +638,7 @@ void AsConverter::WriteAnimationData(shared_ptr<asAnimation> animation, wstring 
 {
 	auto path = filesystem::path(finalPath);
 
-	// 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占?
+	// 폴더 생성 및 유효성 검증
 	filesystem::create_directory(path.parent_path());
 
 	shared_ptr<FileUtils> file = make_shared<FileUtils>();

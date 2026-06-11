@@ -32,9 +32,9 @@ struct LightDesc
 	float intensity = 1.f;
 };
 
-// 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
-// 占쏙옙티 占쏙옙占쏙옙트 占쏙옙占쏙옙 (Directional Light Array)
-// 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+// 멀티라이트 배열 구조 정의
+// 멀티라이트 배열 (Directional Light Array)
+// GPU 라이트 데이터
 // GPU light data (Directional / Point / Spot unified)
 // type: 0=Directional, 1=Point, 2=Spot
 struct LightData
@@ -65,36 +65,36 @@ struct MaterialDesc
 	Color diffuse  = Color(1.f,  1.f,  1.f,  1.f);
 	Color specular = Color(0.f,  0.f,  0.f,  1.f);
 	Color emissive = Color(0.f,  0.f,  0.f,  1.f);
-	// 占쏙옙 HLSL Common.hlsli MaterialBuffer(b3) 占쏙옙占쏙옙占쏙옙 占쌥듸옙占?占쏙옙치
+	// 대응 HLSL Common.hlsli MaterialBuffer(b3) 레이아웃과 일치
 	// UseTexture, UseAlphaClip, UseSsao, padding
-	int useTexture  = 0; // 0 = 占쏙옙占쏙옙, 1 = 占쌔쏙옙처 占쏙옙占쏙옙
-	int useAlphaclip = 0;  // 0 = 클占쏙옙 占쏙옙占쏙옙
-	int useSsao     = 0;   // 0 = SSAO 占쏙옙占쏙옙占쏙옙
+	int useTexture  = 0; // 0 = 미사용, 1 = 텍스처 사용
+	int useAlphaclip = 0;  // 0 = 클리핑 비활성, 1 = 클리핑 활성
+	int useSsao     = 0;   // 0 = SSAO 비활성, 1 = SSAO 활성
 	int lightCount = 0;
 
-	// PBR (Cook-Torrance) - HLSL MaterialBuffer(b3) ? ?쒖꽌/?⑦궧 ?쇱튂 ?꾩닔
+	// 대응 HLSL Common.hlsli MaterialBuffer(b3) 레이아웃과 일치
 	float roughness = 0.5f;
 	float metallic  = 0.f;
-	Vec2  pbrPadding;   // 16占쏙옙占쏙옙트 占쏙옙占쏙옙
+	Vec2  pbrPadding;   // 16바이트 정렬
 };
 
-// ?ъ뒪?명봽濡쒖꽭??(b8) ??HLSL PostProcess.hlsl / Fxaa.hlsl PostProcessBuffer ? ?쇱튂
+// 포스트프로세싱(b8) 버퍼 HLSL PostProcess.hlsl / Fxaa.hlsl PostProcessBuffer와 일치
 struct PostProcessDesc
 {
 	Vec2  texelSize;              // 1/width, 1/height
-	float bloomThreshold = 1.0f;  // ?섎룄 ?꾧퀎媛?(HDR)
-	float bloomIntensity = 0.6f;  // BrightPass 異쒕젰 諛곗쑉
+	float bloomThreshold = 1.0f;  // 밝기 판단 임계값(HDR)
+	float bloomIntensity = 0.6f;  // BrightPass 추출 배율
 };
 
-// IBL 踰좎씠??(b8) ??HLSL IblBake.hlsl IblBakeBuffer ? ?쇱튂
+// IBL 베이킹(b8) 버퍼 HLSL IblBake.hlsl IblBakeBuffer와 일치
 struct IblBakeDesc
 {
-	int32 faceIndex = 0;   // ?먮툕留?face 0..5
-	float roughness = 0.f; // prefilter mip 蹂?roughness
+	int32 faceIndex = 0;   // 큐브맵 face 0..5
+	float roughness = 0.f; // prefilter mip 별 roughness
 	Vec2  padding;
 };
 
-// IBL ?고???(b8, DeferredLighting) ??HLSL IblBuffer ? ?쇱튂
+// IBL 런타임(b8, DeferredLighting) 버퍼 HLSL IblBuffer와 일치
 struct IblDesc
 {
 	int32 useIbl = 0;
@@ -102,7 +102,7 @@ struct IblDesc
 	Vec2  padding;
 };
 
-// ?⑥뒪 酉곗뼱 (b8) ??HLSL PassViewer.hlsl PassViewerBuffer ? ?쇱튂
+// 패스 뷰어(b8) 버퍼 HLSL PassViewer.hlsl PassViewerBuffer와 일치
 struct PassViewerDesc
 {
 	int32 viewMode = 0; // 0=Final 1=Albedo 2=Normal 3=Roughness 4=Metallic 5=WorldPos 6=Depth 7=SSAO 8=Shadow

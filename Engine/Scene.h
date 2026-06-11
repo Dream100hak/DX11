@@ -38,7 +38,7 @@ public:
 	shared_ptr<GameObject> GetLight() { return _lights.empty() ? nullptr : *_lights.begin(); }
 	shared_ptr<GameObject> GetTerrain() { return _terrains.empty() ? nullptr : *_terrains.begin(); }
 	
-	// ? 멀티 라이트 지원
+	// 멀티 라이트 지원
 	unordered_set<shared_ptr<GameObject>>& GetLights() { return _lights; }
 
 	void PickUI();

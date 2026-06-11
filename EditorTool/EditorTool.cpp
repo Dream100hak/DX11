@@ -255,9 +255,7 @@ void EditorTool::Update()
 	GET_SINGLE(EditorToolManager)->Update();
 	GET_SINGLE(TextureManager)->Update();
 
-	ImGui::ShowDemoWindow(&_showWindow);
-
-	DrawRenderTextures();
+	// 셰도우/SSAO/뎁스노멀 디버그는 씬뷰 PassViewer 콤보로 통합 (RenderTextures 창 제거)
 }
 
 void EditorTool::Render()
@@ -278,19 +276,3 @@ void EditorTool::OnMouseWheel(int32 scrollAmount)
 	}
 }
 
-void EditorTool::DrawRenderTextures()
-{
-	auto tex1 = TEXTURE->GetShadowMap()->GetComPtr().Get();
-	auto tex2 = TEXTURE->GetSsao()->GetAmbientPtr().Get();
-	auto tex3 = TEXTURE->GetSsao()->GetNormalDepthPtr().Get();
-//	auto tex4 = TEXTURE->GetTerrain()->GetLayerSRV().Get();
-
-	ImGui::Begin("RenderTextures");
-	ImGui::Image(tex1, ImVec2(200, 150));
-	ImGui::Text("shadow");
-	ImGui::Image(tex2, ImVec2(200, 150));
-	ImGui::Text("ssao");
-	ImGui::Image(tex3, ImVec2(200, 150));
-	ImGui::Text("depthNormal");
-	ImGui::End();
-}

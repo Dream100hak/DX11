@@ -184,8 +184,8 @@ void AsConverter::ReadMeshData(aiNode* node, int32 bone)
 
 		for (uint32 v = 0; v < srcMesh->mNumVertices; v++)
 		{
-			// Vertex
-			VertexType vertex;
+			// Vertex (값 초기화 — 미기록 필드가 쓰레기값으로 저장되지 않도록)
+			VertexType vertex = {};
 			::memcpy(&vertex.position, &srcMesh->mVertices[v], sizeof(Vec3));
 
 			// UV
@@ -195,7 +195,12 @@ void AsConverter::ReadMeshData(aiNode* node, int32 bone)
 			// Normal
 			if (srcMesh->HasNormals())
 				::memcpy(&vertex.normal, &srcMesh->mNormals[v], sizeof(Vec3));
-			
+
+			// Tangent (TargetRealtime_Fast 프리셋의 CalcTangentSpace 가 생성 — 복사 누락돼
+			// 쓰레기값이 저장, 노멀맵핑 TBN 이 NaN 으로 오염되던 근본 원인)
+			if (srcMesh->HasTangentsAndBitangents())
+				::memcpy(&vertex.tangent, &srcMesh->mTangents[v], sizeof(Vec3));
+
 			mesh->vertices.push_back(vertex);
 		}
 

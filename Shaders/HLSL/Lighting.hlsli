@@ -163,13 +163,25 @@ void ComputeNormalMapping(
     if (!any(map.rgb))
      return;
 
+    // 탄젠트 무효(0/NaN/Inf) 가드 — 탄젠트 없이 임포트된 모델의 쓰레기 값이 TBN 을 타고
+    // GBuffer 노멀을 NaN 으로 오염시켜 모델이 통째로 검게 렌더되던 버그.
+    // (NaN 은 모든 비교가 false 이므로 양의 범위 비교로 0/NaN/Inf 를 한 번에 거른다)
+    float t2 = dot(tangent, tangent);
+    if (!(t2 > 1e-8f && t2 < 1e16f))
+        return; // 버텍스 노멀 그대로 사용
+
     float3 N = normalize(normal);
     float3 T = normalize(tangent);
     float3 B = normalize(cross(N, T));
     float3x3 TBN = float3x3(T, B, N);
 
     float3 tangentNormal = map.rgb * 2.0f - 1.0f;
-    normal = normalize(mul(tangentNormal, TBN));
+    float3 mapped = mul(tangentNormal, TBN);
+    float m2 = dot(mapped, mapped);
+    if (!(m2 > 1e-8f && m2 < 1e16f))
+        return; // 비정상 노멀맵 데이터 폴백
+
+    normal = normalize(mapped);
 }
 
 #endif // _LIGHTING_HLSLI_

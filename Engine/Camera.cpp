@@ -72,12 +72,6 @@ void Camera::SortGameObject()
 		// ✅ 핵심 수정: 절두체 컬링 전에 BoundingBox를 현재 월드 위치로 갱신
 		renderer->TransformBoundingBox();  // ← 월드 행렬 기준으로 BoundingBox 갱신
 
-		// Frustum Culling
-		const BoundingBox& box = renderer->GetBoundingBox();
-		bool hasValidBox = (box.Extents.x > 0.f || box.Extents.y > 0.f || box.Extents.z > 0.f);
-		if (hasValidBox && !_frustum.IsInFrustum(box))
-			continue;
-
 		// RenderQueue 분류
 		RenderQueue queue = RenderQueue::Opaque;
 		if (auto mr = gameObject->GetMeshRenderer())
@@ -87,6 +81,17 @@ void Camera::SortGameObject()
 		else if (renderer->GetRenderType() == RendererType::Particle)
 		{
 			queue = RenderQueue::Transparent; // 파티클은 항상 투명 패스 (Pass 3, HDR sceneColor)
+		}
+
+		// Frustum Culling — Background(스카이박스)는 제외:
+		// 스카이 VS 는 w=0 트릭으로 항상 풀스크린을 그리지만 메시 AABB 는 원점의 작은 구라서
+		// 카메라가 원점을 안 보면 컬링돼 하늘이 통째로 사라지는 버그가 있었음
+		if (queue != RenderQueue::Background)
+		{
+			const BoundingBox& box = renderer->GetBoundingBox();
+			bool hasValidBox = (box.Extents.x > 0.f || box.Extents.y > 0.f || box.Extents.z > 0.f);
+			if (hasValidBox && !_frustum.IsInFrustum(box))
+				continue;
 		}
 
 		if (static_cast<int32>(queue) >= static_cast<int32>(RenderQueue::Transparent))

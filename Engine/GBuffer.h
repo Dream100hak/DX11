@@ -3,7 +3,11 @@
 class GBuffer
 {
 public:
-	enum { RT_ALBEDO = 0, RT_NORMAL, RT_POSITION, RT_COUNT };
+	enum { RT_ALBEDO = 0, RT_NORMAL, RT_POSITION, RT_EMISSIVE, RT_COUNT };
+
+	// 디퍼드 라이팅 입력으로 연속 바인딩(t0~t2)되는 RT 수 — Emissive 는 t3(Shadow)/t4(Ssao) 와
+	// 충돌하지 않게 별도 슬롯(t8)에 바인딩한다 (Camera::Render_Deferred)
+	enum { RT_LIGHTING_COUNT = 3 };
 
 	void Init(uint32 width, uint32 height);
 

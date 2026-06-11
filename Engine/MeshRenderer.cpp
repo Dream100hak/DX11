@@ -40,7 +40,7 @@ void MeshRenderer::OnInspectorGUI()
 		if (ImGui::ColorEdit3("Ambient", (float*)&desc.ambient)) {}
 		if (ImGui::ColorEdit3("Emissive", (float*)&desc.emissive)) {}
 		if (ImGui::ColorEdit3("Specular", (float*)&desc.specular)) {}
-		ImGui::TextDisabled("Ambient/Emissive/Specular: Forward(Transparent) only - Deferred uses Diffuse+PBR");
+		ImGui::TextDisabled("Ambient/Specular: Forward(Transparent) only - Deferred uses Diffuse+PBR+Emissive");
 
 		ImGui::NewLine();
 

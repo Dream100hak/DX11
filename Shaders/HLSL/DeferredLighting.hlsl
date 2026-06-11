@@ -23,6 +23,9 @@ TextureCube IrradianceMap  : register(t5);
 TextureCube PrefilteredEnv : register(t6);
 Texture2D   BrdfLut        : register(t7);
 
+// Emissive RT (GBuffer SV_Target3 — linear HDR, 가산되어 블룸으로 흘러감)
+Texture2D GBufferEmissive  : register(t8);
+
 cbuffer IblBuffer : register(b8)
 {
     int    UseIbl;
@@ -219,7 +222,10 @@ float4 PS_Main(LightingVSOutput input) : SV_TARGET
         ambient = ambientAccum * albedo * ssaoFactor;
     }
 
-    float3 litColor = ambient + shadowFactor * Lo;
+    // 발광은 라이팅/그림자와 무관하게 가산 — HDR 값이면 BrightPass 를 넘겨 블룸 글로우
+    float3 emissive = GBufferEmissive.Sample(PointSampler, input.uv).rgb;
+
+    float3 litColor = ambient + shadowFactor * Lo + emissive;
 
     return float4(litColor, 1.0f);
 }

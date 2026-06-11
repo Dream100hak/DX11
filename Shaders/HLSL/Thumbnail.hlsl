@@ -71,7 +71,10 @@ float4 PS_PreviewLit(MeshOutput input) : SV_TARGET
     // 상수 환경 근사 — 디퓨즈 + 금속용 스펙큘러 (IBL 없는 프리뷰에서 금속이 검지 않도록)
     float3 ambient = 0.35f * albedo * (1.0f - metallic) + 0.25f * F0;
 
-    float3 color = ambient + Lo;
+    // 발광 가산 (씬 디퍼드와 동일 규약 — a 는 강도 배율)
+    float3 emissive = pow(abs(MatEmissive.rgb), 2.2f) * MatEmissive.a;
+
+    float3 color = ambient + Lo + emissive;
     color = color / (color + 1.0f);          // Reinhard
     color = pow(abs(color), 1.0f / 2.2f);    // 감마
     return float4(color, 1.0f);

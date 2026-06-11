@@ -232,6 +232,9 @@ void Camera::Render_Deferred()
 		RENDER_STATES->BindAllSamplersPS();
 		_gBuffer->BindSRVsPS(0);
 
+		// Emissive RT — t3(Shadow)/t4(Ssao)/t5~7(IBL) 다음의 t8
+		lightingShader->SetPSSRV(8, _gBuffer->GetSRV(GBuffer::RT_EMISSIVE).Get());
+
 		bool hasSsao = false;
 		if (auto mat = RESOURCES->Get<Material>(L"DefaultMaterial"))
 		{
@@ -282,6 +285,7 @@ void Camera::Render_Deferred()
 		lightingShader->SetPSSRV(5, nullptr);
 		lightingShader->SetPSSRV(6, nullptr);
 		lightingShader->SetPSSRV(7, nullptr);
+		lightingShader->SetPSSRV(8, nullptr); // Emissive RT 해제 (다음 프레임 GBuffer RTV 바인딩과 충돌 방지)
 	}
 
 	// ── Pass 3: Forward pass (skybox + transparent) — sceneColor + G-Buffer depth ──

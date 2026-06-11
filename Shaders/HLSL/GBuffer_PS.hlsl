@@ -5,6 +5,7 @@
 // SV_Target0 : Albedo.rgb + Metallic (RGBA8)
 // SV_Target1 : World Normal packed [0,1] + Roughness (RGBA16F)
 // SV_Target2 : World Position + mask (RGBA16F, w=1 → 유효 GBuffer 픽셀)
+// SV_Target3 : Emissive RGB (R11G11B10F, linear HDR — 라이팅 패스에서 가산)
 
 #include "Lighting.hlsli"
 
@@ -16,6 +17,7 @@ struct GBufferOutput
     float4 albedo   : SV_Target0;
     float4 normal   : SV_Target1;
     float4 position : SV_Target2;
+    float4 emissive : SV_Target3;
 };
 
 GBufferOutput PS_GBuffer(MeshOutput input)
@@ -38,6 +40,7 @@ GBufferOutput PS_GBuffer(MeshOutput input)
     output.albedo   = float4(pow(abs(texColor.rgb), 2.2f), Metallic);
     output.normal   = float4(input.normal * 0.5f + 0.5f, Roughness);
     output.position = float4(input.worldPosition, 1.0f);
+    output.emissive = float4(pow(abs(MatEmissive.rgb), 2.2f) * MatEmissive.a, 0.0f); // a = 강도 배율
 
     return output;
 }

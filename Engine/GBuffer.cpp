@@ -7,9 +7,10 @@ void GBuffer::Init(uint32 width, uint32 height)
 	_height = height;
 
 	DXGI_FORMAT formats[RT_COUNT] = {
-		DXGI_FORMAT_R8G8B8A8_UNORM,     // RT0: Albedo RGBA
-		DXGI_FORMAT_R16G16B16A16_FLOAT, // RT1: World Normal XYZ + spare
-		DXGI_FORMAT_R16G16B16A16_FLOAT, // RT2: World Position XYZ + spare
+		DXGI_FORMAT_R8G8B8A8_UNORM,     // RT0: Albedo RGB + Metallic
+		DXGI_FORMAT_R16G16B16A16_FLOAT, // RT1: World Normal XYZ + Roughness
+		DXGI_FORMAT_R16G16B16A16_FLOAT, // RT2: World Position XYZ + mask
+		DXGI_FORMAT_R11G11B10_FLOAT,    // RT3: Emissive RGB (HDR, 알파 불필요)
 	};
 
 	for (int i = 0; i < RT_COUNT; ++i)
@@ -84,14 +85,15 @@ void GBuffer::Clear()
 
 void GBuffer::BindSRVsPS(uint32 startSlot) const
 {
-	ID3D11ShaderResourceView* srvs[RT_COUNT];
-	for (int i = 0; i < RT_COUNT; ++i)
+	// 라이팅 입력 3장만 연속 바인딩 (Emissive 는 호출부가 GetSRV(RT_EMISSIVE) 로 별도 슬롯에)
+	ID3D11ShaderResourceView* srvs[RT_LIGHTING_COUNT];
+	for (int i = 0; i < RT_LIGHTING_COUNT; ++i)
 		srvs[i] = _srvs[i].Get();
-	DCT->PSSetShaderResources(startSlot, RT_COUNT, srvs);
+	DCT->PSSetShaderResources(startSlot, RT_LIGHTING_COUNT, srvs);
 }
 
 void GBuffer::UnbindSRVsPS(uint32 startSlot) const
 {
-	ID3D11ShaderResourceView* nullSRV[RT_COUNT] = {};
-	DCT->PSSetShaderResources(startSlot, RT_COUNT, nullSRV);
+	ID3D11ShaderResourceView* nullSRV[RT_LIGHTING_COUNT] = {};
+	DCT->PSSetShaderResources(startSlot, RT_LIGHTING_COUNT, nullSRV);
 }

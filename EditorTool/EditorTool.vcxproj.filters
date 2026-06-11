@@ -131,6 +131,12 @@
     <ClCompile Include="Inspector.cpp">
       <Filter>EditorWindow</Filter>
     </ClCompile>
+    <ClCompile Include="InspectorHierarchy.cpp">
+      <Filter>EditorWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="InspectorProject.cpp">
+      <Filter>EditorWindow</Filter>
+    </ClCompile>
     <ClCompile Include="Hiearchy.cpp">
       <Filter>EditorWindow</Filter>
     </ClCompile>

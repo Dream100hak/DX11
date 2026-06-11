@@ -23,13 +23,15 @@ public:
 
 private:
 
+	// InspectorHierarchy.cpp — 하이어라키 선택 오브젝트 표시
 	void ShowComponentInfo(shared_ptr<Component> component,  string name);
 
+	// InspectorProject.cpp — 프로젝트 선택 파일 타입별 표시
+	void ShowProjectImage(shared_ptr<MetaData>& metaData, ID3D11ShaderResourceView* icon);
+	void ShowProjectMaterial(shared_ptr<MetaData>& metaData, ID3D11ShaderResourceView* icon);
+	void ShowProjectMesh(shared_ptr<MetaData>& metaData);
+	void ShowProjectClip(shared_ptr<MetaData>& metaData);
 
-	void ShowMeshModelInfo();
-	void ShowMeshAnimationInfo();
-	void ShowMeshMaterialInfo();
-	
 	void CreateMeshPreviewObj();
 	void CreateAniPreviewObj();
 	void DrawInspectorMesh();

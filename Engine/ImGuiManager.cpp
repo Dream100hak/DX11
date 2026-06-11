@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "ImGuiManager.h"
+#include "ImGuizmo.h"
 #include "GameObject.h"
 #include "MeshRenderer.h"
 #include "Material.h"
@@ -31,7 +32,8 @@ void ImGuiManager::Update()
 
 	ImGui_ImplDX11_NewFrame();
 	ImGui_ImplWin32_NewFrame();
-	ImGui::NewFrame();	
+	ImGui::NewFrame();
+	ImGuizmo::BeginFrame(); // 기즈모는 매 프레임 NewFrame 직후 초기화 필요
 
 }
 

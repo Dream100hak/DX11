@@ -16,6 +16,7 @@
 #include "ModelAnimator.h"  // 모델 애니메이터
 
 #include "Model.h"
+#include "ImGuizmo.h"
 #include <filesystem>
 
 const char* SceneWindow::s_translationInfoMask[] = { "X : %5.3f", "Y : %5.3f", "Z : %5.3f",
@@ -297,99 +298,91 @@ void SceneWindow::ShowSceneWindow()
 	_tr = id == -1 ? nullptr :  obj->GetTransform();
 }
 
+// ImGuizmo 기반 트랜스폼 기즈모 — 이동/회전/스케일 + Local/World + 스냅
+// (기존 수제 기즈모는 회전 미구현이라 정식 ImGuizmo 로 교체)
 void SceneWindow::EditTransform()
 {
-	if(_tr == nullptr)
-		return;
-
-	if(_tr->GetGameObject() == nullptr || _tr->GetGameObject()->IsIgnoredTransformEdit())
-		return;
-
-	ImGuiIO& io = ImGui::GetIO();
-
 	static SceneWindow::Mode currentGizmoMode(SceneWindow::Local);
 	static bool useSnap = false;
-	static float snap[3] = { 1.f, 1.f, 1.f };
-	static float bounds[] = { -0.5f, -0.5f, -0.5f, 0.5f, 0.5f, 0.5f };
-	static float boundsSnap[] = { 0.1f, 0.1f, 0.1f };
-	static bool boundSizing = false;
-	static bool boundSizingSnap = false;
+	static float snapTranslate = 0.5f;
+	static float snapAngle = 15.f;   // 도 단위
+	static float snapScale = 0.1f;
 
-	if (ImGui::IsKeyPressed(ImGuiKey_T))
-		_currentGizmoOperation = TRANSLATE;
-	if (ImGui::IsKeyPressed(ImGuiKey_E))
-		_currentGizmoOperation = ROTATE;
-	if (ImGui::IsKeyPressed(ImGuiKey_R)) // r Key
-		_currentGizmoOperation = SCALE;
+	// W/E/R 모드 단축키 — 우클릭 카메라 비행 중에는 무시 (WASD 충돌 방지)
+	if (ImGui::IsMouseDown(ImGuiMouseButton_Right) == false)
+	{
+		if (ImGui::IsKeyPressed(ImGuiKey_W)) _currentGizmoOperation = TRANSLATE;
+		if (ImGui::IsKeyPressed(ImGuiKey_E)) _currentGizmoOperation = ROTATE;
+		if (ImGui::IsKeyPressed(ImGuiKey_R)) _currentGizmoOperation = SCALE;
+	}
 
-
-	/*if (ImGui::RadioButton("Translate", _currentGizmoOperation == TRANSLATE))
-		_currentGizmoOperation = TRANSLATE;
-	ImGui::SameLine();
-	if (ImGui::RadioButton("Rotate", _currentGizmoOperation == ROTATE))
-		_currentGizmoOperation = ROTATE;
-	ImGui::SameLine();
-	if (ImGui::RadioButton("Scale", _currentGizmoOperation == SCALE))
-		_currentGizmoOperation = SCALE;
-
-	int32 mouse[2] = { io.MousePos.x , io.MousePos.y };
-	ImGui::InputInt2("Mouse Pos : ", mouse);
-	*/
+	// ── 씬뷰 툴바 ──
 	uint32 fps = GET_SINGLE(TimeManager)->GetFps();
-	char tmps[64];
-	ImFormatString(tmps, sizeof(tmps),"FPS : %d", fps);
-	ImGui::Text(tmps);
+	ImGui::Text("FPS : %d", fps);
 
+	if (ImGui::RadioButton("Move(W)", _currentGizmoOperation == TRANSLATE)) _currentGizmoOperation = TRANSLATE;
+	ImGui::SameLine();
+	if (ImGui::RadioButton("Rotate(E)", _currentGizmoOperation == ROTATE)) _currentGizmoOperation = ROTATE;
+	ImGui::SameLine();
+	if (ImGui::RadioButton("Scale(R)", _currentGizmoOperation == SCALE)) _currentGizmoOperation = SCALE;
 
+	if (ImGui::RadioButton("Local", currentGizmoMode == Local)) currentGizmoMode = Local;
+	ImGui::SameLine();
+	if (ImGui::RadioButton("World", currentGizmoMode == World)) currentGizmoMode = World;
+	ImGui::SameLine();
+	ImGui::Checkbox("Snap", &useSnap);
 
-	//if (ImGui::RadioButton("Universal", _currentGizmoOperation == UNIVERSAL))
-	//	_currentGizmoOperation = UNIVERSAL;
+	if (_tr == nullptr || _tr->GetGameObject() == nullptr || _tr->GetGameObject()->IsIgnoredTransformEdit())
+	{
+		_bUsing = false;
+		return;
+	}
 
-	//float matrixTranslation[3] = { _tr->GetLocalPosition().x , _tr->GetLocalPosition().y , _tr->GetLocalPosition().z };
-	//float matrixRotation[3] = { _tr->GetLocalRotation().x , _tr->GetLocalRotation().y , _tr->GetLocalRotation().z };
-	//float matrixScale[3] = { _tr->GetLocalScale().x , _tr->GetLocalScale().y , _tr->GetLocalScale().z };
+	// F: 선택 오브젝트로 카메라 포커스 (유니티 프레임 셀렉트)
+	if (ImGui::IsKeyPressed(ImGuiKey_F) && ImGui::IsMouseDown(ImGuiMouseButton_Right) == false)
+	{
+		auto camTr = CUR_SCENE->GetMainCamera()->GetTransform();
+		Vec3 look = camTr->GetLook();
+		look.Normalize();
+		camTr->SetPosition(_tr->GetPosition() - look * 15.f);
+	}
 
-	//ImGui::InputFloat3("Tr", matrixTranslation);
-	//ImGui::InputFloat3("Rt", matrixRotation);
-	//ImGui::InputFloat3("Sc", matrixScale);
+	// ── ImGuizmo ──
+	ImGuizmo::SetOrthographic(false);
+	ImGuizmo::SetDrawlist(GAME->GetSceneDesc().drawList);
 
+	Viewport& vp = GRAPHICS->GetViewport();
+	ImGuizmo::SetRect(vp.GetPosX(), vp.GetPosY(), vp.GetWidth(), vp.GetHeight());
 
-	//if (_currentGizmoOperation != SCALE)
-	//{
-	//	if (ImGui::RadioButton("Local", currentGizmoMode == Local))
-	//		currentGizmoMode = Local;
-	//	ImGui::SameLine();
-	//	if (ImGui::RadioButton("World", currentGizmoMode == World))
-	//		currentGizmoMode = World;
-	//}
-	//if (ImGui::IsKeyPressed(ImGuiKey_S))
-	//	useSnap = !useSnap;
-	//ImGui::Checkbox("##UseSnap", &useSnap);
-	//ImGui::SameLine();
+	Matrix view = MAIN_CAM->GetViewMatrix();
+	Matrix proj = MAIN_CAM->GetProjectionMatrix();
+	Matrix world = _tr->GetWorldMatrix();
 
-	//switch (_currentGizmoOperation)
-	//{
-	//case TRANSLATE:
-	//	ImGui::InputFloat3("Snap", &snap[0]);
-	//	break;
-	//case ROTATE:
-	//	ImGui::InputFloat("Angle Snap", &snap[0]);
-	//	break;
-	//case SCALE:
-	//	ImGui::InputFloat("Scale Snap", &snap[0]);
-	//	break;
-	//}
-	//ImGui::Checkbox("Bound Sizing", &boundSizing);
-	//if (boundSizing)
-	//{
+	float snapValue = _currentGizmoOperation == ROTATE ? snapAngle
+		: (_currentGizmoOperation == SCALE ? snapScale : snapTranslate);
+	float snap[3] = { snapValue, snapValue, snapValue };
 
-	//	ImGui::Checkbox("##BoundSizing", &boundSizingSnap);
-	//	ImGui::SameLine();
-	//	ImGui::InputFloat3("Snap", boundsSnap);
-	//}
+	// 전역 OPERATION 비트값은 ImGuizmo::OPERATION 과 동일 (수제 기즈모가 그대로 포팅했던 값)
+	ImGuizmo::Manipulate(
+		reinterpret_cast<float*>(&view), reinterpret_cast<float*>(&proj),
+		static_cast<ImGuizmo::OPERATION>(_currentGizmoOperation),
+		currentGizmoMode == Local ? ImGuizmo::LOCAL : ImGuizmo::WORLD,
+		reinterpret_cast<float*>(&world),
+		nullptr, useSnap ? snap : nullptr);
 
-	Manipulate( _currentGizmoOperation, currentGizmoMode, useSnap ? &snap[0] : NULL, boundSizing ? bounds : NULL, boundSizingSnap ? boundsSnap : NULL);
+	if (ImGuizmo::IsUsing())
+	{
+		Vec3 scale, trans;
+		Quaternion rot;
+		world.Decompose(scale, rot, trans);
 
+		_tr->SetPosition(trans);
+		_tr->SetRotation(Transform::ToEulerAngles(rot));
+		_tr->SetScale(scale);
+	}
+
+	// 기즈모 드래그/호버 중에는 씬뷰 픽킹 차단
+	_bUsing = ImGuizmo::IsUsing() || ImGuizmo::IsOver();
 }
 
 void SceneWindow::Manipulate(OPERATION operation, Mode mode, const float* snap, const float* localBounds, const float* boundsSnap)

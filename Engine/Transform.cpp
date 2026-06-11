@@ -29,9 +29,13 @@ Vec3 Transform::ToEulerAngles(Quaternion q)
 	angles.x = std::atan2(sinr_cosp, cosr_cosp);
 
 	// pitch (y-axis rotation)
-	double sinp = std::sqrt(1 + 2 * (q.w * q.y - q.x * q.z));
-	double cosp = std::sqrt(1 - 2 * (q.w * q.y - q.x * q.z));
-	angles.y = 2 * std::atan2(sinp, cosp) - 3.14159f / 2;
+	// 부동소수 오차로 |t| > 1 이면 sqrt(음수) = NaN → 트랜스폼 전체 오염되므로 반드시 클램프
+	double t = 2 * (q.w * q.y - q.x * q.z);
+	if (t > 1.0) t = 1.0;
+	else if (t < -1.0) t = -1.0;
+	double sinp = std::sqrt(1 + t);
+	double cosp = std::sqrt(1 - t);
+	angles.y = 2 * std::atan2(sinp, cosp) - 3.14159265358979 / 2;
 
 	// yaw (z-axis rotation)
 	double siny_cosp = 2 * (q.w * q.z + q.x * q.y);

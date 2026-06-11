@@ -369,11 +369,24 @@ void SceneWindow::EditTransform()
 	{
 		Vec3 scale, trans;
 		Quaternion rot;
-		world.Decompose(scale, rot, trans);
 
-		_tr->SetPosition(trans);
-		_tr->SetRotation(Transform::ToEulerAngles(rot));
-		_tr->SetScale(scale);
+		// 특이 행렬(스케일 0 등)이면 Decompose 실패 — NaN 이 트랜스폼에 들어가면 복구 불가라 그 프레임은 버림
+		if (world.Decompose(scale, rot, trans))
+		{
+			Vec3 euler = Transform::ToEulerAngles(rot);
+
+			const float v[9] = { trans.x, trans.y, trans.z, euler.x, euler.y, euler.z, scale.x, scale.y, scale.z };
+			bool finite = true;
+			for (float f : v)
+				finite &= (std::isfinite(f) != 0);
+
+			if (finite)
+			{
+				_tr->SetPosition(trans);
+				_tr->SetRotation(euler);
+				_tr->SetScale(scale);
+			}
+		}
 	}
 
 	// 기즈모 드래그/호버 중에는 씬뷰 픽킹 차단

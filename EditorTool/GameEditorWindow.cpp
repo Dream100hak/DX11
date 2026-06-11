@@ -87,6 +87,15 @@ void GameEditorWindow::ShowCameraPreview()
 	if (id == -1)
 		return;
 
+	// 다른 오브젝트를 선택하면 닫기 상태 해제 (다시 카메라 선택 시 재표시)
+	if (id != _lastPreviewId)
+	{
+		_previewHidden = false;
+		_lastPreviewId = id;
+	}
+	if (_previewHidden)
+		return;
+
 	shared_ptr<GameObject> obj = CUR_SCENE->GetCreatedObject((int32)id);
 	if (obj == nullptr || obj->IsEditorInternal() || obj->GetCamera() == nullptr)
 		return;
@@ -106,6 +115,10 @@ void GameEditorWindow::ShowCameraPreview()
 		ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
 
 	ImGui::TextDisabled("Camera Preview");
+	ImGui::SameLine(pw - 34.f);
+	if (ImGui::SmallButton("x"))
+		_previewHidden = true;
+
 	ImGui::Image(_srv.Get(), ImGui::GetContentRegionAvail());
 
 	ImGui::End();
@@ -113,21 +126,19 @@ void GameEditorWindow::ShowCameraPreview()
 
 void GameEditorWindow::RenderGameView(shared_ptr<GameObject> camObj)
 {
-	_viewport.RSSetViewport();
-	DCT->OMSetRenderTargets(1, _rtv.GetAddressOf(), _dsv.Get());
-
 	Color clearColor(0.05f, 0.05f, 0.07f, 1.f);
 	DCT->ClearRenderTargetView(_rtv.Get(), (float*)&clearColor);
-	DCT->ClearDepthStencilView(_dsv.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
 
 	auto camera = camObj->GetCamera();
 	camera->SetWidth((float)_width);
 	camera->SetHeight((float)_height);
 	camera->UpdateMatrix();
 
-	// v1 은 포워드 렌더 (디퍼드 PBR 패스는 씬뷰 백버퍼 전용 — Game 뷰 디퍼드는 추후)
+	// 씬뷰와 동일한 디퍼드 풀파이프라인 (터레인/그림자/PBR/블룸/FXAA) — 최종 출력만 이 RT 로
+	camera->SetFinalOutput(_rtv);
 	camera->SortGameObject();
-	camera->Render_Forward();
+	camera->Render_Deferred();
+	camera->SetFinalOutput(nullptr);
 
 	GRAPHICS->RestoreMainRenderTarget();
 }

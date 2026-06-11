@@ -160,11 +160,11 @@ void Camera::Render_Forward()
 
 void Camera::Render_Deferred()
 {
-	auto cam   = SCENE->GetCurrentScene()->GetMainCamera()->GetCamera();
 	auto scene = SCENE->GetCurrentScene();
 
-	Matrix V = cam->GetViewMatrix();
-	Matrix P = cam->GetProjectionMatrix();
+	// 자기 자신의 시점으로 렌더 — 메인(에디터) 카메라뿐 아니라 게임 카메라(Game 뷰)도 호출 가능
+	Matrix V = GetViewMatrix();
+	Matrix P = GetProjectionMatrix();
 
 	auto lightArray = CollectLights(scene);
 
@@ -300,8 +300,28 @@ void Camera::Render_Deferred()
 	if (_bloomEnabled)
 		RenderBloom(w, h);
 
-	// ── Pass 4: Tonemap — HDR sceneColor (+Bloom) → 백버퍼 또는 LDR 버퍼 (ACES + 감마) ──
-	// FXAA 켜져 있으면 LDR 중간 버퍼에 톤매핑하고 FXAA 가 백버퍼로 마무리
+	// 최종 출력 바인딩 — 기본은 백버퍼, _finalRTV 지정 시 외부 RT (Game 뷰)
+	auto bindFinalTarget = [&]()
+	{
+		if (_finalRTV)
+		{
+			ID3D11RenderTargetView* rtv = _finalRTV.Get();
+			DCT->OMSetRenderTargets(1, &rtv, nullptr);
+
+			D3D11_VIEWPORT vp{};
+			vp.Width = static_cast<float>(w);
+			vp.Height = static_cast<float>(h);
+			vp.MaxDepth = 1.f;
+			DCT->RSSetViewports(1, &vp);
+		}
+		else
+		{
+			GRAPHICS->RestoreMainRenderTarget();
+		}
+	};
+
+	// ── Pass 4: Tonemap — HDR sceneColor (+Bloom) → 최종 타겟 또는 LDR 버퍼 (ACES + 감마) ──
+	// FXAA 켜져 있으면 LDR 중간 버퍼에 톤매핑하고 FXAA 가 최종 타겟으로 마무리
 	if (_fxaaEnabled)
 	{
 		ID3D11RenderTargetView* ldrRTV = _ldrRTV.Get();
@@ -315,7 +335,7 @@ void Camera::Render_Deferred()
 	}
 	else
 	{
-		GRAPHICS->RestoreMainRenderTarget();
+		bindFinalTarget();
 	}
 
 	if (auto tonemapShader = RESOURCES->Get<HlslShader>(L"Tonemap_HLSL"))
@@ -334,10 +354,10 @@ void Camera::Render_Deferred()
 		tonemapShader->SetPSSRV(1, nullptr);
 	}
 
-	// ── FXAA: LDR 중간 버퍼 → 백버퍼 ──
+	// ── FXAA: LDR 중간 버퍼 → 최종 타겟 ──
 	if (_fxaaEnabled)
 	{
-		GRAPHICS->RestoreMainRenderTarget();
+		bindFinalTarget();
 
 		if (auto fxaaShader = RESOURCES->Get<HlslShader>(L"Fxaa_HLSL"))
 		{

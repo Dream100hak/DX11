@@ -23,6 +23,10 @@ private:
 
 	bool _wasPlaying = false; // 플레이 진입 프레임 감지 (포커스 1회만)
 
+	// 프리뷰 닫기(x) 상태 — 다른 오브젝트 선택 시 해제
+	bool _previewHidden = false;
+	int64 _lastPreviewId = -1;
+
 private:
 	ComPtr<ID3D11Texture2D> _texture;
 	ComPtr<ID3D11RenderTargetView> _rtv;

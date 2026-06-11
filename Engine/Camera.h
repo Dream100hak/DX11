@@ -76,6 +76,9 @@ public:
 	int32 GetDebugViewMode() const { return _debugViewMode; }
 	void  SetDebugViewMode(int32 mode) { _debugViewMode = mode; }
 
+	// Render_Deferred 최종 출력 오버라이드 — nullptr 이면 백버퍼 (Game 뷰가 자기 RT 지정)
+	void SetFinalOutput(ComPtr<ID3D11RenderTargetView> rtv) { _finalRTV = rtv; }
+
 private:
 	ProjectionType _type = ProjectionType::Perspective;
 	Matrix _matView = Matrix::Identity;
@@ -86,6 +89,8 @@ private:
 	float _fov = XM_PI / 4.f;
 	float _width = 0.f;
 	float _height = 0.f;
+
+	ComPtr<ID3D11RenderTargetView> _finalRTV; // Game 뷰 등 외부 최종 타겟 (기본 백버퍼)
 
 
 public:

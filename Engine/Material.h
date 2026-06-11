@@ -42,7 +42,7 @@ private:
 
 	shared_ptr<HlslShader> _hlslShader;
 
-	// 占쏙옙占쏙옙 占쌔쏙옙처
+	// 텍스처 맵 저장소
 	shared_ptr<Texture> _diffuseMap;
 	shared_ptr<Texture> _normalMap;
 	shared_ptr<Texture> _specularMap;
@@ -51,4 +51,3 @@ private:
 
 	RenderQueue _renderQueue = RenderQueue::Opaque;
 };
-

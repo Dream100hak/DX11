@@ -22,7 +22,7 @@ void Material::Load(const wstring& path)
 	shared_ptr<FileUtils> file = make_shared<FileUtils>();
 	file->Open(fullPath, FileMode::Read);
 
-	//Shader ??.mat ???곗씠??臾몄옄?댁? ?щ㎎ ?명솚?⑹쑝濡쒕쭔 ?쎌쓬 (FX11 ?쒓굅, ??긽 Standard_HLSL)
+	// 셰이더 이름 읽기. .mat 파일이 문자열로 저장했던 것이지만 FX11 제거, 이제는 Standard_HLSL만 사용
 	wstring shaderFile = Utils::ToWString(file->Read<string>());
 	if (auto hlslShader = RESOURCES->Get<HlslShader>(L"Standard_HLSL"))
 		SetHlslShader(hlslShader);
@@ -50,7 +50,7 @@ void Material::Load(const wstring& path)
 	_desc.specular = file->Read<Color>();
 	_desc.emissive = file->Read<Color>();
 
-	// PBR ?뺤옣 ?꾨뱶 (援щ쾭??.mat ?먮뒗 ?놁쓬 ??湲곕낯媛??좎?)
+	// PBR 속성 저장 시도 (레거시 .mat 파일은 존재하지 않음 — 기본값 사용)
 	float roughness = 0.f, metallic = 0.f;
 	if (file->TryRead(roughness) && file->TryRead(metallic))
 	{
@@ -79,14 +79,14 @@ void Material::Update()
 		ID3D11ShaderResourceView* ssaoSrv = _ssaoMap.Get();
 		_hlslShader->SetPSSRV(4, ssaoSrv);
 
-		// 占쏙옙占시뤄옙占쏙옙 RenderStateManager占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占싸듸옙
+		// 텍스처 샘플러 RenderStateManager에서 일괄 바인딩
 		RENDER_STATES->BindAllSamplersPS();
 	}
 }
 
 void Material::Refresh()
 {
-	// HlslShader SRV 클占쏙옙占쏙옙
+	// HlslShader SRV 정리
 	if (_hlslShader)
 	{
 		for (UINT i = 0; i < 5; i++)
@@ -105,7 +105,7 @@ std::shared_ptr<Material> Material::Clone()
 	material->_specularMap  = _specularMap;
 	material->_shadowMap    = _shadowMap;
 	material->_ssaoMap      = _ssaoMap;
-	material->_renderQueue  = _renderQueue;   // 占쏙옙 RenderQueue 占쏙옙占쏙옙
+	material->_renderQueue  = _renderQueue;   // 렌더 큐도 복사
 
 	return material;
 }

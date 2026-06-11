@@ -93,7 +93,9 @@ void Hiearchy::ShowHiearchy()
 		if (isSelected && ImGui::IsItemClicked() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
 		{
 			auto camera = SCENE->GetCurrentScene()->GetMainCamera();
-			if (camera)
+
+			// Terrain 처럼 Transform 이 없는 오브젝트는 포커스 이동 불가 (null 역참조 크래시 방지)
+			if (camera && object.second->GetTransform() != nullptr)
 			{
 				Vec3 objPos = object.second->GetTransform()->GetPosition();
 				auto cameraTransform = SCENE->GetCurrentScene()->GetMainCamera()->GetTransform();

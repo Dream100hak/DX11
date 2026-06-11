@@ -25,24 +25,53 @@ void ParticleSystem::OnInspectorGUI()
 	ImGui::TextColored(color, "Texture Map");
 	ImGui::EndGroup();
 
-	ImGui::DragFloat("AGE", (float*)&_age, 1.0f);
+	// EmitPos 는 타입별로 자동 추종 (Fire: Transform 위치 / Rain: 카메라 위치) — 기즈모로 이동
+	if (_type == PT_FIRE)
+		ImGui::TextDisabled("Emit Pos : follows Transform");
+	else
+		ImGui::TextDisabled("Emit Pos : follows Camera");
 
+	ImGui::DragFloat3("Emit Dir", (float*)&_emitDirW, 0.01f);
+	ImGui::DragFloat3("Accel", (float*)&_accelW, 0.1f);
+	ImGui::DragFloat("Emit Interval", &_emitInterval, 0.001f, 0.001f, 0.1f, "%.3f");
+	ImGui::DragFloat("Lifetime", &_lifetime, 0.05f, 0.05f, 30.f);
+	ImGui::DragFloat("Initial Speed", &_initialSpeed, 0.1f, 0.f, 100.f);
+	ImGui::DragFloat2("Size", (float*)&_particleSize, 0.1f, 0.05f, 50.f);
+
+	ImGui::Text("Age : %.2f", _age);
+	ImGui::SameLine();
+	if (ImGui::Button("Reset"))
+		Reset();
 }
 
 void ParticleSystem::Init(int32 type, std::vector<wstring> names , uint32 maxParticles)
 {
 	_type = type;
 
-	// ??낅퀎 HLSL ?곗씠??(SO ?⑥뒪 + Draw ?⑥뒪)
+	// 타입별 HLSL 셰이더 (SO 패스 + Draw 패스)
 	if (_type == PT_FIRE)
 	{
 		_soShader   = RESOURCES->Get<HlslShader>(L"FireSO_HLSL");
 		_drawShader = RESOURCES->Get<HlslShader>(L"FireDraw_HLSL");
+
+		// 기존 HLSL static const 와 동일한 기본값
+		_accelW = Vec3(0.f, 7.8f, 0.f);
+		_emitInterval = 0.005f;
+		_lifetime = 1.f;
+		_initialSpeed = 4.f;
+		_particleSize = Vec2(5.f, 5.f);
 	}
-	else // PT_RAIN (湲곕낯)
+	else // PT_RAIN (기본)
 	{
 		_soShader   = RESOURCES->Get<HlslShader>(L"RainSO_HLSL");
 		_drawShader = RESOURCES->Get<HlslShader>(L"RainDraw_HLSL");
+
+		// 기존 HLSL static const 와 동일한 기본값 (InitialSpeed = 분산 반경 35)
+		_accelW = Vec3(-1.f, -9.8f, 0.f);
+		_emitInterval = 0.002f;
+		_lifetime = 3.f;
+		_initialSpeed = 35.f;
+		_particleSize = Vec2(1.f, 1.f);
 	}
 
 	_particleCB = make_shared<ConstantBuffer<ParticleBuffer>>();
@@ -73,12 +102,12 @@ void ParticleSystem::Update()
 	_timeStep = DT;
 	_age += TIME->GetDeltaTime();
 
-	// ?쒕줈?곕뒗 Camera Pass 3 (Transparent ?? ?먯꽌 Draw(ctx) 濡??섑뻾
+	// 실제 드로우는 Camera Pass 3 (Transparent 큐) 에서 Draw(ctx) 로 수행
 }
 
 void ParticleSystem::Draw(const RenderContext& ctx)
 {
-	// ?뚰떚?댁? 硫붿씤 而щ윭 ?⑥뒪 ?꾩슜 ??GBuffer/洹몃┝??SSAO ?⑥뒪?먯꽑 洹몃━吏 ?딆쓬
+	// 파티클은 메인 컬러 패스 전용 — GBuffer/그림자/SSAO 패스에선 그리지 않음
 	if (ctx.deferredPass || ctx.shadowPass || ctx.ssaoPass)
 		return;
 
@@ -90,7 +119,7 @@ void ParticleSystem::Draw(const RenderContext& ctx)
 
 	if (_type == PT_RAIN)
 	{
-		// 鍮꾨뒗 移대찓??二쇰????대???怨좎젙
+		// 비는 카메라 주변에 이미터 고정
 		SetEmitPos(CUR_SCENE->GetMainCamera()->GetOrAddTransform()->GetPosition());
 	}
 	else if (_type == PT_FIRE)
@@ -99,12 +128,17 @@ void ParticleSystem::Draw(const RenderContext& ctx)
 		SetEmitPos(worldPos);
 	}
 
-	// ParticleBuffer (b8) ??SO GS(?앹꽦/?뚮㈇) + Draw ?⑥뒪 怨듭슜
+	// ParticleBuffer (b8) — SO GS(생성/소멸) + Draw 패스 공용
 	ParticleBuffer desc;
 	desc.EmitPosW = _emitPosW;
 	desc.GameTime = _age;
 	desc.EmitDirW = _emitDirW;
 	desc.TimeStep = _timeStep;
+	desc.AccelW = _accelW;
+	desc.EmitInterval = _emitInterval;
+	desc.Lifetime = _lifetime;
+	desc.InitialSpeed = _initialSpeed;
+	desc.ParticleSize = _particleSize;
 	_particleCB->CopyData(desc);
 	auto cb = _particleCB->GetComPtr().Get();
 
@@ -113,13 +147,13 @@ void ParticleSystem::Draw(const RenderContext& ctx)
 
 	DCT->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
 
-	// ?? Pass 1: Stream-Out (?낆옄 ?앹꽦/?뚮㈇, ?섏뒪?곕씪?댁쫰 ?놁쓬) ??
+	// == Pass 1: Stream-Out (입자 생성/소멸, 래스터라이즈 없음) ==
 	_soShader->Bind();
 	_soShader->SetGSConstantBuffer(8, cb);
 	_soShader->SetGSSRV(1, _randomTex->GetComPtr().Get()); // RandomTex (t1)
 	RENDER_STATES->BindAllSamplersGS();                    // LinearSampler (s0)
 
-	// 泥??꾨젅?꾩? ?대???1媛쒖쭨由?珥덇린??VB, ?댄썑???꾩옱 ?낆옄 由ъ뒪??VB
+	// 첫 프레임은 이미터 1개짜리 초기화 VB, 이후엔 현재 입자 리스트 VB
 	if (_firstRun)
 		DCT->IASetVertexBuffers(0, 1, _initVB.GetAddressOf(), &stride, &offset);
 	else
@@ -129,7 +163,7 @@ void ParticleSystem::Draw(const RenderContext& ctx)
 
 	if (_firstRun)
 	{
-		// 二쇱쓽: HlslShader::Draw ???좏뤃濡쒖?瑜?TRIANGLELIST 濡?媛뺤젣?섎?濡?吏곸젒 ?몄텧 (POINTLIST ?좎?)
+		// 주의: HlslShader::Draw 는 토폴로지를 TRIANGLELIST 로 강제하므로 직접 호출 (POINTLIST 유지)
 		DCT->Draw(1, 0);
 		_firstRun = false;
 	}
@@ -138,16 +172,16 @@ void ParticleSystem::Draw(const RenderContext& ctx)
 		_soShader->DrawAuto();
 	}
 
-	// SO ?源??댁젣
+	// SO 타깃 해제
 	ID3D11Buffer* bufferArray[1] = { 0 };
 	DCT->SOSetTargets(1, bufferArray, &offset);
 
-	// ?묓릟
+	// 핑퐁
 	std::swap(_drawVB, _streamOutVB);
 
-	// ?? Pass 2: Draw (諛⑷툑 ?ㅽ듃由쇱븘?껎븳 ?낆옄 ?뚮뜑) ??
+	// == Pass 2: Draw (방금 스트림아웃한 입자 렌더) ==
 	_drawShader->Bind();
-	_drawShader->PushGlobalData(V, P); // b0: VP + VInv(移대찓???꾩튂) ??GS ?먯꽌 ?ъ슜
+	_drawShader->PushGlobalData(V, P); // b0: VP + VInv(카메라 위치) 를 GS 에서 사용
 	_drawShader->SetGSConstantBuffer(8, cb);
 	_drawShader->SetPSSRV(0, _texArray->GetComPtr().Get()); // TexArray (t0)
 	RENDER_STATES->BindAllSamplersPS();
@@ -155,7 +189,7 @@ void ParticleSystem::Draw(const RenderContext& ctx)
 	DCT->IASetVertexBuffers(0, 1, _drawVB.GetAddressOf(), &stride, &offset);
 	_drawShader->DrawAuto();
 
-	// GS 媛 ?댄썑 ?쒕줈?곗뿉 ?꾩닔?섏? ?딅룄濡??댁젣 + 釉붾젋???곸뒪 ?곹깭 蹂듭썝
+	// GS 가 이후 드로우에 전수되지 않도록 해제 + 블렌드/뎁스 상태 복원
 	DCT->GSSetShader(nullptr, nullptr, 0);
 	DCT->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
 	DCT->OMSetDepthStencilState(nullptr, 0);
@@ -204,5 +238,3 @@ void ParticleSystem::CreateBuffer()
 
 
 }
-
-

@@ -16,10 +16,12 @@ cbuffer ParticleBuffer : register(b8)
     float  GameTime;
     float3 EmitDirW;
     float  TimeStep;
+    float3 AccelW;        // 가속도 (기존 static const gAccelW)
+    float  EmitInterval;  // 방출 주기 (초)
+    float  Lifetime;      // 입자 수명 (초)
+    float  InitialSpeed;  // 분산 반경 (카메라 주변 스폰 범위)
+    float2 ParticleSize;  // 빗방울 크기
 };
-
-// 고정 상수 (FX cbFixed 대체)
-static const float3 gAccelW = { -1.0f, -9.8f, 0.0f };
 
 Texture2DArray TexArray  : register(t0);
 Texture1D      RandomTex : register(t1);
@@ -55,18 +57,18 @@ void GS_StreamOut(point VertexParticle gin[1],
 
     if (gin[0].Type == PT_EMITTER)
     {
-        if (gin[0].Age > 0.002f)
+        if (gin[0].Age > EmitInterval)
         {
             for (int i = 0; i < 5; ++i)
             {
                 // 카메라 위쪽 영역에 빗방울 분산
-                float3 vRandom = 35.0f * RandVec3((float)i / 5.0f);
+                float3 vRandom = InitialSpeed * RandVec3((float)i / 5.0f);
                 vRandom.y = 20.0f;
 
                 VertexParticle p;
                 p.InitialPosW = EmitPosW.xyz + vRandom;
                 p.InitialVelW = float3(0.0f, 0.0f, 0.0f);
-                p.SizeW = float2(1.0f, 1.0f);
+                p.SizeW = ParticleSize;
                 p.Age = 0.0f;
                 p.Type = PT_RAIN;
 
@@ -80,7 +82,7 @@ void GS_StreamOut(point VertexParticle gin[1],
     }
     else
     {
-        if (gin[0].Age <= 3.0f)
+        if (gin[0].Age <= Lifetime)
             ptStream.Append(gin[0]);
     }
 }
@@ -99,7 +101,7 @@ VertexOut VS_Draw(VertexParticle vin)
     VertexOut vout;
 
     float t = vin.Age;
-    vout.PosW = 0.5f * t * t * gAccelW + t * vin.InitialVelW + vin.InitialPosW;
+    vout.PosW = 0.5f * t * t * AccelW + t * vin.InitialVelW + vin.InitialPosW;
     vout.Type = vin.Type;
 
     return vout;
@@ -119,7 +121,7 @@ void GS_Draw(point VertexOut gin[1],
     {
         // 가속 방향으로 기울어진 라인
         float3 p0 = gin[0].PosW;
-        float3 p1 = gin[0].PosW + 0.07f * gAccelW;
+        float3 p1 = gin[0].PosW + 0.07f * AccelW;
 
         GeoOut v0;
         v0.PosH = mul(float4(p0, 1.0f), VP);

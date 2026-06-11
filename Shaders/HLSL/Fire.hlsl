@@ -17,10 +17,14 @@ cbuffer ParticleBuffer : register(b8)
     float  GameTime;
     float3 EmitDirW;
     float  TimeStep;
+    float3 AccelW;        // 가속도 (기존 static const gAccelW)
+    float  EmitInterval;  // 방출 주기 (초)
+    float  Lifetime;      // 입자 수명 (초)
+    float  InitialSpeed;  // 초기 속도 배율
+    float2 ParticleSize;  // 빌보드 크기
 };
 
 // 고정 상수 (FX cbFixed 대체)
-static const float3 gAccelW = { 0.0f, 7.8f, 0.0f };
 static const float2 gQuadTexC[4] =
 {
     float2(0.0f, 1.0f),
@@ -65,7 +69,7 @@ void GS_StreamOut(point VertexParticle gin[1],
     if (gin[0].Type == PT_EMITTER)
     {
         // 방출 주기 도달?
-        if (gin[0].Age > 0.005f)
+        if (gin[0].Age > EmitInterval)
         {
             float3 vRandom = RandUnitVec3(0.0f);
             vRandom.x *= 0.5f;
@@ -73,8 +77,8 @@ void GS_StreamOut(point VertexParticle gin[1],
 
             VertexParticle p;
             p.InitialPosW = EmitPosW.xyz;
-            p.InitialVelW = 4.0f * vRandom;
-            p.SizeW = float2(5.0f, 5.0f);
+            p.InitialVelW = InitialSpeed * vRandom;
+            p.SizeW = ParticleSize;
             p.Age = 0.0f;
             p.Type = PT_FLARE;
 
@@ -89,7 +93,7 @@ void GS_StreamOut(point VertexParticle gin[1],
     else
     {
         // 수명 내 입자만 유지
-        if (gin[0].Age <= 1.0f)
+        if (gin[0].Age <= Lifetime)
             ptStream.Append(gin[0]);
     }
 }
@@ -112,10 +116,10 @@ VertexOut VS_Draw(VertexParticle vin)
     float t = vin.Age;
 
     // 등가속도 운동
-    vout.PosW = 0.5f * t * t * gAccelW + t * vin.InitialVelW + vin.InitialPosW;
+    vout.PosW = 0.5f * t * t * AccelW + t * vin.InitialVelW + vin.InitialPosW;
 
-    // 시간에 따라 페이드
-    float opacity = 1.0f - smoothstep(0.0f, 1.0f, t / 1.0f);
+    // 시간에 따라 페이드 (수명 기준)
+    float opacity = 1.0f - smoothstep(0.0f, 1.0f, t / Lifetime);
     vout.Color = float4(1.0f, 1.0f, 1.0f, opacity);
 
     vout.SizeW = vin.SizeW;

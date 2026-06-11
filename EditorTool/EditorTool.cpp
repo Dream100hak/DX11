@@ -156,6 +156,7 @@ void EditorTool::Init()
 	}
 
 	// IBL 프리컴퓨트 — 데저트 환경맵에서 irradiance/prefiltered/BRDF LUT 베이크 (1회)
+	// (환경맵 교체는 SkyBox 선택 -> 인스펙터 Environment Map 콤보에서 — 스카이+IBL 동시 갱신)
 	Ibl::Init(L"../Resources/Assets/Textures/desertcube1024.dds");
 
 	{

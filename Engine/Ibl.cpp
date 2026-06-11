@@ -81,12 +81,14 @@ namespace
 
 void Ibl::Init(const wstring& envCubePath)
 {
-	// 환경 큐브맵 로드 (DDS cube)
+	// 환경 큐브맵 로드 (DDS cube) — 런타임 환경맵 교체(리베이크) 재진입 허용
 	DirectX::ScratchImage image;
 	HRESULT hr = DirectX::LoadFromDDSFile(envCubePath.c_str(), DirectX::DDS_FLAGS_NONE, nullptr, image);
 	if (FAILED(hr))
-		return; // 환경맵 없으면 IBL 비활성 (UseIbl=0 폴백)
+		return; // 환경맵 없으면 기존 상태 유지 (최초 실패 시 UseIbl=0 폴백)
 
+	_ready = false;
+	_envSRV.Reset();
 	CHECK(DirectX::CreateShaderResourceView(DEVICE.Get(), image.GetImages(), image.GetImageCount(),
 		image.GetMetadata(), _envSRV.GetAddressOf()));
 

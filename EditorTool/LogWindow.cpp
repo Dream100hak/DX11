@@ -3,8 +3,9 @@
 #include "Utils.h"
 #include <chrono>
 
-LogWindow::LogWindow()
+LogWindow::LogWindow(Vec2 pos, Vec2 size)
 {
+	SetWinPosAndSize(pos, size);
 	_autoScroll = true;
 	Clear();
 }
@@ -57,8 +58,8 @@ void LogWindow::AddLog(string msg, LogFilter filter)
 
 void LogWindow::Draw(const char* title, bool* p_open /*= NULL*/)
 {
-	ImGui::SetNextWindowPos(ImVec2(0, 551));
-	ImGui::SetNextWindowSize(ImVec2(800, 500));
+	ImGui::SetNextWindowPos(GetEWinPos());
+	ImGui::SetNextWindowSize(GetEWinSize());
 
 	if (!ImGui::Begin(title, p_open))
 	{
@@ -133,7 +134,9 @@ void LogWindow::Draw(const char* title, bool* p_open /*= NULL*/)
 			else if (logMsg.type & LogFilter::Error)
 				color = ImVec4(1.f, 0.f, 0.f, 1.f);
 
-			string colorStr = "[" + GUI->EnumToString(logMsg.type) + "]";
+			// LogFilter 는 EnumToString 분기에 없어 "(unnamed)" 로 찍히던 것 — 직접 라벨링
+			string colorStr = (logMsg.type & LogFilter::Error) ? "[Error]"
+				: (logMsg.type & LogFilter::Warn) ? "[Warn]" : "[Info]";
 
 
 			ImGui::TextColored(color, colorStr.c_str());
@@ -172,6 +175,6 @@ void LogWindow::Draw(const char* title, bool* p_open /*= NULL*/)
 
 void LogWindow::ShowLog()
 {
-	Draw("Log", &_logOpen);
-
+	// p_open 을 넘기면 닫기(X) 버튼이 생기지만 매 프레임 다시 그려져 실제로 닫히지 않음 — 죽은 UI 라 제거
+	Draw("Log", NULL);
 }

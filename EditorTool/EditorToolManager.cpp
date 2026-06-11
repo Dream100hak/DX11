@@ -20,13 +20,24 @@ void EditorToolManager::Init()
 	Vec2 scenePos(GAME->GetSceneDesc().x, GAME->GetSceneDesc().y);
 	Vec2 sceneSize(GAME->GetSceneDesc().width, GAME->GetSceneDesc().height);
 
+	// ── 레이아웃 (갭 없이 전체 화면 분할) ──
+	// 상단행: Scene(렌더 파이프라인 결합으로 고정) | Hiearchy | Log | Inspector(우측 전체 높이)
+	// 하단행: Project(폴더 트리) | FolderContents(와이드 에셋 브라우저)
+	const float W = GAME->GetGameDesc().width;     // 1920
+	const float H = GAME->GetGameDesc().height;    // 1080
+	const float menuH = scenePos.y;                // 21 (메인 메뉴바)
+	const float colW = 373.f;                      // Hiearchy/Log/Project 열 폭
+	const float inspW = W - sceneSize.x - colW * 2;// Inspector 폭 (잔여 = 374)
+	const float botY = menuH + sceneSize.y;        // 551 (하단행 시작)
+	const float botH = H - botY;                   // 529
+
 	auto sceneWnd = make_shared<SceneWindow>(scenePos , sceneSize);
 	auto menuBar = make_shared<MainMenuBar>();
-	auto hiearchy = make_shared<Hiearchy>(Vec2(800,51) , Vec2(373,500) );
-	auto inspector = make_shared<Inspector>(Vec2(1546, 51), Vec2(373, 1010) );
-	auto project = make_shared<Project>(Vec2(800, 551), Vec2(373, 500) );
-	auto folderContents = make_shared<FolderContents>(Vec2(1173, 551), Vec2(373, 500) );
-	auto log = make_shared<LogWindow>();
+	auto hiearchy = make_shared<Hiearchy>(Vec2(sceneSize.x, menuH), Vec2(colW, sceneSize.y));
+	auto log = make_shared<LogWindow>(Vec2(sceneSize.x + colW, menuH), Vec2(colW, sceneSize.y));
+	auto inspector = make_shared<Inspector>(Vec2(W - inspW, menuH), Vec2(inspW, H - menuH));
+	auto project = make_shared<Project>(Vec2(0, botY), Vec2(colW, botH));
+	auto folderContents = make_shared<FolderContents>(Vec2(colW, botY), Vec2(W - inspW - colW, botH));
 
 	_editorWindows.insert({ Utils::GetPtrName(sceneWnd) , sceneWnd });
 	_editorWindows.insert({ Utils::GetPtrName(menuBar) , menuBar});

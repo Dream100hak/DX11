@@ -23,7 +23,7 @@ struct LogMessage
 class LogWindow : public EditorWindow
 {
 public:
-	LogWindow();
+	LogWindow(Vec2 pos, Vec2 size);
 	~LogWindow();
 
 	virtual void Init() override;

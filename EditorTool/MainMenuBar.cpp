@@ -126,67 +126,32 @@ void MainMenuBar::MenuFileList()
 	if (ImGui::MenuItem("Convert FBX...")) { ConvertFbx(); }
 
 	ImGui::Separator();
-	if (ImGui::BeginMenu("Options"))
-	{
-		static bool enabled = true;
-		ImGui::MenuItem("Enabled", "", &enabled);
-		ImGui::BeginChild("child", ImVec2(0, 60), true);
-		for (int i = 0; i < 10; i++)
-			ImGui::Text("Scrolling Text %d", i);
-		ImGui::EndChild();
-		static float f = 0.5f;
-		static int n = 0;
-		ImGui::SliderFloat("Value", &f, 0.0f, 1.0f);
-		ImGui::InputFloat("Input", &f, 0.1f);
-		ImGui::Combo("Combo", &n, "Yes\0No\0Maybe\0\0");
-		ImGui::EndMenu();
-	}
-
-	if (ImGui::BeginMenu("Colors"))
-	{
-		float sz = ImGui::GetTextLineHeight();
-		for (int i = 0; i < ImGuiCol_COUNT; i++)
-		{
-			const char* name = ImGui::GetStyleColorName((ImGuiCol)i);
-			ImVec2 p = ImGui::GetCursorScreenPos();
-			ImGui::GetWindowDrawList()->AddRectFilled(p, ImVec2(p.x + sz, p.y + sz), ImGui::GetColorU32((ImGuiCol)i));
-			ImGui::Dummy(ImVec2(sz, sz));
-			ImGui::SameLine();
-			ImGui::MenuItem(name);
-		}
-		ImGui::EndMenu();
-	}
-
-	if (ImGui::BeginMenu("Options")) // <-- Append!
-	{
-		static bool b = true;
-		ImGui::Checkbox("SomeOption", &b);
-		ImGui::EndMenu();
-	}
-
-	if (ImGui::BeginMenu("Disabled", false)) // Disabled
-	{
-		IM_ASSERT(0);
-	}
-	if (ImGui::MenuItem("Checked", NULL, true)) {}
-	ImGui::Separator();
-	if (ImGui::MenuItem("Quit", "Alt+F4")) {}
+	if (ImGui::MenuItem("Quit", "Alt+F4"))
+		::PostMessage(GAME->GetGameDesc().hWnd, WM_CLOSE, 0, 0);
 }
 
 void MainMenuBar::AppPlayMenu()
 {
-	ImGui::SetNextWindowPos(ImVec2(800, 21));
-	ImGui::SetNextWindowSize(ImVec2(1920 - 800, 30));
-	ImGui::Begin("PlayMenu", NULL, ImGuiCol_FrameBg);
+	// 씬뷰 상단 중앙 플로팅 오버레이 (PassViewer 와 같은 방식) — 플레이 모드 구현 전까지 자리만
+	const SceneDesc& scene = GAME->GetSceneDesc();
+	const ImGuiStyle& style = ImGui::GetStyle();
 
-	ImGui::SetCursorPos(ImVec2((1920 - 800) * 0.5f, ImGui::GetCursorPosY()));
-	if (ImGui::Button("Play", ImVec2(50, 0)))
+	const float btnW = 50.f;
+	const float barW = btnW * 2 + style.ItemSpacing.x + style.WindowPadding.x * 2;
+
+	ImGui::SetNextWindowPos(ImVec2(scene.x + (scene.width - barW) * 0.5f, scene.y + 8.f));
+	ImGui::SetNextWindowBgAlpha(0.6f);
+	ImGui::Begin("PlayMenu", NULL,
+		ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+		ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
+
+	if (ImGui::Button("Play", ImVec2(btnW, 0)))
 	{
 
 	}
 
 	ImGui::SameLine();
-	if (ImGui::Button("Stop", ImVec2(50, 0)))
+	if (ImGui::Button("Stop", ImVec2(btnW, 0)))
 	{
 
 	}

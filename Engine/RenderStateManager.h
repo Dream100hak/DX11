@@ -2,40 +2,40 @@
 
 // -----------------------------------------------------------
 // RenderStateManager
-//  - 렌더링에 필요한 BlendState / RasterizerState / DepthStencilState / SamplerState
-//    // 를 미리 생성해두고 이름(enum)으로 조회
-//  - Global.fx 에 있던 설정들을 C++ 로 이관
+//  - ?뚮뜑留곸뿉 ?꾩슂??BlendState / RasterizerState / DepthStencilState / SamplerState
+//    // 瑜?誘몃━ ?앹꽦?대몢怨??대쫫(enum)?쇰줈 議고쉶
+//  - Global.fx ???덈뜕 ?ㅼ젙?ㅼ쓣 C++ 濡??닿?
 // -----------------------------------------------------------
 
 enum class BlendStateType : uint8
 {
-	Default = 0,     // 알파블렌드 비활성
+	Default = 0,     // ?뚰뙆釉붾젋??鍮꾪솢??
 	AlphaBlend,  // SrcAlpha / InvSrcAlpha
 	Additive,    // One / One
-	AlphaToCoverage, // MSAA 용 알파클리핑
-	AdditiveSrcAlpha, // SrcAlpha / One (파티클 페이드 — FX Fire AdditiveBlending 대체)
+	AlphaToCoverage, // MSAA ???뚰뙆?대━??
+	AdditiveSrcAlpha, // SrcAlpha / One (?뚰떚???섏씠????FX Fire AdditiveBlending ?泥?
 	End
 };
 
 enum class RasterizerStateType : uint8
 {
-	SolidCullBack = 0, // 기본
-	SolidCullNone,     // 양면
-	SolidCullFront,    // 아웃라인 2패스
-	Wireframe,         // 와이어프레임
-	FrontCounterCW,    // 스카이박스 용
-	ShadowDepth,       // 그림자 맵 depth-only (DepthBias 적용, shadow acne 방지)
+	SolidCullBack = 0, // 湲곕낯
+	SolidCullNone,     // ?묐㈃
+	SolidCullFront,    // ?꾩썐?쇱씤 2?⑥뒪
+	Wireframe,         // ??댁뼱?꾨젅??
+	FrontCounterCW,    // ?ㅼ뭅?대컯????
+	ShadowDepth,       // 洹몃┝??留?depth-only (DepthBias ?곸슜, shadow acne 諛⑹?)
 	End
 };
 
 enum class DepthStencilStateType : uint8
 {
-	Default = 0,      // Depth R/W 활성
-	NoDepthWrite,     // Depth Read Only (불투명 오브젝트)
-	DisableDepth,     // 깊이 비활성 (포스트프로세스 풀스크린 패스)
-	OutlineMark,      // 스텐실 쓰기 (아웃라인 1패스)
-	OutlineDraw,      // 스텐실 읽기 (아웃라인 2패스)
-	SkyBoxDepth,      // 깊이 읽기 전용 + LESS_EQUAL (스카이박스 전용)
+	Default = 0,      // Depth R/W ?쒖꽦
+	NoDepthWrite,     // Depth Read Only (遺덊닾紐??ㅻ툕?앺듃)
+	DisableDepth,     // 源딆씠 鍮꾪솢??(?ъ뒪?명봽濡쒖꽭????ㅽ겕由??⑥뒪)
+	OutlineMark,      // ?ㅽ뀗???곌린 (?꾩썐?쇱씤 1?⑥뒪)
+	OutlineDraw,      // ?ㅽ뀗???쎄린 (?꾩썐?쇱씤 2?⑥뒪)
+	SkyBoxDepth,      // 源딆씠 ?쎄린 ?꾩슜 + LESS_EQUAL (?ㅼ뭅?대컯???꾩슜)
 	End
 };
 
@@ -44,8 +44,8 @@ enum class SamplerStateType : uint8
 	Linear = 0,       // MIN_MAG_MIP_LINEAR WRAP
 	Point,   // MIN_MAG_MIP_POINT  WRAP
 	Anisotropic, // Anisotropic x16
-	Shadow,      // ComparisonMinMagLinearMipPoint BORDER (PCF 필터링)
-	Heightmap,        // MIN_MAG_LINEAR_MIP_POINT CLAMP (지형 높이맵)
+	Shadow,      // ComparisonMinMagLinearMipPoint BORDER (PCF ?꾪꽣留?
+	Heightmap,        // MIN_MAG_LINEAR_MIP_POINT CLAMP (吏???믪씠留?
 	End
 };
 

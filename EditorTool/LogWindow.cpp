@@ -141,7 +141,7 @@ void LogWindow::Draw(const char* title, bool* p_open /*= NULL*/)
 			ImGui::Text(logMsg.time.c_str());
 			ImGui::SameLine();
 			ImGui::Text(logMsg.msg.c_str());
-			ImGui::SameLine(ImGui::GetWindowWidth() - ImGui::CalcTextSize("¿À¸¥ÂÊ¿¡ ±ÛÀÚ").x - ImGui::GetStyle().ItemSpacing.x);
+			ImGui::SameLine(ImGui::GetWindowWidth() - ImGui::CalcTextSize("ì˜¤ë¥¸ìª½ì— ê¸€ì").x - ImGui::GetStyle().ItemSpacing.x);
 
 			std::string countStr = to_string(logMsg.count);
 			int countLength = static_cast<int>(countStr.length());

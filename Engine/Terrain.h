@@ -56,9 +56,9 @@ public:
 	shared_ptr<Texture> GetLayerMap() { return _layerMapArray; }
 
 	void TerrainRenderer(Matrix V, Matrix P);
-	void TerrainRendererGBuffer(Matrix V, Matrix P);     // 디퍼드 GBuffer fill (Camera::Render_Deferred Pass 1)
+	void TerrainRendererGBuffer(Matrix V, Matrix P);     // ?뷀띁??GBuffer fill (Camera::Render_Deferred Pass 1)
 	void TerrainRendererNotPS(Matrix V, Matrix P);
-	void TerrainRendererNormalDepth(Matrix V, Matrix P); // SSAO 입력 (view-space normal+depth)
+	void TerrainRendererNormalDepth(Matrix V, Matrix P); // SSAO ?낅젰 (view-space normal+depth)
 
 private:
 

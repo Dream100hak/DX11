@@ -4,7 +4,7 @@
 
 namespace
 {
-	// (mip 별) 큐브 RT 생성 헬퍼 — face/mip 단위 RTV + 큐브 SRV
+	// (mip 蹂? ?먮툕 RT ?앹꽦 ?ы띁 ??face/mip ?⑥쐞 RTV + ?먮툕 SRV
 	struct CubeRT
 	{
 		ComPtr<ID3D11Texture2D> tex;
@@ -81,11 +81,11 @@ namespace
 
 void Ibl::Init(const wstring& envCubePath)
 {
-	// 환경 큐브맵 로드 (DDS cube) — 런타임 환경맵 교체(리베이크) 재진입 허용
+	// ?섍꼍 ?먮툕留?濡쒕뱶 (DDS cube) ???고????섍꼍留?援먯껜(由щ쿋?댄겕) ?ъ쭊???덉슜
 	DirectX::ScratchImage image;
 	HRESULT hr = DirectX::LoadFromDDSFile(envCubePath.c_str(), DirectX::DDS_FLAGS_NONE, nullptr, image);
 	if (FAILED(hr))
-		return; // 환경맵 없으면 기존 상태 유지 (최초 실패 시 UseIbl=0 폴백)
+		return; // ?섍꼍留??놁쑝硫?湲곗〈 ?곹깭 ?좎? (理쒖큹 ?ㅽ뙣 ??UseIbl=0 ?대갚)
 
 	_ready = false;
 	_envSRV.Reset();

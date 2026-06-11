@@ -66,7 +66,7 @@ void Ssao::OnSize(int32 width, int32 height, float fovy, float farZ)
 
 void Ssao::SetShader()
 {
-	// SSAO / Blur — HLSL (FX 00. Ssao.fx / 00. SsaoBlur.fx 대체)
+	// SSAO / Blur ??HLSL (FX 00. Ssao.fx / 00. SsaoBlur.fx ?泥?
 	_ssaoShader     = RESOURCES->Get<HlslShader>(L"Ssao_HLSL");
 	_ssaoBlurShader = RESOURCES->Get<HlslShader>(L"SsaoBlur_HLSL");
 
@@ -81,13 +81,13 @@ void Ssao::SetShader()
 
 void Ssao::CreateSamplers()
 {
-	// FX 셰이더 안에 정의돼 있던 샘플러들을 C++ 에서 생성
+	// FX ?곗씠???덉뿉 ?뺤쓽???덈뜕 ?섑뵆?щ뱾??C++ ?먯꽌 ?앹꽦
 	D3D11_SAMPLER_DESC desc{};
 	desc.Filter = D3D11_FILTER_MIN_MAG_LINEAR_MIP_POINT;
 	desc.ComparisonFunc = D3D11_COMPARISON_NEVER;
 	desc.MaxLOD = D3D11_FLOAT32_MAX;
 
-	// BORDER(0,0,0,1e5): 맵 밖 샘플은 매우 먼 깊이로 처리해 false occlusion 방지
+	// BORDER(0,0,0,1e5): 留?諛??섑뵆? 留ㅼ슦 癒?源딆씠濡?泥섎━??false occlusion 諛⑹?
 	desc.AddressU = D3D11_TEXTURE_ADDRESS_BORDER;
 	desc.AddressV = D3D11_TEXTURE_ADDRESS_BORDER;
 	desc.AddressW = D3D11_TEXTURE_ADDRESS_BORDER;
@@ -314,7 +314,7 @@ void Ssao::ComputeSsao(Matrix& P)
 	_indexBuffer->PushData();
 	shader->DrawIndexed(6, 0, 0);
 
-	shader->SetPSSRV(0, nullptr); // normal-depth 는 다음 패스에서 RT 로 쓰일 수 있어 해제
+	shader->SetPSSRV(0, nullptr); // normal-depth ???ㅼ쓬 ?⑥뒪?먯꽌 RT 濡??곗씪 ???덉뼱 ?댁젣
 }
 
 
@@ -363,7 +363,7 @@ void Ssao::BlurAmbientMap(ComPtr<ID3D11ShaderResourceView> inputSRV, ComPtr<ID3D
 
 	shader->DrawIndexed(6, 0, 0);
 
-	// 핑퐁: 이번 입력 SRV 가 다음 패스의 RT 가 되므로 반드시 해제
+	// ?묓릟: ?대쾲 ?낅젰 SRV 媛 ?ㅼ쓬 ?⑥뒪??RT 媛 ?섎?濡?諛섎뱶???댁젣
 	shader->SetPSSRV(1, nullptr);
 }
 
@@ -402,7 +402,7 @@ void Ssao::Draw()
 	//Draw To Normal Depth
 	SetNormalDepthRenderTarget(GRAPHICS->GetDsv());
 
-	// RenderContext 설정 및 호출 (HLSL SsaoNormalDepth*_HLSL: view-space normal+depth)
+	// RenderContext ?ㅼ젙 諛??몄텧 (HLSL SsaoNormalDepth*_HLSL: view-space normal+depth)
 	RenderContext ctx;
 	ctx.tech = 0;
 	ctx.view = V;
@@ -415,7 +415,7 @@ void Ssao::Draw()
 
 	INSTANCING->Render(ctx, vecForward);
 
-	// 터레인은 view-space normal+depth 를 기록 (PS 없는 depth-only 패스였던 갭 해소)
+	// ?곕젅?몄? view-space normal+depth 瑜?湲곕줉 (PS ?녿뒗 depth-only ?⑥뒪???媛??댁냼)
 	if (terrain)
 		terrain->TerrainRendererNormalDepth(V , P);
 

@@ -1,6 +1,6 @@
 #pragma once
 #include "Component.h"
-#include "MonoBehaviour.h" // GetComponent 템플릿의 dynamic_pointer_cast 가 완전 타입 요구
+#include "MonoBehaviour.h" // GetComponent ?쒗뵆由우쓽 dynamic_pointer_cast 媛 ?꾩쟾 ????붽뎄
 class Transform;
 class Camera;
 class Renderer;
@@ -134,7 +134,7 @@ private:
 	bool _pickable = true;
 	bool _picked = false;
 
-	bool _isOutlined = true; // �ƿ����� ���� ����
+	bool _isOutlined = true; // 占싣울옙占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙
 
 };
 

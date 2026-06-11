@@ -17,5 +17,5 @@ void SceneManager::Update()
 	_currentScene->Update();
 	_currentScene->LateUpdate();
 
-	_currentScene->Render();   // Camera::Render_Forward() ¡æ HLSL ¿ÀºêÁ§Æ® ¸ŞÀÎ ¹é¹öÆÛ¿¡ ·»´õ
+	_currentScene->Render();   // Camera::Render_Forward() â†’ HLSL ì˜¤ë¸Œì íŠ¸ ë©”ì¸ ë°±ë²„í¼ì— ë Œë”
 }

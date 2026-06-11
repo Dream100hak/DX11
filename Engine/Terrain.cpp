@@ -98,8 +98,8 @@ void Terrain::Init(const TerrainInfo& initInfo , shared_ptr<Material> mat)
 
 void Terrain::Update()
 {
-	// 드로우는 Camera::Render_Deferred Pass 1 에서 TerrainRendererGBuffer 로 수행
-	// (예전엔 여기서 포워드로 백버퍼에 직접 그렸음 — 디퍼드 라이팅/PBR/SSAO 일괄 적용 위해 GBuffer 로 편입)
+	// ?쒕줈?곕뒗 Camera::Render_Deferred Pass 1 ?먯꽌 TerrainRendererGBuffer 濡??섑뻾
+	// (?덉쟾???ш린???ъ썙?쒕줈 諛깅쾭?쇱뿉 吏곸젒 洹몃졇?????뷀띁???쇱씠??PBR/SSAO ?쇨큵 ?곸슜 ?꾪빐 GBuffer 濡??몄엯)
 }
 
 void Terrain::TerrainRenderer(Matrix V, Matrix P)
@@ -176,8 +176,8 @@ void Terrain::TerrainRenderer(Matrix V, Matrix P)
 	shader->Unbind();
 }
 
-// 디퍼드 GBuffer fill — Camera::Render_Deferred Pass 1 (GBuffer MRT 바인딩 상태) 에서 호출
-// 라이팅/그림자/SSAO 는 디퍼드 라이팅 패스가 일괄 처리하므로 albedo/normal/position 만 기록
+// ?뷀띁??GBuffer fill ??Camera::Render_Deferred Pass 1 (GBuffer MRT 諛붿씤???곹깭) ?먯꽌 ?몄텧
+// ?쇱씠??洹몃┝??SSAO ???뷀띁???쇱씠???⑥뒪媛 ?쇨큵 泥섎━?섎?濡?albedo/normal/position 留?湲곕줉
 void Terrain::TerrainRendererGBuffer(Matrix V, Matrix P)
 {
 	auto shader = _hlslShaderGBuffer;
@@ -186,7 +186,7 @@ void Terrain::TerrainRendererGBuffer(Matrix V, Matrix P)
 	Vec4 worldPlanes[6];
 	MathUtils::ExtractFrustumPlanes(worldPlanes, V * P);
 
-	// KEY_1: 와이어프레임 디버그 (구 Terrain::Update 동작 유지)
+	// KEY_1: ??댁뼱?꾨젅???붾쾭洹?(援?Terrain::Update ?숈옉 ?좎?)
 	if (INPUT->GetButton(KEY_TYPE::KEY_1))
 		DCT->RSSetState(GRAPHICS->GetWireframeRS().Get());
 
@@ -280,21 +280,21 @@ void Terrain::TerrainRendererNotPS(Matrix V, Matrix P)
 	shader->Unbind();
 }
 
-// SSAO normal-depth 패스: view-space normal + depth 기록 (PS_NormalDepth)
+// SSAO normal-depth ?⑥뒪: view-space normal + depth 湲곕줉 (PS_NormalDepth)
 void Terrain::TerrainRendererNormalDepth(Matrix V, Matrix P)
 {
 	auto shader = _hlslShaderNormalDepth;
 	if (!shader) return;
 
-	// VS/DS HeightMap 샘플링 + PS 노멀 계산용 샘플러
+	// VS/DS HeightMap ?섑뵆留?+ PS ?몃? 怨꾩궛???섑뵆??
 	RENDER_STATES->BindAllSamplersVS();
 	RENDER_STATES->BindAllSamplersDS();
 	RENDER_STATES->BindAllSamplersPS();
 
-	// GlobalData (b0) -> VS, HS, DS, PS (PS 는 V 로 view-space 변환)
+	// GlobalData (b0) -> VS, HS, DS, PS (PS ??V 濡?view-space 蹂??
 	shader->PushGlobalData(V, P);
 
-	// TerrainBuffer (b8) -> HS, DS (테셀레이션) + PS (TexelCellSpace/WorldCellSpace 노멀 계산)
+	// TerrainBuffer (b8) -> HS, DS (?뚯??덉씠?? + PS (TexelCellSpace/WorldCellSpace ?몃? 怨꾩궛)
 	TerrainBuffer terrainDesc = TerrainBuffer{};
 
 	terrainDesc.MinDist = _minDist;

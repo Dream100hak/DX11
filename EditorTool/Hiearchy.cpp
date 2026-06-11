@@ -38,7 +38,7 @@ void Hiearchy::ShowHiearchy()
 
 	ImGui::Begin("Hiearchy", nullptr);
 
-	// ��� ���� ���� ����
+	// 占쏙옙占?占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙
 	if (ImGui::BeginDragDropTargetCustom(ImRect(GetEWinPos(), GetEWinPos() + GetEWinSize()), ImGui::GetID("Hiearchy")))
 	{
 		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MeshPayload"))
@@ -74,7 +74,7 @@ void Hiearchy::ShowHiearchy()
 		wstring wstr = object.second->GetObjectName();
 		if (wstr.empty())
 			continue;
-		string name = Utils::ToString(wstr);  // wstring��string ��ȯ ����
+		string name = Utils::ToString(wstr);  // wstring占쏙옙string 占쏙옙환 占쏙옙占쏙옙
 
 		bool isSelected = (SELECTED_H == object.first);
 
@@ -83,7 +83,7 @@ void Hiearchy::ShowHiearchy()
 		else
 			ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.2f, 0.2f, 0.2f, 0.2f)); // Default background
 
-		if (ImGui::Selectable(name.c_str(), isSelected, ImGuiSelectableFlags_SpanAllColumns))  // ��ǥ ������ ���� ����
+		if (ImGui::Selectable(name.c_str(), isSelected, ImGuiSelectableFlags_SpanAllColumns))  // 占쏙옙표 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙
 		{
 			CUR_SCENE->UnPickAll();
 			TOOL->SetSelectedObjH(object.first);
@@ -282,8 +282,8 @@ int32 Hiearchy::CreateTerrain()
 	return 0;
 }
 
-// PBR 검증용 구체 그리드 — 가로 roughness 0→1 (6단), 세로 metallic 0→1 (4단)
-// 카메라 전방에 스폰. 디퍼드 Cook-Torrance 라이팅 확인용.
+// PBR 寃利앹슜 援ъ껜 洹몃━????媛濡?roughness 0?? (6??, ?몃줈 metallic 0?? (4??
+// 移대찓???꾨갑???ㅽ룿. ?뷀띁??Cook-Torrance ?쇱씠???뺤씤??
 void Hiearchy::CreatePbrTestGrid()
 {
 	auto scene = SCENE->GetCurrentScene();
@@ -311,7 +311,7 @@ void Hiearchy::CreatePbrTestGrid()
 			obj->GetOrAddTransform()->SetScale(Vec3(1.f, 1.f, 1.f));
 
 			auto pbrMat = baseMat->Clone();
-			pbrMat->SetDiffuseMap(nullptr); // 순수 컬러로
+			pbrMat->SetDiffuseMap(nullptr); // ?쒖닔 而щ윭濡?
 			pbrMat->GetMaterialDesc().diffuse = Color(1.0f, 0.3f, 0.25f, 1.f);
 			pbrMat->GetMaterialDesc().roughness = 0.05f + rx * 0.19f;
 			pbrMat->GetMaterialDesc().metallic = my / 3.f;

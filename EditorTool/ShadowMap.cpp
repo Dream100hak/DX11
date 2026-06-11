@@ -93,7 +93,7 @@ void ShadowMap::Draw()
 
 	//DCT->RSSetState(light->GetDepthRS().Get()); 
 
-	// RenderContext 설정 및 호출 (HLSL Shadow*_HLSL depth-only 패스)
+	// RenderContext ?ㅼ젙 諛??몄텧 (HLSL Shadow*_HLSL depth-only ?⑥뒪)
 	RenderContext ctx;
 	ctx.tech = 0;
 	ctx.view = V;

@@ -157,7 +157,7 @@ void AsConverter::ReadModelData(aiNode* node, int32 index, int32 parent)
 	// Mesh
 	ReadMeshData(node, index);
 
-	// ��� �Լ�
+	// 占쏙옙占?占쌉쇽옙
 	for (uint32 i = 0; i < node->mNumChildren; i++)
 		ReadModelData(node->mChildren[i], _bones.size(), index);
 }
@@ -184,7 +184,7 @@ void AsConverter::ReadMeshData(aiNode* node, int32 bone)
 
 		for (uint32 v = 0; v < srcMesh->mNumVertices; v++)
 		{
-			// Vertex (값 초기화 — 미기록 필드가 쓰레기값으로 저장되지 않도록)
+			// Vertex (媛?珥덇린????誘멸린濡??꾨뱶媛 ?곕젅湲곌컪?쇰줈 ??λ릺吏 ?딅룄濡?
 			VertexType vertex = {};
 			::memcpy(&vertex.position, &srcMesh->mVertices[v], sizeof(Vec3));
 
@@ -196,8 +196,8 @@ void AsConverter::ReadMeshData(aiNode* node, int32 bone)
 			if (srcMesh->HasNormals())
 				::memcpy(&vertex.normal, &srcMesh->mNormals[v], sizeof(Vec3));
 
-			// Tangent (TargetRealtime_Fast 프리셋의 CalcTangentSpace 가 생성 — 복사 누락돼
-			// 쓰레기값이 저장, 노멀맵핑 TBN 이 NaN 으로 오염되던 근본 원인)
+			// Tangent (TargetRealtime_Fast ?꾨━?뗭쓽 CalcTangentSpace 媛 ?앹꽦 ??蹂듭궗 ?꾨씫??
+			// ?곕젅湲곌컪????? ?몃?留듯븨 TBN ??NaN ?쇰줈 ?ㅼ뿼?섎뜕 洹쇰낯 ?먯씤)
 			if (srcMesh->HasTangentsAndBitangents())
 				::memcpy(&vertex.tangent, &srcMesh->mTangents[v], sizeof(Vec3));
 
@@ -237,7 +237,7 @@ void AsConverter::ReadSkinData()
 		vector<asBoneWeights> tempVertexBoneWeights;
 		tempVertexBoneWeights.resize(mesh->vertices.size());
 
-		// Bone�� ��ȸ�ϸ鼭 ������ VertexId, Weight�� ���ؼ� ����Ѵ�.
+		// Bone占쏙옙 占쏙옙회占싹면서 占쏙옙占쏙옙占쏙옙 VertexId, Weight占쏙옙 占쏙옙占쌔쇽옙 占쏙옙占쏙옙磯占?
 		for (uint32 b = 0; b < srcMesh->mNumBones; b++)
 		{
 			aiBone* srcMeshBone = srcMesh->mBones[b];
@@ -255,7 +255,7 @@ void AsConverter::ReadSkinData()
 			}
 		}
 
-		// ���� ��� ���
+		// 占쏙옙占쏙옙 占쏙옙占?占쏙옙占?
 		for (uint32 v = 0; v < tempVertexBoneWeights.size(); v++)
 		{
 			tempVertexBoneWeights[v].Normalize();
@@ -271,7 +271,7 @@ void AsConverter::WriteModelFile(wstring finalPath)
 {
 	auto path = filesystem::path(finalPath);
 
-	// ������ ������ �����.
+	// 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占?
 	filesystem::create_directory(path.parent_path());
 
 	shared_ptr<FileUtils> file = make_shared<FileUtils>();
@@ -358,7 +358,7 @@ void AsConverter::WriteMaterialDataByXml(wstring finalPath)
 {
 	auto path = filesystem::path(finalPath);
 
-	// ������ ������ �����.
+	// 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占?
 	filesystem::create_directory(path.parent_path());
 
 	string folder = path.parent_path().string();
@@ -430,14 +430,14 @@ void AsConverter::WriteMaterialDataByMat(shared_ptr<asMaterial> material,  wstri
 {
 	wstring fullPath = finalPath + L".mat";
 	auto path = filesystem::path(fullPath);
-	// ������ ������ �����.
+	// 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占?
 	filesystem::create_directory(path.parent_path());
 	string folder = path.parent_path().string();
 
 	shared_ptr<FileUtils> file = make_shared<FileUtils>();
 	file->Open(fullPath, FileMode::Write);
 
-	// .mat 포맷 호환용 셰이더 문자열 — 로더(Material::Load)가 "Standard" 를 Standard_HLSL 로 매핑
+	// .mat ?щ㎎ ?명솚???곗씠??臾몄옄????濡쒕뜑(Material::Load)媛 "Standard" 瑜?Standard_HLSL 濡?留ㅽ븨
 	file->Write<string>(string("01. Standard.fx"));
 	file->Write<string>(WriteTexture(folder, material->diffuseFile).c_str());
 	file->Write<string>(WriteTexture(folder, material->specularFile).c_str());
@@ -446,7 +446,7 @@ void AsConverter::WriteMaterialDataByMat(shared_ptr<asMaterial> material,  wstri
 	file->Write<Color>(material->diffuse);
 	file->Write<Color>(material->specular);
 	file->Write<Color>(material->emissive);
-	// PBR 확장 필드 (Material::Load 가 TryRead 로 읽음 — 구버전 파일 호환)
+	// PBR ?뺤옣 ?꾨뱶 (Material::Load 媛 TryRead 濡??쎌쓬 ??援щ쾭???뚯씪 ?명솚)
 	file->Write<float>(0.5f); // roughness
 	file->Write<float>(0.0f); // metallic
 }
@@ -522,10 +522,10 @@ std::shared_ptr<asAnimation> AsConverter::ReadAnimationData(aiAnimation* srcAnim
 	{
 		aiNodeAnim* srcNode = srcAnimation->mChannels[i];
 
-		// �ִϸ��̼� ��� ������ �Ľ�
+		// 占쌍니몌옙占싱쇽옙 占쏙옙占?占쏙옙占쏙옙占쏙옙 占식쏙옙
 		shared_ptr<asAnimationNode> node = ParseAnimationNode(animation, srcNode);
 
-		// ���� ã�� ��� �߿� ���� �� �ð����� �ִϸ��̼� �ð� ����
+		// 占쏙옙占쏙옙 찾占쏙옙 占쏙옙占?占쌩울옙 占쏙옙占쏙옙 占쏙옙 占시곤옙占쏙옙占쏙옙 占쌍니몌옙占싱쇽옙 占시곤옙 占쏙옙占쏙옙
 		animation->duration = max(animation->duration, node->keyframe.back().time);
 
 		cacheAnimNodes[srcNode->mNodeName.C_Str()] = node;
@@ -588,7 +588,7 @@ std::shared_ptr<asAnimationNode> AsConverter::ParseAnimationNode(shared_ptr<asAn
 			node->keyframe.push_back(frameData);
 	}
 
-	// Keyframe �÷��ֱ�
+	// Keyframe 占시뤄옙占쌍깍옙
 	if (node->keyframe.size() < animation->frameCount)
 	{
 		uint32 count = animation->frameCount - node->keyframe.size();
@@ -627,7 +627,7 @@ void AsConverter::ReadKeyframeData(shared_ptr<asAnimation> animation, aiNode* sr
 		keyframe->transforms.push_back(frameData);
 	}
 
-	// �ִϸ��̼� Ű������ ä���
+	// 占쌍니몌옙占싱쇽옙 키占쏙옙占쏙옙占쏙옙 채占쏙옙占?
 	animation->keyframes.push_back(keyframe);
 
 	for (uint32 i = 0; i < srcNode->mNumChildren; i++)
@@ -638,7 +638,7 @@ void AsConverter::WriteAnimationData(shared_ptr<asAnimation> animation, wstring 
 {
 	auto path = filesystem::path(finalPath);
 
-	// ������ ������ �����.
+	// 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占?
 	filesystem::create_directory(path.parent_path());
 
 	shared_ptr<FileUtils> file = make_shared<FileUtils>();

@@ -18,7 +18,7 @@ void SkyBox::Init()
 	GetGameObject()->SetEnableOutline(false);
 	GetGameObject()->SetIgnoredTransformEdit(true);
 
-	// HlslShader 스카이박스
+	// HlslShader ?ㅼ뭅?대컯??
 	HlslShaderDesc skyDesc;
 	skyDesc.vsFile   = L"Sky.hlsl";
 	skyDesc.psFile   = L"Sky.hlsl";
@@ -31,7 +31,7 @@ void SkyBox::Init()
 
 	shared_ptr<Material> material = make_shared<Material>();
 	material->SetHlslShader(hlslShader);
-	material->SetRenderQueue(RenderQueue::Background); // 모든 불투명 지오메트리 이후 렌더
+	material->SetRenderQueue(RenderQueue::Background); // 紐⑤뱺 遺덊닾紐?吏?ㅻ찓?몃━ ?댄썑 ?뚮뜑
 
 	auto texture = RESOURCES->Load<Texture>(L"Sky", L"../Resources/Assets/Textures/Sky.jpg");
 	material->SetDiffuseMap(texture);
@@ -56,13 +56,13 @@ void SkyBox::Init()
 		GetGameObject()->GetMeshRenderer()->SetMaterial(mat);
 	}
 
-	// 카메라 Far plane보다 살짝 작은 스피어로 생성
+	// 移대찓??Far plane蹂대떎 ?댁쭩 ?묒? ?ㅽ뵾?대줈 ?앹꽦
 	GetGameObject()->GetOrAddTransform()->SetScale(Vec3(500.f, 500.f, 500.f));
 }
 
 void SkyBox::Update()
 {
-	// 항상 카메라 위치에 스카이박스를 배치 (Frustum Culling 회피)
+	// ??긽 移대찓???꾩튂???ㅼ뭅?대컯?ㅻ? 諛곗튂 (Frustum Culling ?뚰뵾)
 	auto mainCamObj = SCENE->GetCurrentScene()->GetMainCamera();
 	if (mainCamObj)
 	{

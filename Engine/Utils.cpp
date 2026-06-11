@@ -48,7 +48,7 @@ void Utils::Replace(OUT wstring& str, wstring comp, wstring rep)
 	str = temp;
 }
 
-// UTF-8 <-> UTF-16 변환 (예전 naive narrowing 은 한글이 깨졌음)
+// UTF-8 <-> UTF-16 蹂??(?덉쟾 naive narrowing ? ?쒓???源⑥죱??
 std::wstring Utils::ToWString(string value)
 {
 	if (value.empty())
@@ -56,7 +56,7 @@ std::wstring Utils::ToWString(string value)
 
 	int len = ::MultiByteToWideChar(CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), nullptr, 0);
 	if (len <= 0)
-		return wstring(value.begin(), value.end()); // 비정상 입력 폴백
+		return wstring(value.begin(), value.end()); // 鍮꾩젙???낅젰 ?대갚
 
 	wstring result(len, L'\0');
 	::MultiByteToWideChar(CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), result.data(), len);
@@ -70,7 +70,7 @@ std::string Utils::ToString(wstring value)
 
 	int len = ::WideCharToMultiByte(CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), nullptr, 0, nullptr, nullptr);
 	if (len <= 0)
-		return string(value.begin(), value.end()); // 비정상 입력 폴백
+		return string(value.begin(), value.end()); // 鍮꾩젙???낅젰 ?대갚
 
 	string result(len, '\0');
 	::WideCharToMultiByte(CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), result.data(), len, nullptr, nullptr);
@@ -136,7 +136,7 @@ string Utils::ConvertWCharToChar(const wchar_t* wstr)
 	int bufferSize = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, nullptr, 0, nullptr, nullptr);
 	if (bufferSize == 0)
 	{
-		// ��ȯ ����
+		// 占쏙옙환 占쏙옙占쏙옙
 		return "";
 	}
 

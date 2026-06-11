@@ -93,7 +93,7 @@ private:
 	shared_ptr<GameObject> _meshPreviewLight = nullptr;
 	unordered_map<wstring,  shared_ptr<GameObject>> _meshPreviewObjs;
 	unordered_map<wstring,  shared_ptr<MeshThumbnail>> _meshPreviewthumbnails;
-	deque<wstring> _thumbnailOrder; // 썸네일 캐시 FIFO 제거 순서 (상한 관리)
+	deque<wstring> _thumbnailOrder; // ?몃꽕??罹먯떆 FIFO ?쒓굅 ?쒖꽌 (?곹븳 愿由?
 
 	unordered_map<wstring, float> _meshScales;
 

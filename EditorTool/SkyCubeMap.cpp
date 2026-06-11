@@ -19,14 +19,14 @@ SkyCubeMap::~SkyCubeMap()
 void SkyCubeMap::Init(wstring fileName)
 {
 	_fileName = fileName;
-	// 키를 파일 경로로 — 예전 고정 키("CubeMap")는 환경맵 교체 시 캐시된 이전 맵을 돌려줬음
+	// ?ㅻ? ?뚯씪 寃쎈줈濡????덉쟾 怨좎젙 ??"CubeMap")???섍꼍留?援먯껜 ??罹먯떆???댁쟾 留듭쓣 ?뚮젮以ъ쓬
 	_cubeMap = RESOURCES->Load<Texture>(fileName, fileName);
 
-	// FX11 01. CubeMap.fx → HLSL CubeMap.hlsl. 큐브 텍스처는 머티리얼 DiffuseMap(t0)으로 전달.
+	// FX11 01. CubeMap.fx ??HLSL CubeMap.hlsl. ?먮툕 ?띿뒪泥섎뒗 癒명떚由ъ뼹 DiffuseMap(t0)?쇰줈 ?꾨떖.
 	shared_ptr<Material> material = make_shared<Material>();
 	material->SetHlslShader(RESOURCES->Get<HlslShader>(L"CubeMap_HLSL"));
 	material->SetDiffuseMap(_cubeMap);
-	material->SetRenderQueue(RenderQueue::Background); // 불투명 이후 (디퍼드 Pass 3)
+	material->SetRenderQueue(RenderQueue::Background); // 遺덊닾紐??댄썑 (?뷀띁??Pass 3)
 
 	if (GetGameObject()->GetMeshRenderer() == nullptr)
 	{
@@ -40,10 +40,10 @@ void SkyCubeMap::Init(wstring fileName)
 	GetGameObject()->GetMeshRenderer()->SetMaterial(material);
 }
 
-// SkyBox 선택 시 인스펙터 — 환경맵 콤보 (변경 즉시 스카이 교체 + IBL 리베이크)
+// SkyBox ?좏깮 ???몄뒪?숉꽣 ???섍꼍留?肄ㅻ낫 (蹂寃?利됱떆 ?ㅼ뭅??援먯껜 + IBL 由щ쿋?댄겕)
 void SkyCubeMap::OnInspectorGUI()
 {
-	// Textures 폴더에서 큐브맵 .dds 스캔 (1회 캐시)
+	// Textures ?대뜑?먯꽌 ?먮툕留?.dds ?ㅼ틪 (1??罹먯떆)
 	if (!_scanned)
 	{
 		_scanned = true;
@@ -74,8 +74,8 @@ void SkyCubeMap::OnInspectorGUI()
 			bool selected = (file == _fileName);
 			if (ImGui::Selectable(label.c_str(), selected) && !selected)
 			{
-				Init(file);      // 스카이박스 교체
-				Ibl::Init(file); // IBL 리베이크 (irradiance/prefiltered — BRDF LUT 는 환경 무관이지만 함께 갱신)
+				Init(file);      // ?ㅼ뭅?대컯??援먯껜
+				Ibl::Init(file); // IBL 由щ쿋?댄겕 (irradiance/prefiltered ??BRDF LUT ???섍꼍 臾닿??댁?留??④퍡 媛깆떊)
 			}
 			if (selected)
 				ImGui::SetItemDefaultFocus();

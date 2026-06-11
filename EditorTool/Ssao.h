@@ -15,7 +15,7 @@ struct SsaoBlurBuffer
 {
 	float TexelWidth;
 	float TexelHeight;
-	float HorzBlur = 0.f; // 1 = 가로 블러, 0 = 세로 블러 (FX uniform bool 테크닉 분기 대체)
+	float HorzBlur = 0.f; // 1 = 媛濡?釉붾윭, 0 = ?몃줈 釉붾윭 (FX uniform bool ?뚰겕??遺꾧린 ?泥?
 	float BlurPad = 0.f;
 };
 
@@ -86,7 +86,7 @@ private:
 	SsaoBlurBuffer _ssaoBlurDesc;
 	shared_ptr<ConstantBuffer<SsaoBlurBuffer>> _ssaoBlurBuffer;
 
-	// 샘플러 (FX 셰이더 내 정의를 C++ 로 이전)
+	// ?섑뵆??(FX ?곗씠?????뺤쓽瑜?C++ 濡??댁쟾)
 	ComPtr<ID3D11SamplerState> _samBorder; // SSAO s0: LINEAR_MIP_POINT, BORDER(0,0,0,1e5)
 	ComPtr<ID3D11SamplerState> _samWrap;   // SSAO s1: LINEAR_MIP_POINT, WRAP
 	ComPtr<ID3D11SamplerState> _samClamp;  // Blur s0: LINEAR_MIP_POINT, CLAMP

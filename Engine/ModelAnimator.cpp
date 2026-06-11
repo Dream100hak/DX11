@@ -36,9 +36,9 @@ void ModelAnimator::OnInspectorGUI()
 	ImGui::SliderInt("Next Frame", (int*)&_tweenDesc.curr.nextFrame, 0, 1000);
 }
 
-// ������������������������������������������������������������������������������������������������������������������������������������
-// Update: �ִϸ��̼� ������ ���� (������ �ƴ� Update �ܰ迡��)
-// ������������������������������������������������������������������������������������������������������������������������������������
+// 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+// Update: 占쌍니몌옙占싱쇽옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙 (占쏙옙占쏙옙占쏙옙 占싣댐옙 Update 占쌤계에占쏙옙)
+// 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
 void ModelAnimator::Update()
 {
 	if (_model == nullptr) return;
@@ -50,7 +50,7 @@ void ModelAnimator::Draw(const RenderContext& ctx)
 	if (_model == nullptr) return;
 	if (_texture == nullptr) CreateTexture();
 
-	// ── Deferred G-Buffer 경로 (HLSL, 애니메이션 스키닝) ──
+	// ?? Deferred G-Buffer 寃쎈줈 (HLSL, ?좊땲硫붿씠???ㅽ궎?? ??
 	if (ctx.deferredPass)
 	{
 		auto gbuf = RESOURCES->Get<HlslShader>(L"GBufferAnim_HLSL");
@@ -58,8 +58,8 @@ void ModelAnimator::Draw(const RenderContext& ctx)
 
 		gbuf->Bind();
 		gbuf->PushGlobalData(ctx.view, ctx.proj);
-		gbuf->SetVSSRV(5, _srv.Get()); // TransformMap (t5) — 애니 본 변환 텍스처
-		// 트윈 데이터(b6)는 InstancingManager 에서 push 됨
+		gbuf->SetVSSRV(5, _srv.Get()); // TransformMap (t5) ???좊땲 蹂?蹂???띿뒪泥?
+		// ?몄쐢 ?곗씠??b6)??InstancingManager ?먯꽌 push ??
 
 		const auto& meshes = _model->GetMeshes();
 		for (auto& mesh : meshes)
@@ -86,7 +86,7 @@ void ModelAnimator::Draw(const RenderContext& ctx)
 		return;
 	}
 
-	// ── Shadow(depth-only) / SSAO(normal-depth) 패스 (HLSL, 애니메이션 스키닝) ──
+	// ?? Shadow(depth-only) / SSAO(normal-depth) ?⑥뒪 (HLSL, ?좊땲硫붿씠???ㅽ궎?? ??
 	if (ctx.shadowPass || ctx.ssaoPass)
 	{
 		auto shader = RESOURCES->Get<HlslShader>(ctx.shadowPass ? L"ShadowAnim_HLSL" : L"SsaoNormalDepthAnim_HLSL");
@@ -95,7 +95,7 @@ void ModelAnimator::Draw(const RenderContext& ctx)
 		shader->Bind();
 		shader->PushGlobalData(ctx.view, ctx.proj);
 		shader->SetVSSRV(5, _srv.Get()); // TransformMap (t5)
-		// 트윈 데이터(b6)는 InstancingManager 에서 push 됨
+		// ?몄쐢 ?곗씠??b6)??InstancingManager ?먯꽌 push ??
 
 		const auto& meshes = _model->GetMeshes();
 		for (auto& mesh : meshes)
@@ -106,7 +106,7 @@ void ModelAnimator::Draw(const RenderContext& ctx)
 				md.useTexture = mesh->material->GetDiffuseMap() ? 1 : 0;
 				shader->PushMaterialData(md);
 				auto diffuse = mesh->material->GetDiffuseMap();
-				shader->SetPSSRV(0, diffuse ? diffuse->GetComPtr().Get() : nullptr); // 알파클립용
+				shader->SetPSSRV(0, diffuse ? diffuse->GetComPtr().Get() : nullptr); // ?뚰뙆?대┰??
 			}
 			RENDER_STATES->BindAllSamplersPS();
 
@@ -119,7 +119,7 @@ void ModelAnimator::Draw(const RenderContext& ctx)
 		return;
 	}
 
-	// ── Preview/Thumbnail/Forward lit 경로 (HLSL) ──
+	// ?? Preview/Thumbnail/Forward lit 寃쎈줈 (HLSL) ??
 	if (ctx.buffer == nullptr)
 		return;
 
@@ -130,8 +130,8 @@ void ModelAnimator::Draw(const RenderContext& ctx)
 	lit->PushGlobalData(ctx.view, ctx.proj);
 	lit->SetVSSRV(5, _srv.Get()); // TransformMap (t5)
 
-	// 트윈(b6) — 단일 인스턴스(프리뷰 등)는 직접 push.
-	// 다중 인스턴스는 InstancingManager 가 전체 트윈 배열을 이미 push 했으므로 덮어쓰지 않는다.
+	// ?몄쐢(b6) ???⑥씪 ?몄뒪?댁뒪(?꾨━酉?????吏곸젒 push.
+	// ?ㅼ쨷 ?몄뒪?댁뒪??InstancingManager 媛 ?꾩껜 ?몄쐢 諛곗뿴???대? push ?덉쑝誘濡???뼱?곗? ?딅뒗??
 	if (ctx.buffer->GetCount() <= 1)
 	{
 		auto tween = make_shared<InstancedTweenDesc>();
@@ -170,7 +170,7 @@ void ModelAnimator::UpdateTweenData()
 	TweenDesc& desc = _tweenDesc;
 
 	desc.curr.sumTime += DT;
-	// ���� �ִϸ��̼�
+	// 占쏙옙占쏙옙 占쌍니몌옙占싱쇽옙
 	{
 		shared_ptr<ModelAnimation> currentAnim = _model->GetAnimationByIndex(desc.curr.animIndex);
 		if (currentAnim)
@@ -187,7 +187,7 @@ void ModelAnimator::UpdateTweenData()
 		}
 	}
 
-	// ���� �ִϸ��̼��� ���� �Ǿ� �ִٸ�
+	// 占쏙옙占쏙옙 占쌍니몌옙占싱쇽옙占쏙옙 占쏙옙占쏙옙 占실억옙 占쌍다몌옙
 	if (desc.next.animIndex >= 0)
 	{
 		desc.tweenSumTime += DT;
@@ -195,13 +195,13 @@ void ModelAnimator::UpdateTweenData()
 
 		if (desc.tweenRatio >= 1.f)
 		{
-			// �ִϸ��̼� ���� ��ü
+			// 占쌍니몌옙占싱쇽옙 占쏙옙占쏙옙 占쏙옙체
 			desc.curr = desc.next;
 			desc.ClearNextAnim();
 		}
 		else
 		{
-			// ������
+			// 占쏙옙占쏙옙占쏙옙
 			shared_ptr<ModelAnimation> nextAnim = _model->GetAnimationByIndex(desc.next.animIndex);
 			desc.next.sumTime += DT;
 
@@ -247,7 +247,7 @@ void ModelAnimator::CreateTexture()
 		desc.Width = MAX_MODEL_TRANSFORMS * 4;
 		desc.Height = MAX_MODEL_KEYFRAMES;
 		desc.ArraySize = _model->GetAnimationCount();
-		desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT; // 16����Ʈ
+		desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT; // 16占쏙옙占쏙옙트
 		desc.Usage = D3D11_USAGE_IMMUTABLE;
 		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 		desc.MipLevels = 1;
@@ -257,7 +257,7 @@ void ModelAnimator::CreateTexture()
 		const uint32 pageSize = dataSize * MAX_MODEL_KEYFRAMES;
 		void* mallocPtr = ::malloc(pageSize * _model->GetAnimationCount());
 
-		// �ִϸ��̼� �����͸� �غ��Ѵ�.
+		// 占쌍니몌옙占싱쇽옙 占쏙옙占쏙옙占싶몌옙 占쌔븝옙占싼댐옙.
 		for (uint32 c = 0; c < _model->GetAnimationCount(); c++)
 		{
 			uint32 startOffset = c * pageSize;
@@ -271,7 +271,7 @@ void ModelAnimator::CreateTexture()
 			}
 		}
 
-		// ���ҽ� �ʱ�ȭ
+		// 占쏙옙占쌀쏙옙 占십깍옙화
 		vector<D3D11_SUBRESOURCE_DATA> subResources(_model->GetAnimationCount());
 
 		for (uint32 c = 0; c < _model->GetAnimationCount(); c++)
@@ -345,7 +345,7 @@ void ModelAnimator::CreateAnimationTransform(uint32 index)
 
 			tempAnimBoneTransforms[b] = matAnimation * matParent;
 
-			// �����
+			// 占쏙옙占쏙옙占?
 			_animTransforms[index].transforms[f][b] = invGlobal * tempAnimBoneTransforms[b];
 		}
 	}

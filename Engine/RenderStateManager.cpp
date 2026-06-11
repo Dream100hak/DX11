@@ -14,7 +14,7 @@ void RenderStateManager::Init()
 // ==========================================================================
 void RenderStateManager::CreateBlendStates()
 {
-	// Default : 알파블렌드 비활성
+	// Default : ?뚰뙆釉붾젋??鍮꾪솢??
 	{
 		D3D11_BLEND_DESC desc{};
 		desc.AlphaToCoverageEnable = false;
@@ -58,7 +58,7 @@ void RenderStateManager::CreateBlendStates()
 		CHECK(DEVICE->CreateBlendState(&desc, _blendStates[static_cast<int>(BlendStateType::Additive)].GetAddressOf()));
 	}
 
-	// AdditiveSrcAlpha : SrcAlpha / One (FX 01. Fire.fx 의 AdditiveBlending 대체)
+	// AdditiveSrcAlpha : SrcAlpha / One (FX 01. Fire.fx ??AdditiveBlending ?泥?
 	{
 		D3D11_BLEND_DESC desc{};
 		desc.AlphaToCoverageEnable = false;
@@ -98,7 +98,7 @@ void RenderStateManager::CreateBlendStates()
 // ==========================================================================
 void RenderStateManager::CreateRasterizerStates()
 {
-	// SolidCullBack (기본)
+	// SolidCullBack (湲곕낯)
 	{
 		D3D11_RASTERIZER_DESC desc{};
 		desc.FillMode = D3D11_FILL_SOLID;
@@ -117,7 +117,7 @@ void RenderStateManager::CreateRasterizerStates()
 		CHECK(DEVICE->CreateRasterizerState(&desc, _rasterizerStates[static_cast<int>(RasterizerStateType::SolidCullNone)].GetAddressOf()));
 	}
 
-	// SolidCullFront (아웃라인 2패스)
+	// SolidCullFront (?꾩썐?쇱씤 2?⑥뒪)
 	{
 		D3D11_RASTERIZER_DESC desc{};
 		desc.FillMode = D3D11_FILL_SOLID;
@@ -135,7 +135,7 @@ void RenderStateManager::CreateRasterizerStates()
 		CHECK(DEVICE->CreateRasterizerState(&desc, _rasterizerStates[static_cast<int>(RasterizerStateType::Wireframe)].GetAddressOf()));
 	}
 
-	// FrontCounterCW (스카이박스)
+	// FrontCounterCW (?ㅼ뭅?대컯??
 	{
 		D3D11_RASTERIZER_DESC desc{};
 		desc.FillMode = D3D11_FILL_SOLID;
@@ -145,7 +145,7 @@ void RenderStateManager::CreateRasterizerStates()
 		CHECK(DEVICE->CreateRasterizerState(&desc, _rasterizerStates[static_cast<int>(RasterizerStateType::FrontCounterCW)].GetAddressOf()));
 	}
 
-	// ShadowDepth (그림자 맵 depth-only) — FX 00. ShadowMap.fx 의 Depth 래스터라이저 대체
+	// ShadowDepth (洹몃┝??留?depth-only) ??FX 00. ShadowMap.fx ??Depth ?섏뒪?곕씪?댁? ?泥?
 	{
 		D3D11_RASTERIZER_DESC desc{};
 		desc.FillMode = D3D11_FILL_SOLID;
@@ -164,7 +164,7 @@ void RenderStateManager::CreateRasterizerStates()
 // ==========================================================================
 void RenderStateManager::CreateDepthStencilStates()
 {
-	// Default : Depth R/W 활성
+	// Default : Depth R/W ?쒖꽦
 	{
 		D3D11_DEPTH_STENCIL_DESC desc{};
 		desc.DepthEnable = true;
@@ -174,7 +174,7 @@ void RenderStateManager::CreateDepthStencilStates()
 		CHECK(DEVICE->CreateDepthStencilState(&desc, _depthStencilStates[static_cast<int>(DepthStencilStateType::Default)].GetAddressOf()));
 	}
 
-	// NoDepthWrite : 읽기만 (불투명 오브젝트)
+	// NoDepthWrite : ?쎄린留?(遺덊닾紐??ㅻ툕?앺듃)
 	{
 		D3D11_DEPTH_STENCIL_DESC desc{};
 		desc.DepthEnable = true;
@@ -184,7 +184,7 @@ void RenderStateManager::CreateDepthStencilStates()
 		CHECK(DEVICE->CreateDepthStencilState(&desc, _depthStencilStates[static_cast<int>(DepthStencilStateType::NoDepthWrite)].GetAddressOf()));
 	}
 
-	// DisableDepth : 깊이 비활성 (포스트프로세스 풀스크린 패스)
+	// DisableDepth : 源딆씠 鍮꾪솢??(?ъ뒪?명봽濡쒖꽭????ㅽ겕由??⑥뒪)
 	{
 		D3D11_DEPTH_STENCIL_DESC desc{};
 		desc.DepthEnable = false;
@@ -194,7 +194,7 @@ void RenderStateManager::CreateDepthStencilStates()
 		CHECK(DEVICE->CreateDepthStencilState(&desc, _depthStencilStates[static_cast<int>(DepthStencilStateType::DisableDepth)].GetAddressOf()));
 	}
 
-	// OutlineMark : 스텐실 쓰기 (아웃라인 1패스)
+	// OutlineMark : ?ㅽ뀗???곌린 (?꾩썐?쇱씤 1?⑥뒪)
 	{
 		D3D11_DEPTH_STENCIL_DESC desc{};
 		desc.DepthEnable = true;
@@ -211,7 +211,7 @@ void RenderStateManager::CreateDepthStencilStates()
 		CHECK(DEVICE->CreateDepthStencilState(&desc, _depthStencilStates[static_cast<int>(DepthStencilStateType::OutlineMark)].GetAddressOf()));
 	}
 
-	// OutlineDraw : 스텐실 읽기 (아웃라인 2패스)
+	// OutlineDraw : ?ㅽ뀗???쎄린 (?꾩썐?쇱씤 2?⑥뒪)
 	{
 		D3D11_DEPTH_STENCIL_DESC desc{};
 		desc.DepthEnable = false;
@@ -228,8 +228,8 @@ void RenderStateManager::CreateDepthStencilStates()
 		CHECK(DEVICE->CreateDepthStencilState(&desc, _depthStencilStates[static_cast<int>(DepthStencilStateType::OutlineDraw)].GetAddressOf()));
 	}
 
-	// SkyBoxDepth : 깊이 읽기 전용 + LESS_EQUAL (스카이박스 전용)
-	// xyww 트릭으로 depth=1.0 → 다른 지오메트리가 그린 픽셀(depth<1)은 실패, 빈 배경만 통과
+	// SkyBoxDepth : 源딆씠 ?쎄린 ?꾩슜 + LESS_EQUAL (?ㅼ뭅?대컯???꾩슜)
+	// xyww ?몃┃?쇰줈 depth=1.0 ???ㅻⅨ 吏?ㅻ찓?몃━媛 洹몃┛ ?쎌?(depth<1)? ?ㅽ뙣, 鍮?諛곌꼍留??듦낵
 	{
 		D3D11_DEPTH_STENCIL_DESC desc{};
 		desc.DepthEnable = true;
@@ -241,7 +241,7 @@ void RenderStateManager::CreateDepthStencilStates()
 }
 
 // ==========================================================================
-// Sampler States   (Global.fx 에 있던 샘플러들)
+// Sampler States   (Global.fx ???덈뜕 ?섑뵆?щ뱾)
 // ==========================================================================
 void RenderStateManager::CreateSamplerStates()
 {
@@ -297,7 +297,7 @@ void RenderStateManager::CreateSamplerStates()
 		CHECK(DEVICE->CreateSamplerState(&desc, _samplerStates[static_cast<int>(SamplerStateType::Shadow)].GetAddressOf()));
 	}
 
-	// Heightmap (지형 높이맵)
+	// Heightmap (吏???믪씠留?
 	{
 		D3D11_SAMPLER_DESC desc{};
 		desc.Filter = D3D11_FILTER_MIN_MAG_LINEAR_MIP_POINT;
@@ -331,7 +331,7 @@ ComPtr<ID3D11SamplerState> RenderStateManager::GetSampler(SamplerStateType type)
 	return _samplerStates[static_cast<int>(type)];
 }
 
-// 전체 Sampler 를 PS 스테이지 s0~s4 에 한번에 바인딩
+// ?꾩껜 Sampler 瑜?PS ?ㅽ뀒?댁? s0~s4 ???쒕쾲??諛붿씤??
 void RenderStateManager::BindAllSamplersPS() const
 {
 	ID3D11SamplerState* samplers[SS_COUNT]{};

@@ -141,13 +141,13 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 
 	float cellWidth = ImGui::GetColumnWidth();
 
-	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.1f, 0.1f, 1.0f)); // ���� ���
-	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.25f, 0.25f, 1.0f)); // ���콺 ������ ������
-	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.4f, 0.4f, 0.4f, 1.0f)); // Ŭ���� ������
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.1f, 0.1f, 1.0f)); // 占쏙옙占쏙옙 占쏙옙占?
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.25f, 0.25f, 1.0f)); // 占쏙옙占쎌스 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.4f, 0.4f, 0.4f, 1.0f)); // 클占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙
 
-	float cursorX = (cellWidth - 75) * 0.5f; // �߾� ���� ���
+	float cursorX = (cellWidth - 75) * 0.5f; // 占쌩억옙 占쏙옙占쏙옙 占쏙옙占?
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + cursorX);
-	// ���� ó��
+	// 占쏙옙占쏙옙 처占쏙옙
 	if (meta->metaType == MetaType::FOLDER)
 	{
 		auto tex = RESOURCES->Get<Texture>(L"Folder");
@@ -158,19 +158,19 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 		});
 	}
 
-	// �̹��� ���� ó��
+	// 占싱뱄옙占쏙옙 占쏙옙占쏙옙 처占쏙옙
 	else if (meta->metaType == MetaType::IMAGE)
 	{
 		auto tex = RESOURCES->Get<Texture>(L"TEX_" + meta->fileName);
 		RefreshButton(tex->GetComPtr().Get(), meta, id, []() {});
 	}
-	// ���� ���� ó��
+	// 占쏙옙占쏙옙 占쏙옙占쏙옙 처占쏙옙
 	else if (meta->metaType == MetaType::XML)
 	{
 		auto tex = RESOURCES->Get<Texture>(L"Text");
 		RefreshButton(tex->GetComPtr().Get(), meta, id, []() {});
 	}
-	// ���͸��� ���� ó��
+	// 占쏙옙占싶몌옙占쏙옙 占쏙옙占쏙옙 처占쏙옙
 	else if (meta->metaType == MetaType::MATERIAL)
 	{
 		shared_ptr<GameObject> obj = nullptr;
@@ -193,7 +193,7 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 
 		RefreshButton(thumbnail->GetComPtr().Get(), meta, id, []() {});
 	}
-	// �޽� ���� ó��
+	// 占쌨쏙옙 占쏙옙占쏙옙 처占쏙옙
 	if (meta->metaType == MetaType::MESH)
 	{
 		shared_ptr<GameObject> obj = nullptr;
@@ -222,7 +222,7 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 
 		DragModelFileToGUIWnd(meta, modelPath , obj);
 	}
-	// �ִϸ��̼� ó��
+	// 占쌍니몌옙占싱쇽옙 처占쏙옙
 	else if (meta->metaType == MetaType::CLIP)
 	{
 		shared_ptr<GameObject> obj = nullptr;
@@ -249,7 +249,7 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 
 		RefreshButton(thumbnail->GetComPtr().Get(), meta, id, []() {});
 
-		// 씬 드래그드롭 소스 — SceneWindow 의 CLIP 드롭 분기(CreateModelAnimatorMesh)와 연결
+		// ???쒕옒洹몃뱶濡??뚯뒪 ??SceneWindow ??CLIP ?쒕∼ 遺꾧린(CreateModelAnimatorMesh)? ?곌껐
 		DragModelFileToGUIWnd(meta, clipPath, obj);
 	}
 	else if (meta->metaType == MetaType::MODEL_MAT)
@@ -258,7 +258,7 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 		RefreshButton(tex->GetComPtr().Get(), meta, id, []() {});
 	}
 
-	// ���� ���� ó��
+	// 占쏙옙占쏙옙 占쏙옙占쏙옙 처占쏙옙
 	else if (meta->metaType == MetaType::Unknown)
 	{
 		auto tex = RESOURCES->Get<Texture>(L"Text");
@@ -270,10 +270,10 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 	string itemName = AdjustItemNameToFit(Utils::ToString(meta->fileName), _displayBtnWidth);
 	ImVec2 textSize = ImGui::CalcTextSize(itemName.c_str());
 
-	cursorX = (cellWidth - textSize.x) * 0.5f; // �߾� ���� ���
+	cursorX = (cellWidth - textSize.x) * 0.5f; // 占쌩억옙 占쏙옙占쏙옙 占쏙옙占?
 	ImGui::SetCursorPosX(ImGui::GetCursorPosX() + cursorX);
 
-	ImGui::Text(itemName.c_str()); // �̸� ǥ��
+	ImGui::Text(itemName.c_str()); // 占싱몌옙 표占쏙옙
 }
 
 void FolderContents::RefreshButton(ID3D11ShaderResourceView* srv, shared_ptr<MetaData>& meta, int32 id, std::function<void()> onDoubleClickCallback)
@@ -309,7 +309,7 @@ void FolderContents::CreateMaterial()
 	shared_ptr<FileUtils> file = make_shared<FileUtils>();
 	file->Open(finalPath, FileMode::Write);
 
-	// .mat 포맷 호환용 셰이더 문자열 — DefaultMaterial 은 HLSL 전용(FX _shader 없음)이라 리터럴 기록
+	// .mat ?щ㎎ ?명솚???곗씠??臾몄옄????DefaultMaterial ? HLSL ?꾩슜(FX _shader ?놁쓬)?대씪 由ы꽣??湲곕줉
 	file->Write<wstring>(wstring(L"01. Standard.fx"));
 	int32 materialSize = 1;
 	file->Write<uint32>(materialSize);
@@ -322,7 +322,7 @@ void FolderContents::CreateMaterial()
 	file->Write<Color>(material->GetMaterialDesc().diffuse);
 	file->Write<Color>(material->GetMaterialDesc().specular);
 	file->Write<Color>(material->GetMaterialDesc().emissive);
-	// PBR 확장 필드 (Material::Load 가 TryRead 로 읽음 — 구버전 파일 호환)
+	// PBR ?뺤옣 ?꾨뱶 (Material::Load 媛 TryRead 濡??쎌쓬 ??援щ쾭???뚯씪 ?명솚)
 	file->Write<float>(material->GetMaterialDesc().roughness);
 	file->Write<float>(material->GetMaterialDesc().metallic);
 
@@ -409,7 +409,7 @@ void FolderContents::CreateAniPreviewObj(shared_ptr<MetaData>& meta)
 	if (modelScale > 10.f)
 		modelScale = globalScale;
 
-	//TODO : ���� ����
+	//TODO : 占쏙옙占쏙옙 占쏙옙占쏙옙
 	//modelScale = .5f;
 
 	float scale = globalScale / modelScale;
@@ -462,9 +462,9 @@ void FolderContents::CreateMeshPreviewThumbnail(shared_ptr<MetaData>& meta , sha
 	_meshPreviewthumbnails.insert(make_pair(key, thumbnail));
 	_thumbnailOrder.push_back(key);
 
-	// 썸네일 캐시 상한 — 1024x1024 RT 가 자산 수만큼 무한 증식하던 누수 방지.
-	// 가장 오래 전에 만든 것부터 제거 (FIFO). 화면에 보이면 다음 프레임에 lazy 재생성.
-	// 선택 중인 항목/방금 만든 항목은 보호 (Inspector 가 operator[] 로 직접 참조).
+	// ?몃꽕??罹먯떆 ?곹븳 ??1024x1024 RT 媛 ?먯궛 ?섎쭔??臾댄븳 利앹떇?섎뜕 ?꾩닔 諛⑹?.
+	// 媛???ㅻ옒 ?꾩뿉 留뚮뱺 寃껊????쒓굅 (FIFO). ?붾㈃??蹂댁씠硫??ㅼ쓬 ?꾨젅?꾩뿉 lazy ?ъ깮??
+	// ?좏깮 以묒씤 ??ぉ/諛⑷툑 留뚮뱺 ??ぉ? 蹂댄샇 (Inspector 媛 operator[] 濡?吏곸젒 李몄“).
 	constexpr size_t MAX_THUMBNAIL_CACHE = 64;
 	wstring selectedKey;
 	if (auto selected = SELECTED_P)
@@ -478,7 +478,7 @@ void FolderContents::CreateMeshPreviewThumbnail(shared_ptr<MetaData>& meta , sha
 
 		if (oldest == selectedKey || oldest == key)
 		{
-			_thumbnailOrder.push_back(oldest); // 보호 항목은 뒤로 회전
+			_thumbnailOrder.push_back(oldest); // 蹂댄샇 ??ぉ? ?ㅻ줈 ?뚯쟾
 			continue;
 		}
 		_meshPreviewthumbnails.erase(oldest);

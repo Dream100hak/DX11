@@ -18,8 +18,8 @@ void TextureManager::Init()
 	mat->SetShadowMap(_smap);
 	mat->SetSsaoMap(_ssao->GetAmbientPtr());
 
-	// 디버그 텍스처는 현재 ImGui::Image(EditorTool::DrawRenderTextures)로 표시하므로
-	// FX11 기반 TextureRenderer 경로(01. DebugTexture.fx)는 사용하지 않음 — 제거.
+	// ?붾쾭洹??띿뒪泥섎뒗 ?꾩옱 ImGui::Image(EditorTool::DrawRenderTextures)濡??쒖떆?섎?濡?
+	// FX11 湲곕컲 TextureRenderer 寃쎈줈(01. DebugTexture.fx)???ъ슜?섏? ?딆쓬 ???쒓굅.
 }
 
 void TextureManager::Update()

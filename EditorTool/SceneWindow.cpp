@@ -10,10 +10,10 @@
 #include "Light.h"
 #include "SceneGrid.h"
 #include "FolderContents.h"
-#include "RenderContext.h"  // ? �߰�
-#include "MeshRenderer.h"   // ? �߰�
-#include "ModelRenderer.h"  // ? �߰�
-#include "ModelAnimator.h"  // ? �߰�
+#include "RenderContext.h"  // ? 占쌩곤옙
+#include "MeshRenderer.h"   // ? 占쌩곤옙
+#include "ModelRenderer.h"  // ? 占쌩곤옙
+#include "ModelAnimator.h"  // ? 占쌩곤옙
 
 #include "Model.h"
 #include <filesystem>
@@ -38,7 +38,7 @@ SceneWindow::~SceneWindow()
 
 void SceneWindow::Init()
 {
-	// ? ���� Ÿ�� ���� (�ʱ� ũ��: 800x530)
+	// ? 占쏙옙占쏙옙 타占쏙옙 占쏙옙占쏙옙 (占십깍옙 크占쏙옙: 800x530)
 	CreateRenderTarget(_sceneWidth, _sceneHeight);
 }
 
@@ -47,7 +47,7 @@ void SceneWindow::CreateRenderTarget(uint32 width, uint32 height)
 	_sceneWidth = width;
 	_sceneHeight = height;
 
-	// ? 1. Texture2D ���� (RTV + SRV��)
+	// ? 1. Texture2D 占쏙옙占쏙옙 (RTV + SRV占쏙옙)
 	{
 		D3D11_TEXTURE2D_DESC texDesc;
 		ZeroMemory(&texDesc, sizeof(texDesc));
@@ -67,7 +67,7 @@ void SceneWindow::CreateRenderTarget(uint32 width, uint32 height)
 		CHECK(hr);
 	}
 
-	// ? 2. RenderTargetView ����
+	// ? 2. RenderTargetView 占쏙옙占쏙옙
 	{
 		D3D11_RENDER_TARGET_VIEW_DESC rtvDesc;
 		ZeroMemory(&rtvDesc, sizeof(rtvDesc));
@@ -78,7 +78,7 @@ void SceneWindow::CreateRenderTarget(uint32 width, uint32 height)
 		CHECK(hr);
 	}
 
-	// ? 3. ShaderResourceView ���� (ImGui���� ǥ�ÿ�)
+	// ? 3. ShaderResourceView 占쏙옙占쏙옙 (ImGui占쏙옙占쏙옙 표占시울옙)
 	{
 		D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
 		ZeroMemory(&srvDesc, sizeof(srvDesc));
@@ -91,7 +91,7 @@ void SceneWindow::CreateRenderTarget(uint32 width, uint32 height)
 		CHECK(hr);
 	}
 
-	// ? 4. DepthStencil ����
+	// ? 4. DepthStencil 占쏙옙占쏙옙
 	{
 		D3D11_TEXTURE2D_DESC depthDesc;
 		ZeroMemory(&depthDesc, sizeof(depthDesc));
@@ -121,22 +121,22 @@ void SceneWindow::CreateRenderTarget(uint32 width, uint32 height)
 		CHECK(hr);
 	}
 
-	// ? 5. Viewport ����
+	// ? 5. Viewport 占쏙옙占쏙옙
 	_sceneViewport.Set(width, height, 0, 0);
 }
 
 void SceneWindow::RenderScene()
 {
-	// ? ���� Ÿ���� SceneWindow������ ����
+	// ? 占쏙옙占쏙옙 타占쏙옙占쏙옙 SceneWindow占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙
 	_sceneViewport.RSSetViewport();
 	DCT->OMSetRenderTargets(1, _sceneRTV.GetAddressOf(), _sceneDSV.Get());
 	
-	// ? ����: Color �ӽ� ���� ���
+	// ? 占쏙옙占쏙옙: Color 占쌈쏙옙 占쏙옙占쏙옙 占쏙옙占?
 	Color clearColor(0.2f, 0.2f, 0.2f, 1.0f);
 	DCT->ClearRenderTargetView(_sceneRTV.Get(), (float*)&clearColor);
 	DCT->ClearDepthStencilView(_sceneDSV.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
-	// ? Scene ������ (���� ����)
+	// ? Scene 占쏙옙占쏙옙占쏙옙 (占쏙옙占쏙옙 占쏙옙占쏙옙)
 	auto scene = SCENE->GetCurrentScene();
 	if (!scene) return;
 
@@ -148,11 +148,11 @@ void SceneWindow::RenderScene()
 
 	if (!camera) return;
 
-	// ? ī�޶� ���� �� ������
+	// ? 카占쌨띰옙 占쏙옙占쏙옙 占쏙옙 占쏙옙占쏙옙占쏙옙
 	camera->SortGameObject();
 	camera->Render_Forward();
 
-	// ? SceneWindow RT ��� �Ϸ� �� ���� ����� RTV�� ���� (ImGui�� ����ۿ� �׷�������)
+	// ? SceneWindow RT 占쏙옙占?占싹뤄옙 占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙占?RTV占쏙옙 占쏙옙占쏙옙 (ImGui占쏙옙 占쏙옙占쏙옙謗占?占쌓뤄옙占쏙옙占쏙옙占쏙옙)
 	GRAPHICS->RestoreMainRenderTarget();
 }
 
@@ -164,7 +164,7 @@ void SceneWindow::Update()
 
 void SceneWindow::Render()
 {
-	// ? �߰�: SceneWindow ������ �Լ� (���� ������ �������� ȣ���)
+	// ? 占쌩곤옙: SceneWindow 占쏙옙占쏙옙占쏙옙 占쌉쇽옙 (占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙占쏙옙 호占쏙옙占?
 }
 
 void SceneWindow::ShowSceneWindow()
@@ -181,7 +181,7 @@ void SceneWindow::ShowSceneWindow()
 	ImVec2 scenePos(GAME->GetSceneDesc().x, GAME->GetSceneDesc().y);
 	ImVec2 sceneSize(GAME->GetSceneDesc().width, GAME->GetSceneDesc().height);
 
-	// ── 패스 뷰어 콤보 (씬 뷰 좌상단 오버레이) ──
+	// ?? ?⑥뒪 酉곗뼱 肄ㅻ낫 (??酉?醫뚯긽???ㅻ쾭?덉씠) ??
 	{
 		ImGui::SetNextWindowPos(ImVec2(scenePos.x + 8.f, scenePos.y + 8.f));
 		ImGui::SetNextWindowBgAlpha(0.6f);
@@ -213,7 +213,7 @@ void SceneWindow::ShowSceneWindow()
 			int32 id = -1;
 			if (droppedMesh->metaType == MetaType::CLIP)
 			{
-				// 클립 드롭 → 애니메이터 배치 (폴더명 = 모델명, 모델은 이미 로드됨)
+				// ?대┰ ?쒕∼ ???좊땲硫붿씠??諛곗튂 (?대뜑紐?= 紐⑤뜽紐? 紐⑤뜽? ?대? 濡쒕뱶??
 				wstring modelName = filesystem::path(droppedMesh->fileFullPath).filename().wstring();
 				wstring modelPath = droppedMesh->fileFullPath + L'/' + modelName;
 				auto model = RESOURCES->Get<Model>(modelPath);
@@ -225,7 +225,7 @@ void SceneWindow::ShowSceneWindow()
 			}
 			else
 			{
-				// 메시 드롭 → 정적 모델 배치
+				// 硫붿떆 ?쒕∼ ???뺤쟻 紐⑤뜽 諛곗튂
 				shared_ptr<Model> model = make_shared<Model>();
 				wstring modelName = droppedMesh->fileName.substr(0, droppedMesh->fileName.find('.'));
 				model->ReadModel(modelName + L'/' + modelName);
@@ -603,7 +603,7 @@ float SceneWindow::IntersectRayPlane(const XMVECTOR& rOrigin, const XMVECTOR& rV
 	float denom = Dot3(plane, rVector);
 
 	if (fabsf(denom) < FLT_EPSILON) {
-		return -1.0f;  // ���� ���̰� �����ϸ� ������ ����
+		return -1.0f;  // 占쏙옙占쏙옙 占쏙옙占싱곤옙 占쏙옙占쏙옙占싹몌옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙
 	}
 
 	return -(numer / denom);
@@ -957,16 +957,16 @@ void SceneWindow::DrawTranslationGizmo(OPERATION op, int32 type)
 	Vec3 camToGizmoDir = _model.Translation() - MAIN_CAM->GetTransform()->GetLocalPosition();
 	camToGizmoDir.Normalize();
 
-	// ī�޶� �ü� ����
+	// 카占쌨띰옙 占시쇽옙 占쏙옙占쏙옙
 	Vec3 camForwardDir = MAIN_CAM->GetTransform()->GetLook();
 	camForwardDir.Normalize();
 
-	// ���� ���
+	// 占쏙옙占쏙옙 占쏙옙占?
 	float dotProduct = camToGizmoDir.Dot(camForwardDir);
 	float angle = acos(dotProduct);
 
-	// ����� ���ü� ����
-	if (angle >= MathUtils::PI / 2) // 90�� �̻��̸� return
+	// 占쏙옙占쏙옙占?占쏙옙占시쇽옙 占쏙옙占쏙옙
+	if (angle >= MathUtils::PI / 2) // 90占쏙옙 占싱삼옙占싱몌옙 return
 		return;
 
 	for (int i = 0; i < 3; ++i)

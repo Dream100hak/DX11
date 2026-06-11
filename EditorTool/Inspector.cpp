@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "Inspector.h"
 #include "ShortcutManager.h"
 #include "EditorToolManager.h"

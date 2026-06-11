@@ -15,7 +15,7 @@ void Graphics::Init(HWND hwnd)
 	CreateDepthStencilView();
 	CreateRasterizer();
 
-	// RenderStateManager ÃÊ±âÈ­ (Device »ı¼º ÀÌÈÄ)
+	// RenderStateManager ì´ˆê¸°í™” (Device ìƒì„± ì´í›„)
 	RENDER_STATES->Init();
 }
 
@@ -126,23 +126,23 @@ void Graphics::CreateDepthStencilView()
 		HRESULT hr = DEVICE->CreateTexture2D(&desc, nullptr, _depthStencilTexture.GetAddressOf());
 		CHECK(hr);
 	}
-	// ½ºÅÄ´Ùµå ¿ë 
+	// ìŠ¤íƒ ë‹¤ë“œ ìš© 
 	{
 		D3D11_DEPTH_STENCIL_DESC depthStencilDesc;
 		ZeroMemory(&depthStencilDesc, sizeof(depthStencilDesc));
 
-		depthStencilDesc.DepthEnable = TRUE; // ±íÀÌ Å×½ºÆ® È°¼ºÈ­
+		depthStencilDesc.DepthEnable = TRUE; // ê¹Šì´ í…ŒìŠ¤íŠ¸ í™œì„±í™”
 		depthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL; 
 		depthStencilDesc.DepthFunc = D3D11_COMPARISON_LESS; 
 		HRESULT hr = DEVICE->CreateDepthStencilState(&depthStencilDesc, _dsStateStandard.GetAddressOf());
 		CHECK(hr);
 	}
-	// ¾Æ¿ô¶óÀÎ ¿ë
+	// ì•„ì›ƒë¼ì¸ ìš©
 	{
 		D3D11_DEPTH_STENCIL_DESC depthStencilDesc;
 		ZeroMemory(&depthStencilDesc, sizeof(depthStencilDesc));
 
-		depthStencilDesc.DepthEnable = TRUE; // ±íÀÌ Å×½ºÆ® È°¼ºÈ­
+		depthStencilDesc.DepthEnable = TRUE; // ê¹Šì´ í…ŒìŠ¤íŠ¸ í™œì„±í™”
 		depthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO; 
 		depthStencilDesc.DepthFunc = D3D11_COMPARISON_LESS; 
 

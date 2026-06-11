@@ -1,5 +1,5 @@
 #pragma once
-// TODO: magic_enum.hpp�� Libraries/Include/�� �߰��� �� �ּ� ����
+// TODO: magic_enum.hpp占쏙옙 Libraries/Include/占쏙옙 占쌩곤옙占쏙옙 占쏙옙 占쌍쇽옙 占쏙옙占쏙옙
 // #include <magic_enum.hpp>
 #include "Component.h"
 
@@ -16,7 +16,7 @@ class Billboard;
 
 class Model;
 
-// enum class�� �����Ͽ� Ÿ�� ������ Ȯ��
+// enum class占쏙옙 占쏙옙占쏙옙占싹울옙 타占쏙옙 占쏙옙占쏙옙占쏙옙 확占쏙옙
 enum class CreatedObjType : uint32
 {
 	GAMEOBJ,
@@ -48,11 +48,11 @@ public:
 	int32 CreateModelAnimatorMesh(shared_ptr<Model> model, Vec3 position = Vec3(0, 0, 0), int32 animIndex = 0);
 	int32 CreateLight(int32 lightType);
 
-	// �ӽ� Enum �� String ��ȯ (magic_enum �߰� ��)
+	// 占쌈쏙옙 Enum 占쏙옙 String 占쏙옙환 (magic_enum 占쌩곤옙 占쏙옙)
 	template<typename E>
 	static std::string EnumToString(E e)
 	{
-		// CreatedObjType�� ����
+		// CreatedObjType占쏙옙 占쏙옙占쏙옙
 		if constexpr (std::is_same_v<E, CreatedObjType>)
 		{
 			switch (e)
@@ -71,7 +71,7 @@ public:
 		return "(unnamed)";
 	}
 
-	// ���߿� magic_enum �߰� �� ����� �Լ��� (�ּ� ó��)
+	// 占쏙옙占쌩울옙 magic_enum 占쌩곤옙 占쏙옙 占쏙옙占쏙옙占?占쌉쇽옙占쏙옙 (占쌍쇽옙 처占쏙옙)
 	/*
 	template<typename E>
 	static std::string EnumToString(E e)
@@ -116,21 +116,21 @@ public:
 		ImVec2 position = ImVec2(GAME->GetSceneDesc().x, GAME->GetSceneDesc().y);
 		ImVec2 size = ImVec2(GAME->GetSceneDesc().width, GAME->GetSceneDesc().height);
 
-		// 4D ��ǥ�� ��ȯ
+		// 4D 占쏙옙표占쏙옙 占쏙옙환
 		Vec4 worldPos4(world.x, world.y, world.z, 1.0f);
-		// ���� ��ǥ�� ��ũ�� ��ǥ�� ��ȯ
+		// 占쏙옙占쏙옙 占쏙옙표占쏙옙 占쏙옙크占쏙옙 占쏙옙표占쏙옙 占쏙옙환
 		Vec4 trans = Vec4::Transform(worldPos4, mat);
 
-		// w ������Ʈ�� �ʹ� ���� ��� ��ũ�� ��ǥ ��ȯ�� ���� ����
+		// w 占쏙옙占쏙옙占쏙옙트占쏙옙 占십뱄옙 占쏙옙占쏙옙 占쏙옙占?占쏙옙크占쏙옙 占쏙옙표 占쏙옙환占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙
 		if (std::abs(trans.w) < std::numeric_limits<float>::epsilon())
 		{
-			return ImVec2(-1, -1); // �� ��� ��ũ�� ������ �����ϰ� ��ȿ���� ���� ��ǥ ��ȯ
+			return ImVec2(-1, -1); // 占쏙옙 占쏙옙占?占쏙옙크占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占싹곤옙 占쏙옙효占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙표 占쏙옙환
 		}
 
-		// ���� ��ǥ�� ��ũ�� ��ǥ�� ��ȯ�� ��, w�� ����Ͽ� ����ȭ
+		// 占쏙옙占쏙옙 占쏙옙표占쏙옙 占쏙옙크占쏙옙 占쏙옙표占쏙옙 占쏙옙환占쏙옙 占쏙옙, w占쏙옙 占쏙옙占쏙옙臼占?占쏙옙占쏙옙화
 		trans /= trans.w;
 
-		// ��ũ�� ��ǥ�� ��ȯ
+		// 占쏙옙크占쏙옙 占쏙옙표占쏙옙 占쏙옙환
 		ImVec2 screenPos;
 		screenPos.x = (trans.x + 1.0f) * 0.5f * size.x + position.x;
 		screenPos.y = (1.0f - (trans.y + 1.0f) * 0.5f) * size.y + position.y;

@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "Project.h"
 #include "Utils.h"
 #include "LogWindow.h"

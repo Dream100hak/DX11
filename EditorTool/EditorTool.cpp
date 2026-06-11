@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "ShadowMap.h"
 #include "EditorTool.h"
 #include "GameObject.h"

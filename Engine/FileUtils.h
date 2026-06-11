@@ -45,7 +45,7 @@ public:
 		return data;
 	}
 
-	// EOF 허용 읽기 — 포맷 확장 필드용 (구버전 파일이면 false)
+	// EOF ?덉슜 ?쎄린 ???щ㎎ ?뺤옣 ?꾨뱶??(援щ쾭???뚯씪?대㈃ false)
 	template<typename T>
 	bool TryRead(OUT T& data)
 	{

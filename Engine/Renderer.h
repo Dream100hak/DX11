@@ -10,7 +10,7 @@ enum class RendererType : uint8
 	Model,
 	Animator,
 	Texture,
-	Particle,  // Stream-Output 파티클 (ParticleSystem) — Transparent 큐, 자체 Draw
+	Particle,  // Stream-Output ?뚰떚??(ParticleSystem) ??Transparent ?? ?먯껜 Draw
 
 	End,
 };
@@ -23,10 +23,10 @@ public:
 	Renderer(RendererType type);
 	virtual ~Renderer();
 
-	// ���� �ű�: ���� ������ ������������������������������������������������������������������������
+	// 占쏙옙占쏙옙 占신깍옙: 占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
 	virtual void Draw(const RenderContext& ctx) {}
 
-	// ���� ���Ž� (������ ���� ����) ����������������������������������������������������������
+	// 占쏙옙占쏙옙 占쏙옙占신쏙옙 (占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙) 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
 	virtual bool Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& distance) { return false; }
 
 public:

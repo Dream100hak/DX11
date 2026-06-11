@@ -38,7 +38,7 @@ void Billboard::Update()
 	if(_material == nullptr)
 		return;
 
-	// FX11 제거 — HlslShader 기반 (전용 빌보드 HLSL 셰이더 필요 시 별도 작성)
+	// FX11 ?쒓굅 ??HlslShader 湲곕컲 (?꾩슜 鍮뚮낫??HLSL ?곗씠???꾩슂 ??蹂꾨룄 ?묒꽦)
 	auto shader = _material->GetHlslShader();
 
 	if(shader == nullptr)

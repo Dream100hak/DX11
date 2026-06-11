@@ -11,7 +11,7 @@ public:
 
 	void Init(wstring fileName);
 
-	// SkyBox 선택 시 환경맵 교체 콤보 (스카이 + IBL 리베이크)
+	// SkyBox ?좏깮 ???섍꼍留?援먯껜 肄ㅻ낫 (?ㅼ뭅??+ IBL 由щ쿋?댄겕)
 	void OnInspectorGUI() override;
 
 private:
@@ -19,7 +19,7 @@ private:
 	shared_ptr<Texture> _cubeMap = nullptr;
 	wstring _fileName;
 
-	// Textures 폴더에서 스캔한 큐브맵 .dds 목록 (캐시)
+	// Textures ?대뜑?먯꽌 ?ㅼ틪???먮툕留?.dds 紐⑸줉 (罹먯떆)
 	std::vector<wstring> _cubeFiles;
 	bool _scanned = false;
 };

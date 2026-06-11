@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ResourceBase.h"
-#include "HlslShader.h"  // HlslShaderDesc ���� ���� �ʿ�
+#include "HlslShader.h"  // HlslShaderDesc 占쏙옙占쏙옙 占쏙옙占쏙옙 占십울옙
 
 class Texture;
 class Mesh;

@@ -42,7 +42,7 @@ private:
 
 	shared_ptr<HlslShader> _hlslShader;
 
-	// ���� �ؽ�ó
+	// 占쏙옙占쏙옙 占쌔쏙옙처
 	shared_ptr<Texture> _diffuseMap;
 	shared_ptr<Texture> _normalMap;
 	shared_ptr<Texture> _specularMap;

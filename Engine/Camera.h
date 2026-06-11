@@ -5,8 +5,8 @@
 
 enum class ProjectionType
 {
-	Perspective = 0, // ���� ����
-	Orthographic, // ���� ����
+	Perspective = 0, // 占쏙옙占쏙옙 占쏙옙占쏙옙
+	Orthographic, // 占쏙옙占쏙옙 占쏙옙占쏙옙
 };
 
 class Camera : public Component
@@ -26,13 +26,13 @@ public:
 		ImGui::DragFloat("Near", (float*)&_near, 0.01f);
 		ImGui::DragFloat("Far", (float*)&_far, 0.01f);
 
-		// ProjectionType �޺� �ڽ� �߰�
+		// ProjectionType 占쌨븝옙 占쌘쏙옙 占쌩곤옙
 		const char* projectionTypes[] = { "Perspective", "Orthographic" };
-		int currentProjection = static_cast<int>(_type); // ���� ���õ� ProjectionType�� int�� ��ȯ
+		int currentProjection = static_cast<int>(_type); // 占쏙옙占쏙옙 占쏙옙占시듸옙 ProjectionType占쏙옙 int占쏙옙 占쏙옙환
 
 		if (ImGui::Combo("Projection Type", &currentProjection, projectionTypes, IM_ARRAYSIZE(projectionTypes)))
 		{
-			_type = static_cast<ProjectionType>(currentProjection); // ����� ���ÿ� ���� _type ������Ʈ
+			_type = static_cast<ProjectionType>(currentProjection); // 占쏙옙占쏙옙占?占쏙옙占시울옙 占쏙옙占쏙옙 _type 占쏙옙占쏙옙占쏙옙트
 		}
 
 		ImGui::SeparatorText("Post Processing");
@@ -71,7 +71,7 @@ public:
 	float GetFov() { return _fov; }
 	float GetFar() { return _far; }
 
-	// 씬뷰 패스 뷰어 (0=Final, PassViewerDesc 주석 참조)
+	// ?щ럭 ?⑥뒪 酉곗뼱 (0=Final, PassViewerDesc 二쇱꽍 李몄“)
 	int32 GetDebugViewMode() const { return _debugViewMode; }
 	void  SetDebugViewMode(int32 mode) { _debugViewMode = mode; }
 
@@ -116,20 +116,20 @@ private:
 	shared_ptr<class GBuffer> _gBuffer;
 	bool _showGBufferDebug = false;
 
-	// HDR sceneColor — 디퍼드 라이팅/스카이/투명 패스가 그리는 씬 크기 오프스크린 버퍼.
-	// GBuffer DSV 와 크기가 일치해 Pass 3 깊이 테스트가 올바르게 동작 (백버퍼+GBuffer DSV
-	// 크기 불일치로 OMSetRenderTargets 가 조용히 실패하던 문제 해결). 톤매핑 패스가 백버퍼로 블릿.
+	// HDR sceneColor ???뷀띁???쇱씠???ㅼ뭅???щ챸 ?⑥뒪媛 洹몃━?????ш린 ?ㅽ봽?ㅽ겕由?踰꾪띁.
+	// GBuffer DSV ? ?ш린媛 ?쇱튂??Pass 3 源딆씠 ?뚯뒪?멸? ?щ컮瑜닿쾶 ?숈옉 (諛깅쾭??GBuffer DSV
+	// ?ш린 遺덉씪移섎줈 OMSetRenderTargets 媛 議곗슜???ㅽ뙣?섎뜕 臾몄젣 ?닿껐). ?ㅻℓ???⑥뒪媛 諛깅쾭?쇰줈 釉붾┸.
 	ComPtr<ID3D11Texture2D>          _sceneColorTex;
 	ComPtr<ID3D11RenderTargetView>   _sceneColorRTV;
 	ComPtr<ID3D11ShaderResourceView> _sceneColorSRV;
 	void EnsureSceneColor(uint32 w, uint32 h);
 
-	// 씬뷰 패스 뷰어
+	// ?щ럭 ?⑥뒪 酉곗뼱
 	int32 _debugViewMode = 0;
 	shared_ptr<ConstantBuffer<PassViewerDesc>> _passViewerCB;
 	void RenderPassViewer(const Matrix& V, const Matrix& P);
 
-	// 포스트프로세싱 — Bloom (하프 해상도 ping-pong) + FXAA (LDR 중간 버퍼)
+	// ?ъ뒪?명봽濡쒖꽭????Bloom (?섑봽 ?댁긽??ping-pong) + FXAA (LDR 以묎컙 踰꾪띁)
 	bool  _bloomEnabled = true;
 	float _bloomThreshold = 1.0f;
 	float _bloomIntensity = 0.6f;

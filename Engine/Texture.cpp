@@ -17,7 +17,7 @@ std::shared_ptr<Texture> Texture::Clone()
 {
 	auto clonedTexture = std::make_shared<Texture>();
 
-	ComPtr<ID3D11Texture2D> srcTexture2D = GetTexture2D().Get(); // ¼öÁ¤µÈ ºÎºÐ
+	ComPtr<ID3D11Texture2D> srcTexture2D = GetTexture2D().Get(); // ìˆ˜ì •ëœ ë¶€ë¶„
 
 	D3D11_TEXTURE2D_DESC textureDesc;
 	srcTexture2D->GetDesc(&textureDesc);
@@ -28,7 +28,7 @@ std::shared_ptr<Texture> Texture::Clone()
 	HRESULT hr = DEVICE.Get()->CreateTexture2D(&textureDesc, nullptr, newTexture2D.GetAddressOf());
 	if (FAILED(hr))
 	{
-		// ¿À·ù Ã³¸®...
+		// ì˜¤ë¥˜ ì²˜ë¦¬...
 		return nullptr;
 	}
 
@@ -38,7 +38,7 @@ std::shared_ptr<Texture> Texture::Clone()
 	hr = DEVICE.Get()->CreateShaderResourceView(newTexture2D.Get(), nullptr, newSRV.GetAddressOf());
 	if (FAILED(hr))
 	{
-		// ¿À·ù Ã³¸®...
+		// ì˜¤ë¥˜ ì²˜ë¦¬...
 		return nullptr;
 	}
 

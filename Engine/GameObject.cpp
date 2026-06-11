@@ -128,8 +128,8 @@ shared_ptr<Renderer> GameObject::GetRenderer()
 	return static_pointer_cast<Renderer>(component);
 }
 
-// 렌더러는 ComponentType::Renderer 슬롯 하나를 공유하므로 실제 타입을 확인 후 캐스팅한다.
-// (무확인 static_cast 는 다른 렌더러 타입일 때 잘못된 메모리를 읽는 UB — 크래시 원인이었음)
+// ?뚮뜑?щ뒗 ComponentType::Renderer ?щ’ ?섎굹瑜?怨듭쑀?섎?濡??ㅼ젣 ??낆쓣 ?뺤씤 ??罹먯뒪?낇븳??
+// (臾댄솗??static_cast ???ㅻⅨ ?뚮뜑????낆씪 ???섎せ??硫붾え由щ? ?쎈뒗 UB ???щ옒???먯씤?댁뿀??
 std::shared_ptr<MeshRenderer> GameObject::GetMeshRenderer()
 {
 	shared_ptr<Renderer> renderer = GetRenderer();

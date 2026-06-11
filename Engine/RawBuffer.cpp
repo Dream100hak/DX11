@@ -33,7 +33,7 @@ void RawBuffer::CopyToInput(void* data)
 
 void RawBuffer::CopyFromOutput(void* data)
 {
-	// Ãâ·Â µ¥ÀÌÅÍ -> result¿¡ º¹»ç
+	// ì¶œë ¥ ë°ì´í„° -> resultì— ë³µì‚¬
 	DCT->CopyResource(_result.Get(), _output.Get());
 
 	D3D11_MAPPED_SUBRESOURCE subResource;
@@ -76,10 +76,10 @@ void RawBuffer::CreateSRV()
 
 	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
 	ZeroMemory(&srvDesc, sizeof(srvDesc));
-	srvDesc.Format = DXGI_FORMAT_R32_TYPELESS; // ½¦ÀÌ´õ¿¡¼­ ¾Ë¾Æ¼­ ÇÏ¼¼¿ä
+	srvDesc.Format = DXGI_FORMAT_R32_TYPELESS; // ì‰ì´ë”ì—ì„œ ì•Œì•„ì„œ í•˜ì„¸ìš”
 	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFEREX; // SRV_FLAG_RAW
 	srvDesc.BufferEx.Flags = D3D11_BUFFEREX_SRV_FLAG_RAW;
-	srvDesc.BufferEx.NumElements = desc.ByteWidth / 4; // ÀüÃ¼ µ¥ÀÌÅÍ °³¼ö
+	srvDesc.BufferEx.NumElements = desc.ByteWidth / 4; // ì „ì²´ ë°ì´í„° ê°œìˆ˜
 
 	CHECK(DEVICE->CreateShaderResourceView(_input.Get(), &srvDesc, _srv.GetAddressOf()));
 }
@@ -117,7 +117,7 @@ void RawBuffer::CreateResult()
 
 	desc.Usage = D3D11_USAGE_STAGING;
 	desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-	desc.BindFlags = D3D11_USAGE_DEFAULT; // UAV°¡ ¿¬°áµÇ·Á¸é, USAGE´Â DEFAULT¿©¾ß ÇÔ.
+	desc.BindFlags = D3D11_USAGE_DEFAULT; // UAVê°€ ì—°ê²°ë˜ë ¤ë©´, USAGEëŠ” DEFAULTì—¬ì•¼ í•¨.
 	desc.MiscFlags = 0;
 
 	CHECK(DEVICE->CreateBuffer(&desc, nullptr, _result.GetAddressOf()));

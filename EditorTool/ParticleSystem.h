@@ -14,7 +14,7 @@ struct VertexParticle
 	uint32 Type;
 };
 
-// HLSL ParticleBuffer (b8) — Fire.hlsl / Rain.hlsl 과 레이아웃 일치
+// HLSL ParticleBuffer (b8) ??Fire.hlsl / Rain.hlsl 怨??덉씠?꾩썐 ?쇱튂
 struct ParticleBuffer
 {
 	Vec3  EmitPosW = Vec3::Zero;
@@ -23,9 +23,9 @@ struct ParticleBuffer
 	float TimeStep = 0.f;
 };
 
-// Renderer 파생 — Camera 의 Transparent 큐(Pass 3)에서 HDR sceneColor 로 렌더
-// (예전엔 MonoBehaviour + JOB_POST_RENDER 로 톤매핑 뒤 LDR 백버퍼에 그렸음
-//  -> Bloom 미적용 + 씬 깊이 차폐 없음 문제)
+// Renderer ?뚯깮 ??Camera ??Transparent ??Pass 3)?먯꽌 HDR sceneColor 濡??뚮뜑
+// (?덉쟾??MonoBehaviour + JOB_POST_RENDER 濡??ㅻℓ????LDR 諛깅쾭?쇱뿉 洹몃졇??
+//  -> Bloom 誘몄쟻??+ ??源딆씠 李⑦룓 ?놁쓬 臾몄젣)
 class ParticleSystem : public Renderer
 {
 	using Super = Renderer;
@@ -45,7 +45,7 @@ public:
 	void Update() override;
 	void Draw(const RenderContext& ctx) override;
 
-	// 이미터별 고유 ID (인스턴싱 배칭 방지)
+	// ?대??곕퀎 怨좎쑀 ID (?몄뒪?댁떛 諛곗묶 諛⑹?)
 	virtual InstanceID GetInstanceID() override
 	{
 		return make_pair(reinterpret_cast<uint64>(this), static_cast<uint64>(1));
@@ -62,7 +62,7 @@ public:
 
 private:
 
-	// HLSL 셰이더 (FX 제거): SO 패스 + Draw 패스
+	// HLSL ?곗씠??(FX ?쒓굅): SO ?⑥뒪 + Draw ?⑥뒪
 	shared_ptr<HlslShader> _soShader = nullptr;
 	shared_ptr<HlslShader> _drawShader = nullptr;
 

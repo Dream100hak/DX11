@@ -61,7 +61,7 @@ void ModelRenderer::OnInspectorGUI()
 		auto& mat = mats[i];
 		MaterialDesc& desc = mat->GetMaterialDesc();
 
-		// ���͸��� ���
+		// 占쏙옙占싶몌옙占쏙옙 占쏙옙占?
 		if (ImGui::TreeNodeEx( Utils::ToString(mat->GetName()).c_str() , ImGuiTreeNodeFlags_DefaultOpen))
 		{
 	
@@ -85,7 +85,7 @@ void ModelRenderer::OnInspectorGUI()
 				ImGui::EndGroup();
 			}		
 
-			ImGui::SameLine(0.f, -2.f); // ���� �ٿ� ��ġ
+			ImGui::SameLine(0.f, -2.f); // 占쏙옙占쏙옙 占쌕울옙 占쏙옙치
 
 			// Normal Map
 			{
@@ -99,7 +99,7 @@ void ModelRenderer::OnInspectorGUI()
 
 				ImGui::EndGroup();
 			}
-			ImGui::SameLine(); // ���� �ٿ� ��ġ
+			ImGui::SameLine(); // 占쏙옙占쏙옙 占쌕울옙 占쏙옙치
 
 			// Specular Map
 			{
@@ -125,14 +125,14 @@ void ModelRenderer::SetModel(shared_ptr<Model> model)
 }
 
 // ============================================================
-// Draw() ? ���� ������
+// Draw() ? 占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙
 // ============================================================
 void ModelRenderer::Draw(const RenderContext& ctx)
 {
 	if (_model == nullptr)
 		return;
 
-	// ── Deferred G-Buffer 경로 (HLSL, 정적 모델) ──
+	// ?? Deferred G-Buffer 寃쎈줈 (HLSL, ?뺤쟻 紐⑤뜽) ??
 	if (ctx.deferredPass)
 	{
 		auto gbuf = RESOURCES->Get<HlslShader>(L"GBufferModel_HLSL");
@@ -146,7 +146,7 @@ void ModelRenderer::Draw(const RenderContext& ctx)
 		const auto& meshes = _model->GetMeshes();
 		for (auto& mesh : meshes)
 		{
-			// 메시별 본 변환 (FX 의 BoneIndex 스칼라 대체)
+			// 硫붿떆蹂?蹂?蹂??(FX ??BoneIndex ?ㅼ뭡???泥?
 			gbuf->PushModelBoneData(_model->GetBoneByIndex(mesh->boneIndex)->transform);
 
 			if (mesh->material)
@@ -176,7 +176,7 @@ void ModelRenderer::Draw(const RenderContext& ctx)
 		return;
 	}
 
-	// ── Shadow(depth-only) / SSAO(normal-depth) 패스 (HLSL, 정적 모델) ──
+	// ?? Shadow(depth-only) / SSAO(normal-depth) ?⑥뒪 (HLSL, ?뺤쟻 紐⑤뜽) ??
 	if (ctx.shadowPass || ctx.ssaoPass)
 	{
 		auto shader = RESOURCES->Get<HlslShader>(ctx.shadowPass ? L"ShadowModel_HLSL" : L"SsaoNormalDepthModel_HLSL");
@@ -198,7 +198,7 @@ void ModelRenderer::Draw(const RenderContext& ctx)
 				md.useTexture = mesh->material->GetDiffuseMap() ? 1 : 0;
 				shader->PushMaterialData(md);
 				auto diffuse = mesh->material->GetDiffuseMap();
-				shader->SetPSSRV(0, diffuse ? diffuse->GetComPtr().Get() : nullptr); // 알파클립용
+				shader->SetPSSRV(0, diffuse ? diffuse->GetComPtr().Get() : nullptr); // ?뚰뙆?대┰??
 			}
 			RENDER_STATES->BindAllSamplersPS();
 
@@ -216,8 +216,8 @@ void ModelRenderer::Draw(const RenderContext& ctx)
 		return;
 	}
 
-	// ── Preview/Thumbnail/Forward lit 경로 (HLSL) ──
-	// FX Standard/Thumbnail 프리뷰 렌더를 HLSL 로 대체 (FX 상태 누수로 인한 씬 오염 해소)
+	// ?? Preview/Thumbnail/Forward lit 寃쎈줈 (HLSL) ??
+	// FX Standard/Thumbnail ?꾨━酉??뚮뜑瑜?HLSL 濡??泥?(FX ?곹깭 ?꾩닔濡??명븳 ???ㅼ뿼 ?댁냼)
 	auto lit = RESOURCES->Get<HlslShader>(L"ModelPreview_HLSL");
 	if (!lit) return;
 
@@ -279,7 +279,7 @@ bool ModelRenderer::Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& dis
 	vector<shared_ptr<ModelMesh>>& meshes = _model->GetMeshes();
 	vector<shared_ptr<ModelBone>>& bones = _model->GetBones();
 
-	//�޽ð� �ϳ� �� ���
+	//占쌨시곤옙 占싹놂옙 占쏙옙 占쏙옙占?
 	TransformBoundingBox();
 	float dist = 0.f;
 

@@ -22,11 +22,11 @@ public:
 
 	virtual void Init() override;
 	virtual void Update() override;
-	void Render();  // ? Ãß°¡: ·»´õ¸µ ÇÔ¼ö ¼±¾ğ
+	void Render();  // ? ì¶”ê°€: ë Œë”ë§ í•¨ìˆ˜ ì„ ì–¸
 
 	void ShowSceneWindow();
 
-	// ? ·»´õ Å¸°Ù °ü·Ã ÇÔ¼ö Ãß°¡
+	// ? ë Œë” íƒ€ê²Ÿ ê´€ë ¨ í•¨ìˆ˜ ì¶”ê°€
 	void CreateRenderTarget(uint32 width, uint32 height);
 	void RenderScene();
 
@@ -98,8 +98,8 @@ public:
 	void ComputeTripodAxisAndVisibility(const int axisIndex, Vec3& dirAxis, Vec3& dirPlaneX, Vec3& dirPlaneY, bool& belowAxisLimit, bool& belowPlaneLimit, const bool localCoordinates = false);
 	
 	float Dot3(XMVECTOR v1, XMVECTOR v2) {
-		XMVECTOR dot = XMVector3Dot(v1, v2); // 3D Á¡°ö °è»ê
-		return XMVectorGetX(dot); // dotÀÇ x ¼ººĞ ¹İÈ¯
+		XMVECTOR dot = XMVector3Dot(v1, v2); // 3D ì ê³± ê³„ì‚°
+		return XMVectorGetX(dot); // dotì˜ x ì„±ë¶„ ë°˜í™˜
 	}
 
 private:
@@ -166,7 +166,7 @@ private:
 
 	bool _bUsing = false;
 
-	// ? ·»´õ Å¸°Ù ¸â¹ö Ãß°¡
+	// ? ë Œë” íƒ€ê²Ÿ ë©¤ë²„ ì¶”ê°€
 	ComPtr<ID3D11Texture2D> _sceneTexture;
 	ComPtr<ID3D11RenderTargetView> _sceneRTV;
 	ComPtr<ID3D11DepthStencilView> _sceneDSV;

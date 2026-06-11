@@ -23,11 +23,14 @@ void GameEditorWindow::Init()
 
 void GameEditorWindow::Update()
 {
-	// 플레이 중에만 씬뷰 위에 표시
-	if (TOOL->IsPlaying() == false)
-		return;
+	const bool playing = TOOL->IsPlaying();
 
-	ShowGameWindow();
+	if (playing)
+		ShowGameWindow();       // 풀사이즈 Game 뷰
+	else
+		ShowCameraPreview();    // 게임 카메라 선택 시 우하단 미니 프리뷰
+
+	_wasPlaying = playing;
 }
 
 // 씬에서 게임 카메라 탐색 — 에디터 내부가 아닌 첫 Camera 오브젝트
@@ -52,7 +55,10 @@ void GameEditorWindow::ShowGameWindow()
 
 	ImGui::SetNextWindowPos(GetEWinPos());
 	ImGui::SetNextWindowSize(GetEWinSize());
-	ImGui::SetNextWindowFocus(); // 씬뷰 위로
+
+	// 포커스는 플레이 진입 첫 프레임만 — 매 프레임 강탈하면 하이라키 우클릭 메뉴 등이 즉시 닫힘
+	if (_wasPlaying == false)
+		ImGui::SetNextWindowFocus();
 
 	ImGui::Begin("Game", nullptr,
 		ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse |
@@ -70,6 +76,37 @@ void GameEditorWindow::ShowGameWindow()
 	{
 		ImGui::Image(_srv.Get(), ImGui::GetContentRegionAvail());
 	}
+
+	ImGui::End();
+}
+
+// 편집 중 카메라 프리뷰 — 게임 카메라(비-에디터 Camera) 선택 시 씬뷰 우하단 인셋
+void GameEditorWindow::ShowCameraPreview()
+{
+	int64 id = TOOL->GetSelectedIdH();
+	if (id == -1)
+		return;
+
+	shared_ptr<GameObject> obj = CUR_SCENE->GetCreatedObject((int32)id);
+	if (obj == nullptr || obj->IsEditorInternal() || obj->GetCamera() == nullptr)
+		return;
+
+	RenderGameView(obj);
+
+	const SceneDesc& scene = GAME->GetSceneDesc();
+	const float pw = 320.f;
+	const float ph = pw * ((float)_height / (float)_width) + 30.f; // 타이틀 줄 여유
+
+	ImGui::SetNextWindowPos(ImVec2(scene.x + scene.width - pw - 12.f, scene.y + scene.height - ph - 12.f));
+	ImGui::SetNextWindowSize(ImVec2(pw, ph));
+	ImGui::SetNextWindowBgAlpha(0.9f);
+
+	ImGui::Begin("CameraPreview", nullptr,
+		ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
+
+	ImGui::TextDisabled("Camera Preview");
+	ImGui::Image(_srv.Get(), ImGui::GetContentRegionAvail());
 
 	ImGui::End();
 }

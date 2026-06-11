@@ -1,0 +1,33 @@
+# EditorConfig - Visual Studio 2022 인코딩 & 스타일 자동 설정
+
+root = true
+
+# 모든 파일
+[*]
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+end_of_line = crlf
+
+# C++ 파일
+[*.{cpp,h,hpp,cxx}]
+charset = utf-8
+indent_style = tab
+indent_size = 4
+
+# HLSL 셰이더 파일
+[*.{hlsl,hlsli}]
+charset = utf-8
+indent_style = tab
+indent_size = 4
+
+# 마크다운 문서
+[*.md]
+charset = utf-8
+trim_trailing_whitespace = false
+
+# JSON/XML 설정 파일
+[*.{json,xml,yaml,yml}]
+charset = utf-8
+indent_style = space
+indent_size = 2

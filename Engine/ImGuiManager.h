@@ -1,7 +1,6 @@
 #pragma once
-// 대신에 magic_enum 라이브러리 사용 가능 (선택 사항)
-// 대신에 magic_enum 라이브러리 사용 가능 (선택 사항)
 #include "Component.h"
+#include "Renderer.h"
 
 class Transform;
 class Camera;
@@ -48,11 +47,10 @@ public:
 	int32 CreateModelAnimatorMesh(shared_ptr<Model> model, Vec3 position = Vec3(0, 0, 0), int32 animIndex = 0);
 	int32 CreateLight(int32 lightType);
 
-	// 대신에 magic_enum 라이브러리 사용 가능 (선택 사항)
+	// 에디터 표시용 enum -> 이름 (라이브러리 의존 없는 정적 switch — 추가 enum 은 분기 확장)
 	template<typename E>
 	static std::string EnumToString(E e)
 	{
-		// CreatedObjType 정의
 		if constexpr (std::is_same_v<E, CreatedObjType>)
 		{
 			switch (e)
@@ -65,6 +63,36 @@ public:
 			case CreatedObjType::MODEL: return "MODEL";
 			case CreatedObjType::TERRAIN: return "TERRAIN";
 			case CreatedObjType::PARTICLE: return "PARTICLE";
+			default: return "(unnamed)";
+			}
+		}
+		else if constexpr (std::is_same_v<E, ComponentType>)
+		{
+			switch (e)
+			{
+			case ComponentType::Transform: return "Transform";
+			case ComponentType::Renderer: return "Renderer";
+			case ComponentType::Camera: return "Camera";
+			case ComponentType::Animator: return "Animator";
+			case ComponentType::Light: return "Light";
+			case ComponentType::Collider: return "Collider";
+			case ComponentType::Terrain: return "Terrain";
+			case ComponentType::Button: return "Button";
+			case ComponentType::BillBoard: return "BillBoard";
+			case ComponentType::SkyBox: return "SkyBox";
+			case ComponentType::Script: return "Script";
+			default: return "(unnamed)";
+			}
+		}
+		else if constexpr (std::is_same_v<E, RendererType>)
+		{
+			switch (e)
+			{
+			case RendererType::Mesh: return "MeshRenderer";
+			case RendererType::Model: return "ModelRenderer";
+			case RendererType::Animator: return "ModelAnimator";
+			case RendererType::Texture: return "TextureRenderer";
+			case RendererType::Particle: return "ParticleSystem";
 			default: return "(unnamed)";
 			}
 		}

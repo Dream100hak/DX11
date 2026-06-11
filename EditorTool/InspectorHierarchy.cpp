@@ -84,6 +84,14 @@ void Inspector::ShowInfoHiearchy()
 			continue;
 
 		string name = GUI->EnumToString(componentType);
+
+		// Renderer 슬롯은 실제 렌더러 타입명으로 표시 (MeshRenderer / ModelRenderer / ModelAnimator / ParticleSystem)
+		if (componentType == ComponentType::Renderer)
+		{
+			if (auto renderer = go->GetRenderer())
+				name = GUI->EnumToString(renderer->GetRenderType());
+		}
+
 		ImGui::PushID(comp.get());
 		ShowComponentInfo(comp, name);
 	}

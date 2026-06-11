@@ -1,5 +1,5 @@
 // Common.hlsli
-// HlslShader 기반 CB 슬롯 레이아웃 및 공용 버텍스 구조체 정의
+// HlslShader 기반 CB 슬롯 레이아웃 및 공용 버텍스 구조 정의
 // 슬롯 목록:
 //   b0 : GlobalBuffer
 //   b1 : TransformBuffer
@@ -19,9 +19,9 @@
 #ifndef _COMMON_HLSLI_
 #define _COMMON_HLSLI_
 
-// ───────────────────────────────────────────────────────────
-// 멀티 라이트 개수
-// ───────────────────────────────────────────────────────────
+// ===========================================================
+// 멀티라이팅 개수
+// ===========================================================
 #define MAX_LIGHTS 16
 
 // ===========================================================
@@ -35,7 +35,7 @@ cbuffer GlobalBuffer : register(b0)
     matrix VP;
     matrix VInv;
     matrix Shadow;
-    matrix T;   // UV 텍스처 변환 (SSAO 등)
+    matrix T;   // UV 트랜스폼 (SSAO 용)
 };
 
 cbuffer TransformBuffer : register(b1)
@@ -63,14 +63,13 @@ cbuffer MaterialBuffer : register(b3)
     int    UseAlphaClip;
     int    UseSsao;
     int    MatPadding;   // 16바이트 정렬
-    // PBR (Cook-Torrance) — C++ MaterialDesc 와 순서/패킹 일치 필수
+    // PBR (Cook-Torrance) 용 C++ MaterialDesc 와 동기화 값 추수
     float  Roughness;
     float  Metallic;
     float2 PbrPadding;
 };
 
-// BoneBuffer (b4), KeyframeBuffer (b5), TweenBuffer (b6) 는
-// Standard_VS.hlsl 등 애니메이션 셰이더에서 직접 정의
+// BoneBuffer (b4), KeyframeBuffer (b5), TweenBuffer (b6) 는 Standard_VS.hlsl 의 애니메이션 타입에서 직접 정의
 
 // ===========================================================
 // Samplers
@@ -129,7 +128,7 @@ struct VertexTextureNormalTangentBlend
 };
 
 // ===========================================================
-// Instancing 추가 정점 (InputSlot 1)
+// Instancing 추�? ?�점 (InputSlot 1)
 // ===========================================================
 struct InstancingData
 {
@@ -148,7 +147,7 @@ struct MeshOutput
     float3 tangent       : TANGENT;
     float3 worldPosition : TEXCOORD1;
     float4 shadow        : TEXCOORD2;   // shadow map 좌표
-    float4 ssao          : TEXCOORD3;   // SSAO 텍스처 좌표
+    float4 ssao          : TEXCOORD3;   // SSAO 트랜스폼 좌표
     uint   picked        : TEXCOORD4;
 };
 

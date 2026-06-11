@@ -1,6 +1,6 @@
 // Lighting.hlsli
-// Phong/Blinn-Phong ������ �Լ�
-// Common.hlsli �� LightBuffer / MaterialBuffer �� �����
+// Phong/Blinn-Phong 계산 함수
+// Common.hlsli 의 LightBuffer / MaterialBuffer 를 사용
 
 #ifndef _LIGHTING_HLSLI_
 #define _LIGHTING_HLSLI_

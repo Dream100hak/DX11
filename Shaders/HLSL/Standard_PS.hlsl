@@ -1,6 +1,6 @@
 // Standard_PS.hlsl
-// ���� �ȼ� ���̴�  ? MeshRenderer / ModelRenderer / ModelAnimator ���� ���
-// Material SRV ����:
+// 최종 픽셀 셰이더 — MeshRenderer / ModelRenderer / ModelAnimator 공용 셰이더
+// Material SRV 슬롯:
 //   t0 : DiffuseMap
 //   t1 : SpecularMap
 //   t2 : NormalMap
@@ -11,7 +11,7 @@
 #include "Shadow.hlsli"
 
 // ===========================================================
-// Textures (Material SRV, ���� t0~t4)
+// Textures (Material SRV, 슬롯 t0~t4)
 // ===========================================================
 Texture2D DiffuseMap  : register(t0);
 Texture2D SpecularMap : register(t1);
@@ -24,13 +24,13 @@ Texture2D SsaoMap     : register(t4);
 // ===========================================================
 float4 PS_Main(MeshOutput input) : SV_TARGET
 {
-    // ���� ����ȭ �� �븻�� ����
+    // 법선 정규화 및 노멀맵 적용
     input.normal = normalize(input.normal);
     ComputeNormalMapping(input.normal, input.tangent, input.uv, NormalMap);
 
     float3 toEye = normalize(CameraPositionWS() - input.worldPosition);
 
-    // ��ǻ�� �ؽ�ó
+    // 컴퓨트 텍스처
     float4 texColor = MatDiffuse;
     if (UseTexture)
     {
@@ -62,9 +62,9 @@ float4 PS_Main(MeshOutput input) : SV_TARGET
     }
     else
     {
-     // ����Ʈ ���� ��: �ܼ� ambient(0.3) �����Ͽ� ������Ʈ�� ���̵���
+        // 폴백 라이트 처: 기본 ambient(0.3) 적용해서 완전어둠 방지
         float4 fallbackAmbient = MatAmbient * float4(0.3f, 0.3f, 0.3f, 1.0f);
-    litColor = texColor * (fallbackAmbient + MatDiffuse * 0.5f);
+        litColor = texColor * (fallbackAmbient + MatDiffuse * 0.5f);
     }
 
     litColor.a = MatDiffuse.a * texColor.a;
@@ -72,7 +72,7 @@ float4 PS_Main(MeshOutput input) : SV_TARGET
 }
 
 // ===========================================================
-// PS_Wireframe  ? �ܻ� ���̾������� �����
+// PS_Wireframe — 와이어프레임 셰이더
 // ===========================================================
 float4 PS_Wireframe(MeshOutput input) : SV_TARGET
 {

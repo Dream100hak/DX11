@@ -15,7 +15,7 @@ public:
 	void RenderBegin();
 	void PostRenderBegin();
 	void RenderEnd();
-	void RestoreMainRenderTarget(); // SceneWindow ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ RT ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ RTV ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	void RestoreMainRenderTarget(); // SceneWindow ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ RT ï¿½ï¿½ï¿?ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ RTV ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 	ComPtr<ID3D11Device> GetDevice() { return _device; }
 	ComPtr<ID3D11DeviceContext> GetDeviceContext() { return _deviceContext; }

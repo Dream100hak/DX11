@@ -1,6 +1,6 @@
 // Standard_VS.hlsl
-// MeshRenderer / ModelRenderer / ModelAnimator �� ���� ���ؽ� ��������
-// Common.hlsli CB ���� ���:
+// MeshRenderer / ModelRenderer / ModelAnimator 를 위한 버텍스 쉐이더
+// Common.hlsli CB 슬롯 사용
 //   b0: GlobalBuffer  b1: TransformBuffer  b4: BoneBuffer  b6: TweenBuffer
 
 #include "Common.hlsli"
@@ -17,8 +17,8 @@ cbuffer BoneBuffer : register(b4)
 matrix BoneTransforms[MAX_MODEL_TRANSFORMS];
 };
 
-// ModelRenderer(정적 모델): 메시별 본 변환 (per-mesh rigid bind).
-// FX 의 GetScalar("BoneIndex")->SetInt 대체 — 메시마다 본 행렬을 직접 push.
+// ModelRenderer (정적 모델): 메시당 1개 변환 (per-mesh rigid bind).
+// 메시마다 b5 로 직접 푸시 (FX 와 달리 동적 배열 없음).
 cbuffer ModelBoneBuffer : register(b5)
 {
     matrix MeshBoneTransform;
@@ -50,7 +50,7 @@ cbuffer TweenBuffer : register(b6)
   TweenFrameDesc TweenFrames[MAX_MODEL_INSTANCE];
 };
 
-Texture2DArray TransformMap : register(t5); // SRV ���� 5 (Material SRV 0~4 ����)
+Texture2DArray TransformMap : register(t5); // SRV 슬롯 5 (Material SRV 0~4 이후)
 
 // ===========================================================
 // Vertex Input Structures
@@ -85,7 +85,7 @@ struct VertexModel
 };
 
 // ===========================================================
-// GetAnimationMatrix  (Tween ������ ����)
+// GetAnimationMatrix  (Tween 프레임 보간)
 // ===========================================================
 matrix GetAnimationMatrix(VertexModel input)
 {
@@ -192,7 +192,7 @@ MeshOutput VS_Model(VertexModel input)
 {
     MeshOutput output;
 
-    // 메시별 본 변환 적용 (per-mesh rigid bind), 이후 인스턴스 월드
+    // 메시�?�?변???�용 (per-mesh rigid bind), ?�후 ?�스?�스 ?�드
     float4 localPos = mul(float4(input.position.xyz, 1.0f), MeshBoneTransform);
     float4 posW     = mul(localPos, input.world);
     output.worldPosition = posW.xyz;

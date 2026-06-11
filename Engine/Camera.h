@@ -43,6 +43,9 @@ public:
 			ImGui::DragFloat("Bloom Intensity", &_bloomIntensity, 0.01f, 0.f, 3.f);
 		}
 		ImGui::Checkbox("FXAA", &_fxaaEnabled);
+
+		ImGui::SeparatorText("IBL");
+		ImGui::DragFloat("Env Intensity", &_envIntensity, 0.01f, 0.f, 4.f);
 	}
 
 
@@ -141,6 +144,7 @@ private:
 	void RenderBloom(uint32 w, uint32 h);
 
 	// IBL (DeferredLighting b8)
+	float _envIntensity = 1.f;
 	shared_ptr<ConstantBuffer<IblDesc>> _iblCB;
 
 	shared_ptr<class LightArrayDesc> CollectLights(shared_ptr<class Scene> scene);

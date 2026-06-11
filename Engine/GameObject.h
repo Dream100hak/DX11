@@ -1,6 +1,6 @@
 #pragma once
 #include "Component.h"
-class MonoBehaviour;
+#include "MonoBehaviour.h" // GetComponent í…œí”Œë¦¿ì˜ dynamic_pointer_cast ê°€ ì™„ì „ íƒ€ì… ìš”êµ¬
 class Transform;
 class Camera;
 class Renderer;
@@ -134,7 +134,7 @@ private:
 	bool _pickable = true;
 	bool _picked = false;
 
-	bool _isOutlined = true; // ¾Æ¿ô¶óÀÎ °¡´É ¿©ºÎ
+	bool _isOutlined = true; // ï¿½Æ¿ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 
 };
 

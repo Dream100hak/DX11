@@ -4,9 +4,8 @@
 #include "Utils.h"
 #include "Light.h"
 
-ParticleSystem::ParticleSystem()
+ParticleSystem::ParticleSystem() : Super(RendererType::Particle)
 {
-	SetBehaviorName(Utils::ToWString(Utils::GetClassNameEX<ParticleSystem>()));
 	_firstRun = true;
 	_age = 0.0f;
 
@@ -74,25 +73,25 @@ void ParticleSystem::Update()
 	_timeStep = DT;
 	_age += TIME->GetDeltaTime();
 
-	shared_ptr<Camera> camera = CUR_SCENE->GetMainCamera()->GetCamera();
-	Matrix V = camera->GetViewMatrix();
-	Matrix P = camera->GetProjectionMatrix();
-	Vec3 pos = CUR_SCENE->GetMainCamera()->GetOrAddTransform()->GetPosition();
-	
-	JOB_POST_RENDER->DoPush([=]()
-	{
-		Draw(pos, V , P);
-	});
+	// 드로우는 Camera Pass 3 (Transparent 큐) 에서 Draw(ctx) 로 수행
 }
 
-void ParticleSystem::Draw(Vec3 pos, Matrix V, Matrix P)
+void ParticleSystem::Draw(const RenderContext& ctx)
 {
+	// 파티클은 메인 컬러 패스 전용 — GBuffer/그림자/SSAO 패스에선 그리지 않음
+	if (ctx.deferredPass || ctx.shadowPass || ctx.ssaoPass)
+		return;
+
 	if (_soShader == nullptr || _drawShader == nullptr)
 		return;
 
+	Matrix V = ctx.view;
+	Matrix P = ctx.proj;
+
 	if (_type == PT_RAIN)
 	{
-		SetEmitPos(pos);
+		// 비는 카메라 주변에 이미터 고정
+		SetEmitPos(CUR_SCENE->GetMainCamera()->GetOrAddTransform()->GetPosition());
 	}
 	else if (_type == PT_FIRE)
 	{

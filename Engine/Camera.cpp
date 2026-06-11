@@ -63,10 +63,8 @@ void Camera::SortGameObject()
 		if (IsCulled(gameObject->GetLayerIndex()))
 			continue;
 
-		auto renderer = gameObject->GetMeshRenderer()  ? static_pointer_cast<Renderer>(gameObject->GetMeshRenderer())
-					  : gameObject->GetModelRenderer() ? static_pointer_cast<Renderer>(gameObject->GetModelRenderer())
-					  : gameObject->GetModelAnimator() ? static_pointer_cast<Renderer>(gameObject->GetModelAnimator())
-					: nullptr;
+		// Renderer 슬롯 공용 getter — Mesh/Model/Animator 외 커스텀 렌더러(Particle 등)도 큐에 태운다
+		auto renderer = gameObject->GetRenderer();
 
 		if (renderer == nullptr)
 			continue;
@@ -83,7 +81,13 @@ void Camera::SortGameObject()
 		// RenderQueue 분류
 		RenderQueue queue = RenderQueue::Opaque;
 		if (auto mr = gameObject->GetMeshRenderer())
+		{
 			if (mr->GetMaterial()) queue = mr->GetMaterial()->GetRenderQueue();
+		}
+		else if (renderer->GetRenderType() == RendererType::Particle)
+		{
+			queue = RenderQueue::Transparent; // 파티클은 항상 투명 패스 (Pass 3, HDR sceneColor)
+		}
 
 		if (static_cast<int32>(queue) >= static_cast<int32>(RenderQueue::Transparent))
 			_vecTransparent.push_back(gameObject);
@@ -249,7 +253,7 @@ void Camera::Render_Deferred()
 		}
 		IblDesc iblDesc;
 		iblDesc.useIbl = Ibl::IsReady() ? 1 : 0;
-		iblDesc.envIntensity = 1.f;
+		iblDesc.envIntensity = _envIntensity;
 		_iblCB->CopyData(iblDesc);
 		lightingShader->SetPSConstantBuffer(8, _iblCB->GetComPtr().Get());
 

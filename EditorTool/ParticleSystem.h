@@ -1,5 +1,5 @@
 #pragma once
-#include "MonoBehaviour.h"
+#include "Renderer.h"
 
 #define PT_RAIN 1
 #define PT_FIRE 2
@@ -23,8 +23,13 @@ struct ParticleBuffer
 	float TimeStep = 0.f;
 };
 
-class ParticleSystem : public MonoBehaviour
+// Renderer 파생 — Camera 의 Transparent 큐(Pass 3)에서 HDR sceneColor 로 렌더
+// (예전엔 MonoBehaviour + JOB_POST_RENDER 로 톤매핑 뒤 LDR 백버퍼에 그렸음
+//  -> Bloom 미적용 + 씬 깊이 차폐 없음 문제)
+class ParticleSystem : public Renderer
 {
+	using Super = Renderer;
+
 public:
 
 	ParticleSystem();
@@ -38,7 +43,13 @@ public:
 
 	void Reset();
 	void Update() override;
-	void Draw(Vec3 pos, Matrix V, Matrix P);
+	void Draw(const RenderContext& ctx) override;
+
+	// 이미터별 고유 ID (인스턴싱 배칭 방지)
+	virtual InstanceID GetInstanceID() override
+	{
+		return make_pair(reinterpret_cast<uint64>(this), static_cast<uint64>(1));
+	}
 
 private:
 

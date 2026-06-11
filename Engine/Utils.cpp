@@ -48,14 +48,33 @@ void Utils::Replace(OUT wstring& str, wstring comp, wstring rep)
 	str = temp;
 }
 
+// UTF-8 <-> UTF-16 변환 (예전 naive narrowing 은 한글이 깨졌음)
 std::wstring Utils::ToWString(string value)
 {
-	return wstring(value.begin(), value.end());
+	if (value.empty())
+		return L"";
+
+	int len = ::MultiByteToWideChar(CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), nullptr, 0);
+	if (len <= 0)
+		return wstring(value.begin(), value.end()); // 비정상 입력 폴백
+
+	wstring result(len, L'\0');
+	::MultiByteToWideChar(CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), result.data(), len);
+	return result;
 }
 
 std::string Utils::ToString(wstring value)
 {
-	return string(value.begin(), value.end());
+	if (value.empty())
+		return "";
+
+	int len = ::WideCharToMultiByte(CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), nullptr, 0, nullptr, nullptr);
+	if (len <= 0)
+		return string(value.begin(), value.end()); // 비정상 입력 폴백
+
+	string result(len, '\0');
+	::WideCharToMultiByte(CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), result.data(), len, nullptr, nullptr);
+	return result;
 }
 std::string Utils::ToString(Vec2 value)
 {
@@ -117,7 +136,7 @@ string Utils::ConvertWCharToChar(const wchar_t* wstr)
 	int bufferSize = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, nullptr, 0, nullptr, nullptr);
 	if (bufferSize == 0)
 	{
-		// ��ȯ ����
+		// ��ȯ ����
 		return "";
 	}
 

@@ -455,8 +455,31 @@ void FolderContents::CreateMeshPreviewThumbnail(shared_ptr<MetaData>& meta , sha
 		thumbnail->Draw(renderers, V , P , _meshPreviewLight->GetLight(), buffers);
 	});
 
-	_meshPreviewthumbnails.insert(make_pair(meta->fileFullPath + L'/' + meta->fileName, thumbnail));
+	const wstring key = meta->fileFullPath + L'/' + meta->fileName;
+	_meshPreviewthumbnails.insert(make_pair(key, thumbnail));
+	_thumbnailOrder.push_back(key);
 
+	// 썸네일 캐시 상한 — 1024x1024 RT 가 자산 수만큼 무한 증식하던 누수 방지.
+	// 가장 오래 전에 만든 것부터 제거 (FIFO). 화면에 보이면 다음 프레임에 lazy 재생성.
+	// 선택 중인 항목/방금 만든 항목은 보호 (Inspector 가 operator[] 로 직접 참조).
+	constexpr size_t MAX_THUMBNAIL_CACHE = 64;
+	wstring selectedKey;
+	if (auto selected = SELECTED_P)
+		selectedKey = selected->fileFullPath + L'/' + selected->fileName;
+
+	size_t guard = _thumbnailOrder.size();
+	while (_thumbnailOrder.size() > MAX_THUMBNAIL_CACHE && guard-- > 0)
+	{
+		wstring oldest = _thumbnailOrder.front();
+		_thumbnailOrder.pop_front();
+
+		if (oldest == selectedKey || oldest == key)
+		{
+			_thumbnailOrder.push_back(oldest); // 보호 항목은 뒤로 회전
+			continue;
+		}
+		_meshPreviewthumbnails.erase(oldest);
+	}
 }
 
 void FolderContents::DragModelFileToGUIWnd(shared_ptr<MetaData>& meta, const wstring& modelPath, shared_ptr<GameObject> obj)

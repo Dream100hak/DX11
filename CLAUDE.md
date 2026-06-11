@@ -185,7 +185,7 @@ Camera::Render_Deferred()
 ### Next Steps
 - ~~파티클 Transparent 큐 편입~~ — **DONE in commit 70** (ParticleSystem 이 Renderer(RendererType::Particle) 파생,
   Pass 3 에서 HDR 렌더 — 불꽃 Bloom + 깊이 차폐 동작. SortGameObject 가 Renderer 슬롯 공용 getter 사용)
-- 프리뷰/썸네일(ModelPreview/AnimPreview/Thumbnail)은 여전히 Phong 포워드 — PBR 일관성 원하면 PS 교체
+- ~~프리뷰/썸네일 PBR~~ — **DONE in commit 72** (Thumbnail.hlsl PS_PreviewLit 가 Cook-Torrance + Reinhard/감마 자체 처리)
 - IBL 환경맵 교체 UI (현재 desertcube1024.dds 고정; EnvIntensity 는 Camera 인스펙터에 노출됨 — commit 70)
 - Shadow UX note: a camera-following shadow-sphere auto-fit was implemented then REVERTED by user preference (commit 58) — shadow bounds are the fixed center/radius on the Light inspector; objects outside cast/receive no shadows.
 - Editor gap: clip (.clip) has no scene drag-drop source (FolderContents CLIP branch lacks `DragModelFileToGUIWnd`); `CreateModelAnimatorMesh`/SceneWindow CLIP-drop branch already added, just needs the drag source.
@@ -199,10 +199,11 @@ Camera::Render_Deferred()
 - ~~파티클 LDR 백버퍼 직그리기~~ — **FIXED in commit 70** (Transparent 큐 편입)
 
 ### Editor
-- `Hiearchy.cpp`: ImGui::Selectable comma operator bug (isSelected ignored)
-- `GetEditorWindow()`: No return value when key not found (UB)
-- `wstring->string` conversion breaks Korean characters
-- Thumbnail cache has no size limit (memory leak risk)
+- ~~Hiearchy Selectable comma bug~~ / ~~GetEditorWindow UB~~ — 이미 과거에 수정돼 있었음 (목록이 낡았던 것)
+- ~~wstring<->string 한글 깨짐~~ — **FIXED in commit 72** (Utils::ToString/ToWString 이 UTF-8 변환 사용)
+- ~~썸네일 캐시 무제한~~ — **FIXED in commit 72** (FolderContents FIFO 상한 64개, 선택 항목 보호)
+- Inspector/FolderContents 가 프리뷰 맵을 `operator[]` 로 직접 인덱싱 — 키 부재 시 null 삽입 (썸네일 캐시 제거와
+  맞물리면 잠재 크래시. 제거 시 선택 항목은 보호하지만 find() 가드로 바꾸는 게 안전)
 
 ## Build & Run
 

@@ -183,10 +183,10 @@ Camera::Render_Deferred()
     - Runtime verified: editor stable, deferred + shadow + ssao all render clean.
 
 ### Next Steps
-- 파티클(Fire/Rain)을 Transparent 큐로 편입: 현재 `JOB_POST_RENDER` 로 톤매핑 뒤 백버퍼에 그림 — 동작은 하지만
-  HDR/Bloom 미적용 + 씬 깊이 차폐 없음 (메인 DSV 가 비어 지형 뒤 파티클이 보임). Renderer 파생으로 바꾸면 Pass 3 에서 해결
+- ~~파티클 Transparent 큐 편입~~ — **DONE in commit 70** (ParticleSystem 이 Renderer(RendererType::Particle) 파생,
+  Pass 3 에서 HDR 렌더 — 불꽃 Bloom + 깊이 차폐 동작. SortGameObject 가 Renderer 슬롯 공용 getter 사용)
 - 프리뷰/썸네일(ModelPreview/AnimPreview/Thumbnail)은 여전히 Phong 포워드 — PBR 일관성 원하면 PS 교체
-- IBL 환경맵 교체 UI (현재 desertcube1024.dds 고정), EnvIntensity 인스펙터 노출
+- IBL 환경맵 교체 UI (현재 desertcube1024.dds 고정; EnvIntensity 는 Camera 인스펙터에 노출됨 — commit 70)
 - Shadow UX note: a camera-following shadow-sphere auto-fit was implemented then REVERTED by user preference (commit 58) — shadow bounds are the fixed center/radius on the Light inspector; objects outside cast/receive no shadows.
 - Editor gap: clip (.clip) has no scene drag-drop source (FolderContents CLIP branch lacks `DragModelFileToGUIWnd`); `CreateModelAnimatorMesh`/SceneWindow CLIP-drop branch already added, just needs the drag source.
 
@@ -196,7 +196,7 @@ Camera::Render_Deferred()
 - **FX11 is fully gone** — all rendering is native HLSL via `HlslShader`.
 - Material Sampler nullptr temp binding (needs RenderStateManager integration)
 - ~~Deferred Pass 3 misalign~~ — **FIXED in commit 65** (HDR sceneColor + GBuffer DSV 크기 일치)
-- 파티클이 톤매핑 이후 LDR 백버퍼에 그려짐 (Next Steps 참조)
+- ~~파티클 LDR 백버퍼 직그리기~~ — **FIXED in commit 70** (Transparent 큐 편입)
 
 ### Editor
 - `Hiearchy.cpp`: ImGui::Selectable comma operator bug (isSelected ignored)

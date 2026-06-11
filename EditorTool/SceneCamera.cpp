@@ -4,6 +4,7 @@
 #include "Camera.h"
 #include "Transform.h"
 #include "Utils.h"
+#include "EditorToolManager.h"
 
 SceneCamera::SceneCamera()
 {
@@ -23,6 +24,10 @@ void SceneCamera::Start()
 
 void SceneCamera::Update()
 {
+	// 플레이 중에는 Game 뷰가 떠 있으므로 에디터 카메라 비행(WASD/RMB) 차단
+	if (TOOL->IsPlaying())
+		return;
+
 	float dt = TIME->GetDeltaTime();
 
 	Vec3 pos = GetTransform()->GetPosition();

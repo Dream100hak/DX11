@@ -49,11 +49,14 @@ void Scene::LateUpdate()
 
 void Scene::Render()
 {
-	for (auto& camera : _cameras)
-	{
-		camera->GetCamera()->SortGameObject();
-		camera->GetCamera()->Render_Deferred();
-	}
+	// 백버퍼(씬뷰)는 메인(에디터) 카메라만 — 전체 순회하면 마지막에 그린 카메라가
+	// 씬뷰를 덮어쓴다 (게임 카메라 시점은 GameEditorWindow 가 자기 RT 로 별도 렌더)
+	shared_ptr<GameObject> mainCamera = GetMainCamera();
+	if (mainCamera == nullptr)
+		return;
+
+	mainCamera->GetCamera()->SortGameObject();
+	mainCamera->GetCamera()->Render_Deferred();
 }
 
 void Scene::Add(shared_ptr<GameObject> object)

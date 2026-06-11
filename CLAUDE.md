@@ -122,7 +122,9 @@ Camera::Render_Deferred()
 - `GameObject::SetEditorInternal` excludes editor infra (editor camera, folder previews) from serialization.
 - **Play/Stop**: snapshot on Play (`__play_snapshot.scene`), restore on Stop — edits during play auto-rollback (Unity semantics).
 - **Game view**: while playing, renders the first non-internal Camera ("GameObject > Create Camera") over the scene view.
-  v1 uses `Render_Forward` (no deferred PBR/shadow in game view yet).
+  Editing mode shows a **camera preview inset** (scene view bottom-right) when a game camera is selected (closable, x).
+  Both use the FULL deferred pipeline — `Camera::Render_Deferred` renders from `this` camera and
+  `SetFinalOutput(rtv)` overrides the final target (null = backbuffer).
 - `Scene::GetMainCamera` prefers the editorInternal camera — placed game cameras can't hijack the editor viewpoint.
 
 ## Material System (commits 98~100)
@@ -138,7 +140,6 @@ Camera::Render_Deferred()
 - **Rain particle invisible** (deferred by user) — Fire works; Rain spawns around camera but streaks not visible.
 - Editor windows use hardcoded positions (no ImGui DockSpace).
 - ModelAnimator picking uses bind pose (inaccurate for large animation poses).
-- Game view renders forward-only (no deferred PBR/shadow/bloom) — v1.
 - `Hiearchy` filename typo kept for compatibility.
 
 ## Build & Run

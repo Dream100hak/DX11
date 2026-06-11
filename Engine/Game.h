@@ -1,26 +1,6 @@
 #pragma once
 
-enum MOVETYPE
-{
-	MT_NONE,
-	MT_MOVE_X,
-	MT_MOVE_Y,
-	MT_MOVE_Z,
-	MT_MOVE_YZ,
-	MT_MOVE_ZX,
-	MT_MOVE_XY,
-	MT_MOVE_SCREEN,
-	MT_ROTATE_X,
-	MT_ROTATE_Y,
-	MT_ROTATE_Z,
-	MT_ROTATE_SCREEN,
-	MT_SCALE_X,
-	MT_SCALE_Y,
-	MT_SCALE_Z,
-	MT_SCALE_XYZ
-};
-
-
+// 기즈모 조작 모드 — 비트값은 ImGuizmo::OPERATION 과 동일 (캐스팅 호환)
 enum OPERATION
 {
 	TRANSLATE_X = (1u << 0),
@@ -45,75 +25,9 @@ enum OPERATION
 	UNIVERSAL = TRANSLATE | ROTATE | SCALEU
 };
 
-enum COLOR
-{
-	DIRECTION_X,      // directionColor[0]
-	DIRECTION_Y,      // directionColor[1]
-	DIRECTION_Z,      // directionColor[2]
-	PLANE_X,          // planeColor[0]
-	PLANE_Y,          // planeColor[1]
-	PLANE_Z,          // planeColor[2]
-	SELECTION,        // selectionColor
-	INACTIVE,         // inactiveColor
-	TRANSLATION_LINE, // translationLineColor
-	SCALE_LINE,
-	ROTATION_USING_BORDER,
-	ROTATION_USING_FILL,
-	HATCHED_AXIS_LINES,
-	Text,
-	TEXT_SHADOW,
-	COUNT
-};
-
-struct Style
-{
-	IMGUI_API Style()
-	{
-		// default values
-		TranslationLineThickness = 3.0f;
-		TranslationLineArrowSize = 6.0f;
-		RotationLineThickness = 2.0f;
-		RotationOuterLineThickness = 3.0f;
-		ScaleLineThickness = 3.0f;
-		ScaleLineCircleSize = 6.0f;
-		HatchedAxisLineThickness = 6.0f;
-		CenterCircleSize = 6.0f;
-
-		// initialize default colors
-		Colors[DIRECTION_X] = ImVec4(0.666f, 0.000f, 0.000f, 1.000f);
-		Colors[DIRECTION_Y] = ImVec4(0.000f, 0.666f, 0.000f, 1.000f);
-		Colors[DIRECTION_Z] = ImVec4(0.000f, 0.000f, 0.666f, 1.000f);
-		Colors[PLANE_X] = ImVec4(0.666f, 0.000f, 0.000f, 0.380f);
-		Colors[PLANE_Y] = ImVec4(0.000f, 0.666f, 0.000f, 0.380f);
-		Colors[PLANE_Z] = ImVec4(0.000f, 0.000f, 0.666f, 0.380f);
-		Colors[SELECTION] = ImVec4(1.000f, 0.500f, 0.062f, 0.541f);
-		Colors[INACTIVE] = ImVec4(0.600f, 0.600f, 0.600f, 0.600f);
-		Colors[TRANSLATION_LINE] = ImVec4(0.666f, 0.666f, 0.666f, 0.666f);
-		Colors[SCALE_LINE] = ImVec4(0.250f, 0.250f, 0.250f, 1.000f);
-		Colors[ROTATION_USING_BORDER] = ImVec4(1.000f, 0.500f, 0.062f, 1.000f);
-		Colors[ROTATION_USING_FILL] = ImVec4(1.000f, 0.500f, 0.062f, 0.500f);
-		Colors[HATCHED_AXIS_LINES] = ImVec4(0.000f, 0.000f, 0.000f, 0.500f);
-		Colors[Text] = ImVec4(1.000f, 1.000f, 1.000f, 1.000f);
-		Colors[TEXT_SHADOW] = ImVec4(0.000f, 0.000f, 0.000f, 1.000f);
-	}
-
-	float TranslationLineThickness;   // Thickness of lines for translation gizmo
-	float TranslationLineArrowSize;   // Size of arrow at the end of lines for translation gizmo
-	float RotationLineThickness;      // Thickness of lines for rotation gizmo
-	float RotationOuterLineThickness; // Thickness of line surrounding the rotation gizmo
-	float ScaleLineThickness;         // Thickness of lines for scale gizmo
-	float ScaleLineCircleSize;        // Size of circle at the end of lines for scale gizmo
-	float HatchedAxisLineThickness;   // Thickness of hatched axis lines
-	float CenterCircleSize;           // Size of circle at the center of the translate/scale gizmo
-
-	ImVec4 Colors[COLOR::COUNT];
-};
-
-
 struct SceneDesc
 {
-	ImDrawList* drawList;
-	Style style;
+	ImDrawList* drawList; // 씬 윈도우 드로우리스트 (ImGuizmo 가 여기에 그림)
 
 	float x = 0.f;
 	float y = 21.f;

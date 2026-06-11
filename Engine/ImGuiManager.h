@@ -187,10 +187,4 @@ public:
 		}
 		return false;
 	}
-
-	ImU32 GetColorU32(int idx)
-	{
-		IM_ASSERT(idx < COLOR::COUNT);
-		return ImGui::ColorConvertFloat4ToU32(GAME->GetSceneDesc().style.Colors[idx]);
-	}
 };

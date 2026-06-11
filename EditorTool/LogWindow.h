@@ -1,3 +1,4 @@
+#pragma once
 #include "EditorWindow.h"
 
 enum LogFilter : uint8

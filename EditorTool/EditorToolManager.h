@@ -34,6 +34,11 @@ public:
 
 	shared_ptr<LogWindow> GetLog();
 
+	// ── Play 모드 — 진입 시 씬 스냅샷, Stop 시 복원 (플레이 중 수정은 자동 롤백) ──
+	bool IsPlaying() const { return _isPlaying; }
+	void StartPlay();
+	void StopPlay();
+
 	MetaType GetMetaType(const wstring& name)
 	{
 		size_t idx = name.find('.');
@@ -74,10 +79,12 @@ public:
 	}
 
 private:
-	
+
 	 bool _hiearchyWindow = false;
 	 int64 _selectedH = -1;
 	 shared_ptr<MetaData> _selectedP;
+
+	 bool _isPlaying = false;
 
 
 private:

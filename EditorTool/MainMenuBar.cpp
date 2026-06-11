@@ -189,15 +189,27 @@ void MainMenuBar::AppPlayMenu()
 		ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
 		ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
 
-	if (ImGui::Button("Play", ImVec2(btnW, 0)))
-	{
+	const bool playing = TOOL->IsPlaying();
 
-	}
+	// 플레이 중 — Play 버튼 액센트 강조
+	if (playing)
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.22f, 0.52f, 0.88f, 1.f));
+
+	if (ImGui::Button("Play", ImVec2(btnW, 0)))
+		TOOL->StartPlay();
+
+	if (playing)
+		ImGui::PopStyleColor();
 
 	ImGui::SameLine();
 	if (ImGui::Button("Stop", ImVec2(btnW, 0)))
-	{
+		TOOL->StopPlay();
 
+	if (playing)
+	{
+		ImGui::SameLine();
+		ImGui::TextColored(ImVec4(0.36f, 0.65f, 1.f, 1.f), "PLAYING");
 	}
+
 	ImGui::End();
 }

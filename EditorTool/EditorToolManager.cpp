@@ -5,6 +5,8 @@
 
 #include "MainMenuBar.h"
 #include "GameEditorWindow.h"
+#include "SceneSerializer.h"
+#include "LogWindow.h"
 #include "Hiearchy.h"
 #include "Inspector.h"
 #include "Project.h"
@@ -71,4 +73,32 @@ void EditorToolManager::Update()
 std::shared_ptr<LogWindow> EditorToolManager::GetLog()
 {
 	{ return static_pointer_cast<LogWindow>(_editorWindows[Utils::GetClassNameEX<LogWindow>()]); }
+}
+
+namespace
+{
+	const wstring PLAY_SNAPSHOT_PATH = L"__play_snapshot.scene"; // 작업 디렉터리 임시 파일
+}
+
+void EditorToolManager::StartPlay()
+{
+	if (_isPlaying)
+		return;
+
+	// 씬 스냅샷 — Stop 시 이 상태로 복원 (플레이 중 기즈모/인스펙터 수정은 롤백됨)
+	if (SceneSerializer::Save(PLAY_SNAPSHOT_PATH) == false)
+		return;
+
+	_isPlaying = true;
+	ADDLOG("Play", LogFilter::Info);
+}
+
+void EditorToolManager::StopPlay()
+{
+	if (_isPlaying == false)
+		return;
+
+	SceneSerializer::Load(PLAY_SNAPSHOT_PATH);
+	_isPlaying = false;
+	ADDLOG("Stop - scene restored", LogFilter::Info);
 }

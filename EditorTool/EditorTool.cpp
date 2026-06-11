@@ -27,6 +27,7 @@
 #include "TextureManager.h"
 
 #include "AsConverter.h"
+#include "UfbxConverter.h"
 
 #include "MeshThumbnail.h"
 

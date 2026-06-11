@@ -64,6 +64,10 @@
     <ClCompile Include="Inspector.cpp" />
     <ClCompile Include="InspectorHierarchy.cpp" />
     <ClCompile Include="InspectorProject.cpp" />
+    <ClCompile Include="UfbxConverter.cpp" />
+    <ClCompile Include="..\Libraries\Include\ufbx\ufbx.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="Main.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Use</PrecompiledHeader>
     </ClCompile>

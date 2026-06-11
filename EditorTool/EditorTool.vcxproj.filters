@@ -75,6 +75,9 @@
     <ClInclude Include="AsConverter.h">
       <Filter>Utils</Filter>
     </ClInclude>
+    <ClInclude Include="UfbxConverter.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
     <ClInclude Include="AsType.h">
       <Filter>Utils</Filter>
     </ClInclude>
@@ -156,6 +159,12 @@
       <Filter>EditorWindow</Filter>
     </ClCompile>
     <ClCompile Include="AsConverter.cpp">
+      <Filter>Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="UfbxConverter.cpp">
+      <Filter>Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Libraries\Include\ufbx\ufbx.c">
       <Filter>Utils</Filter>
     </ClCompile>
     <ClCompile Include="AsType.cpp">

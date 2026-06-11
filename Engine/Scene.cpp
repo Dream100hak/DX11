@@ -88,13 +88,22 @@ void Scene::Remove(shared_ptr<GameObject> object)
 
 std::shared_ptr<GameObject> Scene::GetMainCamera()
 {
+	// 에디터 카메라(editorInternal) 우선 — 씬에 게임 카메라를 배치해도 에디터 시점이 흔들리지 않게
+	// (_cameras 는 포인터 정렬 set 이라 순회 순서가 비결정적)
+	shared_ptr<GameObject> fallback = nullptr;
 	for (auto& camera : _cameras)
 	{
-		if (camera->GetCamera()->GetProjectionType() == ProjectionType::Perspective)
+		if (camera->GetCamera()->GetProjectionType() != ProjectionType::Perspective)
+			continue;
+
+		if (camera->IsEditorInternal())
 			return camera;
+
+		if (fallback == nullptr)
+			fallback = camera;
 	}
 
-	return nullptr;
+	return fallback;
 }
 
 std::shared_ptr<GameObject> Scene::GetUICamera()

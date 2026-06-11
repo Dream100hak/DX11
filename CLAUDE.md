@@ -114,11 +114,31 @@ Camera::Render_Deferred()
 - Light: zero direction falls back to (0,-1,0) (XMMatrixLookAtLH assert crash on Add Component, commit 81).
 - Shadow bounds: fixed center/radius on Light inspector — objects outside cast/receive no shadows (auto-fit reverted by user preference).
 
+## Scene Save/Load & Play Mode (commits 101~104)
+
+- **`.scene` XML** (`EditorTool/SceneSerializer`): Transform / MeshRenderer / ModelRenderer / ModelAnimator(+clips) /
+  Light / Camera / Terrain / SkyCubeMap / ParticleSystem. File > New/Open/Save Scene (default `Resources/Assets/Scenes/`).
+- Materials: `.mat`-backed → `MaterialRef` path (shared cache), clones → inline MaterialDesc + texture paths.
+- `GameObject::SetEditorInternal` excludes editor infra (editor camera, folder previews) from serialization.
+- **Play/Stop**: snapshot on Play (`__play_snapshot.scene`), restore on Stop — edits during play auto-rollback (Unity semantics).
+- **Game view**: while playing, renders the first non-internal Camera ("GameObject > Create Camera") over the scene view.
+  v1 uses `Render_Forward` (no deferred PBR/shadow in game view yet).
+- `Scene::GetMainCamera` prefers the editorInternal camera — placed game cameras can't hijack the editor viewpoint.
+
+## Material System (commits 98~100)
+
+- Cache key = `Utils::ToMaterialKey` (canonical lowercase path) — same `.mat` everywhere is ONE instance:
+  inspector edits hit scene models live; "Save Material" button persists (`Material::Save`, mirror of Load).
+- Diffuse color is a tint (multiplied with texture) in GBuffer/forward/preview. Ambient/Specular = forward-only legacy.
+- **Emissive**: GBuffer RT3 (R11G11B10F), `MatEmissive.rgb × a` (alpha = intensity); HDR values bloom.
+- Material preview sphere uses `MeshPreview_HLSL` (PS_PreviewLit) — scene forward PS would render black (unbound shadow map).
+
 ## Known Issues
 
 - **Rain particle invisible** (deferred by user) — Fire works; Rain spawns around camera but streaks not visible.
 - Editor windows use hardcoded positions (no ImGui DockSpace).
 - ModelAnimator picking uses bind pose (inaccurate for large animation poses).
+- Game view renders forward-only (no deferred PBR/shadow/bloom) — v1.
 - `Hiearchy` filename typo kept for compatibility.
 
 ## Build & Run

@@ -10,6 +10,7 @@
 #include "Model.h"
 #include "MeshRenderer.h"
 #include "Material.h"
+#include "Camera.h"
 
 Hiearchy::Hiearchy(Vec2 pos, Vec2 size)
 {
@@ -150,6 +151,11 @@ void Hiearchy::ShowHiearchy()
 				CreatePbrTestGrid();
 				ADDLOG("Create PBR Test Grid", LogFilter::Info);
 			}
+			if (ImGui::MenuItem("Create Camera"))
+			{
+				id = CreateGameCamera();
+				ADDLOG("Create Game Camera", LogFilter::Info);
+			}
 
 			ImGui::EndMenu();
 		}
@@ -282,6 +288,32 @@ int32 Hiearchy::CreateSky()
 int32 Hiearchy::CreateTerrain()
 {
 	return 0;
+}
+
+// 게임 카메라 — 플레이 중 Game 뷰가 이 시점으로 렌더 (에디터 카메라와 별개)
+int32 Hiearchy::CreateGameCamera()
+{
+	int32 id = GUI->CreateEmptyGameObject();
+	TOOL->SetSelectedObjH(id);
+
+	auto obj = CUR_SCENE->GetCreatedObject(id);
+	obj->GetTransform()->SetLocalScale(Vec3(1.f, 1.f, 1.f)); // CreateEmpty 의 0.01 스케일 원복
+
+	// 고유 이름
+	int32 cnt = 0;
+	while (true)
+	{
+		wstring name = L"Game Camera_" + std::to_wstring(cnt);
+		if (CUR_SCENE->FindCreatedObjectByName(name) == nullptr)
+		{
+			obj->SetObjectName(name);
+			break;
+		}
+		cnt++;
+	}
+
+	obj->AddComponent(make_shared<Camera>());
+	return id;
 }
 
 // PBR 寃利앹슜 援ъ껜 洹몃━????媛濡?roughness 0?? (6??, ?몃줈 metallic 0?? (4??

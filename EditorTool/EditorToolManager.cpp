@@ -34,6 +34,7 @@ void EditorToolManager::Init()
 	const float botH = H - botY;                   // 529
 
 	auto sceneWnd = make_shared<SceneWindow>(scenePos , sceneSize);
+	auto gameWnd = make_shared<GameEditorWindow>(scenePos, sceneSize); // Game 뷰 — 플레이 중 씬뷰 위에 표시
 	auto menuBar = make_shared<MainMenuBar>();
 	auto hiearchy = make_shared<Hiearchy>(Vec2(sceneSize.x, menuH), Vec2(colW, sceneSize.y));
 	auto log = make_shared<LogWindow>(Vec2(sceneSize.x + colW, menuH), Vec2(colW, sceneSize.y));
@@ -42,6 +43,7 @@ void EditorToolManager::Init()
 	auto folderContents = make_shared<FolderContents>(Vec2(colW, botY), Vec2(W - inspW - colW, botH));
 
 	_editorWindows.insert({ Utils::GetPtrName(sceneWnd) , sceneWnd });
+	_editorWindows.insert({ Utils::GetPtrName(gameWnd) , gameWnd });
 	_editorWindows.insert({ Utils::GetPtrName(menuBar) , menuBar});
 
 	_editorWindows.insert({ Utils::GetPtrName(hiearchy) , hiearchy });

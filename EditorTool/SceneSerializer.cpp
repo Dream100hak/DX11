@@ -14,6 +14,7 @@
 #include "Texture.h"
 #include "HlslShader.h"
 #include "Light.h"
+#include "Camera.h"
 #include "Terrain.h"
 #include "SkyCubeMap.h"
 #include "ParticleSystem.h"
@@ -209,6 +210,17 @@ namespace
 			WriteColor(el, "Specular", desc.specular);
 			WriteVec3(el, "Direction", desc.direction);
 			WriteVec3(el, "Attenuation", light->GetAttenuation());
+			objEl->LinkEndChild(el);
+		}
+
+		// Camera (게임 카메라 — 에디터 카메라는 internal 플래그로 이미 제외)
+		if (auto cam = obj->GetCamera())
+		{
+			XMLElement* el = doc->NewElement("Camera");
+			el->SetAttribute("projection", (int)cam->GetProjectionType());
+			el->SetAttribute("fov", cam->GetFov());
+			el->SetAttribute("near", cam->GetNear());
+			el->SetAttribute("far", cam->GetFar());
 			objEl->LinkEndChild(el);
 		}
 
@@ -480,6 +492,17 @@ namespace
 			light->SetAttenuation(ReadVec3(el, "Attenuation", Vec3(1.f, 0.09f, 0.032f)));
 
 			obj->AddComponent(light);
+		}
+
+		// Camera (게임 카메라)
+		if (tinyxml2::XMLElement* el = objEl->FirstChildElement("Camera"))
+		{
+			auto cam = make_shared<Camera>();
+			cam->SetProjectionType((ProjectionType)el->IntAttribute("projection"));
+			cam->SetFOV(el->FloatAttribute("fov", XM_PI / 4.f));
+			cam->SetNear(el->FloatAttribute("near", 0.01f));
+			cam->SetFar(el->FloatAttribute("far", 1000.f));
+			obj->AddComponent(cam);
 		}
 
 		// Terrain (머티리얼은 원 생성 경로와 동일하게 DefaultMaterial 클론)

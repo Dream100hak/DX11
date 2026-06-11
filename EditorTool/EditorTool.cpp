@@ -51,7 +51,7 @@ void EditorTool::Init()
 	_sceneCam = make_shared<SceneCamera>();
 
 	shared_ptr<GameObject> sceneCamera = make_shared<GameObject>();
-	sceneCamera->SetObjectName(L"Game Camera");
+	sceneCamera->SetObjectName(L"Editor Camera"); // 에디터 시점 카메라 (씬 배치 게임 카메라와 구분)
 	sceneCamera->GetOrAddTransform()->SetPosition(Vec3{ 181.f, 26.521f, -25.599f });
 	sceneCamera->GetOrAddTransform()->SetRotation(Vec3{ 0.381f, -0.784f, 0.f });
 

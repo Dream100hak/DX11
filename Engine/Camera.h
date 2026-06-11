@@ -69,6 +69,7 @@ public:
 	float GetHeight() { return _height; }
 
 	float GetFov() { return _fov; }
+	float GetNear() { return _near; }
 	float GetFar() { return _far; }
 
 	// 중간 렌더 결과 시각화 (0=Final, PassViewerDesc 주석 참조)

@@ -176,9 +176,15 @@ void MainMenuBar::MenuFileList()
 
 void MainMenuBar::AppPlayMenu()
 {
-	// 씬뷰 상단 중앙 플로팅 오버레이 (PassViewer 와 같은 방식) — 플레이 모드 구현 전까지 자리만
+	// 씬뷰 상단 중앙 플로팅 오버레이 (PassViewer 와 같은 방식)
 	const SceneDesc& scene = GAME->GetSceneDesc();
 	const ImGuiStyle& style = ImGui::GetStyle();
+
+	const bool playing = TOOL->IsPlaying();
+
+	// ESC = Stop (Game 창 조작 중에도 항상 동작)
+	if (playing && ImGui::IsKeyPressed(ImGuiKey_Escape))
+		TOOL->StopPlay();
 
 	const float btnW = 50.f;
 	const float barW = btnW * 2 + style.ItemSpacing.x + style.WindowPadding.x * 2;
@@ -189,7 +195,8 @@ void MainMenuBar::AppPlayMenu()
 		ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
 		ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
 
-	const bool playing = TOOL->IsPlaying();
+	// 플레이 중 Game 창이 씬 영역을 덮어도 Play/Stop 바는 항상 맨 위에
+	ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
 
 	// 플레이 중 — Play 버튼 액센트 강조
 	if (playing)
@@ -208,7 +215,7 @@ void MainMenuBar::AppPlayMenu()
 	if (playing)
 	{
 		ImGui::SameLine();
-		ImGui::TextColored(ImVec4(0.36f, 0.65f, 1.f, 1.f), "PLAYING");
+		ImGui::TextColored(ImVec4(0.36f, 0.65f, 1.f, 1.f), "PLAYING (ESC = Stop)");
 	}
 
 	ImGui::End();

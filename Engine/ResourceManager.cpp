@@ -126,19 +126,23 @@ shared_ptr<HlslShader> ResourceManager::GetOrAddHlslShader(const wstring& key, c
 
 void ResourceManager::CreateDefaultMesh()
 {
+	// 이름은 씬 직렬화의 프리미티브 식별자로도 사용
 	{
 		shared_ptr<Mesh> mesh = make_shared<Mesh>();
 		mesh->CreateQuad();
+		mesh->SetName(L"Quad");
 		Add(L"Quad", mesh);
 	}
 	{
 		shared_ptr<Mesh> mesh = make_shared<Mesh>();
 		mesh->CreateCube();
+		mesh->SetName(L"Cube");
 		Add(L"Cube", mesh);
 	}
 	{
 		shared_ptr<Mesh> mesh = make_shared<Mesh>();
 		mesh->CreateSphere();
+		mesh->SetName(L"Sphere");
 		Add(L"Sphere", mesh);
 	}
 }

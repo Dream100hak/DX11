@@ -83,8 +83,14 @@ public:
 	LightType GetLightType() const { return _type; }
 	void SetLightType(LightType type) { _type = type; }
 	float GetRange() const { return _range; }
+	void SetRange(float range) { _range = range; }
 	float GetSpotAngleCos() const { return cosf(_spotAngleDeg * XM_PI / 180.f); }
+	float GetSpotAngleDeg() const { return _spotAngleDeg; }
+	void SetSpotAngleDeg(float deg) { _spotAngleDeg = deg; }
 	Vec3 GetAttenuation() const { return _attenuation; }
+	void SetAttenuation(const Vec3& att) { _attenuation = att; }
+	float GetIntensity() const { return _intensity; }
+	void SetIntensityValue(float v) { _intensity = v; _desc.intensity = v; }
 
 	void SetShadowBoundingSphere();
 

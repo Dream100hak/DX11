@@ -11,6 +11,8 @@ public:
 
 	void Init(wstring fileName);
 
+	const wstring& GetFileName() const { return _fileName; } // 씬 직렬화용
+
 	// SkyBox ?좏깮 ???섍꼍留?援먯껜 肄ㅻ낫 (?ㅼ뭅??+ IBL 由щ쿋?댄겕)
 	void OnInspectorGUI() override;
 

@@ -218,14 +218,17 @@ int32 ImGuiManager::CreateMesh(CreatedObjType type)
 	{
 	case CreatedObjType::QUAD:
 		mesh->CreateQuad();
+		mesh->SetName(L"Quad"); // 씬 직렬화용 프리미티브 식별자
 		name = FindEmptyName(CreatedObjType::QUAD);
 		break;
 	case CreatedObjType::CUBE:
 		mesh->CreateCube();
+		mesh->SetName(L"Cube");
 		name = FindEmptyName(CreatedObjType::CUBE);
 		break;
 	case CreatedObjType::SPHERE:
 		mesh->CreateSphere();
+		mesh->SetName(L"Sphere");
 		name = FindEmptyName(CreatedObjType::SPHERE);
 		break;
 	default:

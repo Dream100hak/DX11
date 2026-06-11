@@ -54,6 +54,7 @@ public:
 
 	float GetHeight(float x, float z) const;
 	shared_ptr<Texture> GetLayerMap() { return _layerMapArray; }
+	const TerrainInfo& GetInfo() const { return _info; } // 씬 직렬화용
 
 	void TerrainRenderer(Matrix V, Matrix P);
 	void TerrainRendererGBuffer(Matrix V, Matrix P);     // ?뷀띁??GBuffer fill (Camera::Render_Deferred Pass 1)

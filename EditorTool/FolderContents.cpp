@@ -345,6 +345,7 @@ void FolderContents::CreateMeshPreviewObj(shared_ptr<MetaData>& meta)
 	if(mat->GetDiffuseMap() == nullptr && mat->GetNormalMap() == nullptr && mat->GetSpecularMap() == nullptr)
 		obj->GetMeshRenderer()->SetTechnique(2);
 
+	obj->SetEditorInternal(true); // 프리뷰 — 드래그 중 씬에 들어와도 직렬화 제외
 	_meshPreviewObjs.insert(make_pair(meta->fileFullPath + L'/' + meta->fileName, obj));
 }
 
@@ -375,6 +376,7 @@ void FolderContents::CreateModelPreviewObj(shared_ptr<MetaData>& meta)
 	obj->AddComponent(make_shared<ModelRenderer>());
 	obj->GetModelRenderer()->SetModel(model);
 
+	obj->SetEditorInternal(true); // 프리뷰 — 드래그 중 씬에 들어와도 직렬화 제외
 	_meshPreviewObjs.insert(make_pair(meta->fileFullPath + L'/' + meta->fileName, obj));
 	_meshScales.insert(make_pair(meta->fileFullPath + L'/' + meta->fileName, scale));
 
@@ -410,6 +412,7 @@ void FolderContents::CreateAniPreviewObj(shared_ptr<MetaData>& meta)
 	obj->AddComponent(make_shared<ModelAnimator>());
 	obj->GetModelAnimator()->SetModel(model);
 
+	obj->SetEditorInternal(true); // 프리뷰 — 드래그 중 씬에 들어와도 직렬화 제외
 	_meshPreviewObjs.insert(make_pair(meta->fileFullPath + L'/' + meta->fileName, obj));
 	_meshScales.insert(make_pair(meta->fileFullPath + L'/' + meta->fileName, scale));
 

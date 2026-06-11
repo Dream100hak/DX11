@@ -37,6 +37,7 @@
     <ClInclude Include="Main.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="SceneGrid.h" />
+    <ClInclude Include="SceneSerializer.h" />
     <ClInclude Include="SceneWindow.h" />
     <ClInclude Include="ShadowMap.h" />
     <ClInclude Include="ShortcutManager.h" />
@@ -73,6 +74,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="SceneGrid.cpp" />
+    <ClCompile Include="SceneSerializer.cpp" />
     <ClCompile Include="SceneWindow.cpp" />
     <ClCompile Include="ShadowMap.cpp" />
     <ClCompile Include="ShortcutManager.cpp" />

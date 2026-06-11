@@ -65,6 +65,24 @@ public:
 	void SetEmitPos(const Vec3& emitPosW) { _emitPosW = emitPosW; }
 	void SetEmitDir(const Vec3& emitDirW) { _emitDirW = emitDirW; }
 
+	// 씬 직렬화용 접근자
+	int32 GetType() const { return _type; }
+	uint32 GetMaxParticles() const { return _maxParticles; }
+	const std::vector<wstring>& GetTextureNames() const { return _textureNames; }
+	Vec3 GetEmitDir() const { return _emitDirW; }
+
+	Vec3  GetAccel() const { return _accelW; }
+	float GetEmitInterval() const { return _emitInterval; }
+	float GetLifetime() const { return _lifetime; }
+	float GetInitialSpeed() const { return _initialSpeed; }
+	Vec2  GetParticleSize() const { return _particleSize; }
+
+	void SetAccel(const Vec3& v) { _accelW = v; }
+	void SetEmitInterval(float v) { _emitInterval = v; }
+	void SetLifetime(float v) { _lifetime = v; }
+	void SetInitialSpeed(float v) { _initialSpeed = v; }
+	void SetParticleSize(const Vec2& v) { _particleSize = v; }
+
 private:
 
 	// HLSL 셰이더 (FX 제거): SO 패스 + Draw 패스
@@ -90,6 +108,8 @@ private:
 	float _lifetime = 1.f;
 	float _initialSpeed = 1.f;
 	Vec2  _particleSize = Vec2(1.f, 1.f);
+
+	std::vector<wstring> _textureNames; // Init 인자 보존 (씬 직렬화용)
 
 	ComPtr<ID3D11Buffer> _initVB;
 	ComPtr<ID3D11Buffer> _drawVB;

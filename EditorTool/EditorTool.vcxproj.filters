@@ -81,6 +81,9 @@
     <ClInclude Include="SceneWindow.h">
       <Filter>EditorWindow</Filter>
     </ClInclude>
+    <ClInclude Include="SceneSerializer.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
     <ClInclude Include="FolderContents.h">
       <Filter>EditorWindow</Filter>
     </ClInclude>
@@ -166,6 +169,9 @@
     </ClCompile>
     <ClCompile Include="SceneWindow.cpp">
       <Filter>EditorWindow</Filter>
+    </ClCompile>
+    <ClCompile Include="SceneSerializer.cpp">
+      <Filter>Utils</Filter>
     </ClCompile>
     <ClCompile Include="FolderContents.cpp">
       <Filter>EditorWindow</Filter>

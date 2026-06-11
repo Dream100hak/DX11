@@ -100,6 +100,10 @@ public:
 	void SetIgnoredTransformEdit(bool on) { _isIgnoredTransformEdit = on;}
 	bool IsIgnoredTransformEdit() { return _isIgnoredTransformEdit; }
 
+	// 에디터 인프라 오브젝트 (씬 카메라, 프리뷰 등) — 씬 직렬화(.scene) 제외 대상
+	void SetEditorInternal(bool on) { _editorInternal = on; }
+	bool IsEditorInternal() { return _editorInternal; }
+
 	void SetEnableOutline(bool on) { _isOutlined = on; }
 	bool GetEnableOutline() { return _isOutlined ; }
 
@@ -112,6 +116,7 @@ protected:
 	uint8 _layerIndex = 0;
 	wstring _name = L"";
 	bool _isIgnoredTransformEdit = false;
+	bool _editorInternal = false;
 
 public:
 

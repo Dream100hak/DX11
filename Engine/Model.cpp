@@ -168,6 +168,8 @@ void Model::ReadMaterialByXml(wstring filename)
 
 void Model::ReadModel(wstring filename)
 {
+	_relativePath = filename; // 씬 직렬화용 로드 키 보존
+
 	wstring fullPath = _modelPath + filename + L".mesh";
 
 	auto path = filesystem::path(fullPath);

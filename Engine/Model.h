@@ -45,6 +45,9 @@ public:
 
 	BoundingBox CalculateModelBoundingBox();
 
+	// 씬 직렬화용 — ReadModel 에 넘긴 상대 경로 키 (예: L"Kachujin/Kachujin")
+	const wstring& GetRelativePath() { return _relativePath; }
+
 private:
 	void BindCacheInfo();
 
@@ -52,6 +55,7 @@ private:
 private:
 	wstring _modelPath = L"../Resources/Assets/Models/";
 	wstring _texturePath = L"../Resources/Assets/Textures/";
+	wstring _relativePath;
 
 private:
 	shared_ptr<ModelBone> _root;

@@ -27,6 +27,7 @@
 #include "TextureManager.h"
 
 #include "UfbxConverter.h"
+#include "SceneSerializer.h"
 
 #include "MeshThumbnail.h"
 
@@ -60,6 +61,7 @@ void EditorTool::Init()
 	sceneCamera->AddComponent(make_shared<Camera>());
 	sceneCamera->GetCamera()->SetCullingMaskLayerOnOff(LayerMask::UI, true);
 	sceneCamera->AddComponent(_sceneCam);
+	sceneCamera->SetEditorInternal(true); // 에디터 카메라 — 씬 직렬화 제외
 	CUR_SCENE->Add(sceneCamera);
 
 	GET_SINGLE(TextureManager)->Init();

@@ -47,6 +47,7 @@ void ParticleSystem::OnInspectorGUI()
 void ParticleSystem::Init(int32 type, std::vector<wstring> names , uint32 maxParticles)
 {
 	_type = type;
+	_textureNames = names; // 씬 직렬화용 보존
 
 	// 타입별 HLSL 셰이더 (SO 패스 + Draw 패스)
 	if (_type == PT_FIRE)

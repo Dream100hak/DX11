@@ -4,10 +4,36 @@
 #include "EditorToolManager.h"
 #include "LogWindow.h"
 #include "UfbxConverter.h"
+#include "SceneSerializer.h"
 #include "Utils.h"
 #include <filesystem>
 #include <commdlg.h>
 #pragma comment(lib, "comdlg32.lib")
+
+namespace
+{
+	// 씬 저장 다이얼로그 — 기본 폴더 Resources/Assets/Scenes
+	void SaveSceneDialog()
+	{
+		std::filesystem::path sceneDir = std::filesystem::absolute(L"../Resources/Assets/Scenes");
+		std::filesystem::create_directories(sceneDir);
+
+		wchar_t szFile[MAX_PATH] = L"NewScene";
+		OPENFILENAMEW ofn = {};
+		ofn.lStructSize = sizeof(ofn);
+		ofn.lpstrFilter = L"Scene Files (*.scene)\0*.scene\0";
+		ofn.lpstrFile = szFile;
+		ofn.nMaxFile = MAX_PATH;
+		ofn.lpstrInitialDir = sceneDir.c_str();
+		ofn.lpstrDefExt = L"scene";
+		ofn.Flags = OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
+
+		if (::GetSaveFileNameW(&ofn) == FALSE)
+			return;
+
+		SceneSerializer::Save(szFile);
+	}
+}
 
 
 MainMenuBar::MainMenuBar()
@@ -119,8 +145,7 @@ void MainMenuBar::MenuFileList()
 {
 	if (ImGui::MenuItem("New")) {}
 	if (ImGui::MenuItem("Open", "Ctrl+O")) {}
-	if (ImGui::MenuItem("Save", "Ctrl+S")) {}
-	if (ImGui::MenuItem("Save As..")) {}
+	if (ImGui::MenuItem("Save Scene...", "Ctrl+S")) { SaveSceneDialog(); }
 
 	ImGui::Separator();
 	if (ImGui::MenuItem("Convert FBX...")) { ConvertFbx(); }

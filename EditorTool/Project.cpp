@@ -49,7 +49,14 @@ shared_ptr<Model> Project::CreateModelFile(shared_ptr<MetaData> metaData, const 
 	shared_ptr<Model> model = make_shared<Model>();
 
 	model->ReadModel(modelName + L'/' + modelName);
-	model->ReadMaterialByXml(modelName + L'/' + modelName);
+
+	// .mmat(바이너리) 우선, 없으면 레거시 .xml 폴백 (UfbxConverter 산출물은 .mmat 만 생성)
+	wstring mmatPath = L"../Resources/Assets/Models/" + modelName + L'/' + modelName + L".mmat";
+	if (filesystem::exists(mmatPath))
+		model->ReadMaterial(modelName + L'/' + modelName);
+	else
+		model->ReadMaterialByXml(modelName + L'/' + modelName);
+
 	RESOURCES->Add(metaData->fileFullPath + L'/' + modelName, model);
 	return model;
 }

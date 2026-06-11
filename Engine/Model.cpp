@@ -281,6 +281,12 @@ std::shared_ptr<Material> Model::GetMaterialByName(const wstring& name)
 	{
 		if (material->GetName() == name)
 			return material;
+
+		// .mmat 경로(Material::Load)로 로드된 머티리얼은 이름이 전체 경로(...\name.mat) —
+		// 메시의 materialName(짧은 이름)과 매칭되도록 파일명 스템 비교 폴백
+		// (이게 없으면 mesh->material 이 null 이 되어 이전 패스 SRV 를 샘플링하는 렌더 깨짐 발생)
+		if (filesystem::path(material->GetName()).stem().wstring() == name)
+			return material;
 	}
 
 	return nullptr;

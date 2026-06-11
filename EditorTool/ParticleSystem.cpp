@@ -183,6 +183,7 @@ void ParticleSystem::Draw(const RenderContext& ctx)
 	_drawShader->Bind();
 	_drawShader->PushGlobalData(V, P); // b0: VP + VInv(카메라 위치) 를 GS 에서 사용
 	_drawShader->SetGSConstantBuffer(8, cb);
+	_drawShader->SetVSConstantBuffer(8, cb); // VS_Draw 가 AccelW/Lifetime 사용 (GS 만 바인딩하면 0 으로 읽혀 입자가 정지/투명)
 	_drawShader->SetPSSRV(0, _texArray->GetComPtr().Get()); // TexArray (t0)
 	RENDER_STATES->BindAllSamplersPS();
 

@@ -142,7 +142,9 @@ void Game::Update()
 	ImGui::SetNextWindowPos(ImVec2(_sceneDesc.x, _sceneDesc.y), ImGuiCond_Appearing);
 	ImGui::SetNextWindowSize(ImVec2(_sceneDesc.width, _sceneDesc.height), ImGuiCond_Appearing);
 	
-	ImGui::Begin("Scene", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground);
+	// NoBringToFrontOnFocus: 씬뷰 클릭(픽킹/기즈모) 시 이 투명 창이 앞으로 나오면
+	// 위에 떠 있는 Play/Stop·PassViewer 오버레이가 가려져 클릭이 막힌다 — 항상 맨 뒤 유지
+	ImGui::Begin("Scene", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoBringToFrontOnFocus);
 	
 	float w = (float)ImGui::GetWindowWidth();
 	float h = (float)ImGui::GetWindowHeight();

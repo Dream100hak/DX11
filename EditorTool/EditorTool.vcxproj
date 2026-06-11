@@ -19,7 +19,6 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="AsConverter.h" />
     <ClInclude Include="AsType.h" />
     <ClInclude Include="EditorWindow.h" />
     <ClInclude Include="FolderContents.h" />
@@ -47,7 +46,6 @@
     <ClInclude Include="TextureManager.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="AsConverter.cpp" />
     <ClCompile Include="AsType.cpp" />
     <ClCompile Include="EditorWindow.cpp" />
     <ClCompile Include="FolderContents.cpp" />

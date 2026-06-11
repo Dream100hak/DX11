@@ -26,7 +26,6 @@
 #include "EditorToolManager.h"
 #include "TextureManager.h"
 
-#include "AsConverter.h"
 #include "UfbxConverter.h"
 
 #include "MeshThumbnail.h"
@@ -43,20 +42,7 @@
 void EditorTool::Init()
 {
 
-	//{
-	//	shared_ptr<AsConverter> converter = make_shared<AsConverter>();
-
-	//	converter->ReadAssetFile(L"Kachujin/Mesh.fbx");
-	/////	converter->ExportMaterialDataByXml(L"Kachujin/Kachujin");
-	//	converter->ExportMaterialDataByMats(L"Kachujin/Kachujin");
-	//	converter->ExportModelData(L"Kachujin/Kachujin");
-
-	//}
-	//{
-	//	shared_ptr<AsConverter> converter = make_shared<AsConverter>();
-	//	converter->ReadAssetFile(L"Kachujin/Idle.fbx");
-	//	converter->ExportAnimationData(L"Kachujin/Idle");
-	//}
+	// FBX 변환은 메인 메뉴 File > Convert FBX... (UfbxConverter) 사용
 
 	GET_SINGLE(ShortcutManager)->Init();
 	GET_SINGLE(EditorToolManager)->Init();

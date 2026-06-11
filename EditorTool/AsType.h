@@ -1,4 +1,5 @@
 #pragma once
+#include "ModelMesh.h" // MeshAabb
 
 using VertexType = VertexTextureNormalTangentBlendData;
 
@@ -13,14 +14,13 @@ struct asBone
 struct asMesh
 {
 	string name;
-	aiMesh* mesh;
 	vector<VertexType> vertices;
 	vector<uint32> indices;
 
 	int32 boneIndex;
 	string materialName;
 
-	aiAABB aabb; 
+	MeshAabb aabb; // .mesh 포맷 호환 (ModelMesh.h, 구 aiAABB 동일 레이아웃)
 };
 
 struct asMaterial
@@ -126,9 +126,3 @@ struct asAnimation
 	vector<shared_ptr<asKeyframe>> keyframes;
 };
 
-// Cache
-struct asAnimationNode
-{
-	aiString name;
-	vector<asKeyframeData> keyframe;
-};

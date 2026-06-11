@@ -8,6 +8,9 @@
 // STL
 #include <memory>
 #include <iostream>
+#include <string>
+#include <sstream>
+#include <fstream>
 #include <array>
 #include <vector>
 #include <list>
@@ -40,11 +43,6 @@ using namespace std;
 using namespace DirectX;
 using namespace Microsoft::WRL;
 
-// Assimp
-#include <Assimp/Importer.hpp>
-#include <Assimp/scene.h>
-#include <Assimp/postprocess.h>
-
 // ImGUI
 #include "imgui.h"
 #include "imgui_impl_dx11.h"
@@ -58,10 +56,8 @@ using namespace Microsoft::WRL;
 
 #ifdef _DEBUG
 #pragma comment(lib, "DirectXTex/DirectXTex_debug.lib")
-#pragma comment(lib, "Assimp/assimp-vc143-mtd.lib")
 #else
 #pragma comment(lib, "DirectXTex/DirectXTex.lib")
-#pragma comment(lib, "Assimp/assimp-vc143-mt.lib")
 #endif
 
 // Managers

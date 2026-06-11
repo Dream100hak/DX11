@@ -13,6 +13,13 @@ struct ModelBone
 
 };
 
+// .mesh 포맷 호환 AABB (구 aiAABB 와 동일한 24바이트 레이아웃 — Assimp 제거 후 대체)
+struct MeshAabb
+{
+	Vec3 min = Vec3::Zero;
+	Vec3 max = Vec3::Zero;
+};
+
 struct ModelMesh
 {
 	void CreateBuffers();
@@ -34,7 +41,7 @@ struct ModelMesh
 	shared_ptr<ModelBone> bone; // Cache;
 
 	//AABB
-	aiAABB aabb;
+	MeshAabb aabb;
 
 };
 

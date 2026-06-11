@@ -227,7 +227,7 @@ void Model::ReadModel(wstring filename)
 			}
 
 			//ABB	
-			mesh->aabb = file->Read<aiAABB>();
+			mesh->aabb = file->Read<MeshAabb>();
 		
 			mesh->CreateBuffers();
 			_meshes.push_back(mesh);
@@ -440,16 +440,16 @@ DirectX::BoundingBox Model::CalculateModelBoundingBox()
 
 	// 모든 메시의 AABB를 순회하여 AABB 계산
 	for (const auto& mesh : _meshes) {
-		const aiVector3D& aiMin = mesh->aabb.mMin;
-		const aiVector3D& aiMax = mesh->aabb.mMax;
+		const Vec3& aabbMin = mesh->aabb.min;
+		const Vec3& aabbMax = mesh->aabb.max;
 
-		minPoint.x = min(minPoint.x, aiMin.x);
-		minPoint.y = min(minPoint.y, aiMin.y);
-		minPoint.z = min(minPoint.z, aiMin.z);
+		minPoint.x = min(minPoint.x, aabbMin.x);
+		minPoint.y = min(minPoint.y, aabbMin.y);
+		minPoint.z = min(minPoint.z, aabbMin.z);
 
-		maxPoint.x = max(maxPoint.x, aiMax.x);
-		maxPoint.y = max(maxPoint.y, aiMax.y);
-		maxPoint.z = max(maxPoint.z, aiMax.z);
+		maxPoint.x = max(maxPoint.x, aabbMax.x);
+		maxPoint.y = max(maxPoint.y, aabbMax.y);
+		maxPoint.z = max(maxPoint.z, aabbMax.z);
 	}
 
 	// AABB 중심과 크기 계산

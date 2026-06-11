@@ -72,9 +72,6 @@
     <ClInclude Include="LogWindow.h">
       <Filter>EditorWindow</Filter>
     </ClInclude>
-    <ClInclude Include="AsConverter.h">
-      <Filter>Utils</Filter>
-    </ClInclude>
     <ClInclude Include="UfbxConverter.h">
       <Filter>Utils</Filter>
     </ClInclude>
@@ -157,9 +154,6 @@
     </ClCompile>
     <ClCompile Include="LogWindow.cpp">
       <Filter>EditorWindow</Filter>
-    </ClCompile>
-    <ClCompile Include="AsConverter.cpp">
-      <Filter>Utils</Filter>
     </ClCompile>
     <ClCompile Include="UfbxConverter.cpp">
       <Filter>Utils</Filter>

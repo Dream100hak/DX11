@@ -259,8 +259,8 @@ void UfbxConverter::ReadMeshData(ufbx_node* node, int32 boneIndex)
 		}
 	}
 
-	mesh->aabb.mMin = aiVector3D(aabbMin.x, aabbMin.y, aabbMin.z);
-	mesh->aabb.mMax = aiVector3D(aabbMax.x, aabbMax.y, aabbMax.z);
+	mesh->aabb.min = aabbMin;
+	mesh->aabb.max = aabbMax;
 
 	// 탄젠트가 없으면 UV 기반으로 생성 (노멀맵 셰이딩 품질 확보)
 	if (hasTangent == false && srcMesh->vertex_uv.exists)
@@ -350,7 +350,7 @@ void UfbxConverter::WriteModelFile(wstring finalPath)
 		file->Write<uint32>((uint32)meshData->indices.size());
 		file->Write(&meshData->indices[0], (uint32)(sizeof(uint32) * meshData->indices.size()));
 
-		file->Write<aiAABB>(meshData->aabb);
+		file->Write<MeshAabb>(meshData->aabb);
 	}
 }
 

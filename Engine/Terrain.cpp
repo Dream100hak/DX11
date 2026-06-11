@@ -118,8 +118,14 @@ void Terrain::TerrainRenderer(Matrix V, Matrix P)
 	// GlobalData (b0) -> VS, HS, DS, PS
 	shader->PushGlobalData(V, P);
 
-	// LightData (b2) -> PS
-	shader->PushLightData(CUR_SCENE->GetLight()->GetLight()->GetLightDesc());
+	// LightData (b2) -> PS — 라이트 없는 씬은 기본값 (null 역참조 크래시 방지)
+	{
+		auto lightObj = CUR_SCENE->GetLight();
+		LightDesc lightDesc;
+		if (lightObj != nullptr && lightObj->GetLight() != nullptr)
+			lightDesc = lightObj->GetLight()->GetLightDesc();
+		shader->PushLightData(lightDesc);
+	}
 
 	// MaterialData (b3) -> PS
 	if (_mat)

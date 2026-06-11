@@ -373,7 +373,12 @@ void Ssao::Draw()
 	unordered_set<shared_ptr<GameObject>>& gameObjects = scene->GetObjects();
 
 	auto camera = scene->GetMainCamera()->GetCamera();
-	auto light = SCENE->GetCurrentScene()->GetLight()->GetLight();
+
+	// 라이트 없는 씬 (New Scene 직후) — SSAO 패스 스킵 (null 역참조 크래시 방지)
+	auto lightObj = scene->GetLight();
+	if (lightObj == nullptr || lightObj->GetLight() == nullptr)
+		return;
+	auto light = lightObj->GetLight();
 
 	vector<shared_ptr<GameObject>> vecForward;
 

@@ -1,7 +1,7 @@
 #pragma once
 #include "ConstantBuffer.h"
 
-// ? Forward declaration
+// Forward declaration
 class Light;
 
 struct GlobalDesc
@@ -161,4 +161,3 @@ struct InstancedTweenDesc
 {
 	TweenDesc tweens[MAX_MODEL_INSTANCE];
 };
-

@@ -78,6 +78,10 @@ void SceneCamera::RotateCam()
 
 void SceneCamera::MoveCam(int32 scrollAmount)
 {
+	// 플레이 중에는 휠 줌도 차단 (Update 의 WASD/RMB 가드와 동일)
+	if (TOOL->IsPlaying())
+		return;
+
 	Vec3 camPos = GetTransform()->GetPosition();
 	Vec3 camLookDir = GetTransform()->GetLook();
 

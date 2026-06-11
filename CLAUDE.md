@@ -188,13 +188,13 @@ Camera::Render_Deferred()
 - ~~프리뷰/썸네일 PBR~~ — **DONE in commit 72** (Thumbnail.hlsl PS_PreviewLit 가 Cook-Torrance + Reinhard/감마 자체 처리)
 - IBL 환경맵 교체 UI (현재 desertcube1024.dds 고정; EnvIntensity 는 Camera 인스펙터에 노출됨 — commit 70)
 - Shadow UX note: a camera-following shadow-sphere auto-fit was implemented then REVERTED by user preference (commit 58) — shadow bounds are the fixed center/radius on the Light inspector; objects outside cast/receive no shadows.
-- Editor gap: clip (.clip) has no scene drag-drop source (FolderContents CLIP branch lacks `DragModelFileToGUIWnd`); `CreateModelAnimatorMesh`/SceneWindow CLIP-drop branch already added, just needs the drag source.
+- ~~.clip 드래그드롭 소스~~ — **DONE in commit 74** (FolderContents CLIP 분기에 `DragModelFileToGUIWnd` 연결)
 
 ## Known Issues
 
 ### Engine
 - **FX11 is fully gone** — all rendering is native HLSL via `HlslShader`.
-- Material Sampler nullptr temp binding (needs RenderStateManager integration)
+- ~~Material Sampler nullptr temp binding~~ — 이미 해결돼 있었음 (Material::Update 가 `RENDER_STATES->BindAllSamplersPS()` 사용; 목록이 낡았던 것)
 - ~~Deferred Pass 3 misalign~~ — **FIXED in commit 65** (HDR sceneColor + GBuffer DSV 크기 일치)
 - ~~파티클 LDR 백버퍼 직그리기~~ — **FIXED in commit 70** (Transparent 큐 편입)
 
@@ -202,8 +202,8 @@ Camera::Render_Deferred()
 - ~~Hiearchy Selectable comma bug~~ / ~~GetEditorWindow UB~~ — 이미 과거에 수정돼 있었음 (목록이 낡았던 것)
 - ~~wstring<->string 한글 깨짐~~ — **FIXED in commit 72** (Utils::ToString/ToWString 이 UTF-8 변환 사용)
 - ~~썸네일 캐시 무제한~~ — **FIXED in commit 72** (FolderContents FIFO 상한 64개, 선택 항목 보호)
-- Inspector/FolderContents 가 프리뷰 맵을 `operator[]` 로 직접 인덱싱 — 키 부재 시 null 삽입 (썸네일 캐시 제거와
-  맞물리면 잠재 크래시. 제거 시 선택 항목은 보호하지만 find() 가드로 바꾸는 게 안전)
+- ~~Inspector 프리뷰 맵 `operator[]` 직접 인덱싱~~ — **FIXED in commit 74** (Inspector 의 MATERIAL 분기/
+  PickMaterialTexture/GetMeshThumbnail 전부 find() 가드 + null 폴백)
 
 ## Build & Run
 

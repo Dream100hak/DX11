@@ -428,11 +428,22 @@ void Inspector::ShowInfoProject()
 
 		auto folderContents = static_pointer_cast<FolderContents>(TOOL->GetEditorWindow(Utils::GetClassNameEX<FolderContents>()));
 
+		// find() 가드 — operator[] 는 키 부재 시 null 을 삽입해 아래 역참조에서 크래시
+		// (썸네일 캐시 상한 도입으로 항목이 제거될 수 있음 — 다음 프레임에 lazy 재생성됨)
+		const wstring previewKey = metaData->fileFullPath + L'/' + metaData->fileName;
 		auto& previewsMeshObjs = folderContents->GetMeshPreviewObjs();
-		auto& obj = previewsMeshObjs[metaData->fileFullPath + L'/' + metaData->fileName];
-
 		auto& previewsThumbnails = folderContents->GetMeshPreviewThumbnails();
-		auto& thumbnail = previewsThumbnails[metaData->fileFullPath + L'/' + metaData->fileName];
+
+		auto objIt = previewsMeshObjs.find(previewKey);
+		auto thumbIt = previewsThumbnails.find(previewKey);
+		shared_ptr<GameObject> obj = (objIt != previewsMeshObjs.end()) ? objIt->second : nullptr;
+		shared_ptr<MeshThumbnail> thumbnail = (thumbIt != previewsThumbnails.end()) ? thumbIt->second : nullptr;
+
+		if (obj == nullptr || obj->GetMeshRenderer() == nullptr || obj->GetMeshRenderer()->GetMaterial() == nullptr || thumbnail == nullptr)
+		{
+			ImGui::TextDisabled("Preview not loaded yet");
+			return; // Begin/End 는 호출자(ShowInspector)가 관리
+		}
 
 		auto cam = folderContents->GetCamera();
 		auto light = folderContents->GetLight();
@@ -855,14 +866,23 @@ void Inspector::DrawInspectorClip()
 void Inspector::PickMaterialTexture(string textureType, OUT bool& changed)
 {
 	shared_ptr<MetaData> metaData = SELECTED_P;
+	if (metaData == nullptr)
+		return;
 
 	auto folderContents = static_pointer_cast<FolderContents>(TOOL->GetEditorWindow(Utils::GetClassNameEX<FolderContents>()));
 
+	// find() 가드 — operator[] 의 null 삽입/역참조 크래시 방지
+	const wstring previewKey = metaData->fileFullPath + L'/' + metaData->fileName;
 	auto& previewsMeshObjs = folderContents->GetMeshPreviewObjs();
-	auto& obj = previewsMeshObjs[metaData->fileFullPath + L'/' + metaData->fileName];
-
 	auto& previewsThumbnails = folderContents->GetMeshPreviewThumbnails();
-	auto& thumbnail = previewsThumbnails[metaData->fileFullPath + L'/' + metaData->fileName];
+
+	auto objIt = previewsMeshObjs.find(previewKey);
+	auto thumbIt = previewsThumbnails.find(previewKey);
+	shared_ptr<GameObject> obj = (objIt != previewsMeshObjs.end()) ? objIt->second : nullptr;
+	shared_ptr<MeshThumbnail> thumbnail = (thumbIt != previewsThumbnails.end()) ? thumbIt->second : nullptr;
+
+	if (obj == nullptr || obj->GetMeshRenderer() == nullptr || obj->GetMeshRenderer()->GetMaterial() == nullptr || thumbnail == nullptr)
+		return;
 
 	auto cam = folderContents->GetCamera();
 	auto light = folderContents->GetLight();
@@ -945,13 +965,10 @@ ID3D11ShaderResourceView* Inspector::GetMetaFileIcon()
 		srv = RESOURCES->GetOrAddTexture(L"FILE_" + metaData->fileName, metaData->fileFullPath + L"\\" + metaData->fileName)->GetComPtr().Get();
 		break;
 	case MATERIAL:
-		srv = GetMeshThumbnail()->GetComPtr().Get();
-		break;
 	case MESH:
-		srv = GetMeshThumbnail()->GetComPtr().Get();
-		break;
 	case CLIP:
-		srv = GetMeshThumbnail()->GetComPtr().Get();
+		if (auto& thumb = GetMeshThumbnail())
+			srv = thumb->GetComPtr().Get();
 		break;
 	case TEXT:
 	case XML:
@@ -968,14 +985,18 @@ ID3D11ShaderResourceView* Inspector::GetMetaFileIcon()
 
 class shared_ptr<MeshThumbnail>& Inspector::GetMeshThumbnail()
 {
+	// find() 가드 — operator[] 는 키 부재 시 null 삽입 (캐시 제거와 맞물리면 크래시)
+	static shared_ptr<MeshThumbnail> sNull = nullptr;
 
 	shared_ptr<MetaData> metaData = SELECTED_P;
+	if (metaData == nullptr)
+		return sNull;
 
 	auto& previewsThumbnails =
 		static_pointer_cast<FolderContents>(TOOL->GetEditorWindow(Utils::GetClassNameEX<FolderContents>()))->GetMeshPreviewThumbnails();
 
-	return previewsThumbnails[metaData->fileFullPath + L'/' + metaData->fileName];
-
+	auto it = previewsThumbnails.find(metaData->fileFullPath + L'/' + metaData->fileName);
+	return (it != previewsThumbnails.end()) ? it->second : sNull;
 }
 
 

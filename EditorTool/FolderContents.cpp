@@ -248,6 +248,9 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 		thumbnail = _meshPreviewthumbnails[clipPath];
 
 		RefreshButton(thumbnail->GetComPtr().Get(), meta, id, []() {});
+
+		// 씬 드래그드롭 소스 — SceneWindow 의 CLIP 드롭 분기(CreateModelAnimatorMesh)와 연결
+		DragModelFileToGUIWnd(meta, clipPath, obj);
 	}
 	else if (meta->metaType == MetaType::MODEL_MAT)
 	{

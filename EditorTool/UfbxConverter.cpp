@@ -73,6 +73,7 @@ void UfbxConverter::ExportModelData(wstring savePath)
 
 	_bones.clear();
 	_meshes.clear();
+	_nodeToBoneIndex.clear();
 
 	ReadModelData(_scene->root_node, -1, -1);
 	WriteModelFile(finalPath);
@@ -153,6 +154,7 @@ void UfbxConverter::ReadModelData(ufbx_node* node, int32 index, int32 parent)
 	bone->transform = local * matParent;
 
 	_bones.push_back(bone);
+	_nodeToBoneIndex[node] = index;
 
 	// Mesh
 	ReadMeshData(node, index);
@@ -231,7 +233,12 @@ void UfbxConverter::ReadMeshData(ufbx_node* node, int32 boneIndex)
 					if (boneNode == nullptr)
 						continue;
 
-					boneWeights.AddWeights(GetBoneIndex(boneNode->name.data), (float)sw.weight);
+					// 노드 포인터로 본 인덱스 조회 (이름 매칭은 중복/빈 이름에서 깨짐)
+					auto it = _nodeToBoneIndex.find(boneNode);
+					if (it == _nodeToBoneIndex.end() || it->second < 0)
+						continue;
+
+					boneWeights.AddWeights((uint32)it->second, (float)sw.weight);
 				}
 
 				if (boneWeights.boneWeights.empty() == false)

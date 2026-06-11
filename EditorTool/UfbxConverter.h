@@ -66,6 +66,9 @@ private:
 private:
 	ufbx_scene* _scene = nullptr;
 
+	// 노드 포인터 -> 본 인덱스 (이름 중복/빈 이름에 안전한 스킨 본 매핑)
+	unordered_map<const ufbx_node*, int32> _nodeToBoneIndex;
+
 	vector<shared_ptr<asBone>> _bones;
 	vector<shared_ptr<asMesh>> _meshes;
 	vector<shared_ptr<UfMaterial>> _materials;

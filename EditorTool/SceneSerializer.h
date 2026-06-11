@@ -10,4 +10,7 @@ class SceneSerializer
 public:
 	static bool Save(const wstring& path);
 	static bool Load(const wstring& path);
+
+	// 비-내부 오브젝트 전부 제거 (New Scene / Load 선행 단계)
+	static void Clear();
 };

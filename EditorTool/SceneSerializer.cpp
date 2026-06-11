@@ -12,6 +12,7 @@
 #include "Material.h"
 #include "Mesh.h"
 #include "Texture.h"
+#include "HlslShader.h"
 #include "Light.h"
 #include "Terrain.h"
 #include "SkyCubeMap.h"
@@ -278,9 +279,312 @@ bool SceneSerializer::Save(const wstring& path)
 	return true;
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// 로드
+// ─────────────────────────────────────────────────────────────────────────
+
+namespace
+{
+	Vec3 ReadVec3(tinyxml2::XMLElement* parent, const char* name, const Vec3& fallback = Vec3::Zero)
+	{
+		tinyxml2::XMLElement* el = parent->FirstChildElement(name);
+		if (el == nullptr)
+			return fallback;
+		return Vec3(el->FloatAttribute("x"), el->FloatAttribute("y"), el->FloatAttribute("z"));
+	}
+
+	Color ReadColor(tinyxml2::XMLElement* parent, const char* name, const Color& fallback)
+	{
+		tinyxml2::XMLElement* el = parent->FirstChildElement(name);
+		if (el == nullptr)
+			return fallback;
+		return Color(el->FloatAttribute("r"), el->FloatAttribute("g"), el->FloatAttribute("b"), el->FloatAttribute("a"));
+	}
+
+	wstring ReadWstrAttr(tinyxml2::XMLElement* el, const char* name)
+	{
+		const char* value = el->Attribute(name);
+		return value ? Utils::ToWString(value) : L"";
+	}
+
+	// 머티리얼 복원 — MaterialRef(공유 캐시) 또는 인라인
+	shared_ptr<Material> ReadMaterialEl(tinyxml2::XMLElement* parent)
+	{
+		if (tinyxml2::XMLElement* refEl = parent->FirstChildElement("MaterialRef"))
+		{
+			wstring matPath = ReadWstrAttr(refEl, "path"); // <풀경로>.mat
+			wstring matKey = Utils::ToMaterialKey(matPath);
+
+			shared_ptr<Material> material = RESOURCES->Get<Material>(matKey);
+			if (material == nullptr)
+			{
+				material = make_shared<Material>();
+				// Material::Load 가 .mat 을 붙이므로 확장자 제거 후 전달
+				material->Load(matPath.substr(0, matPath.size() - 4));
+				RESOURCES->Add(matKey, material);
+			}
+			return material;
+		}
+
+		tinyxml2::XMLElement* matEl = parent->FirstChildElement("Material");
+		if (matEl == nullptr)
+			return nullptr;
+
+		shared_ptr<Material> material = make_shared<Material>();
+		material->SetHlslShader(RESOURCES->Get<HlslShader>(L"Standard_HLSL"));
+
+		MaterialDesc& desc = material->GetMaterialDesc();
+		desc.useTexture = matEl->IntAttribute("useTexture");
+		desc.useAlphaclip = matEl->IntAttribute("useAlphaclip");
+		desc.useSsao = matEl->IntAttribute("useSsao");
+		desc.lightCount = matEl->IntAttribute("lightCount");
+		desc.roughness = matEl->FloatAttribute("roughness");
+		desc.metallic = matEl->FloatAttribute("metallic");
+		material->SetRenderQueue((RenderQueue)matEl->IntAttribute("renderQueue"));
+
+		desc.ambient = ReadColor(matEl, "Ambient", desc.ambient);
+		desc.diffuse = ReadColor(matEl, "Diffuse", desc.diffuse);
+		desc.specular = ReadColor(matEl, "Specular", desc.specular);
+		desc.emissive = ReadColor(matEl, "Emissive", desc.emissive);
+
+		if (tinyxml2::XMLElement* maps = matEl->FirstChildElement("Maps"))
+		{
+			wstring diffuse = ReadWstrAttr(maps, "diffuse");
+			wstring normal = ReadWstrAttr(maps, "normal");
+			wstring specular = ReadWstrAttr(maps, "specular");
+
+			if (!diffuse.empty())  material->SetDiffuseMap(RESOURCES->GetOrAddTexture(diffuse, diffuse));
+			if (!normal.empty())   material->SetNormalMap(RESOURCES->GetOrAddTexture(normal, normal));
+			if (!specular.empty()) material->SetSpecularMap(RESOURCES->GetOrAddTexture(specular, specular));
+		}
+
+		return material;
+	}
+
+	// 모델 로드 (Load 1회 내 캐시 — 같은 모델 다수 배치 대응)
+	shared_ptr<Model> LoadModel(const wstring& relPath, tinyxml2::XMLElement* animatorEl,
+		map<wstring, shared_ptr<Model>>& cache)
+	{
+		auto found = cache.find(relPath);
+		if (found != cache.end())
+			return found->second;
+
+		shared_ptr<Model> model = make_shared<Model>();
+		model->ReadModel(relPath);
+
+		// .mmat(바이너리) 우선, 레거시 .xml 폴백
+		wstring mmatPath = L"../Resources/Assets/Models/" + relPath + L".mmat";
+		if (filesystem::exists(mmatPath))
+			model->ReadMaterial(relPath);
+		else
+			model->ReadMaterialByXml(relPath);
+
+		// 클립 — <Clip file="Idle.clip"/> → ReadAnimation("<모델폴더>/Idle")
+		if (animatorEl)
+		{
+			wstring folder = relPath.substr(0, relPath.find(L'/'));
+			for (tinyxml2::XMLElement* clipEl = animatorEl->FirstChildElement("Clip");
+				clipEl; clipEl = clipEl->NextSiblingElement("Clip"))
+			{
+				wstring file = ReadWstrAttr(clipEl, "file");
+				wstring stem = filesystem::path(file).stem().wstring();
+				model->ReadAnimation(folder + L"/" + stem);
+			}
+		}
+
+		cache[relPath] = model;
+		return model;
+	}
+
+	void LoadGameObject(tinyxml2::XMLElement* objEl, map<wstring, shared_ptr<Model>>& modelCache)
+	{
+		auto obj = make_shared<GameObject>();
+		obj->SetObjectName(ReadWstrAttr(objEl, "name"));
+		obj->SetLayerIndex((uint8)objEl->IntAttribute("layer"));
+
+		if (tinyxml2::XMLElement* trEl = objEl->FirstChildElement("Transform"))
+		{
+			auto tr = obj->GetOrAddTransform();
+			tr->SetLocalPosition(ReadVec3(trEl, "Position"));
+			tr->SetLocalRotation(ReadVec3(trEl, "Rotation"));
+			tr->SetLocalScale(ReadVec3(trEl, "Scale", Vec3(1.f, 1.f, 1.f)));
+		}
+
+		bool hasSky = objEl->FirstChildElement("SkyCubeMap") != nullptr;
+
+		// MeshRenderer — SkyCubeMap 이 있으면 Init 이 자체 생성하므로 스킵
+		if (tinyxml2::XMLElement* el = objEl->FirstChildElement("MeshRenderer"); el && !hasSky)
+		{
+			wstring meshName = ReadWstrAttr(el, "mesh");
+			shared_ptr<Mesh> mesh = RESOURCES->Get<Mesh>(meshName);
+
+			if (mesh == nullptr)
+			{
+				ADDLOG("Load Scene : unknown mesh '" + Utils::ToString(meshName) + "' skipped", LogFilter::Warn);
+			}
+			else
+			{
+				auto mr = make_shared<MeshRenderer>();
+				mr->SetMesh(mesh);
+				if (auto material = ReadMaterialEl(el))
+					mr->SetMaterial(material);
+				mr->SetTechnique((uint8)el->IntAttribute("technique"));
+				obj->AddComponent(mr);
+			}
+		}
+
+		// ModelRenderer
+		if (tinyxml2::XMLElement* el = objEl->FirstChildElement("ModelRenderer"))
+		{
+			wstring relPath = ReadWstrAttr(el, "model");
+			if (!relPath.empty())
+			{
+				auto mr = make_shared<ModelRenderer>();
+				mr->SetModel(LoadModel(relPath, nullptr, modelCache));
+				mr->SetTechnique((uint8)el->IntAttribute("technique"));
+				obj->AddComponent(mr);
+			}
+		}
+
+		// ModelAnimator
+		if (tinyxml2::XMLElement* el = objEl->FirstChildElement("ModelAnimator"))
+		{
+			wstring relPath = ReadWstrAttr(el, "model");
+			if (!relPath.empty())
+			{
+				auto ma = make_shared<ModelAnimator>();
+				ma->SetModel(LoadModel(relPath, el, modelCache));
+				ma->SetTechnique((uint8)el->IntAttribute("technique"));
+				ma->GetTweenDesc().curr.animIndex = el->IntAttribute("animIndex");
+				obj->AddComponent(ma);
+			}
+		}
+
+		// Light
+		if (tinyxml2::XMLElement* el = objEl->FirstChildElement("Light"))
+		{
+			auto light = make_shared<Light>();
+
+			LightDesc desc;
+			desc.ambient = ReadColor(el, "Ambient", desc.ambient);
+			desc.diffuse = ReadColor(el, "Diffuse", desc.diffuse);
+			desc.specular = ReadColor(el, "Specular", desc.specular);
+			desc.direction = ReadVec3(el, "Direction", Vec3(0.f, -1.f, 0.f));
+			desc.intensity = el->FloatAttribute("intensity", 1.f);
+
+			light->SetLightType((LightType)el->IntAttribute("type"));
+			light->SetLightDesc(desc);
+			light->SetIntensityValue(desc.intensity);
+			light->SetRange(el->FloatAttribute("range", 25.f));
+			light->SetSpotAngleDeg(el->FloatAttribute("spotAngle", 30.f));
+			light->SetAttenuation(ReadVec3(el, "Attenuation", Vec3(1.f, 0.09f, 0.032f)));
+
+			obj->AddComponent(light);
+		}
+
+		// Terrain (머티리얼은 원 생성 경로와 동일하게 DefaultMaterial 클론)
+		if (tinyxml2::XMLElement* el = objEl->FirstChildElement("Terrain"))
+		{
+			TerrainInfo info;
+			info.heightMapFilename = ReadWstrAttr(el, "heightMap");
+			info.blendMapFilename = ReadWstrAttr(el, "blendMap");
+			info.heightScale = el->FloatAttribute("heightScale");
+			info.heightmapWidth = el->UnsignedAttribute("width");
+			info.heightmapHeight = el->UnsignedAttribute("height");
+			info.cellSpacing = el->FloatAttribute("cellSpacing");
+
+			for (tinyxml2::XMLElement* layerEl = el->FirstChildElement("Layer");
+				layerEl; layerEl = layerEl->NextSiblingElement("Layer"))
+			{
+				info.layerMapFilenames.push_back(ReadWstrAttr(layerEl, "file"));
+			}
+
+			auto terrain = make_shared<Terrain>();
+			obj->AddComponent(terrain);
+
+			auto mat = RESOURCES->Get<Material>(L"DefaultMaterial")->Clone();
+			mat->GetMaterialDesc().roughness = 0.9f; // 지면 — 거의 무광
+			terrain->Init(info, mat);
+		}
+
+		// ParticleSystem
+		if (tinyxml2::XMLElement* el = objEl->FirstChildElement("ParticleSystem"))
+		{
+			std::vector<wstring> texNames;
+			for (tinyxml2::XMLElement* texEl = el->FirstChildElement("Texture");
+				texEl; texEl = texEl->NextSiblingElement("Texture"))
+			{
+				texNames.push_back(ReadWstrAttr(texEl, "file"));
+			}
+
+			auto ps = make_shared<ParticleSystem>();
+			obj->AddComponent(ps);
+			ps->Init(el->IntAttribute("type"), texNames, el->UnsignedAttribute("max"));
+
+			// Init 의 타입별 기본값 위에 저장값 덮어쓰기
+			ps->SetAccel(ReadVec3(el, "Accel"));
+			ps->SetEmitDir(ReadVec3(el, "EmitDir", Vec3::Up));
+			ps->SetEmitInterval(el->FloatAttribute("emitInterval"));
+			ps->SetLifetime(el->FloatAttribute("lifetime"));
+			ps->SetInitialSpeed(el->FloatAttribute("initialSpeed"));
+			ps->SetParticleSize(Vec2(el->FloatAttribute("sizeX"), el->FloatAttribute("sizeY")));
+		}
+
+		// SkyCubeMap — Init 이 MeshRenderer/머티리얼을 자체 구성
+		if (tinyxml2::XMLElement* el = objEl->FirstChildElement("SkyCubeMap"))
+		{
+			auto sky = make_shared<SkyCubeMap>();
+			obj->AddComponent(sky);
+			sky->Init(ReadWstrAttr(el, "file"));
+		}
+
+		CUR_SCENE->Add(obj);
+	}
+}
+
+void SceneSerializer::Clear()
+{
+	// 순회 중 Remove 는 맵을 변형하므로 목록 복사 후 제거
+	vector<shared_ptr<GameObject>> toRemove;
+	for (auto& [id, obj] : CUR_SCENE->GetCreatedObjects())
+	{
+		if (obj != nullptr && obj->IsEditorInternal() == false)
+			toRemove.push_back(obj);
+	}
+
+	for (auto& obj : toRemove)
+		CUR_SCENE->Remove(obj);
+
+	TOOL->SetSelectedObjH(-1);
+}
+
 bool SceneSerializer::Load(const wstring& path)
 {
-	// 커밋 102 에서 구현
-	(void)path;
-	return false;
+	tinyxml2::XMLDocument doc;
+	if (doc.LoadFile(Utils::ToString(path).c_str()) != tinyxml2::XML_SUCCESS)
+	{
+		ADDLOG("Load Scene FAILED : " + Utils::ToString(path), LogFilter::Error);
+		return false;
+	}
+
+	tinyxml2::XMLElement* root = doc.FirstChildElement("Scene");
+	if (root == nullptr)
+	{
+		ADDLOG("Load Scene FAILED : <Scene> root missing", LogFilter::Error);
+		return false;
+	}
+
+	Clear();
+
+	map<wstring, shared_ptr<Model>> modelCache;
+	int32 count = 0;
+	for (tinyxml2::XMLElement* objEl = root->FirstChildElement("GameObject");
+		objEl; objEl = objEl->NextSiblingElement("GameObject"))
+	{
+		LoadGameObject(objEl, modelCache);
+		count++;
+	}
+
+	ADDLOG("Load Scene : " + Utils::ToString(path) + " (" + std::to_string(count) + " objects)", LogFilter::Info);
+	return true;
 }

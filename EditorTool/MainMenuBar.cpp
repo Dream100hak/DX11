@@ -33,6 +33,25 @@ namespace
 
 		SceneSerializer::Save(szFile);
 	}
+
+	void OpenSceneDialog()
+	{
+		std::filesystem::path sceneDir = std::filesystem::absolute(L"../Resources/Assets/Scenes");
+
+		wchar_t szFile[MAX_PATH] = L"";
+		OPENFILENAMEW ofn = {};
+		ofn.lStructSize = sizeof(ofn);
+		ofn.lpstrFilter = L"Scene Files (*.scene)\0*.scene\0";
+		ofn.lpstrFile = szFile;
+		ofn.nMaxFile = MAX_PATH;
+		ofn.lpstrInitialDir = sceneDir.c_str();
+		ofn.Flags = OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
+
+		if (::GetOpenFileNameW(&ofn) == FALSE)
+			return;
+
+		SceneSerializer::Load(szFile);
+	}
 }
 
 
@@ -143,8 +162,8 @@ void MainMenuBar::ConvertFbx()
 
 void MainMenuBar::MenuFileList()
 {
-	if (ImGui::MenuItem("New")) {}
-	if (ImGui::MenuItem("Open", "Ctrl+O")) {}
+	if (ImGui::MenuItem("New Scene")) { SceneSerializer::Clear(); ADDLOG("New Scene", LogFilter::Info); }
+	if (ImGui::MenuItem("Open Scene...", "Ctrl+O")) { OpenSceneDialog(); }
 	if (ImGui::MenuItem("Save Scene...", "Ctrl+S")) { SaveSceneDialog(); }
 
 	ImGui::Separator();

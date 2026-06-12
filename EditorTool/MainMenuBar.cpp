@@ -5,6 +5,7 @@
 #include "LogWindow.h"
 #include "UfbxConverter.h"
 #include "SceneSerializer.h"
+#include "UndoManager.h"
 #include "Utils.h"
 #include <filesystem>
 #include <commdlg.h>
@@ -88,17 +89,15 @@ void MainMenuBar::ShowMainMenuBar()
 		}
 		if (ImGui::BeginMenu("Edit"))
 		{
-			if (ImGui::MenuItem("Undo", "CTRL+Z")) {}
-			if (ImGui::MenuItem("Redo", "CTRL+Y", false, false)) {}  // Disabled item
-			ImGui::Separator();
-			if (ImGui::MenuItem("Cut", "CTRL+X")) {}
-			if (ImGui::MenuItem("Copy", "CTRL+C")) {}
-			if (ImGui::MenuItem("Paste", "CTRL+V")) {}
+			if (ImGui::MenuItem("Undo", "CTRL+Z", false, UndoManager::CanUndo()))
+				UndoManager::Undo();
+			if (ImGui::MenuItem("Redo", "CTRL+Y", false, UndoManager::CanRedo()))
+				UndoManager::Redo();
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("GameObject"))
 		{
-			if (ImGui::MenuItem("Create Empty", "CTRL+B")) { TOOL->SetSelectedObjH(GUI->CreateEmptyGameObject());  ADDLOG("Create GameObject", LogFilter::Info); }
+			if (ImGui::MenuItem("Create Empty", "CTRL+B")) { UndoManager::Record(); TOOL->SetSelectedObjH(GUI->CreateEmptyGameObject());  ADDLOG("Create GameObject", LogFilter::Info); }
 			if (ImGui::MenuItem("Create Empty Child", "CTRL+Z")) {}
 			if (ImGui::MenuItem("Create Empty Parent", "CTRL+Z")) {}
 
@@ -162,8 +161,8 @@ void MainMenuBar::ConvertFbx()
 
 void MainMenuBar::MenuFileList()
 {
-	if (ImGui::MenuItem("New Scene")) { SceneSerializer::Clear(); ADDLOG("New Scene", LogFilter::Info); }
-	if (ImGui::MenuItem("Open Scene...", "Ctrl+O")) { OpenSceneDialog(); }
+	if (ImGui::MenuItem("New Scene")) { SceneSerializer::Clear(); UndoManager::Clear(); ADDLOG("New Scene", LogFilter::Info); }
+	if (ImGui::MenuItem("Open Scene...", "Ctrl+O")) { OpenSceneDialog(); UndoManager::Clear(); }
 	if (ImGui::MenuItem("Save Scene...", "Ctrl+S")) { SaveSceneDialog(); }
 
 	ImGui::Separator();

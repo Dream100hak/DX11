@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "Hiearchy.h"
+#include "UndoManager.h"
 #include "ShortcutManager.h"
 #include "EditorToolManager.h"
 #include "LogWindow.h"
@@ -97,7 +98,10 @@ void Hiearchy::ShowHiearchy()
 				int64 draggedId = *(const int64*)payload->Data;
 				auto draggedObj = CUR_SCENE->GetCreatedObject((int32)draggedId);
 				if (draggedObj != nullptr && draggedObj->GetTransform() != nullptr)
+				{
+					UndoManager::Record();
 					draggedObj->GetTransform()->SetParentKeepWorld(nullptr);
+				}
 			}
 			ImGui::EndDragDropTarget();
 		}
@@ -111,26 +115,26 @@ void Hiearchy::ShowHiearchy()
 		{
 			if (ImGui::MenuItem("Add Empty GameObject"))
 			{
-				id = GUI->CreateEmptyGameObject();
+				UndoManager::Record(); id = GUI->CreateEmptyGameObject();
 				TOOL->SetSelectedObjH(id);
 				ADDLOG("Create Empty GameObject", LogFilter::Info);
 			}
 
 			if (ImGui::MenuItem("Create Cube"))
 			{
-				id = GUI->CreateMesh(CreatedObjType::CUBE);
+				UndoManager::Record(); id = GUI->CreateMesh(CreatedObjType::CUBE);
 				TOOL->SetSelectedObjH(id);
 				ADDLOG("Create Cube", LogFilter::Info);
 			}
 			if (ImGui::MenuItem("Create Quad"))
 			{
-				id = GUI->CreateMesh(CreatedObjType::QUAD);
+				UndoManager::Record(); id = GUI->CreateMesh(CreatedObjType::QUAD);
 				TOOL->SetSelectedObjH(id);
 				ADDLOG("Create Quad", LogFilter::Info);
 			}
 			if (ImGui::MenuItem("Create Sphere"))
 			{
-				id = GUI->CreateMesh(CreatedObjType::SPHERE);
+				UndoManager::Record(); id = GUI->CreateMesh(CreatedObjType::SPHERE);
 				TOOL->SetSelectedObjH(id);
 				ADDLOG("Create Sphere", LogFilter::Info);
 			}
@@ -166,19 +170,19 @@ void Hiearchy::ShowHiearchy()
 		{
 			if (ImGui::MenuItem("Directional Light"))
 			{
-				id = GUI->CreateLight(0);
+				UndoManager::Record(); id = GUI->CreateLight(0);
 				TOOL->SetSelectedObjH(id);
 				ADDLOG("Create Directional Light", LogFilter::Info);
 			}
 			if (ImGui::MenuItem("Point Light"))
 			{
-				id = GUI->CreateLight(1);
+				UndoManager::Record(); id = GUI->CreateLight(1);
 				TOOL->SetSelectedObjH(id);
 				ADDLOG("Create Point Light", LogFilter::Info);
 			}
 			if (ImGui::MenuItem("Spot Light"))
 			{
-				id = GUI->CreateLight(2);
+				UndoManager::Record(); id = GUI->CreateLight(2);
 				TOOL->SetSelectedObjH(id);
 				ADDLOG("Create Spot Light", LogFilter::Info);
 			}
@@ -194,7 +198,7 @@ void Hiearchy::ShowHiearchy()
 
 			if (ImGui::MenuItem("Create Terrain"))
 			{
-				id = GUI->CreateEmptyGameObject();
+				UndoManager::Record(); id = GUI->CreateEmptyGameObject();
 				TOOL->SetSelectedObjH(id);
 
 				ADDLOG("Create Terrain", LogFilter::Info);
@@ -271,7 +275,10 @@ void Hiearchy::DrawHierarchyNode(shared_ptr<GameObject> obj)
 			int64 draggedId = *(const int64*)payload->Data;
 			auto draggedObj = CUR_SCENE->GetCreatedObject((int32)draggedId);
 			if (draggedObj != nullptr && draggedObj != obj && draggedObj->GetTransform() != nullptr)
+			{
+				UndoManager::Record();
 				draggedObj->GetTransform()->SetParentKeepWorld(tr);
+			}
 		}
 		ImGui::EndDragDropTarget();
 	}
@@ -294,6 +301,7 @@ void Hiearchy::DrawHierarchyNode(shared_ptr<GameObject> obj)
 
 int32 Hiearchy::CreateFire()
 {
+	UndoManager::Record();
 	int32 id = GUI->CreateEmptyGameObject(CreatedObjType::PARTICLE);
 	TOOL->SetSelectedObjH(id);
 
@@ -317,6 +325,7 @@ int32 Hiearchy::CreateFire()
 
 int32 Hiearchy::CreateRain()
 {
+	UndoManager::Record();
 	int32 id = GUI->CreateEmptyGameObject();
 	TOOL->SetSelectedObjH(id);
 
@@ -335,6 +344,7 @@ int32 Hiearchy::CreateRain()
 
 int32 Hiearchy::CreateSky()
 {
+	UndoManager::Record();
 	int32 id = GUI->CreateEmptyGameObject();
 	TOOL->SetSelectedObjH(id);
 
@@ -356,6 +366,7 @@ int32 Hiearchy::CreateTerrain()
 // 게임 카메라 — 플레이 중 Game 뷰가 이 시점으로 렌더 (에디터 카메라와 별개)
 int32 Hiearchy::CreateGameCamera()
 {
+	UndoManager::Record();
 	int32 id = GUI->CreateEmptyGameObject();
 	TOOL->SetSelectedObjH(id);
 
@@ -383,6 +394,7 @@ int32 Hiearchy::CreateGameCamera()
 // 移대찓???꾨갑???ㅽ룿. ?뷀띁??Cook-Torrance ?쇱씠???뺤씤??
 void Hiearchy::CreatePbrTestGrid()
 {
+	UndoManager::Record();
 	auto scene = SCENE->GetCurrentScene();
 	auto cam = scene->GetMainCamera();
 	if (cam == nullptr)

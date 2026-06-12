@@ -270,6 +270,41 @@ namespace
 	}
 }
 
+namespace
+{
+	// 현재 씬 → XML 문서 (Save/SaveToString 공용)
+	int32 BuildSceneDocument(tinyxml2::XMLDocument& doc)
+	{
+		doc.LinkEndChild(doc.NewDeclaration());
+
+		XMLElement* root = doc.NewElement("Scene");
+		root->SetAttribute("version", 1);
+		doc.LinkEndChild(root);
+
+		int32 count = 0;
+		for (auto& [id, obj] : CUR_SCENE->GetCreatedObjects())
+		{
+			if (obj == nullptr || obj->IsEditorInternal())
+				continue;
+
+			WriteGameObject(root, obj);
+			count++;
+		}
+		return count;
+	}
+}
+
+bool SceneSerializer::SaveToString(string& out)
+{
+	tinyxml2::XMLDocument doc;
+	BuildSceneDocument(doc);
+
+	tinyxml2::XMLPrinter printer;
+	doc.Print(&printer);
+	out.assign(printer.CStr(), printer.CStrSize() > 0 ? printer.CStrSize() - 1 : 0);
+	return true;
+}
+
 bool SceneSerializer::Save(const wstring& path)
 {
 	// 대상 폴더 보장 (다이얼로그 외 직접 호출 경로 대비)
@@ -277,21 +312,7 @@ bool SceneSerializer::Save(const wstring& path)
 	filesystem::create_directories(filesystem::path(path).parent_path(), ec);
 
 	tinyxml2::XMLDocument doc;
-	doc.LinkEndChild(doc.NewDeclaration());
-
-	XMLElement* root = doc.NewElement("Scene");
-	root->SetAttribute("version", 1);
-	doc.LinkEndChild(root);
-
-	int32 count = 0;
-	for (auto& [id, obj] : CUR_SCENE->GetCreatedObjects())
-	{
-		if (obj == nullptr || obj->IsEditorInternal())
-			continue;
-
-		WriteGameObject(root, obj);
-		count++;
-	}
+	int32 count = BuildSceneDocument(doc);
 
 	if (doc.SaveFile(Utils::ToString(path).c_str()) != XML_SUCCESS)
 	{
@@ -594,6 +615,67 @@ void SceneSerializer::Clear()
 	TOOL->SetSelectedObjH(-1);
 }
 
+namespace
+{
+	// XML 문서 → 씬 재구성 (Load/LoadFromString 공용). 반환 = 생성 오브젝트 수 (-1 = 실패)
+	int32 LoadFromDocument(tinyxml2::XMLDocument& doc)
+	{
+		tinyxml2::XMLElement* root = doc.FirstChildElement("Scene");
+		if (root == nullptr)
+			return -1;
+
+		SceneSerializer::Clear();
+
+		map<wstring, shared_ptr<Model>> modelCache;
+		map<uint32, shared_ptr<GameObject>> bySavedId;
+		vector<pair<shared_ptr<GameObject>, uint32>> pendingParent;
+
+		int32 count = 0;
+		for (tinyxml2::XMLElement* objEl = root->FirstChildElement("GameObject");
+			objEl; objEl = objEl->NextSiblingElement("GameObject"))
+		{
+			shared_ptr<GameObject> obj = LoadGameObject(objEl, modelCache);
+			count++;
+
+			uint32 savedId = objEl->UnsignedAttribute("id");
+			if (savedId != 0)
+				bySavedId[savedId] = obj;
+
+			uint32 parentId = objEl->UnsignedAttribute("parent");
+			if (parentId != 0)
+				pendingParent.push_back({ obj, parentId });
+		}
+
+		// 2패스 — 계층 연결 (저장된 로컬 값을 보존해야 하므로 KeepWorld 가 아닌 로컬 보존 연결)
+		for (auto& [child, parentId] : pendingParent)
+		{
+			auto found = bySavedId.find(parentId);
+			if (found == bySavedId.end())
+				continue;
+
+			auto childTr = child->GetTransform();
+			auto parentTr = found->second->GetTransform();
+			if (childTr == nullptr || parentTr == nullptr)
+				continue;
+
+			childTr->SetParent(parentTr);
+			parentTr->AddChild(childTr);
+			childTr->UpdateTransform();
+		}
+
+		return count;
+	}
+}
+
+bool SceneSerializer::LoadFromString(const string& xml)
+{
+	tinyxml2::XMLDocument doc;
+	if (doc.Parse(xml.c_str(), xml.size()) != tinyxml2::XML_SUCCESS)
+		return false;
+
+	return LoadFromDocument(doc) >= 0;
+}
+
 bool SceneSerializer::Load(const wstring& path)
 {
 	tinyxml2::XMLDocument doc;
@@ -603,50 +685,11 @@ bool SceneSerializer::Load(const wstring& path)
 		return false;
 	}
 
-	tinyxml2::XMLElement* root = doc.FirstChildElement("Scene");
-	if (root == nullptr)
+	int32 count = LoadFromDocument(doc);
+	if (count < 0)
 	{
 		ADDLOG("Load Scene FAILED : <Scene> root missing", LogFilter::Error);
 		return false;
-	}
-
-	Clear();
-
-	map<wstring, shared_ptr<Model>> modelCache;
-	map<uint32, shared_ptr<GameObject>> bySavedId;
-	vector<pair<shared_ptr<GameObject>, uint32>> pendingParent;
-
-	int32 count = 0;
-	for (tinyxml2::XMLElement* objEl = root->FirstChildElement("GameObject");
-		objEl; objEl = objEl->NextSiblingElement("GameObject"))
-	{
-		shared_ptr<GameObject> obj = LoadGameObject(objEl, modelCache);
-		count++;
-
-		uint32 savedId = objEl->UnsignedAttribute("id");
-		if (savedId != 0)
-			bySavedId[savedId] = obj;
-
-		uint32 parentId = objEl->UnsignedAttribute("parent");
-		if (parentId != 0)
-			pendingParent.push_back({ obj, parentId });
-	}
-
-	// 2패스 — 계층 연결 (저장된 로컬 값을 보존해야 하므로 KeepWorld 가 아닌 로컬 보존 연결)
-	for (auto& [child, parentId] : pendingParent)
-	{
-		auto found = bySavedId.find(parentId);
-		if (found == bySavedId.end())
-			continue;
-
-		auto childTr = child->GetTransform();
-		auto parentTr = found->second->GetTransform();
-		if (childTr == nullptr || parentTr == nullptr)
-			continue;
-
-		childTr->SetParent(parentTr);
-		parentTr->AddChild(childTr);
-		childTr->UpdateTransform();
 	}
 
 	ADDLOG("Load Scene : " + Utils::ToString(path) + " (" + std::to_string(count) + " objects)", LogFilter::Info);

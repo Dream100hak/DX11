@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Inspector.h"
 #include "EditorToolManager.h"
+#include "UndoManager.h"
 
 #include "GameObject.h"
 #include "Camera.h"
@@ -142,6 +143,7 @@ void Inspector::ShowInfoHiearchy()
 
 				if (ImGui::MenuItem(fixedCompName.c_str()))
 				{
+					UndoManager::Record();
 					switch (componentType)
 					{
 					case ComponentType::Camera: go->AddComponent(make_shared<Camera>());
@@ -196,7 +198,10 @@ void Inspector::ShowComponentInfo(shared_ptr<Component> component, string name)
 
 			// Transform 은 RemoveComponent 내부에서 거부됨. MonoBehaviour(Script 타입)도 no-op (범위 외)
 			if (isMainCamera == false)
+			{
+				UndoManager::Record();
 				go->RemoveComponent(component->GetType());
+			}
 
 			ImGui::CloseCurrentPopup();
 		}

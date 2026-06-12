@@ -38,6 +38,7 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="SceneGrid.h" />
     <ClInclude Include="SceneSerializer.h" />
+    <ClInclude Include="UndoManager.h" />
     <ClInclude Include="SceneWindow.h" />
     <ClInclude Include="ShadowMap.h" />
     <ClInclude Include="ShortcutManager.h" />
@@ -75,6 +76,7 @@
     </ClCompile>
     <ClCompile Include="SceneGrid.cpp" />
     <ClCompile Include="SceneSerializer.cpp" />
+    <ClCompile Include="UndoManager.cpp" />
     <ClCompile Include="SceneWindow.cpp" />
     <ClCompile Include="ShadowMap.cpp" />
     <ClCompile Include="ShortcutManager.cpp" />

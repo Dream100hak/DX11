@@ -17,6 +17,7 @@
 
 #include "Model.h"
 #include "ImGuizmo.h"
+#include "UndoManager.h"
 #include <filesystem>
 
 
@@ -206,6 +207,8 @@ void SceneWindow::ShowSceneWindow()
 			shared_ptr<GameObject> obj =  prviewObjs[droppedMesh->fileFullPath + L"/" + droppedMesh->fileName];
 			CUR_SCENE->Remove(obj);
 
+			UndoManager::Record(); // 모델 배치 직전 스냅샷
+
 			int32 id = -1;
 			if (droppedMesh->metaType == MetaType::CLIP)
 			{
@@ -364,6 +367,13 @@ void SceneWindow::EditTransform()
 		currentGizmoMode == Local ? ImGuizmo::LOCAL : ImGuizmo::WORLD,
 		reinterpret_cast<float*>(&world),
 		nullptr, useSnap ? snap : nullptr);
+
+	// 기즈모 드래그 시작 프레임 — 쓰기 전이므로 스냅샷은 이동 전 상태 (Undo 1회 = 드래그 1회 되돌림)
+	static bool sGizmoWasUsing = false;
+	const bool gizmoUsing = ImGuizmo::IsUsing();
+	if (gizmoUsing && sGizmoWasUsing == false)
+		UndoManager::Record();
+	sGizmoWasUsing = gizmoUsing;
 
 	if (ImGuizmo::IsUsing())
 	{

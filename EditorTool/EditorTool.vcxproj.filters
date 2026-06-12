@@ -84,6 +84,9 @@
     <ClInclude Include="SceneSerializer.h">
       <Filter>Utils</Filter>
     </ClInclude>
+    <ClInclude Include="UndoManager.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
     <ClInclude Include="FolderContents.h">
       <Filter>EditorWindow</Filter>
     </ClInclude>
@@ -171,6 +174,9 @@
       <Filter>EditorWindow</Filter>
     </ClCompile>
     <ClCompile Include="SceneSerializer.cpp">
+      <Filter>Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="UndoManager.cpp">
       <Filter>Utils</Filter>
     </ClCompile>
     <ClCompile Include="FolderContents.cpp">

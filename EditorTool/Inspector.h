@@ -32,6 +32,7 @@ private:
 	void ShowProjectMesh(shared_ptr<MetaData>& metaData);
 	void ShowProjectClip(shared_ptr<MetaData>& metaData);
 	void DrawModelDetails(shared_ptr<class Model> model); // 요약/메시/스켈레톤 트리/머티리얼/클립
+	void DrawSkeletonOverlay(shared_ptr<class Model> model, const ImVec2& imagePos, const ImVec2& imageSize); // 프리뷰 본 오버레이
 
 	void CreateMeshPreviewObj();
 	void CreateAniPreviewObj();
@@ -52,6 +53,10 @@ private:
 	std::wstring _previewObjName = L"";
 	shared_ptr<GameObject> _meshPreviewObj = nullptr;
 	shared_ptr<MeshThumbnail> _meshthumbnail = nullptr;
+
+	// 스켈레톤 — 트리 선택 본(트랜스폼 표시/오버레이 강조) + 프리뷰 오버레이 토글
+	shared_ptr<struct ModelBone> _selectedBone = nullptr;
+	bool _showSkeleton = true;
 
 private:
 

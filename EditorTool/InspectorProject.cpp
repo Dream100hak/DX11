@@ -21,6 +21,7 @@
 
 #include "ModelAnimation.h"
 #include "ModelMesh.h"
+#include "Transform.h"
 
 // -----------------------------------------------------------
 // Inspector — 프로젝트 모드 (선택된 파일의 타입별 임포트 설정/프리뷰)
@@ -194,6 +195,7 @@ void Inspector::ShowProjectMesh(shared_ptr<MetaData>& metaData)
 		CreateMeshPreviewObj();
 		DrawInspectorMesh();
 		_previewObjName = metaData->fileName;
+		_selectedBone = nullptr; // 모델 변경 — 이전 모델 본 선택 해제
 	}
 
 	shared_ptr<Model> model = _meshPreviewObj->GetModelRenderer()->GetModel();
@@ -202,11 +204,65 @@ void Inspector::ShowProjectMesh(shared_ptr<MetaData>& metaData)
 
 	ImGui::Dummy(ImVec2(0, 50.f));
 	ImGui::SeparatorText("Mesh Preview");
-	ImGui::Image(_meshthumbnail->GetComPtr().Get(), ImVec2(373, 373));
+	ImVec2 imagePos = ImGui::GetCursorScreenPos();
+	ImVec2 imageSize(373, 373);
+	ImGui::Image(_meshthumbnail->GetComPtr().Get(), imageSize);
+
+	if (model->GetBoneCount() > 0)
+	{
+		ImGui::Checkbox("Show Skeleton", &_showSkeleton);
+		if (_showSkeleton)
+			DrawSkeletonOverlay(model, imagePos, imageSize);
+	}
 
 	ImGui::Dummy(ImVec2(0, 10.f));
 
 	DrawModelDetails(model);
+}
+
+// 프리뷰 위 본 오버레이 — 바인드포즈 관절 라인/점, 선택 본 강조 (유니티 아바타 뷰 참조)
+void Inspector::DrawSkeletonOverlay(shared_ptr<Model> model, const ImVec2& imagePos, const ImVec2& imageSize)
+{
+	if (_meshPreviewObj == nullptr)
+		return;
+
+	// 썸네일과 동일 프레이밍 — ComputeFitViewProj 는 결정적이라 재계산 = 드로우 때 V/P
+	Matrix V, P;
+	MeshThumbnail::ComputeFitViewProj(_meshPreviewObj, 1.f, V, P);
+	Matrix WVP = _meshPreviewObj->GetTransform()->GetWorldMatrix() * V * P;
+
+	// 본 transform 은 모델 공간 글로벌 (PushModelBoneData 와 동일 해석) — translation = 관절 위치
+	auto project = [&](const Vec3& modelPos, ImVec2& out) -> bool
+	{
+		Vec4 clip = Vec4::Transform(Vec4(modelPos.x, modelPos.y, modelPos.z, 1.f), WVP);
+		if (clip.w <= 0.f)
+			return false;
+		out.x = imagePos.x + (clip.x / clip.w * 0.5f + 0.5f) * imageSize.x;
+		out.y = imagePos.y + (-clip.y / clip.w * 0.5f + 0.5f) * imageSize.y;
+		return true;
+	};
+
+	ImDrawList* dl = ImGui::GetWindowDrawList();
+	const ImU32 lineCol  = IM_COL32(80, 220, 120, 200);
+	const ImU32 jointCol = IM_COL32(255, 255, 255, 220);
+	const ImU32 selCol   = IM_COL32(255, 160, 40, 255);
+
+	for (auto& bone : model->GetBones())
+	{
+		ImVec2 p;
+		if (project(bone->transform.Translation(), p) == false)
+			continue;
+
+		if (bone->parent)
+		{
+			ImVec2 pp;
+			if (project(bone->parent->transform.Translation(), pp))
+				dl->AddLine(pp, p, lineCol, 1.5f);
+		}
+
+		const bool selected = (bone == _selectedBone);
+		dl->AddCircleFilled(p, selected ? 4.5f : 2.5f, selected ? selCol : jointCol);
+	}
 }
 
 // 모델 상세 — 요약/메시 테이블/스켈레톤(관절) 트리/머티리얼/클립 (유니티 모델 임포터 인스펙터 참조)
@@ -260,9 +316,13 @@ void Inspector::DrawModelDetails(shared_ptr<Model> model)
 			ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
 			if (bone->children.empty())
 				flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+			if (bone == _selectedBone)
+				flags |= ImGuiTreeNodeFlags_Selected;
 
 			string label = Utils::ToString(bone->name) + "##bone" + std::to_string(bone->index);
 			bool open = ImGui::TreeNodeEx(label.c_str(), flags);
+			if (ImGui::IsItemClicked() && ImGui::IsItemToggledOpen() == false)
+				_selectedBone = bone;
 			ImGui::SameLine();
 			ImGui::TextDisabled("[%d]", bone->index);
 
@@ -278,6 +338,31 @@ void Inspector::DrawModelDetails(shared_ptr<Model> model)
 		{
 			if (bone->parentIndex < 0)
 				drawBone(bone);
+		}
+
+		// 선택 본 정보 — 바인드포즈(모델 공간) 트랜스폼
+		if (_selectedBone != nullptr)
+		{
+			ImGui::Spacing();
+			ImGui::SeparatorText(Utils::ToString(_selectedBone->name).c_str());
+			ImGui::Text("Index : %d   Parent : %s   Children : %d",
+				_selectedBone->index,
+				_selectedBone->parent ? Utils::ToString(_selectedBone->parent->name).c_str() : "(none)",
+				(int32)_selectedBone->children.size());
+
+			Vec3 s, t;
+			Quaternion r;
+			if (_selectedBone->transform.Decompose(s, r, t))
+			{
+				Vec3 euler = Transform::ToEulerAngles(r) * (180.f / XM_PI);
+				ImGui::Text("Position : %.3f, %.3f, %.3f", t.x, t.y, t.z);
+				ImGui::Text("Rotation : %.1f, %.1f, %.1f", euler.x, euler.y, euler.z);
+				ImGui::Text("Scale    : %.3f, %.3f, %.3f", s.x, s.y, s.z);
+			}
+			else
+			{
+				ImGui::TextDisabled("(non-decomposable transform)");
+			}
 		}
 	}
 

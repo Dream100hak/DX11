@@ -382,9 +382,10 @@ void SceneWindow::EditTransform()
 
 			if (finite)
 			{
-				_tr->SetPosition(trans);
-				_tr->SetRotation(euler);
-				_tr->SetScale(scale);
+				// SetWorldMatrix: 부모가 있으면 월드→로컬 역변환 후 로컬 분해 — 계층에서도 정확
+				// (기존 SetPosition/SetRotation/SetScale 분해는 부모 회전·스케일 합성이 깨짐)
+				_tr->SetWorldMatrix(world);
+				_tr->UpdateTransform();
 			}
 		}
 	}

@@ -114,6 +114,15 @@ Camera::Render_Deferred()
 - Light: zero direction falls back to (0,-1,0) (XMMatrixLookAtLH assert crash on Add Component, commit 81).
 - Shadow bounds: fixed center/radius on Light inspector — objects outside cast/receive no shadows (auto-fit reverted by user preference).
 
+## Hierarchy Parenting (commits 116~119)
+
+- `Transform::SetParentKeepWorld` — world-preserving reparent (null = to root), refuses self/descendant (cycle guard).
+  Parent ref is **weak_ptr** (shared both ways would leak). `Scene::Remove` detaches from parent and promotes children to root.
+- Hierarchy window renders a recursive TreeNode tree (roots only at top level). **Drag-drop**: onto a node = parent (world kept),
+  onto empty space = unparent. `.scene` stores `id`/`parent` attrs; load is 2-pass (create all → link, LOCAL-preserving — not KeepWorld).
+- Gizmo write-back uses `Transform::SetWorldMatrix` (world→local inverse vs parent) — per-channel SetPosition/Rotation/Scale
+  decomposition breaks under a rotated/scaled parent.
+
 ## Scene Save/Load & Play Mode (commits 101~104)
 
 - **`.scene` XML** (`EditorTool/SceneSerializer`): Transform / MeshRenderer / ModelRenderer / ModelAnimator(+clips) /

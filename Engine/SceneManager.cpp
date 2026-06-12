@@ -17,5 +17,9 @@ void SceneManager::Update()
 	_currentScene->Update();
 	_currentScene->LateUpdate();
 
-	_currentScene->Render();   // Camera::Render_Forward() → HLSL 오브젝트 메인 백버퍼에 렌더
+	// 씬 렌더 직전 — 섀도우맵/SSAO 등 보조 패스를 같은 프레임 데이터로 그림
+	if (_preRenderCallback)
+		_preRenderCallback();
+
+	_currentScene->Render();   // 메인(에디터) 카메라 → 백버퍼 디퍼드 렌더
 }

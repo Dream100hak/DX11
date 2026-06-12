@@ -24,19 +24,15 @@ void TextureManager::Init()
 
 void TextureManager::Update()
 {
-	DrawTextureMap();
+	// 드로우는 SceneManager 의 pre-render 콜백에서 수행 (EditorTool::Init 에서 등록)
 }
 
+// 씬 렌더 직전 호출 — 같은 프레임 데이터로 섀도우/SSAO 드로우
+// (구 잡큐 경유는 다음 프레임 시작에 실행되어 그림자가 1프레임 늦었음)
 void TextureManager::DrawTextureMap()
 {
-
-	JOB_PRE_RENDER->DoPush([=]()
-	{
-		_smap->Draw();
-	});
-	JOB_RENDER->DoPush([=]()
-	{
-		_ssao->Draw();
-	});
+	_smap->Draw();
+	_ssao->Draw();
+	GRAPHICS->RestoreMainRenderTarget();
 }
 

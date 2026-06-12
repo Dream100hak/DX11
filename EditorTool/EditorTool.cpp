@@ -66,6 +66,9 @@ void EditorTool::Init()
 
 	GET_SINGLE(TextureManager)->Init();
 
+	// 섀도우맵/SSAO 는 씬 렌더 직전(오브젝트 업데이트 후) 같은 프레임 데이터로 드로우
+	SCENE->SetPreRenderCallback([]() { GET_SINGLE(TextureManager)->DrawTextureMap(); });
+
 	{
 		//auto simpleGrid = make_shared<GameObject>();
 		//simpleGrid->SetObjectName(L"grid");

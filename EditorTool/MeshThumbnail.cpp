@@ -84,6 +84,18 @@ void MeshThumbnail::CreateColorTexture()
 
 void MeshThumbnail::CreateDepthStencilTexture()
 {
+	// 같은 크기 썸네일은 깊이버퍼 1장 공유 — 드로우가 순차 실행이고 매 Draw 마다 클리어하므로 안전
+	// (개별 보유 시 깊이만 개당 1MB(512²) x 캐시 64 낭비)
+	static map<uint64, ComPtr<ID3D11DepthStencilView>> sharedDepth;
+
+	const uint64 key = (static_cast<uint64>(_width) << 32) | _height;
+	auto found = sharedDepth.find(key);
+	if (found != sharedDepth.end())
+	{
+		_depthMapDSV = found->second;
+		return;
+	}
+
 	D3D11_TEXTURE2D_DESC desc = { 0 };
 	ZeroMemory(&desc, sizeof(desc));
 	desc.Width = _width;
@@ -105,4 +117,6 @@ void MeshThumbnail::CreateDepthStencilTexture()
 
 	hr = DEVICE->CreateDepthStencilView(depthMap.Get(), nullptr, &_depthMapDSV);
 	CHECK(hr);
+
+	sharedDepth[key] = _depthMapDSV;
 }

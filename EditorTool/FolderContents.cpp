@@ -431,7 +431,8 @@ void FolderContents::CreateMeshPreviewThumbnail(shared_ptr<MetaData>& meta , sha
 	renderers.push_back(obj->GetRenderer());
 
 	shared_ptr<MeshThumbnail> thumbnail = nullptr;
-	thumbnail = make_shared<MeshThumbnail>(1024, 1024);
+	// 512: 최대 표시 크기(인스펙터 373px)보다 크면 충분 — 1024 는 개당 8MB x 캐시 64 = 최대 512MB 였음
+	thumbnail = make_shared<MeshThumbnail>(512, 512);
 
 	InstancingData data;
 	data.world = obj->GetTransform()->GetWorldMatrix();

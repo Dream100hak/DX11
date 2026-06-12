@@ -32,7 +32,9 @@ public:
 	Ssao(int32 width, int32 height, float fovy, float farZ);
 	~Ssao();
 
-	void Draw();
+	// SSAO 는 스크린스페이스(뷰 종속) — 렌더하는 카메라 기준으로 생성해야 함
+	// renderCam == nullptr 이면 메인(에디터) 카메라, Game 뷰는 게임 카메라를 넘겨 재생성
+	void Draw(shared_ptr<class Camera> renderCam = nullptr);
 
 public:
 	ComPtr<ID3D11ShaderResourceView> GetAmbientPtr() { return _ambientSRV0; }

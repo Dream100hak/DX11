@@ -367,12 +367,12 @@ void Ssao::BlurAmbientMap(ComPtr<ID3D11ShaderResourceView> inputSRV, ComPtr<ID3D
 	shader->SetPSSRV(1, nullptr);
 }
 
-void Ssao::Draw()
+void Ssao::Draw(shared_ptr<Camera> renderCam)
 {
 	shared_ptr<Scene> scene = CUR_SCENE;
 	unordered_set<shared_ptr<GameObject>>& gameObjects = scene->GetObjects();
 
-	auto camera = scene->GetMainCamera()->GetCamera();
+	auto camera = (renderCam != nullptr) ? renderCam : scene->GetMainCamera()->GetCamera();
 
 	// 라이트 없는 씬 (New Scene 직후) — SSAO 패스 스킵 (null 역참조 크래시 방지)
 	auto lightObj = scene->GetLight();
@@ -403,6 +403,9 @@ void Ssao::Draw()
 
 	Matrix V = camera->GetViewMatrix();
 	Matrix P = camera->GetProjectionMatrix();
+
+	// 뷰 재구성용 프러스텀 코너도 해당 카메라 기준으로 (fov/far 가 다를 수 있음)
+	SetFrustumFarCorners(camera->GetFov(), camera->GetFar());
 
 	//Draw To Normal Depth
 	SetNormalDepthRenderTarget(GRAPHICS->GetDsv());

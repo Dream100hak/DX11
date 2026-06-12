@@ -29,6 +29,7 @@
 #include "UfbxConverter.h"
 #include "SceneSerializer.h"
 #include "UndoManager.h"
+#include <chrono>
 
 #include "MeshThumbnail.h"
 

@@ -406,7 +406,7 @@ namespace
 		return material;
 	}
 
-	// 모델 로드 (Load 1회 내 캐시 — 같은 모델 다수 배치 대응)
+	// 모델 로드 — RESOURCES 영구 캐시 (Undo/Redo 스냅샷 복원이 디스크 재파싱 없이 즉시 동작)
 	shared_ptr<Model> LoadModel(const wstring& relPath, tinyxml2::XMLElement* animatorEl,
 		map<wstring, shared_ptr<Model>>& cache)
 	{
@@ -414,17 +414,25 @@ namespace
 		if (found != cache.end())
 			return found->second;
 
-		shared_ptr<Model> model = make_shared<Model>();
-		model->ReadModel(relPath);
+		const wstring resourceKey = L"SCENE_MODEL_" + relPath;
+		shared_ptr<Model> model = RESOURCES->Get<Model>(resourceKey);
 
-		// .mmat(바이너리) 우선, 레거시 .xml 폴백
-		wstring mmatPath = L"../Resources/Assets/Models/" + relPath + L".mmat";
-		if (filesystem::exists(mmatPath))
-			model->ReadMaterial(relPath);
-		else
-			model->ReadMaterialByXml(relPath);
+		if (model == nullptr)
+		{
+			model = make_shared<Model>();
+			model->ReadModel(relPath);
 
-		// 클립 — <Clip file="Idle.clip"/> → ReadAnimation("<모델폴더>/Idle")
+			// .mmat(바이너리) 우선, 레거시 .xml 폴백
+			wstring mmatPath = L"../Resources/Assets/Models/" + relPath + L".mmat";
+			if (filesystem::exists(mmatPath))
+				model->ReadMaterial(relPath);
+			else
+				model->ReadMaterialByXml(relPath);
+
+			RESOURCES->Add(resourceKey, model);
+		}
+
+		// 클립 — 캐시된 모델에 없는 것만 추가 로드
 		if (animatorEl)
 		{
 			wstring folder = relPath.substr(0, relPath.find(L'/'));
@@ -432,6 +440,9 @@ namespace
 				clipEl; clipEl = clipEl->NextSiblingElement("Clip"))
 			{
 				wstring file = ReadWstrAttr(clipEl, "file");
+				if (model->GetAnimationByFileName(file) != nullptr)
+					continue;
+
 				wstring stem = filesystem::path(file).stem().wstring();
 				model->ReadAnimation(folder + L"/" + stem);
 			}
@@ -555,12 +566,31 @@ namespace
 				info.layerMapFilenames.push_back(ReadWstrAttr(layerEl, "file"));
 			}
 
-			auto terrain = make_shared<Terrain>();
-			obj->AddComponent(terrain);
+			// 동일 설정 터레인은 컴포넌트 재사용 — 하이트맵(2049²) 파싱+메시 빌드가 Undo 마다 수백 ms
+			static map<wstring, shared_ptr<Terrain>> sTerrainCache;
 
-			auto mat = RESOURCES->Get<Material>(L"DefaultMaterial")->Clone();
-			mat->GetMaterialDesc().roughness = 0.9f; // 지면 — 거의 무광
-			terrain->Init(info, mat);
+			wstring terrainKey = info.heightMapFilename + L"|" + info.blendMapFilename
+				+ L"|" + std::to_wstring(info.heightmapWidth) + L"x" + std::to_wstring(info.heightmapHeight)
+				+ L"|" + std::to_wstring(info.heightScale) + L"|" + std::to_wstring(info.cellSpacing);
+			for (const wstring& layer : info.layerMapFilenames)
+				terrainKey += L"|" + layer;
+
+			auto found = sTerrainCache.find(terrainKey);
+			if (found != sTerrainCache.end())
+			{
+				obj->AddComponent(found->second); // 소유자만 새 오브젝트로 갱신
+			}
+			else
+			{
+				auto terrain = make_shared<Terrain>();
+				obj->AddComponent(terrain);
+
+				auto mat = RESOURCES->Get<Material>(L"DefaultMaterial")->Clone();
+				mat->GetMaterialDesc().roughness = 0.9f; // 지면 — 거의 무광
+				terrain->Init(info, mat);
+
+				sTerrainCache[terrainKey] = terrain;
+			}
 		}
 
 		// ParticleSystem

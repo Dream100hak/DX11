@@ -11,6 +11,7 @@ public:
 	virtual void Update() override;
 
 	void ShowHiearchy();
+	void DrawHierarchyNode(shared_ptr<GameObject> obj); // 트리 노드 재귀 렌더 + 드래그앤드롭 페어런팅
 
 
 public:

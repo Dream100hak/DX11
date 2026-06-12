@@ -68,51 +68,39 @@ void Hiearchy::ShowHiearchy()
 	ImGui::BeginChild("left pane", ImVec2(360, 0), true);
 
 	const auto gameObjects = CUR_SCENE->GetCreatedObjects();
-	ImGuiStyle& style = ImGui::GetStyle();
 
+	// 루트 오브젝트만 그리고 자식은 노드 안에서 재귀 (유니티식 트리)
 	for (auto& object : gameObjects)
 	{
-		wstring wstr = object.second->GetObjectName();
-		if (wstr.empty())
+		shared_ptr<GameObject> obj = object.second;
+		if (obj == nullptr || obj->GetObjectName().empty())
 			continue;
-		string name = Utils::ToString(wstr);  // wstring을string 변환 처리
 
-		bool isSelected = (SELECTED_H == object.first);
+		auto tr = obj->GetTransform();
+		if (tr != nullptr && tr->GetParent() != nullptr)
+			continue; // 자식 — 부모 노드가 그림
 
-		if (isSelected)
-			ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.25f, 0.58f, 1.0f, 1.f)); // Blue background
-		else
-			ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.2f, 0.2f, 0.2f, 0.2f)); // Default background
+		DrawHierarchyNode(obj);
+	}
 
-		if (ImGui::Selectable(name.c_str(), isSelected, ImGuiSelectableFlags_SpanAllColumns))  // 세로 전체 선택
+	// 빈 공간 드롭 = 루트로 (부모 해제)
+	{
+		ImVec2 avail = ImGui::GetContentRegionAvail();
+		avail.x = max(avail.x, 1.f);
+		avail.y = max(avail.y, 40.f);
+		ImGui::Dummy(avail);
+
+		if (ImGui::BeginDragDropTarget())
 		{
-			CUR_SCENE->UnPickAll();
-			TOOL->SetSelectedObjH(object.first);
-			object.second->SetUIPicked(true);
-		}
-
-		if (isSelected && ImGui::IsItemClicked() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-		{
-			auto camera = SCENE->GetCurrentScene()->GetMainCamera();
-
-			// Terrain 처럼 Transform 이 없는 오브젝트는 포커스 이동 불가 (null 역참조 크래시 방지)
-			if (camera && object.second->GetTransform() != nullptr)
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("HierarchyObj"))
 			{
-				Vec3 objPos = object.second->GetTransform()->GetPosition();
-				auto cameraTransform = SCENE->GetCurrentScene()->GetMainCamera()->GetTransform();
-
-				float distance = 10.0f; 
-
-				Vec3 lookDirection = cameraTransform->GetLook();
-				lookDirection.Normalize(); 
-
-				Vec3 cameraPosition = objPos - (lookDirection * distance);
-
-				cameraTransform->SetPosition(cameraPosition);
+				int64 draggedId = *(const int64*)payload->Data;
+				auto draggedObj = CUR_SCENE->GetCreatedObject((int32)draggedId);
+				if (draggedObj != nullptr && draggedObj->GetTransform() != nullptr)
+					draggedObj->GetTransform()->SetParentKeepWorld(nullptr);
 			}
+			ImGui::EndDragDropTarget();
 		}
-
-		ImGui::PopStyleColor();
 	}
 
 	if (ImGui::BeginPopupContextWindow())
@@ -227,6 +215,81 @@ void Hiearchy::ShowHiearchy()
 	ImGui::EndChild();
 
 	ImGui::End();
+}
+
+// 트리 노드 1개 — 선택/더블클릭 포커스/드래그앤드롭 페어런팅 + 자식 재귀
+void Hiearchy::DrawHierarchyNode(shared_ptr<GameObject> obj)
+{
+	auto tr = obj->GetTransform();
+	const bool hasChildren = (tr != nullptr && tr->GetChildren().empty() == false);
+	const bool selected = (SELECTED_H == obj->GetId());
+
+	ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_DefaultOpen;
+	if (hasChildren == false)
+		flags |= ImGuiTreeNodeFlags_Leaf;
+	if (selected)
+		flags |= ImGuiTreeNodeFlags_Selected;
+
+	string name = Utils::ToString(obj->GetObjectName());
+	bool open = ImGui::TreeNodeEx((void*)(intptr_t)obj->GetId(), flags, "%s", name.c_str());
+
+	// 클릭 = 선택 (화살표 토글 클릭은 제외)
+	if (ImGui::IsItemClicked(ImGuiMouseButton_Left) && ImGui::IsItemToggledOpen() == false)
+	{
+		CUR_SCENE->UnPickAll();
+		TOOL->SetSelectedObjH(obj->GetId());
+		obj->SetUIPicked(true);
+	}
+
+	// 더블클릭 = 카메라 포커스 (Transform 없는 오브젝트는 스킵)
+	if (selected && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+	{
+		auto camera = CUR_SCENE->GetMainCamera();
+		if (camera != nullptr && tr != nullptr)
+		{
+			auto camTr = camera->GetTransform();
+			Vec3 look = camTr->GetLook();
+			look.Normalize();
+			camTr->SetPosition(tr->GetPosition() - look * 10.f);
+		}
+	}
+
+	// 드래그 소스 — 페어런팅 페이로드 (id)
+	if (tr != nullptr && ImGui::BeginDragDropSource())
+	{
+		int64 id = obj->GetId();
+		ImGui::SetDragDropPayload("HierarchyObj", &id, sizeof(id));
+		ImGui::Text("%s", name.c_str());
+		ImGui::EndDragDropSource();
+	}
+
+	// 드롭 타겟 — 이 노드의 자식으로 (월드 유지, 순환은 SetParentKeepWorld 가 거부)
+	if (tr != nullptr && ImGui::BeginDragDropTarget())
+	{
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("HierarchyObj"))
+		{
+			int64 draggedId = *(const int64*)payload->Data;
+			auto draggedObj = CUR_SCENE->GetCreatedObject((int32)draggedId);
+			if (draggedObj != nullptr && draggedObj != obj && draggedObj->GetTransform() != nullptr)
+				draggedObj->GetTransform()->SetParentKeepWorld(tr);
+		}
+		ImGui::EndDragDropTarget();
+	}
+
+	if (open)
+	{
+		if (hasChildren)
+		{
+			// 드롭으로 children 이 변형될 수 있어 복사 후 순회
+			vector<shared_ptr<Transform>> children = tr->GetChildren();
+			for (auto& child : children)
+			{
+				if (auto childObj = child->GetGameObject())
+					DrawHierarchyNode(childObj);
+			}
+		}
+		ImGui::TreePop();
+	}
 }
 
 int32 Hiearchy::CreateFire()

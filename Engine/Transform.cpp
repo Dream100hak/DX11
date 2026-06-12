@@ -1,5 +1,55 @@
 #include "pch.h"
 #include "Transform.h"
+#include "GameObject.h"
+
+// other 의 조상 체인에 자신이 있는지 (순환 부모 방지용)
+bool Transform::IsAncestorOf(Transform* other)
+{
+	for (shared_ptr<Transform> p = other ? other->GetParent() : nullptr; p != nullptr; p = p->GetParent())
+	{
+		if (p.get() == this)
+			return true;
+	}
+	return false;
+}
+
+void Transform::RemoveChild(Transform* child)
+{
+	_children.erase(
+		std::remove_if(_children.begin(), _children.end(),
+			[child](const shared_ptr<Transform>& c) { return c.get() == child; }),
+		_children.end());
+}
+
+// 월드 트랜스폼 유지 재부모화 — 하이라키 드래그앤드롭/삭제 승격의 단일 진입점
+void Transform::SetParentKeepWorld(shared_ptr<Transform> newParent)
+{
+	// 자기 자신/자손에게 부모 지정 금지 (순환 방지)
+	if (newParent != nullptr && (newParent.get() == this || IsAncestorOf(newParent.get())))
+		return;
+
+	if (GetParent() == newParent)
+		return;
+
+	// 부모의 children 에 등록할 자기 자신의 shared_ptr (GameObject 가 소유)
+	shared_ptr<Transform> self;
+	if (GetGameObject() != nullptr)
+		self = GetGameObject()->GetTransform();
+	if (self == nullptr)
+		return;
+
+	Matrix world = _matWorld;
+
+	if (auto oldParent = GetParent())
+		oldParent->RemoveChild(this);
+
+	SetParent(newParent);
+	if (newParent != nullptr)
+		newParent->AddChild(self);
+
+	SetWorldMatrix(world); // 월드 유지 → 로컬 재계산
+	UpdateTransform();
+}
 
 Transform::Transform() : Super(ComponentType::Transform)
 {
@@ -55,9 +105,9 @@ void Transform::UpdateTransform()
 
 	_matLocal = matScale * matRotation * matTranslation;
 
-	if (HasParent())
+	if (auto parent = GetParent())
 	{
-		_matWorld = _matLocal * _parent->GetWorldMatrix();
+		_matWorld = _matLocal * parent->GetWorldMatrix();
 	}
 	else
 	{
@@ -75,9 +125,9 @@ void Transform::UpdateTransform()
 
 void Transform::SetScale(const Vec3& worldScale)
 {
-	if (HasParent())
+	if (auto parent = GetParent())
 	{
-		Vec3 parentScale = _parent->GetScale();
+		Vec3 parentScale = parent->GetScale();
 		Vec3 scale = worldScale;
 		scale.x /= parentScale.x;
 		scale.y /= parentScale.y;
@@ -92,9 +142,9 @@ void Transform::SetScale(const Vec3& worldScale)
 
 void Transform::SetRotation(const Vec3& worldRotation)
 {
-	if (HasParent())
+	if (auto parent = GetParent())
 	{
-		Matrix inverseMatrix = _parent->GetWorldMatrix().Invert();
+		Matrix inverseMatrix = parent->GetWorldMatrix().Invert();
 
 		Vec3 rotation;
 		rotation.TransformNormal(worldRotation, inverseMatrix);
@@ -107,9 +157,9 @@ void Transform::SetRotation(const Vec3& worldRotation)
 
 void Transform::SetPosition(const Vec3& worldPosition)
 {
-	if (HasParent())
+	if (auto parent = GetParent())
 	{
-		Matrix worldToParentLocalMatrix = _parent->GetWorldMatrix().Invert();
+		Matrix worldToParentLocalMatrix = parent->GetWorldMatrix().Invert();
 
 		Vec3 position;
 		position.Transform(worldPosition, worldToParentLocalMatrix);

@@ -81,6 +81,17 @@ void Scene::Add(shared_ptr<GameObject> object)
 
 void Scene::Remove(shared_ptr<GameObject> object)
 {
+	// 계층 정리 — 부모의 children 에서 분리, 자식은 월드 유지한 채 루트로 승격
+	if (auto tr = object->GetTransform())
+	{
+		vector<shared_ptr<Transform>> children = tr->GetChildren(); // 승격 중 변형되므로 복사
+		for (auto& child : children)
+			child->SetParentKeepWorld(nullptr);
+
+		if (auto parent = tr->GetParent())
+			parent->RemoveChild(tr.get());
+	}
+
 	_objects.erase(object);
 	_cameras.erase(object);
 	_lights.erase(object);

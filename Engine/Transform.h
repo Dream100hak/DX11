@@ -51,9 +51,9 @@ public:
 		_matWorld = matWorld;
 
 		// 부모 트랜스폼이 있는 경우
-		if (HasParent())
+		if (auto parent = GetParent())
 		{
-			Matrix worldToLocal = _parent->GetWorldMatrix().Invert();
+			Matrix worldToLocal = parent->GetWorldMatrix().Invert();
 			_matLocal = matWorld * worldToLocal;
 		}
 		else
@@ -86,14 +86,19 @@ public:
 	Matrix GetWorldMatrix() { return _matWorld; }
 	Matrix GetLocalMatrix() { return _matLocal; }
 
-	// 계층 관계
-	bool HasParent() { return _parent != nullptr; }
+	// 계층 관계 — 부모는 weak (부모↔자식 shared 양방향이면 순환 참조 누수)
+	bool HasParent() { return _parent.lock() != nullptr; }
 
-	shared_ptr<Transform> GetParent() { return _parent; }
+	shared_ptr<Transform> GetParent() { return _parent.lock(); }
 	void SetParent(shared_ptr<Transform> parent) { _parent = parent; }
 
 	const vector<shared_ptr<Transform>>& GetChildren() { return _children; }
 	void AddChild(shared_ptr<Transform> child) { _children.push_back(child); }
+	void RemoveChild(Transform* child);
+
+	// 월드 트랜스폼을 유지한 채 부모 변경 (nullptr = 루트로). 자기 자신/자손 지정은 거부
+	void SetParentKeepWorld(shared_ptr<Transform> newParent);
+	bool IsAncestorOf(Transform* other);
 
 	void Pitch(float angle);
 	void Yaw(float angle);
@@ -113,7 +118,7 @@ private:
 	Vec3 _position;
 
 private:
-	shared_ptr<Transform> _parent;
+	weak_ptr<Transform> _parent;
 	vector<shared_ptr<Transform>> _children;
 };
 

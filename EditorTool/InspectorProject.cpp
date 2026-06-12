@@ -170,10 +170,8 @@ void Inspector::ShowProjectMaterial(shared_ptr<MetaData>& metaData, ID3D11Shader
 		Matrix V = cam->GetViewMatrix();
 		Matrix P = cam->GetProjectionMatrix();
 
-		JOB_POST_RENDER->DoPush([=]()
-		{
-			thumbnail->Draw(renderers, V, P, light, buffers);
-		});
+		// 즉시 렌더 (구 잡큐는 ImGui 이후 실행 — 1프레임 지연)
+		thumbnail->Draw(renderers, V, P, light, buffers);
 	}
 
 	// 편집 영속화 — 같은 인스턴스를 쓰는 씬 모델에는 즉시 반영되지만, 파일 저장은 명시적으로
@@ -476,10 +474,8 @@ void Inspector::DrawInspectorMesh()
 	Matrix V = _meshPreviewCamera->GetCamera()->GetViewMatrix();
 	Matrix P = _meshPreviewCamera->GetCamera()->GetProjectionMatrix();
 
-	JOB_POST_RENDER->DoPush([=]()
-	{
-		_meshthumbnail->Draw(renderers, V, P, _meshPreviewLight->GetLight(), buffers);
-	});
+	// 즉시 렌더 (구 잡큐는 ImGui 이후 실행 — 1프레임 지연)
+	_meshthumbnail->Draw(renderers, V, P, _meshPreviewLight->GetLight(), buffers);
 }
 
 void Inspector::DrawInspectorClip()
@@ -509,10 +505,8 @@ void Inspector::DrawInspectorClip()
 	Matrix V = _meshPreviewCamera->GetCamera()->GetViewMatrix();
 	Matrix P = _meshPreviewCamera->GetCamera()->GetProjectionMatrix();
 
-	JOB_POST_RENDER->DoPush([=]()
-	{
-		_meshthumbnail->Draw(renderers, V, P, _meshPreviewLight->GetLight(), buffers);
-	});
+	// 즉시 렌더 (구 잡큐는 ImGui 이후 실행 — 1프레임 지연)
+	_meshthumbnail->Draw(renderers, V, P, _meshPreviewLight->GetLight(), buffers);
 }
 
 void Inspector::PickMaterialTexture(string textureType, OUT bool& changed)

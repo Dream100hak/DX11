@@ -44,6 +44,9 @@ void MeshThumbnail::Draw(vector<shared_ptr<Renderer>> renderers, Matrix V, Matri
 
 		renderers[i]->Draw(ctx);
 	}
+
+	// 즉시 렌더(ImGui 업데이트 중 호출)이므로 메인 RT 복원 필수
+	GRAPHICS->RestoreMainRenderTarget();
 }
 
 void MeshThumbnail::CreateColorTexture()

@@ -35,13 +35,11 @@ void Hiearchy::Update()
 
 void Hiearchy::ShowHiearchy()
 {
-	ImGui::SetNextWindowPos(GetEWinPos());
-	ImGui::SetNextWindowSize(GetEWinSize());
+	ImGui::Begin("Hiearchy", nullptr); // 위치/크기는 도크가 결정
 
-	ImGui::Begin("Hiearchy", nullptr);
-
-	// 오브젝트 선택 처리
-	if (ImGui::BeginDragDropTargetCustom(ImRect(GetEWinPos(), GetEWinPos() + GetEWinSize()), ImGui::GetID("Hiearchy")))
+	// 오브젝트 선택 처리 — 드롭 영역은 현재(도킹된) 창 rect 기준
+	ImRect winRect(ImGui::GetWindowPos(), ImGui::GetWindowPos() + ImGui::GetWindowSize());
+	if (ImGui::BeginDragDropTargetCustom(winRect, ImGui::GetID("Hiearchy")))
 	{
 		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MeshPayload"))
 		{

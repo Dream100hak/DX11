@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "ImGuiManager.h"
 #include "ImGuizmo.h"
+#include "imgui_internal.h" // DockBuilder API
 #include <filesystem>
 #include "GameObject.h"
 #include "MeshRenderer.h"
@@ -19,6 +20,7 @@ void ImGuiManager::Init()
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable; // 창 도킹/탭 (docking 브랜치)
 
 	// 폰트 — 기본 ProggyClean(13px 픽셀 폰트) 대신 맑은 고딕 16px + 한글 글리프
 	{
@@ -137,6 +139,48 @@ void ImGuiManager::Update()
 	ImGui::NewFrame();
 	ImGuizmo::BeginFrame(); // 기즈모는 매 프레임 NewFrame 직후 초기화 필요
 
+	BeginDockspace();
+}
+
+void ImGuiManager::BeginDockspace()
+{
+	// PassthruCentralNode: 도크 배경을 그리지 않아 중앙(씬 뷰) 백버퍼가 그대로 보임
+	ImGuiID dockspaceId = ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+
+	static bool sFirstFrame = true;
+	if (sFirstFrame)
+	{
+		sFirstFrame = false;
+
+		// imgui.ini 에 저장된 레이아웃이 없을 때만 기본 레이아웃 구성
+		ImGuiDockNode* node = ImGui::DockBuilderGetNode(dockspaceId);
+		if (node == nullptr || (node->IsLeafNode() && node->Windows.Size == 0))
+			BuildDefaultDockLayout(dockspaceId);
+	}
+}
+
+// 기본 레이아웃 — Scene(중앙) | Hiearchy | Log | Inspector(우측 전체높이), 하단 Project | Folder Contents
+void ImGuiManager::BuildDefaultDockLayout(ImGuiID dockspaceId)
+{
+	ImGui::DockBuilderRemoveNode(dockspaceId);
+	ImGui::DockBuilderAddNode(dockspaceId, ImGuiDockNodeFlags_PassthruCentralNode | ImGuiDockNodeFlags_DockSpace);
+	ImGui::DockBuilderSetNodeSize(dockspaceId, ImGui::GetMainViewport()->WorkSize);
+
+	ImGuiID dockMain = dockspaceId;
+	ImGuiID dockInspector = ImGui::DockBuilderSplitNode(dockMain, ImGuiDir_Right, 0.195f, nullptr, &dockMain); // 전체 높이
+	ImGuiID dockBottom = ImGui::DockBuilderSplitNode(dockMain, ImGuiDir_Down, 0.45f, nullptr, &dockMain);      // 하단행
+	ImGuiID dockMid = ImGui::DockBuilderSplitNode(dockMain, ImGuiDir_Right, 0.48f, nullptr, &dockMain);        // Hier+Log 열
+	ImGuiID dockLog = ImGui::DockBuilderSplitNode(dockMid, ImGuiDir_Right, 0.50f, nullptr, &dockMid);
+	ImGuiID dockBottomRight = ImGui::DockBuilderSplitNode(dockBottom, ImGuiDir_Right, 0.76f, nullptr, &dockBottom);
+
+	ImGui::DockBuilderDockWindow("Scene", dockMain);
+	ImGui::DockBuilderDockWindow("Game", dockMain); // Scene 옆 탭 — 플레이 시 포커스로 탭 전환
+	ImGui::DockBuilderDockWindow("Hiearchy", dockMid);
+	ImGui::DockBuilderDockWindow("Log", dockLog);
+	ImGui::DockBuilderDockWindow("Inspector", dockInspector);
+	ImGui::DockBuilderDockWindow("Project", dockBottom);
+	ImGui::DockBuilderDockWindow("Folder Contents", dockBottomRight);
+	ImGui::DockBuilderFinish(dockspaceId);
 }
 
 void ImGuiManager::Render()

@@ -58,10 +58,7 @@ void LogWindow::AddLog(string msg, LogFilter filter)
 
 void LogWindow::Draw(const char* title, bool* p_open /*= NULL*/)
 {
-	ImGui::SetNextWindowPos(GetEWinPos());
-	ImGui::SetNextWindowSize(GetEWinSize());
-
-	if (!ImGui::Begin(title, p_open))
+	if (!ImGui::Begin(title, p_open)) // 위치/크기는 도크가 결정
 	{
 		ImGui::End();
 		return;

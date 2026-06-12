@@ -55,16 +55,11 @@ void GameEditorWindow::ShowGameWindow()
 	if (camObj != nullptr)
 		RenderGameView(camObj);
 
-	ImGui::SetNextWindowPos(GetEWinPos());
-	ImGui::SetNextWindowSize(GetEWinSize());
-
-	// 포커스는 플레이 진입 첫 프레임만 — 매 프레임 강탈하면 하이라키 우클릭 메뉴 등이 즉시 닫힘
+	// 도크 탭(Scene 옆) — 플레이 진입 첫 프레임만 포커스해 탭 전환 (매 프레임이면 팝업이 즉시 닫힘)
 	if (_wasPlaying == false)
 		ImGui::SetNextWindowFocus();
 
-	ImGui::Begin("Game", nullptr,
-		ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse |
-		ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings);
+	ImGui::Begin("Game", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar);
 
 	if (camObj == nullptr)
 	{

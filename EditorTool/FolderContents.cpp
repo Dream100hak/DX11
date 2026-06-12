@@ -66,9 +66,7 @@ void FolderContents::Init()
 
 void FolderContents::Update()
 {
-	ImGui::SetNextWindowPos(GetEWinPos());
-	ImGui::SetNextWindowSize(GetEWinSize());
-	ShowFolderContents();
+	ShowFolderContents(); // 위치/크기는 도크가 결정
 }
 
 void FolderContents::PopupContextMenu()
@@ -477,11 +475,18 @@ void FolderContents::CreateMeshPreviewThumbnail(shared_ptr<MetaData>& meta , sha
 
 void FolderContents::DragModelFileToGUIWnd(shared_ptr<MetaData>& meta, const wstring& modelPath, shared_ptr<GameObject> obj)
 {
-	ImVec2 scenePos = TOOL->GetEditorWindow(Utils::GetClassNameEX<SceneWindow>())->GetEWinPos();
-	ImVec2 sceneSize = TOOL->GetEditorWindow(Utils::GetClassNameEX<SceneWindow>())->GetEWinSize();
+	// 도킹 도입 후 창 위치는 유동 — 고정 좌표 대신 라이브 rect 사용
+	const SceneDesc& sceneDesc = GAME->GetSceneDesc();
+	ImVec2 scenePos(sceneDesc.x, sceneDesc.y);
+	ImVec2 sceneSize(sceneDesc.width, sceneDesc.height);
 
-	ImVec2 hiearchyPos = TOOL->GetEditorWindow(Utils::GetClassNameEX<Hiearchy>())->GetEWinPos();
-	ImVec2 hiearchySize = TOOL->GetEditorWindow(Utils::GetClassNameEX<Hiearchy>())->GetEWinSize();
+	ImVec2 hiearchyPos(0.f, 0.f);
+	ImVec2 hiearchySize(0.f, 0.f);
+	if (ImGuiWindow* hierWnd = ImGui::FindWindowByName("Hiearchy"))
+	{
+		hiearchyPos = hierWnd->Pos;
+		hiearchySize = hierWnd->Size;
+	}
 
 	float prevScale = _meshScales[modelPath];
 	float scaleRatio = prevScale * 6;

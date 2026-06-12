@@ -447,3 +447,6 @@ Libraries/Include/Engine/
 
 # Play 모드 임시 스냅샷
 __play_snapshot.scene
+
+# ImGui 런타임 레이아웃
+imgui.ini

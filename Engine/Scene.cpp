@@ -57,6 +57,9 @@ void Scene::Render()
 
 	mainCamera->GetCamera()->SortGameObject();
 	mainCamera->GetCamera()->Render_Deferred();
+
+	// 메인 카메라가 씬 RT(SetFinalOutput)로 그리는 구조 — 이후 ImGui 가 백버퍼에 그리도록 복원
+	GRAPHICS->RestoreMainRenderTarget();
 }
 
 void Scene::Add(shared_ptr<GameObject> object)

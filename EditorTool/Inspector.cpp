@@ -105,10 +105,7 @@ void Inspector::Update()
 
 void Inspector::ShowInspector()
 {
-	ImGui::SetNextWindowPos(GetEWinPos(), ImGuiCond_Appearing);
-	ImGui::SetNextWindowSize(GetEWinSize(), ImGuiCond_Appearing);
-
-	ImGui::Begin("Inspector");
+	ImGui::Begin("Inspector"); // 위치/크기는 도크가 결정
 
 	//하이어라키 설정
 	shared_ptr<MetaData> metaData = SELECTED_P;

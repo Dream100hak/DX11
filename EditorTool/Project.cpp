@@ -38,9 +38,7 @@ void Project::Init()
 
 void Project::Update()
 {
-	ImGui::SetNextWindowPos(GetEWinPos());
-	ImGui::SetNextWindowSize(GetEWinSize());
-	ShowProject();
+	ShowProject(); // 위치/크기는 도크가 결정
 }
 
 

@@ -144,10 +144,19 @@ Camera::Render_Deferred()
 - **Emissive**: GBuffer RT3 (R11G11B10F), `MatEmissive.rgb × a` (alpha = intensity); HDR values bloom.
 - Material preview sphere uses `MeshPreview_HLSL` (PS_PreviewLit) — scene forward PS would render black (unbound shadow map).
 
+## DockSpace & Scene-to-RT (commit 124)
+
+- ImGui = **v1.89.7-docking branch** (docking only exists there). `DockingEnable` + `DockSpaceOverViewport`,
+  default layout via DockBuilder when no imgui.ini (ImGuiManager::BuildDefaultDockLayout).
+- **Scene view = RT image** (backbuffer passthrough abandoned — incompatible with docking): editor camera renders
+  deferred into SceneWindow's RT via `Camera::SetFinalOutput`; `Scene::Render` restores backbuffer after (ImGui draws there).
+- SceneDesc = scene IMAGE rect (updated in SceneWindow::DrawSceneImage) — picking/gizmo/overlays/viewport all follow it.
+  RT recreated on window resize. "Game" docks as a tab next to "Scene" (focused on Play).
+- imgui.ini is a runtime artifact (gitignored).
+
 ## Known Issues
 
 - **Rain particle invisible** (deferred by user) — Fire works; Rain spawns around camera but streaks not visible.
-- Editor windows use hardcoded positions (no ImGui DockSpace).
 - ModelAnimator picking uses bind pose (inaccurate for large animation poses).
 - `Hiearchy` filename typo kept for compatibility.
 

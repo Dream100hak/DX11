@@ -175,6 +175,12 @@ void SceneWindow::ShowSceneWindow()
 	auto& scales =
 		static_pointer_cast<FolderContents>(TOOL->GetEditorWindow(Utils::GetClassNameEX<FolderContents>()))->GetMeshScales();
 
+	// ── Scene 창 (도크 탭) — 씬은 RT 로 렌더되어 아래 Image 로 표시 ──
+	ImGui::Begin("Scene", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoBringToFrontOnFocus);
+
+	// 툴바(EditTransform 상단)와 기즈모는 이 창에 그려짐
+	GAME->GetSceneDesc().drawList = ImGui::GetWindowDrawList();
+
 	ImVec2 scenePos(GAME->GetSceneDesc().x, GAME->GetSceneDesc().y);
 	ImVec2 sceneSize(GAME->GetSceneDesc().width, GAME->GetSceneDesc().height);
 
@@ -294,6 +300,37 @@ void SceneWindow::ShowSceneWindow()
 
 	shared_ptr<GameObject> obj = SCENE->GetCurrentScene()->GetCreatedObject(id);
 	_tr = id == -1 ? nullptr :  obj->GetTransform();
+
+	ImGui::End(); // "Scene"
+}
+
+// 씬 RT 이미지 + SceneDesc(이미지 영역)/카메라 출력 갱신
+// 씬 렌더는 다음 프레임 SCENE->Update 에서 이 RT 로 들어옴 (1프레임 지연 — 무해)
+void SceneWindow::DrawSceneImage()
+{
+	ImVec2 avail = ImGui::GetContentRegionAvail();
+	avail.x = max(avail.x, 64.f);
+	avail.y = max(avail.y, 64.f);
+
+	// 창 리사이즈 → RT 재생성
+	uint32 w = (uint32)avail.x;
+	uint32 h = (uint32)avail.y;
+	if (w != _sceneWidth || h != _sceneHeight)
+		CreateRenderTarget(w, h);
+
+	// 에디터 카메라 디퍼드 출력을 이 RT 로 (매 프레임 보장 — 카메라/RT 재생성 대비)
+	if (auto camObj = CUR_SCENE->GetMainCamera())
+		camObj->GetCamera()->SetFinalOutput(_sceneRTV);
+
+	ImVec2 imgPos = ImGui::GetCursorScreenPos();
+	ImGui::Image(_sceneSRV.Get(), avail);
+
+	// SceneDesc = 씬 이미지 영역 — 픽킹/기즈모/오버레이/뷰포트가 전부 이 rect 기준
+	SceneDesc& sd = GAME->GetSceneDesc();
+	sd.x = imgPos.x;
+	sd.y = imgPos.y;
+	sd.width = avail.x;
+	sd.height = avail.y;
 }
 
 // ImGuizmo 기반 트랜스폼 기즈모 — 이동/회전/스케일 + Local/World + 스냅
@@ -329,6 +366,9 @@ void SceneWindow::EditTransform()
 	if (ImGui::RadioButton("World", currentGizmoMode == World)) currentGizmoMode = World;
 	ImGui::SameLine();
 	ImGui::Checkbox("Snap", &useSnap);
+
+	// 씬 RT 이미지 — 기즈모는 같은 drawList 뒤에 그려져 이미지 위에 표시됨
+	DrawSceneImage();
 
 	if (_tr == nullptr || _tr->GetGameObject() == nullptr || _tr->GetGameObject()->IsIgnoredTransformEdit())
 	{

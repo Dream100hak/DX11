@@ -138,39 +138,10 @@ void Game::Update()
 	
 	GUI->Update();
 
-	ImGui::SetNextWindowPos(ImVec2(_sceneDesc.x, _sceneDesc.y), ImGuiCond_Appearing);
-	ImGui::SetNextWindowSize(ImVec2(_sceneDesc.width, _sceneDesc.height), ImGuiCond_Appearing);
-	
-	// NoBringToFrontOnFocus: 씬뷰 클릭(픽킹/기즈모) 시 이 투명 창이 앞으로 나오면
-	// 위에 떠 있는 Play/Stop·PassViewer 오버레이가 가려져 클릭이 막힌다 — 항상 맨 뒤 유지
-	ImGui::Begin("Scene", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoBringToFrontOnFocus);
-	
-	float w = (float)ImGui::GetWindowWidth();
-	float h = (float)ImGui::GetWindowHeight();
-
-	float x = (float)ImGui::GetWindowPos().x;
-	float y = (float)ImGui::GetWindowPos().y;
-
-	ImDrawList* drawList = ImGui::GetWindowDrawList();
-	_sceneDesc.drawList = drawList;
-	_sceneDesc.x = x;
-	_sceneDesc.y = y;
-
-	if (ImGui::IsWindowCollapsed())
-	{
-		_sceneDesc.width = 0;
-		_sceneDesc.height = 0;
-	}
-	else
-	{
-		_sceneDesc.width = w;
-		_sceneDesc.height = h;
-	}
-
+	// Scene 창/SceneDesc 갱신은 에디터(SceneWindow)가 담당 — 씬은 RT 로 렌더되어 ImGui::Image 로 표시
+	// (도킹 도입으로 백버퍼 패스스루 방식 폐기. SceneDesc 는 씬 이미지 영역 rect)
 	_gameDesc.app->Update();
-	_gameDesc.app->Render();   // ← EditorTool::Render() 호출 (SceneWindow::RenderScene() 포함)
-	
-	ImGui::End();
+	_gameDesc.app->Render();
 
 	GUI->Render();             // ← ImGui 렌더링 (백버퍼에)
 	GRAPHICS->RenderEnd();     // ← Present()

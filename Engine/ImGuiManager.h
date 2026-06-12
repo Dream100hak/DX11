@@ -40,6 +40,11 @@ public:
 	// 에디터 전역 스타일 — 모던 다크 테마 + 폰트 (기본 StyleColorsDark/ProggyClean 대체)
 	void ApplyEditorStyle();
 
+	// 메인 도크스페이스 (PassthruCentralNode — 씬 백버퍼 패스스루 유지)
+	// 저장된 레이아웃(imgui.ini) 없으면 1회 기본 레이아웃(DockBuilder) 구성
+	void BeginDockspace();
+	void BuildDefaultDockLayout(ImGuiID dockspaceId);
+
 	int32 CreateEmptyGameObject(CreatedObjType type = CreatedObjType::GAMEOBJ);
 	void RemoveGameObject(int32 id);
 

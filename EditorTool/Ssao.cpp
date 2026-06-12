@@ -64,6 +64,27 @@ void Ssao::OnSize(int32 width, int32 height, float fovy, float farZ)
 	SetFrustumFarCorners(fovy, farZ);
 }
 
+// 렌더 타겟 크기 변경 시 SSAO 버퍼 재생성 (같으면 프러스텀 코너만 갱신)
+void Ssao::Resize(int32 width, int32 height, float fovy, float farZ)
+{
+	if (width == _width && height == _height)
+	{
+		SetFrustumFarCorners(fovy, farZ);
+		return;
+	}
+
+	OnSize(width, height, fovy, farZ);
+
+	// GetAddressOf 덮어쓰기 누수 방지 — 해제 후 재생성
+	_normalDepthSRV.Reset();
+	_normalDepthRTV.Reset();
+	_ambientSRV0.Reset();
+	_ambientRTV0.Reset();
+	_ambientSRV1.Reset();
+	_ambientRTV1.Reset();
+	CreateTwoAmbientTexture();
+}
+
 void Ssao::SetShader()
 {
 	// SSAO / Blur ??HLSL (FX 00. Ssao.fx / 00. SsaoBlur.fx ?泥?
@@ -111,7 +132,14 @@ void Ssao::SetNormalDepthRenderTarget(ComPtr<ID3D11DepthStencilView> dsv)
 	DCT->RSSetState(0);
 
 	DCT->ClearDepthStencilView(dsv.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-	GRAPHICS->GetViewport().RSSetViewport();
+
+	// 자기 텍스처 기준 원점 뷰포트 — 스크린 offset 이 포함된 GRAPHICS 뷰포트를 쓰면
+	// normal-depth 가 어긋나게 기록되어 AO 가 엉뚱한 위치에 찍힘 (GBuffer 와 동일 규약)
+	D3D11_VIEWPORT vp{};
+	vp.Width = static_cast<float>(_width);
+	vp.Height = static_cast<float>(_height);
+	vp.MaxDepth = 1.f;
+	DCT->RSSetViewports(1, &vp);
 	ID3D11RenderTargetView* renderTargets[1] = { _normalDepthRTV.Get() };
 	DCT->OMSetRenderTargets(1, renderTargets, dsv.Get());
 
@@ -404,8 +432,11 @@ void Ssao::Draw(shared_ptr<Camera> renderCam)
 	Matrix V = camera->GetViewMatrix();
 	Matrix P = camera->GetProjectionMatrix();
 
-	// 뷰 재구성용 프러스텀 코너도 해당 카메라 기준으로 (fov/far 가 다를 수 있음)
-	SetFrustumFarCorners(camera->GetFov(), camera->GetFar());
+	// 렌더 타겟 크기에 SSAO 버퍼 동기화 (도킹 씬 창 리사이즈/Game 뷰 대응) + 프러스텀 코너 갱신
+	int32 targetW = (renderCam != nullptr) ? (int32)camera->GetWidth() : (int32)GRAPHICS->GetViewport().GetWidth();
+	int32 targetH = (renderCam != nullptr) ? (int32)camera->GetHeight() : (int32)GRAPHICS->GetViewport().GetHeight();
+	if (targetW > 0 && targetH > 0)
+		Resize(targetW, targetH, camera->GetFov(), camera->GetFar());
 
 	//Draw To Normal Depth
 	SetNormalDepthRenderTarget(GRAPHICS->GetDsv());

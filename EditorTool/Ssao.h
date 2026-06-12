@@ -49,6 +49,7 @@ private:
 	void SetShader();
 
 	void OnSize(int32 width, int32 height, float fovy, float farZ);
+	void Resize(int32 width, int32 height, float fovy, float farZ); // 타겟 크기 변경 시 버퍼 재생성
 	void SetFrustumFarCorners(float fovy, float farZ);
 	void SetOffsetVectors();
 	void SetNormalDepthRenderTarget(ComPtr<ID3D11DepthStencilView> dsv);

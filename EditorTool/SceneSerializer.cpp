@@ -110,6 +110,18 @@ namespace
 		XMLElement* objEl = doc->NewElement("GameObject");
 		WriteWstrAttr(objEl, "name", obj->GetObjectName());
 		objEl->SetAttribute("layer", obj->GetLayerIndex());
+		objEl->SetAttribute("id", (unsigned)obj->GetId());
+
+		// 계층 — 부모가 직렬화 대상(비-내부)이면 parent id 기록
+		if (auto tr = obj->GetTransform())
+		{
+			if (auto parentTr = tr->GetParent())
+			{
+				auto parentObj = parentTr->GetGameObject();
+				if (parentObj != nullptr && parentObj->IsEditorInternal() == false)
+					objEl->SetAttribute("parent", (unsigned)parentObj->GetId());
+			}
+		}
 
 		// Transform (부모 없는 평면 구조 — 로컬 = 월드)
 		if (auto tr = obj->GetTransform())
@@ -408,7 +420,7 @@ namespace
 		return model;
 	}
 
-	void LoadGameObject(tinyxml2::XMLElement* objEl, map<wstring, shared_ptr<Model>>& modelCache)
+	shared_ptr<GameObject> LoadGameObject(tinyxml2::XMLElement* objEl, map<wstring, shared_ptr<Model>>& modelCache)
 	{
 		auto obj = make_shared<GameObject>();
 		obj->SetObjectName(ReadWstrAttr(objEl, "name"));
@@ -562,6 +574,7 @@ namespace
 		}
 
 		CUR_SCENE->Add(obj);
+		return obj;
 	}
 }
 
@@ -600,12 +613,40 @@ bool SceneSerializer::Load(const wstring& path)
 	Clear();
 
 	map<wstring, shared_ptr<Model>> modelCache;
+	map<uint32, shared_ptr<GameObject>> bySavedId;
+	vector<pair<shared_ptr<GameObject>, uint32>> pendingParent;
+
 	int32 count = 0;
 	for (tinyxml2::XMLElement* objEl = root->FirstChildElement("GameObject");
 		objEl; objEl = objEl->NextSiblingElement("GameObject"))
 	{
-		LoadGameObject(objEl, modelCache);
+		shared_ptr<GameObject> obj = LoadGameObject(objEl, modelCache);
 		count++;
+
+		uint32 savedId = objEl->UnsignedAttribute("id");
+		if (savedId != 0)
+			bySavedId[savedId] = obj;
+
+		uint32 parentId = objEl->UnsignedAttribute("parent");
+		if (parentId != 0)
+			pendingParent.push_back({ obj, parentId });
+	}
+
+	// 2패스 — 계층 연결 (저장된 로컬 값을 보존해야 하므로 KeepWorld 가 아닌 로컬 보존 연결)
+	for (auto& [child, parentId] : pendingParent)
+	{
+		auto found = bySavedId.find(parentId);
+		if (found == bySavedId.end())
+			continue;
+
+		auto childTr = child->GetTransform();
+		auto parentTr = found->second->GetTransform();
+		if (childTr == nullptr || parentTr == nullptr)
+			continue;
+
+		childTr->SetParent(parentTr);
+		parentTr->AddChild(childTr);
+		childTr->UpdateTransform();
 	}
 
 	ADDLOG("Load Scene : " + Utils::ToString(path) + " (" + std::to_string(count) + " objects)", LogFilter::Info);

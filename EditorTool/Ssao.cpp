@@ -5,6 +5,7 @@
 #include "GeometryHelper.h"
 #include "ModelRenderer.h"
 #include "Terrain.h"
+#include "Material.h"
 
 Ssao::Ssao(int32 width, int32 height, float fovy, float farZ)
 {
@@ -461,5 +462,9 @@ void Ssao::Draw(shared_ptr<Camera> renderCam)
 	/////////////////////////////////////////////////////////
 	ComputeSsao(P);
 	BlurAmbientMap(4);
-	
+
+	// Resize 가 _ambientSRV0 을 재생성하면 머티리얼이 들고 있던 SRV 는 죽은 옛 텍스처가 됨 —
+	// 디퍼드 라이팅/PassViewer 가 첫 프레임 AO 를 영원히 샘플(카메라 안 따라옴) → 매 드로우 후 최신 SRV 로 갱신
+	if (auto mat = RESOURCES->Get<Material>(L"DefaultMaterial"))
+		mat->SetSsaoMap(_ambientSRV0);
 }

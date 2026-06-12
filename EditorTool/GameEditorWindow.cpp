@@ -134,7 +134,9 @@ void GameEditorWindow::RenderGameView(shared_ptr<GameObject> camObj)
 	// SSAO 는 스크린스페이스(뷰 종속) — 게임 카메라 시점으로 재생성
 	// (에디터 뷰 SSAO 를 그대로 샘플하면 엉뚱한 위치가 어두워짐. 그림자맵은 라이트 공간이라 공유 OK.
 	//  에디터 뷰 SSAO 는 다음 프레임 pre-render 콜백이 다시 자기 시점으로 생성)
-	TEXTURE->GetSsao()->Draw(camera);
+	if (_gameSsao == nullptr)
+		_gameSsao = make_shared<Ssao>(_width, _height, camera->GetFov(), camera->GetFar());
+	_gameSsao->Draw(camera);
 
 	// 씬뷰와 동일한 디퍼드 풀파이프라인 (터레인/그림자/PBR/블룸/FXAA) — 최종 출력만 이 RT 로
 	camera->SetFinalOutput(_rtv);

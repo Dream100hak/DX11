@@ -27,6 +27,10 @@ private:
 	bool _previewHidden = false;
 	int64 _lastPreviewId = -1;
 
+	// Game 뷰 전용 SSAO — 공유 인스턴스를 빌리면 에디터(씬 크기)↔게임(RT 크기)이
+	// 매 프레임 Resize 핑퐁을 일으켜 텍스처가 프레임마다 재생성됨
+	shared_ptr<class Ssao> _gameSsao;
+
 private:
 	ComPtr<ID3D11Texture2D> _texture;
 	ComPtr<ID3D11RenderTargetView> _rtv;

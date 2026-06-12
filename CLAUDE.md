@@ -154,6 +154,18 @@ Camera::Render_Deferred()
   RT recreated on window resize. "Game" docks as a tab next to "Scene" (focused on Play).
 - imgui.ini is a runtime artifact (gitignored).
 
+## Thumbnails & Model Inspector (commits 126~128)
+
+- **SSAO stale SRV**: `Ssao::Resize` recreates `_ambientSRV0` — holders of the old SRV (DefaultMaterial,
+  bound by deferred lighting + PassViewer) freeze on first-frame AO ("SSAO doesn't follow camera").
+  `Ssao::Draw` re-sets the material's SSAO map every draw. Game view uses its **own Ssao instance**
+  (sharing caused per-frame editor-size/game-size Resize ping-pong = texture recreation every frame).
+- **MeshThumbnail**: origin viewport (SceneDesc offset used to shift content off-center) +
+  `ComputeFitViewProj` — world-AABB circumscribed-sphere auto-fit, 3/4 view, square aspect (all 4 call sites).
+- **MESH inspector** (`Inspector::DrawModelDetails`): Model Info summary, per-mesh table (verts/tris/material),
+  Skeleton bone TreeNode hierarchy (ModelBone children cache from BindCacheInfo), Materials/Clips lists.
+  Clip inspector shows frames/fps/duration.
+
 ## Known Issues
 
 - **Rain particle invisible** (deferred by user) — Fire works; Rain spawns around camera but streaks not visible.

@@ -20,6 +20,7 @@
 #include "Utils.h"
 
 #include "ModelAnimation.h"
+#include "ModelMesh.h"
 
 // -----------------------------------------------------------
 // Inspector — 프로젝트 모드 (선택된 파일의 타입별 임포트 설정/프리뷰)
@@ -203,63 +204,96 @@ void Inspector::ShowProjectMesh(shared_ptr<MetaData>& metaData)
 	ImGui::SeparatorText("Mesh Preview");
 	ImGui::Image(_meshthumbnail->GetComPtr().Get(), ImVec2(373, 373));
 
-	ImGui::Dummy(ImVec2(0, 30.f));
+	ImGui::Dummy(ImVec2(0, 10.f));
 
-	ImGui::Text("Materials");
+	DrawModelDetails(model);
+}
 
-	auto& materials = model->GetMaterials();
-	auto& animations = model->GetAnimations();
+// 모델 상세 — 요약/메시 테이블/스켈레톤(관절) 트리/머티리얼/클립 (유니티 모델 임포터 인스펙터 참조)
+void Inspector::DrawModelDetails(shared_ptr<Model> model)
+{
+	if (model == nullptr)
+		return;
 
-	for (auto& mat : materials)
+	uint32 totalVtx = 0, totalIdx = 0;
+	for (auto& mesh : model->GetMeshes())
 	{
-		string matName = Utils::ToString(mat->GetName());
-		ImGui::Text(matName.c_str());
-		ImGui::SameLine();
-		float space = ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(matName.c_str()).x - ImGui::GetStyle().ItemSpacing.x;
-		ImGui::Dummy(ImVec2(space - 20, 0)); // Fill the space
-		ImGui::SameLine();
-
-		// Push style color and variable to customize button
-		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));  // Gray color
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));  // Slightly lighter gray when hovered
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.4f, 0.4f, 0.4f, 1.0f));  // Slightly darker gray when clicked
-		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);  // Rounded corners
-		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 5));  // Padding inside button
-
-		ImGui::Button(Utils::ToString(mat->GetName()).c_str());
-
-		// Pop style color and variable to revert to default
-		ImGui::PopStyleColor(3);
-		ImGui::PopStyleVar(2);
+		totalVtx += mesh->geometry->GetVertexCount();
+		totalIdx += mesh->geometry->GetIndexCount();
 	}
 
-	ImGui::Dummy(ImVec2(0, 20.f));
+	ImGui::SeparatorText("Model Info");
+	ImGui::Text("Meshes : %u   Vertices : %u   Triangles : %u", model->GetMeshCount(), totalVtx, totalIdx / 3);
+	ImGui::Text("Bones  : %u   Clips : %u   Materials : %u", model->GetBoneCount(), model->GetAnimationCount(), model->GetMaterialCount());
+	ImGui::Spacing();
 
-	ImGui::Text("Animations");
-
-	for (auto& ani : animations)
+	if (ImGui::CollapsingHeader("Meshes", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		string aniName = Utils::ToString(ani->fileName).c_str();
-		ImGui::Text(aniName.c_str());
-		ImGui::SameLine();
-		float space = ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(aniName.c_str()).x - ImGui::GetStyle().ItemSpacing.x;
-		ImGui::Dummy(ImVec2(space - 20, 0)); // Fill the space
-		ImGui::SameLine();
+		if (ImGui::BeginTable("##MeshTable", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
+		{
+			ImGui::TableSetupColumn("Name");
+			ImGui::TableSetupColumn("Verts");
+			ImGui::TableSetupColumn("Tris");
+			ImGui::TableSetupColumn("Material");
+			ImGui::TableHeadersRow();
 
-		// Push style color and variable to customize button
-		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));  // Gray color
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));  // Slightly lighter gray when hovered
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.4f, 0.4f, 0.4f, 1.0f));  // Slightly darker gray when clicked
-		ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);  // Rounded corners
-		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 5));  // Padding inside button
-
-		ImGui::Button(Utils::ToString(ani->fileName).c_str());
-
-		// Pop style color and variable to revert to default
-		ImGui::PopStyleColor(3);
-		ImGui::PopStyleVar(2);
+			for (auto& mesh : model->GetMeshes())
+			{
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn(); ImGui::Text("%s", Utils::ToString(mesh->name).c_str());
+				ImGui::TableNextColumn(); ImGui::Text("%u", mesh->geometry->GetVertexCount());
+				ImGui::TableNextColumn(); ImGui::Text("%u", mesh->geometry->GetIndexCount() / 3);
+				ImGui::TableNextColumn(); ImGui::Text("%s", Utils::ToString(mesh->materialName).c_str());
+			}
+			ImGui::EndTable();
+		}
 	}
 
+	// 스켈레톤 — 본 부모/자식 계층을 그대로 트리로 (children 은 BindCacheInfo 가 채움)
+	if (model->GetBoneCount() > 0 && ImGui::CollapsingHeader("Skeleton"))
+	{
+		std::function<void(const shared_ptr<ModelBone>&)> drawBone = [&](const shared_ptr<ModelBone>& bone)
+		{
+			if (bone == nullptr)
+				return;
+
+			ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
+			if (bone->children.empty())
+				flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+
+			string label = Utils::ToString(bone->name) + "##bone" + std::to_string(bone->index);
+			bool open = ImGui::TreeNodeEx(label.c_str(), flags);
+			ImGui::SameLine();
+			ImGui::TextDisabled("[%d]", bone->index);
+
+			if (open && bone->children.empty() == false)
+			{
+				for (auto& child : bone->children)
+					drawBone(child);
+				ImGui::TreePop();
+			}
+		};
+
+		for (auto& bone : model->GetBones())
+		{
+			if (bone->parentIndex < 0)
+				drawBone(bone);
+		}
+	}
+
+	if (model->GetMaterialCount() > 0 && ImGui::CollapsingHeader("Materials"))
+	{
+		for (auto& mat : model->GetMaterials())
+			ImGui::BulletText("%s", Utils::ToString(mat->GetName()).c_str());
+	}
+
+	if (model->GetAnimationCount() > 0 && ImGui::CollapsingHeader("Clips"))
+	{
+		for (auto& ani : model->GetAnimations())
+			ImGui::BulletText("%s  (%u frames, %.0f fps, %.2fs)",
+				Utils::ToString(ani->fileName).c_str(), ani->frameCount, ani->frameRate,
+				ani->frameRate > 0.f ? ani->frameCount / ani->frameRate : 0.f);
+	}
 }
 
 void Inspector::ShowProjectClip(shared_ptr<MetaData>& metaData)
@@ -284,6 +318,9 @@ void Inspector::ShowProjectClip(shared_ptr<MetaData>& metaData)
 
 	ImGui::Dummy(ImVec2(0, 50.f));
 	ImGui::SeparatorText("Clip Preview");
+	ImGui::Text("%u frames | %.0f fps | %.2fs",
+		animation->frameCount, animation->frameRate,
+		animation->frameRate > 0.f ? animation->frameCount / animation->frameRate : 0.f);
 
 	ImVec2 imagePos = ImGui::GetCursorScreenPos();
 	ImVec2 imageSize(373, 373);

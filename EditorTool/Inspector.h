@@ -31,6 +31,7 @@ private:
 	void ShowProjectMaterial(shared_ptr<MetaData>& metaData, ID3D11ShaderResourceView* icon);
 	void ShowProjectMesh(shared_ptr<MetaData>& metaData);
 	void ShowProjectClip(shared_ptr<MetaData>& metaData);
+	void DrawModelDetails(shared_ptr<class Model> model); // 요약/메시/스켈레톤 트리/머티리얼/클립
 
 	void CreateMeshPreviewObj();
 	void CreateAniPreviewObj();

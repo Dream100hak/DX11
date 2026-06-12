@@ -440,8 +440,9 @@ void FolderContents::CreateMeshPreviewThumbnail(shared_ptr<MetaData>& meta , sha
 	buffer->AddData(data);
 	buffers.push_back(buffer);
 
-	Matrix V = _meshPreviewCamera->GetCamera()->GetViewMatrix();
-	Matrix P = _meshPreviewCamera->GetCamera()->GetProjectionMatrix();
+	// AABB 자동 핏 — 모델 크기/위치와 무관하게 중앙 정렬 (정사각 RT 이므로 aspect 1)
+	Matrix V, P;
+	MeshThumbnail::ComputeFitViewProj(obj, 1.f, V, P);
 
 	// 즉시 렌더 — 구 잡큐(JOB_POST_RENDER)는 ImGui 가 그린 뒤 실행되어 첫 프레임이 검었음
 	thumbnail->Draw(renderers, V , P , _meshPreviewLight->GetLight(), buffers);

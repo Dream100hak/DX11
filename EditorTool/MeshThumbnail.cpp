@@ -1,15 +1,66 @@
 #include "pch.h"
 #include "MeshThumbnail.h"
+#include "GameObject.h"
+#include "Model.h"
+#include "ModelRenderer.h"
+#include "ModelAnimator.h"
 
 
 MeshThumbnail::MeshThumbnail(uint32 width, uint32 height)
 	: _width(width), _height(height)
 {
-
-	_vp.Set(width, height, GAME->GetSceneDesc().x, GAME->GetSceneDesc().y);
+	// 자기 RT 기준 원점 뷰포트 — 씬 창 offset(SceneDesc.x/y)을 넣으면 렌더 내용이
+	// 그만큼 밀려 기록되어 썸네일이 중앙에서 벗어남
+	_vp.Set(static_cast<float>(width), static_cast<float>(height));
 
 	CreateColorTexture();
 	CreateDepthStencilTexture();
+}
+
+void MeshThumbnail::ComputeFitViewProj(shared_ptr<GameObject> obj, float aspect, Matrix& outV, Matrix& outP)
+{
+	// 로컬 AABB — 모델은 실제 바운딩, 그 외(머티리얼 프리뷰 구체 등)는 단위 박스(반지름 0.5)
+	BoundingBox localBox;
+	localBox.Center = Vec3::Zero;
+	localBox.Extents = Vec3(0.5f, 0.5f, 0.5f);
+
+	shared_ptr<Model> model = nullptr;
+	if (obj->GetModelRenderer())
+		model = obj->GetModelRenderer()->GetModel();
+	else if (obj->GetModelAnimator())
+		model = obj->GetModelAnimator()->GetModel();
+
+	if (model)
+		localBox = model->CalculateModelBoundingBox();
+
+	// 월드 AABB — 8코너를 월드 변환 후 재집계 (스케일/위치 반영)
+	Matrix W = obj->GetTransform()->GetWorldMatrix();
+	Vec3 corners[8];
+	localBox.GetCorners(corners);
+
+	Vec3 vMin = Vec3(FLT_MAX, FLT_MAX, FLT_MAX);
+	Vec3 vMax = Vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+	for (int32 i = 0; i < 8; ++i)
+	{
+		Vec3 p = XMVector3TransformCoord(corners[i], W);
+		vMin = ::XMVectorMin(vMin, p);
+		vMax = ::XMVectorMax(vMax, p);
+	}
+
+	Vec3 center = 0.5f * (vMin + vMax);
+	Vec3 extents = 0.5f * (vMax - vMin);
+	float radius = max(extents.Length(), 0.01f);
+
+	// 3/4 시점에서 중심 주시 — 외접구가 fov 에 꽉 차는 거리 + 여유 (애니 포즈 변형 감안)
+	const float fov = XM_PI / 4.f;
+	const float dist = radius / sinf(fov * 0.5f) * 1.1f;
+
+	Vec3 dir = Vec3(0.35f, -0.3f, 1.f);
+	dir.Normalize();
+	Vec3 eye = center - dir * dist;
+
+	outV = ::XMMatrixLookAtLH(eye, center, Vec3(0.f, 1.f, 0.f));
+	outP = ::XMMatrixPerspectiveFovLH(fov, aspect, 0.01f, dist + radius * 4.f);
 }
 
 MeshThumbnail::~MeshThumbnail()
@@ -71,12 +122,6 @@ void MeshThumbnail::CreateColorTexture()
 
 	hr = DEVICE->CreateRenderTargetView(colorMap.Get(), nullptr, &_colorMapRTV);
 	CHECK(hr);
-
-	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
-	srvDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
-	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MipLevels = texDesc.MipLevels;
-	srvDesc.Texture2D.MostDetailedMip = 0;
 
 	hr = DEVICE->CreateShaderResourceView(colorMap.Get(), nullptr, _shaderResourveView.GetAddressOf());
 	CHECK(hr);

@@ -117,7 +117,6 @@ void Inspector::ShowProjectMaterial(shared_ptr<MetaData>& metaData, ID3D11Shader
 		return; // Begin/End 는 호출자(ShowInspector)가 관리
 	}
 
-	auto cam = folderContents->GetCamera();
 	auto light = folderContents->GetLight();
 
 	shared_ptr<Material>& material = obj->GetMeshRenderer()->GetMaterial();
@@ -167,8 +166,9 @@ void Inspector::ShowProjectMaterial(shared_ptr<MetaData>& metaData, ID3D11Shader
 		buffer->AddData(data);
 		buffers.push_back(buffer);
 
-		Matrix V = cam->GetViewMatrix();
-		Matrix P = cam->GetProjectionMatrix();
+		// AABB 자동 핏 — 폴더 썸네일과 동일 프레이밍으로 갱신
+		Matrix V, P;
+		MeshThumbnail::ComputeFitViewProj(obj, 1.f, V, P);
 
 		// 즉시 렌더 (구 잡큐는 ImGui 이후 실행 — 1프레임 지연)
 		thumbnail->Draw(renderers, V, P, light, buffers);
@@ -372,8 +372,6 @@ void Inspector::ShowProjectClip(shared_ptr<MetaData>& metaData)
 	{
 		_meshPreviewObj->GetModelAnimator()->UpdateTweenData();
 	}
-
-	_meshPreviewCamera->GetCamera()->UpdateMatrix();
 }
 
 void Inspector::CreateMeshPreviewObj()
@@ -438,7 +436,7 @@ void Inspector::CreateAniPreviewObj()
 	_meshPreviewObj->AddComponent(make_shared<ModelAnimator>());
 	_meshPreviewObj->GetModelAnimator()->SetModel(model);
 
-	_meshPreviewCamera->GetTransform()->SetParent(_meshPreviewObj->GetTransform());
+	// 프리뷰 V/P 는 ComputeFitViewProj 로 직접 계산 — 카메라를 obj 에 부모 연결하던 구 방식 제거
 }
 
 void Inspector::DrawInspectorMesh()
@@ -471,8 +469,9 @@ void Inspector::DrawInspectorMesh()
 //	shared_ptr<InstancingBuffer> buffer = nullptr;
 //	buffers.push_back(buffer);
 
-	Matrix V = _meshPreviewCamera->GetCamera()->GetViewMatrix();
-	Matrix P = _meshPreviewCamera->GetCamera()->GetProjectionMatrix();
+	// AABB 자동 핏 — 정사각 RT(512²) 기준 중앙 정렬
+	Matrix V, P;
+	MeshThumbnail::ComputeFitViewProj(_meshPreviewObj, 1.f, V, P);
 
 	// 즉시 렌더 (구 잡큐는 ImGui 이후 실행 — 1프레임 지연)
 	_meshthumbnail->Draw(renderers, V, P, _meshPreviewLight->GetLight(), buffers);
@@ -502,8 +501,9 @@ void Inspector::DrawInspectorClip()
 		buffers.push_back(buffer);
 	}
 
-	Matrix V = _meshPreviewCamera->GetCamera()->GetViewMatrix();
-	Matrix P = _meshPreviewCamera->GetCamera()->GetProjectionMatrix();
+	// AABB 자동 핏 — 정사각 RT(512²) 기준 중앙 정렬
+	Matrix V, P;
+	MeshThumbnail::ComputeFitViewProj(_meshPreviewObj, 1.f, V, P);
 
 	// 즉시 렌더 (구 잡큐는 ImGui 이후 실행 — 1프레임 지연)
 	_meshthumbnail->Draw(renderers, V, P, _meshPreviewLight->GetLight(), buffers);

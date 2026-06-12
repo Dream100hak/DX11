@@ -667,6 +667,109 @@ namespace
 	}
 }
 
+namespace
+{
+	void CollectSubtree(shared_ptr<GameObject> obj, vector<shared_ptr<GameObject>>& out)
+	{
+		out.push_back(obj);
+		if (auto tr = obj->GetTransform())
+		{
+			for (auto& child : tr->GetChildren())
+			{
+				if (auto childObj = child->GetGameObject())
+					CollectSubtree(childObj, out);
+			}
+		}
+	}
+}
+
+// 직렬화 가능한 컴포넌트 기준 복제 (XML 왕복) — 자식 서브트리 포함
+int64 SceneSerializer::Duplicate(int64 objectId)
+{
+	shared_ptr<GameObject> src = CUR_SCENE->GetCreatedObject((int32)objectId);
+	if (src == nullptr || src->IsEditorInternal())
+		return -1;
+
+	vector<shared_ptr<GameObject>> subtree;
+	CollectSubtree(src, subtree);
+
+	tinyxml2::XMLDocument doc;
+	XMLElement* root = doc.NewElement("Scene");
+	doc.LinkEndChild(root);
+	for (auto& obj : subtree)
+		WriteGameObject(root, obj);
+
+	// 재로드 — 서브트리 내부 계층만 연결 (루트의 parent 는 bySavedId 에 없어 자동 스킵)
+	map<wstring, shared_ptr<Model>> modelCache;
+	map<uint32, shared_ptr<GameObject>> bySavedId;
+	vector<pair<shared_ptr<GameObject>, uint32>> pendingParent;
+	shared_ptr<GameObject> newRoot;
+
+	for (XMLElement* el = root->FirstChildElement("GameObject"); el; el = el->NextSiblingElement("GameObject"))
+	{
+		shared_ptr<GameObject> obj = LoadGameObject(el, modelCache);
+		if (newRoot == nullptr)
+			newRoot = obj;
+
+		uint32 savedId = el->UnsignedAttribute("id");
+		if (savedId != 0)
+			bySavedId[savedId] = obj;
+
+		uint32 parentId = el->UnsignedAttribute("parent");
+		if (parentId != 0)
+			pendingParent.push_back({ obj, parentId });
+	}
+
+	for (auto& [child, parentId] : pendingParent)
+	{
+		auto found = bySavedId.find(parentId);
+		if (found == bySavedId.end())
+			continue;
+
+		auto childTr = child->GetTransform();
+		auto parentTr = found->second->GetTransform();
+		if (childTr == nullptr || parentTr == nullptr)
+			continue;
+
+		childTr->SetParent(parentTr);
+		parentTr->AddChild(childTr);
+		childTr->UpdateTransform();
+	}
+
+	if (newRoot == nullptr)
+		return -1;
+
+	// 복제 루트를 원본과 같은 부모 밑으로 (로컬 값 유지 → 같은 위치)
+	if (auto srcTr = src->GetTransform())
+	{
+		if (auto parentTr = srcTr->GetParent())
+		{
+			if (auto newTr = newRoot->GetTransform())
+			{
+				newTr->SetParent(parentTr);
+				parentTr->AddChild(newTr);
+				newTr->UpdateTransform();
+			}
+		}
+	}
+
+	// 루트 이름 고유화 + 이름 맵 복구 (Load 의 Add 가 원본 이름 키를 덮어썼음)
+	{
+		wstring base = src->GetObjectName();
+		int32 n = 1;
+		wstring name;
+		do { name = base + L" (" + std::to_wstring(n++) + L")"; }
+		while (CUR_SCENE->FindCreatedObjectByName(name) != nullptr);
+		newRoot->SetObjectName(name);
+
+		CUR_SCENE->RegisterName(newRoot);
+		for (auto& original : subtree)
+			CUR_SCENE->RegisterName(original);
+	}
+
+	return newRoot->GetId();
+}
+
 bool SceneSerializer::LoadFromString(const string& xml)
 {
 	tinyxml2::XMLDocument doc;

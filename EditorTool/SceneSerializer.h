@@ -15,6 +15,9 @@ public:
 	static bool SaveToString(string& out);
 	static bool LoadFromString(const string& xml);
 
+	// 오브젝트 복제 (자식 서브트리 포함, 원본과 같은 부모 밑) — 새 루트 id 반환 (-1 = 실패)
+	static int64 Duplicate(int64 objectId);
+
 	// 비-내부 오브젝트 전부 제거 (New Scene / Load 선행 단계)
 	static void Clear();
 };

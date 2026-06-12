@@ -21,7 +21,10 @@ public:
 		return nullptr;
 	}
 
-	shared_ptr<GameObject> FindCreatedObjectByName(wstring name) 
+	// 이름 변경/복제 후 이름 맵 재등록 (Add 의 Awake/Start 재실행 없이)
+	void RegisterName(shared_ptr<GameObject> object);
+
+	shared_ptr<GameObject> FindCreatedObjectByName(wstring name)
 	{
 		auto it = _createdObjectsByName.find(name);
 		if (it != _createdObjectsByName.end()) 

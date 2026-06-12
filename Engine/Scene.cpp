@@ -100,6 +100,12 @@ void Scene::Remove(shared_ptr<GameObject> object)
 	_createdObjectsByName.erase(object->GetObjectName());
 }
 
+void Scene::RegisterName(shared_ptr<GameObject> object)
+{
+	if (object != nullptr)
+		_createdObjectsByName[object->GetObjectName()] = object;
+}
+
 std::shared_ptr<GameObject> Scene::GetMainCamera()
 {
 	// 에디터 카메라(editorInternal) 우선 — 씬에 게임 카메라를 배치해도 에디터 시점이 흔들리지 않게

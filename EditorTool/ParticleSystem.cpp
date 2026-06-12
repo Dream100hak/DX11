@@ -95,6 +95,25 @@ void ParticleSystem::Reset()
 	_age = 0.0f;
 }
 
+void ParticleSystem::TransformBoundingBox()
+{
+	if (_type == PT_RAIN)
+	{
+		// 비는 카메라 주변 전역에 분산 (이미터가 카메라 추종) — 카메라가 박스 안이라 컬링되지 않는다
+		auto cam = CUR_SCENE->GetMainCamera();
+		_boundingBox.Center = cam ? cam->GetOrAddTransform()->GetPosition() : _emitPosW;
+		float r = _initialSpeed + 25.f; // 분산 반경 + 스폰 높이(+20) 여유
+		_boundingBox.Extents = Vec3(r, r, r);
+	}
+	else
+	{
+		// Fire 등: 트랜스폼 위치 주변 방출 (상승 거리 + 빌보드 크기 여유)
+		_boundingBox.Center = GetTransform()->GetPosition();
+		float r = _initialSpeed * _lifetime + max(_particleSize.x, _particleSize.y) + 5.f;
+		_boundingBox.Extents = Vec3(r, r, r);
+	}
+}
+
 void ParticleSystem::Update()
 {
 	if (INPUT->GetButtonDown(KEY_TYPE::V))

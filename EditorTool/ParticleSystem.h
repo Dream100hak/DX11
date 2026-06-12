@@ -56,6 +56,10 @@ public:
 		return make_pair(reinterpret_cast<uint64>(this), static_cast<uint64>(1));
 	}
 
+	// 파티클은 이미터 주변 공간을 차지 — 기본(오브젝트 위치 1m 고정 박스)이면
+	// 카메라가 오브젝트 지점을 안 볼 때 시스템 전체가 절두체 컬링된다 (Rain 안 보이던 원인)
+	void TransformBoundingBox() override;
+
 private:
 
 	void CreateBuffer();

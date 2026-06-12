@@ -111,6 +111,9 @@ Camera::Render_Deferred()
   (`GameObject::RemoveComponent`; Transform refused, main-camera Camera refused).
 - **ParticleSystem inspector**: Emit Dir/Accel/Emit Interval/Lifetime/Initial Speed/Size editable
   (ParticleBuffer b8 — bound to **both GS and VS**; VS-only fields read 0 otherwise = frozen particles, commit 84).
+- **Particle frustum culling** (commit 132): `ParticleSystem::TransformBoundingBox` 오버라이드 — Rain 은 카메라 중심
+  분산반경 박스, Fire 는 트랜스폼 중심 방출범위 박스. 기본(오브젝트 위치 1m 박스)이면 카메라가 오브젝트 지점을
+  안 볼 때 시스템 전체(SO 시뮬레이션 포함)가 컬링됨 — "Rain 안 보임" 버그의 원인이었음.
 - Light: zero direction falls back to (0,-1,0) (XMMatrixLookAtLH assert crash on Add Component, commit 81).
 - Shadow bounds: fixed center/radius on Light inspector — objects outside cast/receive no shadows (auto-fit reverted by user preference).
 
@@ -182,7 +185,6 @@ Camera::Render_Deferred()
 
 ## Known Issues
 
-- **Rain particle invisible** (deferred by user) — Fire works; Rain spawns around camera but streaks not visible.
 - ModelAnimator picking uses bind pose (inaccurate for large animation poses).
 - `Hiearchy` filename typo kept for compatibility.
 

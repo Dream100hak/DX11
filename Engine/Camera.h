@@ -153,5 +153,9 @@ private:
 	float _envIntensity = 1.f;
 	shared_ptr<ConstantBuffer<IblDesc>> _iblCB;
 
+	// 에디터 선택 아웃라인 (Outline b8) — editorInternal 카메라(씬 뷰)에서만 호출
+	shared_ptr<ConstantBuffer<OutlineDesc>> _outlineCB;
+	void RenderOutlinePass(const Matrix& V, const Matrix& P);
+
 	shared_ptr<class LightArrayDesc> CollectLights(shared_ptr<class Scene> scene);
 };

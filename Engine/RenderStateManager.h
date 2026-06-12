@@ -14,6 +14,7 @@ enum class BlendStateType : uint8
 	Additive,    // One / One
 	AlphaToCoverage, // MSAA 알파 클리핑
 	AdditiveSrcAlpha, // SrcAlpha / One (입자 이펙트용, FX Fire AdditiveBlending 호환)
+	NoColorWrite,     // 컬러 기록 차단 (아웃라인 스텐실 마크 패스용)
 	End
 };
 

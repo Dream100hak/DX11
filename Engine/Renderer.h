@@ -11,6 +11,7 @@ enum class RendererType : uint8
 	Animator,
 	Texture,
 	Particle,  // Stream-Output 파티클(ParticleSystem) 렌더 Transparent 큐 추가
+	Grid,      // 에디터 씬 그리드 — Mesh 로 두면 GetMeshRenderer 가 잘못 캐스팅(UB)한다
 
 	End,
 };
@@ -37,7 +38,7 @@ public:
 	void SetSsaoMap(ComPtr<ID3D11ShaderResourceView> srv) { _ssaoMap = srv; }
 
 public:
-	void TransformBoundingBox();
+	virtual void TransformBoundingBox();
 
 public:
 	
@@ -47,6 +48,10 @@ public:
 	BoundingBox& GetBoundingBox() { return _boundingBox; }
 	RendererType GetRenderType() { return _renderType; }
 
+	// 기본 렌더 큐 — MeshRenderer 는 머티리얼 큐가 우선, 커스텀 렌더러(씬 그리드 등)는 이 값 사용
+	RenderQueue GetRenderQueue() { return _renderQueue; }
+	void SetRenderQueue(RenderQueue queue) { _renderQueue = queue; }
+
 protected:
 
 	uint8				_pass = 0;
@@ -54,6 +59,7 @@ protected:
 	BoundingBox			_boundingBox;
 
 	RendererType		_renderType = RendererType::End;
+	RenderQueue			_renderQueue = RenderQueue::Opaque;
 
 	shared_ptr<Texture> _shadowMap = nullptr;
 	ComPtr<ID3D11ShaderResourceView> _ssaoMap = nullptr;

@@ -72,14 +72,22 @@ void EditorTool::Init()
 	SCENE->SetPreRenderCallback([]() { GET_SINGLE(TextureManager)->DrawTextureMap(); });
 
 	{
-		//auto simpleGrid = make_shared<GameObject>();
-		//simpleGrid->SetObjectName(L"grid");
-		//simpleGrid->AddComponent(make_shared<SimpleGrid>());
-		//simpleGrid->GetOrAddTransform()->SetPosition(Vec3(-10.f, 0, -10.f));
-		//auto mat = RESOURCES->Get<Material>(L"DefaultMaterial");
-		//mat->GetMaterialDesc().useTexture = false;
-		//simpleGrid->GetComponent<SimpleGrid>()->Create(50, 50, mat->Clone());
-		//CUR_SCENE->Add(simpleGrid);
+		// 씬 그리드 — 1m 셀 + 10m 셀 2겹 (editorInternal: 직렬화/게임 뷰 제외, 씬 클리어에도 생존)
+		auto makeGrid = [](const wstring& name, int32 count, float size, float fadeStart, float fadeEnd, float alpha)
+		{
+			auto gridObj = make_shared<GameObject>();
+			gridObj->SetObjectName(name);
+			gridObj->GetOrAddTransform()->SetPosition(Vec3(0.f, 0.001f, 0.f));
+
+			auto grid = make_shared<SceneGrid>();
+			gridObj->AddComponent(grid);
+			grid->Init(count, size, fadeStart, fadeEnd, alpha);
+
+			gridObj->SetEditorInternal(true);
+			CUR_SCENE->Add(gridObj);
+		};
+		makeGrid(L"Scene Grid 1m", 160, 1.f, 30.f, 70.f, 0.4f);
+		makeGrid(L"Scene Grid 10m", 80, 10.f, 200.f, 380.f, 0.55f);
 	}
 	{
 

@@ -36,6 +36,7 @@ public:
 	InstanceID GetInstanceID() override;
 	shared_ptr<Model>& GetModel() { return _model; }
 	TweenDesc& GetTweenDesc()     { return _tweenDesc; }
+	ComPtr<ID3D11ShaderResourceView> GetTransformMapSRV() { return _srv; } // 아웃라인 패스용 (t5)
 
 private:
 	void CreateTexture();

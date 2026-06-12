@@ -1,17 +1,12 @@
 // Outline_VS.hlsl
-// 아웃라인 2패스 기법
-// Pass 0 : 스텐실 마크 (정상 렌더)   → Standard_VS + Standard_PS 재활용
-// Pass 1 : 노멀 방향 팽창 + 단색 PS → 이 파일
+// 선택 오브젝트 아웃라인 — 스텐실 2패스용 VS (단일 드로우 전용, 인스턴싱 없음)
+// Pass 1(마크) : OutlineWidth = 0, 컬러 기록 없이 스텐실만 채움
+// Pass 2(팽창) : 노멀 방향 팽창 + 단색 PS (Outline_PS)
+// 월드 행렬은 b1 TransformBuffer.W 사용 (Camera::RenderOutlinePass 에서 push)
 
 #include "Common.hlsli"
 
-#define MAX_MODEL_TRANSFORMS 500
-#define MAX_MODEL_INSTANCE   500
-
-cbuffer BoneBuffer : register(b4)
-{
-    matrix BoneTransforms[MAX_MODEL_TRANSFORMS];
-};
+#define MAX_MODEL_INSTANCE 500
 
 struct KeyframeDesc
 {
@@ -39,9 +34,15 @@ cbuffer TweenBuffer : register(b6)
     TweenFrameDesc TweenFrames[MAX_MODEL_INSTANCE];
 };
 
+// ModelRenderer 정적 모델: 메시당 1개 본 변환 (메시마다 b5 push)
+cbuffer ModelBoneBuffer : register(b5)
+{
+    matrix MeshBoneTransform;
+};
+
 Texture2DArray TransformMap : register(t5);
 
-cbuffer OutlineBuffer : register(b7)
+cbuffer OutlineBuffer : register(b8)
 {
     float4 OutlineColor;  // 아웃라인 색상
     float  OutlineWidth;  // 팽창 크기 (월드 단위)
@@ -53,13 +54,10 @@ cbuffer OutlineBuffer : register(b7)
 // ===========================================================
 struct VertexMesh
 {
-    float4 position  : POSITION;
-    float2 uv        : TEXCOORD;
-    float3 normal    : NORMAL;
-    float3 tangent   : TANGENT;
-    uint   instanceID: SV_InstanceID;
-    matrix world     : INST_WORLD;
-    uint   isPicked  : PICKED;
+    float4 position : POSITION;
+    float2 uv       : TEXCOORD;
+    float3 normal   : NORMAL;
+    float3 tangent  : TANGENT;
 };
 
 struct VertexModel
@@ -70,9 +68,7 @@ struct VertexModel
     float3 tangent      : TANGENT;
     float4 blendIndices : BLEND_INDICES;
     float4 blendWeights : BLEND_WEIGHTS;
-    uint   instanceID   : SV_InstanceID;
-    matrix world        : INST_WORLD;
-    uint   isPicked     : PICKED;
+    uint   instanceID   : SV_InstanceID; // 단일 드로우 = 0 (TweenFrames[0])
 };
 
 struct OutlineOutput
@@ -81,7 +77,7 @@ struct OutlineOutput
 };
 
 // ===========================================================
-// GetAnimationMatrix (Standard 와 동일 — 공통 헤더로 추출 예정)
+// GetAnimationMatrix (GBufferAnim 과 동일한 트윈 스키닝)
 // ===========================================================
 matrix GetAnimationMatrix(VertexModel input)
 {
@@ -149,39 +145,38 @@ matrix GetAnimationMatrix(VertexModel input)
 }
 
 // ===========================================================
-// VS_MeshOutline
+// VS_MeshOutline — MeshRenderer (정적 메시)
 // ===========================================================
 OutlineOutput VS_MeshOutline(VertexMesh input)
 {
     OutlineOutput output;
 
-    // 노멀 방향으로 팽창
     input.position.xyz += input.normal * OutlineWidth;
 
-    float4 worldPos  = mul(input.position, input.world);
+    float4 worldPos  = mul(input.position, W);
     output.position  = mul(worldPos, VP);
 
     return output;
 }
 
 // ===========================================================
-// VS_ModelOutline
+// VS_ModelOutline — ModelRenderer (정적 모델, 메시별 본 변환 b5)
 // ===========================================================
 OutlineOutput VS_ModelOutline(VertexModel input)
 {
     OutlineOutput output;
 
-    input.position.xyz += input.normal * (OutlineWidth * 0.5f);
+    input.position.xyz += input.normal * OutlineWidth;
 
-    float4 pos      = mul(input.position, BoneTransforms[0]);
-    float4 worldPos = mul(pos, input.world);
+    float4 pos      = mul(input.position, MeshBoneTransform);
+    float4 worldPos = mul(pos, W);
     output.position = mul(worldPos, VP);
 
     return output;
 }
 
 // ===========================================================
-// VS_AnimationOutline
+// VS_AnimationOutline — ModelAnimator (트윈 스키닝)
 // ===========================================================
 OutlineOutput VS_AnimationOutline(VertexModel input)
 {
@@ -191,7 +186,7 @@ OutlineOutput VS_AnimationOutline(VertexModel input)
 
     matrix skinMat  = GetAnimationMatrix(input);
     float4 pos      = mul(input.position, skinMat);
-    float4 worldPos = mul(pos, input.world);
+    float4 worldPos = mul(pos, W);
     output.position = mul(worldPos, VP);
 
     return output;

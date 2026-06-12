@@ -1,9 +1,9 @@
 // Outline_PS.hlsl
-// ´Ü»ö ¾Æ¿ô¶óÀÎ Ãâ·Â
+// ë‹¨ìƒ‰ ì•„ì›ƒë¼ì¸ ì¶œë ¥
 
 #include "Common.hlsli"
 
-cbuffer OutlineBuffer : register(b7)
+cbuffer OutlineBuffer : register(b8)
 {
     float4 OutlineColor;
     float  OutlineWidth;

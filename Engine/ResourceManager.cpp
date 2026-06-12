@@ -203,13 +203,28 @@ void ResourceManager::CreateShadowMapShader()
 
 void ResourceManager::CreateOutlineShader()
 {
-	// HLSL
-	HlslShaderDesc desc;
-	desc.vsFile  = L"Outline_VS.hlsl";
-	desc.psFile  = L"Outline_PS.hlsl";
-	desc.vsEntry = "VS_MeshOutline";
-	GetOrAddHlslShader(L"Outline_HLSL", desc);
-	// FX11 01. Outline.fx는 더 이상 존재하지 않음 (Outline_HLSL만 사용)
+	// 선택 아웃라인 (스텐실 2패스, Camera::RenderOutlinePass) — 렌더러 타입별 VS 진입점
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Outline_VS.hlsl";
+		desc.psFile  = L"Outline_PS.hlsl";
+		desc.vsEntry = "VS_MeshOutline";
+		GetOrAddHlslShader(L"Outline_HLSL", desc);
+	}
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Outline_VS.hlsl";
+		desc.psFile  = L"Outline_PS.hlsl";
+		desc.vsEntry = "VS_ModelOutline";
+		GetOrAddHlslShader(L"OutlineModel_HLSL", desc);
+	}
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Outline_VS.hlsl";
+		desc.psFile  = L"Outline_PS.hlsl";
+		desc.vsEntry = "VS_AnimationOutline";
+		GetOrAddHlslShader(L"OutlineAnim_HLSL", desc);
+	}
 }
 
 void ResourceManager::CreateThumbnailShader()

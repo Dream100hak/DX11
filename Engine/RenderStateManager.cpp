@@ -75,6 +75,17 @@ void RenderStateManager::CreateBlendStates()
 		CHECK(DEVICE->CreateBlendState(&desc, _blendStates[static_cast<int>(BlendStateType::AdditiveSrcAlpha)].GetAddressOf()));
 	}
 
+	// NoColorWrite : 컬러 기록 차단 — 스텐실/깊이만 갱신 (아웃라인 마크 패스)
+	{
+		D3D11_BLEND_DESC desc{};
+		desc.AlphaToCoverageEnable = false;
+		desc.IndependentBlendEnable = false;
+		auto& rt = desc.RenderTarget[0];
+		rt.BlendEnable = false;
+		rt.RenderTargetWriteMask = 0;
+		CHECK(DEVICE->CreateBlendState(&desc, _blendStates[static_cast<int>(BlendStateType::NoColorWrite)].GetAddressOf()));
+	}
+
 	// AlphaToCoverage
 	{
 		D3D11_BLEND_DESC desc{};
@@ -194,12 +205,12 @@ void RenderStateManager::CreateDepthStencilStates()
 		CHECK(DEVICE->CreateDepthStencilState(&desc, _depthStencilStates[static_cast<int>(DepthStencilStateType::DisableDepth)].GetAddressOf()));
 	}
 
-	// OutlineMark : ?ㅽ뀗???곌린 (?꾩썐?쇱씤 1?⑥뒪)
+	// OutlineMark : 스텐실 찍기 (아웃라인 1패스) — 선택 메시 영역을 ref 로 마크 (색/깊이 기록 없음)
 	{
 		D3D11_DEPTH_STENCIL_DESC desc{};
-		desc.DepthEnable = true;
-		desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
-		desc.DepthFunc = D3D11_COMPARISON_LESS;
+		desc.DepthEnable = false;
+		desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+		desc.DepthFunc = D3D11_COMPARISON_ALWAYS;
 		desc.StencilEnable = true;
 		desc.StencilReadMask = 0xFF;
 		desc.StencilWriteMask = 0xFF;
@@ -211,7 +222,7 @@ void RenderStateManager::CreateDepthStencilStates()
 		CHECK(DEVICE->CreateDepthStencilState(&desc, _depthStencilStates[static_cast<int>(DepthStencilStateType::OutlineMark)].GetAddressOf()));
 	}
 
-	// OutlineDraw : ?ㅽ뀗???쎄린 (?꾩썐?쇱씤 2?⑥뒪)
+	// OutlineDraw : 스텐실 읽기 (아웃라인 2패스) — 팽창 메시를 마크 영역 밖(NOT_EQUAL)에만 그림
 	{
 		D3D11_DEPTH_STENCIL_DESC desc{};
 		desc.DepthEnable = false;

@@ -8,6 +8,9 @@
 #include "BindShaderDesc.h"
 #include "Light.h"
 #include "Terrain.h"
+#include "Mesh.h"
+#include "Model.h"
+#include "ModelMesh.h"
 #include "Ibl.h"
 #include "GBuffer.h"
 #include "HlslShader.h"
@@ -63,6 +66,10 @@ void Camera::SortGameObject()
 		if (IsCulled(gameObject->GetLayerIndex()))
 			continue;
 
+		// 에디터 내부 오브젝트(씬 그리드, 드래그 프리뷰)는 에디터 카메라 시점에서만 렌더
+		if (gameObject->IsEditorInternal() && GetGameObject()->IsEditorInternal() == false)
+			continue;
+
 		// Renderer 슬롯 공용 getter — Mesh/Model/Animator 외 커스텀 렌더러(Particle 등)도 큐에 태운다
 		auto renderer = gameObject->GetRenderer();
 
@@ -72,8 +79,8 @@ void Camera::SortGameObject()
 		// ✅ 핵심 수정: 절두체 컬링 전에 BoundingBox를 현재 월드 위치로 갱신
 		renderer->TransformBoundingBox();  // ← 월드 행렬 기준으로 BoundingBox 갱신
 
-		// RenderQueue 분류
-		RenderQueue queue = RenderQueue::Opaque;
+		// RenderQueue 분류 — 커스텀 렌더러는 자체 큐, MeshRenderer 는 머티리얼 큐 우선
+		RenderQueue queue = renderer->GetRenderQueue();
 		if (auto mr = gameObject->GetMeshRenderer())
 		{
 			if (mr->GetMaterial()) queue = mr->GetMaterial()->GetRenderQueue();
@@ -296,6 +303,10 @@ void Camera::Render_Deferred()
 	GET_SINGLE(InstancingManager)->Render(fwdCtx, _vecBackground);
 	GET_SINGLE(InstancingManager)->Render(fwdCtx, _vecTransparent);
 
+	// ── 에디터 전용: 선택 오브젝트 아웃라인 (씬 뷰 카메라에서만, sceneColor + GBuffer 스텐실) ──
+	if (GetGameObject()->IsEditorInternal())
+		RenderOutlinePass(V, P);
+
 	// ── Bloom: sceneColor → 하프 해상도 brightpass + 가우시안 블러 ──
 	if (_bloomEnabled)
 		RenderBloom(w, h);
@@ -413,6 +424,131 @@ void Camera::Render_Deferred()
 
 			_gBuffer->UnbindSRVsPS(0);
 		}
+	}
+}
+
+// 에디터 선택 아웃라인 — 스텐실 2패스 (마크: 메시 영역을 스텐실에 기록, 드로우: 팽창 메시를 영역 밖에만)
+// Pass 3 직후 호출 전제: _sceneColorRTV + GBuffer DSV(D24S8) 바인딩 상태
+void Camera::RenderOutlinePass(const Matrix& V, const Matrix& P)
+{
+	auto meshShader  = RESOURCES->Get<HlslShader>(L"Outline_HLSL");
+	auto modelShader = RESOURCES->Get<HlslShader>(L"OutlineModel_HLSL");
+	auto animShader  = RESOURCES->Get<HlslShader>(L"OutlineAnim_HLSL");
+	if (!meshShader || !modelShader || !animShader)
+		return;
+
+	if (_outlineCB == nullptr)
+	{
+		_outlineCB = make_shared<ConstantBuffer<OutlineDesc>>();
+		_outlineCB->Create();
+	}
+
+	HlslShader* shaders[] = { meshShader.get(), modelShader.get(), animShader.get() };
+
+	// 마크/드로우 패스 상태 — 컬링 없음 (Z 미러 변환 모델의 와인딩 안전)
+	auto setPassStates = [&](bool markPass)
+	{
+		for (auto* s : shaders)
+		{
+			s->SetRasterizerState(RENDER_STATES->GetRS(RasterizerStateType::SolidCullNone));
+			if (markPass)
+			{
+				s->SetBlendState(RENDER_STATES->GetBS(BlendStateType::NoColorWrite));
+				s->SetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::OutlineMark), 1);
+			}
+			else
+			{
+				s->SetBlendState(RENDER_STATES->GetBS(BlendStateType::Default));
+				s->SetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::OutlineDraw), 1);
+			}
+		}
+	};
+
+	auto drawObject = [&](const shared_ptr<GameObject>& go, float width)
+	{
+		OutlineDesc desc;
+		desc.width = width;
+		_outlineCB->CopyData(desc);
+		ID3D11Buffer* cb = _outlineCB->GetComPtr().Get();
+
+		Matrix world = go->GetTransform()->GetWorldMatrix();
+
+		if (auto mr = go->GetMeshRenderer())
+		{
+			if (mr->GetMesh() == nullptr)
+				return;
+
+			meshShader->SetVSConstantBuffer(8, cb);
+			meshShader->SetPSConstantBuffer(8, cb);
+			meshShader->PushGlobalData(V, P);
+			meshShader->PushTransformData(TransformDesc{ world });
+
+			mr->GetMesh()->GetVertexBuffer()->PushData();
+			mr->GetMesh()->GetIndexBuffer()->PushData();
+			meshShader->DrawIndexed(mr->GetMesh()->GetIndexBuffer()->GetCount(), 0, 0);
+		}
+		else if (auto mdr = go->GetModelRenderer())
+		{
+			auto model = mdr->GetModel();
+			if (model == nullptr)
+				return;
+
+			modelShader->SetVSConstantBuffer(8, cb);
+			modelShader->SetPSConstantBuffer(8, cb);
+			modelShader->PushGlobalData(V, P);
+			modelShader->PushTransformData(TransformDesc{ world });
+
+			for (auto& mesh : model->GetMeshes())
+			{
+				modelShader->PushModelBoneData(model->GetBoneByIndex(mesh->boneIndex)->transform);
+				mesh->vertexBuffer->PushData();
+				mesh->indexBuffer->PushData();
+				modelShader->DrawIndexed(mesh->indexBuffer->GetCount(), 0, 0);
+			}
+		}
+		else if (auto ma = go->GetModelAnimator())
+		{
+			auto model = ma->GetModel();
+			if (model == nullptr || ma->GetTransformMapSRV() == nullptr)
+				return;
+
+			animShader->SetVSConstantBuffer(8, cb);
+			animShader->SetPSConstantBuffer(8, cb);
+			animShader->PushGlobalData(V, P);
+			animShader->PushTransformData(TransformDesc{ world });
+			animShader->SetVSSRV(5, ma->GetTransformMapSRV().Get());
+
+			// 단일 드로우 → SV_InstanceID = 0 슬롯에 현재 트윈 상태 push
+			auto tween = make_shared<InstancedTweenDesc>();
+			tween->tweens[0] = ma->GetTweenDesc();
+			animShader->PushTweenData(*tween);
+
+			for (auto& mesh : model->GetMeshes())
+			{
+				mesh->vertexBuffer->PushData();
+				mesh->indexBuffer->PushData();
+				animShader->DrawIndexed(mesh->indexBuffer->GetCount(), 0, 0);
+			}
+		}
+	};
+
+	Vec3 camPos = GetTransform()->GetPosition();
+
+	for (auto& go : _vecForward)
+	{
+		if (go->GetUIPicked() == false || go->GetEnableOutline() == false)
+			continue;
+		if (go->GetRenderer() == nullptr)
+			continue;
+
+		// 거리 비례 폭 — 화면상 두께가 대략 일정하게 유지
+		float dist  = Vec3::Distance(camPos, go->GetTransform()->GetPosition());
+		float width = max(0.01f, dist * 0.0035f);
+
+		setPassStates(true);
+		drawObject(go, 0.f);    // 마크: 원본 메시 영역을 스텐실에 기록
+		setPassStates(false);
+		drawObject(go, width);  // 드로우: 팽창 메시가 마크 영역 밖에만 그려져 외곽선이 된다
 	}
 }
 

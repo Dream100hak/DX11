@@ -166,6 +166,20 @@ Camera::Render_Deferred()
   Skeleton bone TreeNode hierarchy (ModelBone children cache from BindCacheInfo), Materials/Clips lists.
   Clip inspector shows frames/fps/duration.
 
+## Editor Overlays (commit 130)
+
+- **Selection outline**: `Camera::RenderOutlinePass` (Pass 3 직후, editorInternal 카메라 전용 게이트) — 스텐실 2패스
+  (OutlineMark: 메시 영역 마크/색·깊이 기록 없음 + NoColorWrite 블렌드, OutlineDraw: 노멀 팽창 메시를 NOT_EQUAL 영역만).
+  `Outline_HLSL`/`OutlineModel_HLSL`/`OutlineAnim_HLSL` (Outline_VS.hlsl 진입점 3종, OutlineBuffer는 **b8** — b7은 LightArray와 충돌).
+  단일 드로우 전용(b1 W 사용, 인스턴싱 시맨틱 없음). 폭은 카메라 거리 비례(화면상 두께 일정). `_isOutlined` + `GetUIPicked()` 대상.
+- **Scene grid**: `EditorTool/SceneGrid` — editorInternal 씬 오브젝트 2개(1m/10m 셀), `RendererType::Grid` +
+  `Renderer::_renderQueue=Transparent`로 Pass 3 렌더 (deferred/shadow/ssao 패스 가드). 카메라 XZ 셀 스냅 추적으로 무한 그리드처럼 보임.
+  b8 GridParamsBuffer(페이드 거리/알파), X축 빨강·Z축 파랑. HDR에 블렌드 후 ACES를 거치므로 라인은 어둡게+알파 높게 해야 보인다.
+- GOTCHA: 커스텀 Renderer에 `RendererType::Mesh`를 쓰면 `GetMeshRenderer()` 타입 체크를 통과해 **잘못 캐스팅(UB)** — 전용 enum 필수.
+  베이스 `Renderer::TransformBoundingBox`는 1×1×1 고정 박스(대형 커스텀 렌더러는 virtual 오버라이드 없으면 절두체 컬링당함),
+  베이스 `GetInstanceID()`는 (0,0) 고정(오버라이드 없으면 같은 타입끼리 배칭돼 하나만 그려짐).
+- `Camera::SortGameObject`: editorInternal 오브젝트는 editorInternal 카메라(씬 뷰)에서만 렌더 — Game 뷰/프리뷰에 그리드·드래그 프리뷰 안 보임.
+
 ## Known Issues
 
 - **Rain particle invisible** (deferred by user) — Fire works; Rain spawns around camera but streaks not visible.

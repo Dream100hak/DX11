@@ -43,9 +43,6 @@ private:
 
 	shared_ptr<GameObject> _simpleGrid = nullptr;
 	shared_ptr<GameObject> _skyBox = nullptr;
-	
-//	shared_ptr<GameObject> _sceneGrid = nullptr;
-	vector<shared_ptr<GameObject>> _sceneGrids;
 
 	shared_ptr<GameObject> _meshPreviewCamera = nullptr;
 	shared_ptr<GameObject> _meshPreviewLight = nullptr;

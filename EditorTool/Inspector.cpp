@@ -9,7 +9,6 @@
 #include "MeshThumbnail.h"
 
 #include "SimpleGrid.h"
-#include "SceneGrid.h"
 #include "SkyCubeMap.h"
 
 // -----------------------------------------------------------
@@ -66,25 +65,6 @@ void Inspector::Init()
 		mat->GetMaterialDesc().diffuse = Color(0.1f, 0.1f, 0.1f, 0.5f);
 		_simpleGrid->GetComponent<SimpleGrid>()->Create(50, 50, mat->Clone());
 
-	}
-
-	if (_sceneGrids.size() == 0)
-	{
-		vector<pair<int32,float>> gridSamples = { {100, 5} , {100,3} ,{100,2} };
-
-		for (int32 i = 0; i < 3; i++)
-		{
-			shared_ptr<GameObject> sceneGrid = make_shared<GameObject>();
-			sceneGrid->GetOrAddTransform()->SetPosition(Vec3{ 0.f, 0.001f, 0.f });
-			sceneGrid->GetOrAddTransform()->SetRotation(Vec3{ 0.f, 0.25f, 0.f });
-			sceneGrid->AddComponent(make_shared<SceneGrid>());
-
-			int32 gridCount = gridSamples[i].first;
-			float gridSize = gridSamples[i].second;
-
-			sceneGrid->GetComponent<SceneGrid>()->Init(gridCount, gridSize );
-			_sceneGrids.push_back(sceneGrid);
-		}
 	}
 
 	if (_skyBox == nullptr)

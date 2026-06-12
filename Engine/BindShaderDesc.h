@@ -109,6 +109,14 @@ struct PassViewerDesc
 	Vec3  padding;
 };
 
+// 선택 아웃라인(b8) 버퍼 HLSL Outline_VS/PS.hlsl OutlineBuffer와 일치
+struct OutlineDesc
+{
+	Color color = Color(1.f, 0.42f, 0.02f, 1.f); // 주황 (HDR sceneColor 에 그려짐)
+	float width = 0.02f;                         // 노멀 팽창 크기 (월드 단위, m)
+	Vec3  padding;
+};
+
 // Bone
 #define MAX_MODEL_TRANSFORMS 1000
 #define MAX_MODEL_KEYFRAMES 500

@@ -572,9 +572,6 @@ void Inspector::DrawInspectorMesh()
 
 	renderers.push_back(_meshPreviewObj->GetRenderer());
 	renderers.push_back(_simpleGrid->GetRenderer());
-//	renderers.push_back(_sceneGrid->GetRenderer());
-	//for (auto& grid : _sceneGrids)
-	//	renderers.push_back(grid->GetRenderer());
 
 	for (int32 i = 0; i < renderers.size(); i++)
 	{
@@ -608,10 +605,6 @@ void Inspector::DrawInspectorClip()
 
 	renderers.push_back(_meshPreviewObj->GetRenderer());
 	renderers.push_back(_simpleGrid->GetRenderer());
-	//renderers.push_back(_sceneGrid->GetRenderer());
-
-	//for(auto& grid : _sceneGrids)
-	//	renderers.push_back(grid->GetRenderer());
 
 	for (int32 i = 0; i < renderers.size(); i++)
 	{

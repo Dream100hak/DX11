@@ -163,8 +163,6 @@
     <ClInclude Include="EnginePch.h" />
     <ClInclude Include="Frustum.h" />
     <ClInclude Include="HlslShader.h" />
-    <ClInclude Include="Job.h" />
-    <ClInclude Include="JobQueue.h" />
     <ClInclude Include="ProjectManager.h" />
     <ClInclude Include="FileUtils.h" />
     <ClInclude Include="Game.h" />
@@ -241,8 +239,6 @@
     <ClCompile Include="Engine.cpp" />
     <ClCompile Include="Frustum.cpp" />
     <ClCompile Include="HlslShader.cpp" />
-    <ClCompile Include="Job.cpp" />
-    <ClCompile Include="JobQueue.cpp" />
     <ClCompile Include="ProjectManager.cpp" />
     <ClCompile Include="FileUtils.cpp" />
     <ClCompile Include="Game.cpp" />
@@ -329,8 +325,6 @@
     <ClCompile Include="Viewport.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\HLSL_RENDERING_DIAGNOSIS.md" />
-    <None Include="..\HLSL_RENDERING_SUMMARY.md" />
     <None Include="packages.config" />
     <None Include="SimpleMath.inl" />
   </ItemGroup>

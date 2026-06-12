@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClInclude Include="pch.h">
@@ -199,12 +199,6 @@
     <ClInclude Include="Graphics.h">
       <Filter>01. Graphics\Render</Filter>
     </ClInclude>
-    <ClInclude Include="Job.h">
-      <Filter>08. Job</Filter>
-    </ClInclude>
-    <ClInclude Include="JobQueue.h">
-      <Filter>08. Job</Filter>
-    </ClInclude>
     <ClInclude Include="TerrainMesh.h">
       <Filter>00. Engine\Resource</Filter>
     </ClInclude>
@@ -221,6 +215,9 @@
     <ClInclude Include="RenderContext.h">
       <Filter>01. Graphics\Render</Filter>
     </ClInclude>
+    <ClInclude Include="GBuffer.h" />
+    <ClInclude Include="Ibl.h" />
+    <ClInclude Include="ImGuizmo.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -412,12 +409,6 @@
     <ClCompile Include="Graphics.cpp">
       <Filter>01. Graphics\Render</Filter>
     </ClCompile>
-    <ClCompile Include="Job.cpp">
-      <Filter>08. Job</Filter>
-    </ClCompile>
-    <ClCompile Include="JobQueue.cpp">
-      <Filter>08. Job</Filter>
-    </ClCompile>
     <ClCompile Include="TerrainMesh.cpp">
       <Filter>00. Engine\Resource</Filter>
     </ClCompile>
@@ -431,6 +422,9 @@
     <ClCompile Include="HlslShader.cpp">
       <Filter>01. Graphics\Shader</Filter>
     </ClCompile>
+    <ClCompile Include="GBuffer.cpp" />
+    <ClCompile Include="Ibl.cpp" />
+    <ClCompile Include="ImGuizmo.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="98. Utils">
@@ -487,16 +481,11 @@
     <Filter Include="01. Graphics\Render">
       <UniqueIdentifier>{f3d64771-eddf-436e-a7af-02b4e8d5aab9}</UniqueIdentifier>
     </Filter>
-    <Filter Include="08. Job">
-      <UniqueIdentifier>{54296739-e5e5-467c-bbc1-b9c239ee5787}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="SimpleMath.inl">
       <Filter>98. Utils</Filter>
     </None>
     <None Include="packages.config" />
-    <None Include="..\HLSL_RENDERING_DIAGNOSIS.md" />
-    <None Include="..\HLSL_RENDERING_SUMMARY.md" />
   </ItemGroup>
 </Project>

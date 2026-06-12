@@ -444,3 +444,6 @@ Binaries/
 # Engine build outputs / auto-copied headers (replaced by ProjectReference)
 Libraries/Lib/Engine/
 Libraries/Include/Engine/
+
+# Play 모드 임시 스냅샷
+__play_snapshot.scene

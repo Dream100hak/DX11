@@ -6,10 +6,6 @@ void Graphics::Init(HWND hwnd)
 {
 	_hwnd = hwnd;
 
-	_preRenderJobQueue = make_shared<JobQueue>();
-	_renderJobQueue = make_shared<JobQueue>();
-	_postRenderJobQueue = make_shared<JobQueue>();
-
 	CreateDeviceAndSwapChain();
 	CreateRenderTargetView();
 	CreateDepthStencilView();
@@ -19,15 +15,8 @@ void Graphics::Init(HWND hwnd)
 	RENDER_STATES->Init();
 }
 
-void Graphics::PreRenderBegin()
-{
-	_preRenderJobQueue->Execute();
-}
-
 void Graphics::RenderBegin()
-{	
-	_renderJobQueue->Execute();
-
+{
 	_deviceContext->RSSetState(0);
 
 	_deviceContext->OMSetRenderTargets(1, _renderTargetView.GetAddressOf(), _depthStencilView.Get());
@@ -36,11 +25,6 @@ void Graphics::RenderBegin()
 
 	_vp.RSSetViewport();
 
-}
-
-void Graphics::PostRenderBegin()
-{
-	_postRenderJobQueue->Execute();
 }
 
 void Graphics::RestoreMainRenderTarget()

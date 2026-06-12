@@ -1,6 +1,5 @@
 #pragma once
 #include "Viewport.h"
-#include "JobQueue.h"
 
 class Texture;
 
@@ -11,9 +10,7 @@ class Graphics
 public:
 	void Init(HWND hwnd);
 
-	void PreRenderBegin();
 	void RenderBegin();
-	void PostRenderBegin();
 	void RenderEnd();
 	void RestoreMainRenderTarget(); // SceneWindow 렌더 타겟 해제 후 메인 RTV 복원
 
@@ -21,10 +18,6 @@ public:
 	ComPtr<ID3D11DeviceContext> GetDeviceContext() { return _deviceContext; }
 	ComPtr<ID3D11DepthStencilView> GetDsv() { return _depthStencilView; }
 	ComPtr<ID3D11RenderTargetView> GetRTV() { return _renderTargetView; }
-
-	shared_ptr<JobQueue>& GetPreRenderJobQueue() { return _preRenderJobQueue; }
-	shared_ptr<JobQueue>& GetRenderJobQueue() { return _renderJobQueue; }
-	shared_ptr<JobQueue>& GetPostRenderJobQueue() { return _postRenderJobQueue; }
 
 	ComPtr<ID3D11DepthStencilState> GetDSStateStandard() { return _dsStateStandard; }
 	ComPtr<ID3D11DepthStencilState> GetDSStateOutline() { return _dsStateOutline; }
@@ -63,10 +56,6 @@ private:
 
 	ComPtr<ID3D11DepthStencilState> _dsStateStandard;
 	ComPtr<ID3D11DepthStencilState> _dsStateOutline;
-
-	shared_ptr<JobQueue> _preRenderJobQueue = nullptr;
-	shared_ptr<JobQueue> _renderJobQueue = nullptr;
-	shared_ptr<JobQueue> _postRenderJobQueue = nullptr;
 
 	ComPtr<ID3D11RasterizerState> _wireframeRS;
 };

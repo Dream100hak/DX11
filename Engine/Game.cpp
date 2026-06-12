@@ -131,7 +131,6 @@ void Game::Update()
 
 
 	GRAPHICS->SetViewport(_sceneDesc.width , _sceneDesc.height , _sceneDesc.x , _sceneDesc.y);
-	GRAPHICS->PreRenderBegin();
 	GRAPHICS->RenderBegin();   // ← 백버퍼를 렌더 타겟으로 설정
 	
 	// ? 주의: SCENE->Update()는 여기서 호출하지 않음
@@ -174,7 +173,6 @@ void Game::Update()
 	ImGui::End();
 
 	GUI->Render();             // ← ImGui 렌더링 (백버퍼에)
-	GRAPHICS->PostRenderBegin();
 	GRAPHICS->RenderEnd();     // ← Present()
 }
 
@@ -188,4 +186,3 @@ void Game::ShowFps()
 	::SetWindowText(_gameDesc.hWnd, text);
 
 }
-

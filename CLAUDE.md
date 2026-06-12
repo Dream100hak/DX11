@@ -103,8 +103,10 @@ Camera::Render_Deferred()
   Move/Rotate/Scale + Local/World + snap (0.5 / 15deg / 0.1). W/E/R shortcuts (ignored while RMB camera fly),
   F = focus selected. Toolbar radio buttons in scene view. Global `OPERATION` enum (Game.h) is bit-compatible
   with `ImGuizmo::OPERATION` (cast directly). Old hand-ported gizmo fully deleted (commit 92).
-- **Click picking**: `Scene::MeshPick` -> `Renderer::Pick` (AABB pre-test + triangle raycast; ModelAnimator picks
-  at bind pose). Picking gated by `_bUsing = ImGuizmo::IsUsing() || IsOver()` + `GUI->IsHoveringWindow()`.
+- **Click picking**: `Scene::MeshPick` -> `Renderer::Pick` (AABB pre-test + triangle raycast). ModelAnimator (commit 133):
+  현재 애니 포즈 기준 — TransformMap 과 동일한 `_animTransforms` 본 행렬(curr/next 프레임 보간)을 CPU 스키닝으로 적용,
+  AABB 는 포즈 변형 여유로 1.6배 확장. 애니 데이터 없으면 바인드포즈 폴백. Picking gated by
+  `_bUsing = ImGuizmo::IsUsing() || IsOver()` + `GUI->IsHoveringWindow()`.
 - **Inspector**: split into InspectorHierarchy.cpp / InspectorProject.cpp. Component names via
   `ImGuiManager::EnumToString` (static switch for CreatedObjType/ComponentType/RendererType — no enum lib).
   Renderer slot shows concrete type (MeshRenderer/ModelAnimator/...). Component Delete works
@@ -185,7 +187,6 @@ Camera::Render_Deferred()
 
 ## Known Issues
 
-- ModelAnimator picking uses bind pose (inaccurate for large animation poses).
 - `Hiearchy` filename typo kept for compatibility.
 
 ## Build & Run

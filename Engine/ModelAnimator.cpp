@@ -226,7 +226,8 @@ InstanceID ModelAnimator::GetInstanceID()
 	return make_pair((uint64)_model.get(), (uint64)0);
 }
 
-// 바인드포즈(T-pose) 기준 삼각형 픽킹 — 애니메이션으로 크게 변형된 포즈는 판정이 부정확할 수 있음
+// 현재 애니메이션 포즈 기준 삼각형 픽킹 — GPU 스키닝과 동일한 본 행렬(_animTransforms)을
+// CPU 로 적용해 화면에 보이는 포즈 그대로 판정. 애니 데이터가 없으면 바인드포즈 폴백.
 bool ModelAnimator::Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& distance)
 {
 	if (_model == nullptr)
@@ -248,34 +249,93 @@ bool ModelAnimator::Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& dis
 	vector<shared_ptr<ModelMesh>>& meshes = _model->GetMeshes();
 	vector<shared_ptr<ModelBone>>& bones = _model->GetBones();
 
-	// 바운딩 박스 선판정
+	// 바운딩 박스 선판정 — 애니 포즈가 바인드 박스를 벗어날 수 있어 여유를 두고 키운다
 	TransformBoundingBox();
+	BoundingBox looseBox = _boundingBox;
+	looseBox.Extents.x = looseBox.Extents.x * 1.6f + 0.5f;
+	looseBox.Extents.y = looseBox.Extents.y * 1.6f + 0.5f;
+	looseBox.Extents.z = looseBox.Extents.z * 1.6f + 0.5f;
+
 	float dist = 0.f;
+	if (looseBox.Intersects(ray.position, ray.direction, dist) == false)
+		return false;
 
-	if (_boundingBox.Intersects(ray.position, ray.direction, dist))
+	// 현재 포즈 본 팔레트 — TransformMap(t5)에 올라간 것과 같은 데이터를 프레임 보간해 재구성
+	// (_animTransforms 는 첫 Draw 의 CreateTexture 에서 채워짐 — 그 전엔 바인드포즈 폴백)
+	const KeyframeDesc& kf = _tweenDesc.curr;
+	vector<Matrix> palette;
+	if (kf.animIndex >= 0 && kf.animIndex < static_cast<int32>(_animTransforms.size()))
 	{
-		for (auto mesh : meshes)
+		const uint32 boneCount = min(_model->GetBoneCount(), static_cast<uint32>(MAX_MODEL_TRANSFORMS));
+		const uint32 curr = min(kf.currFrame, static_cast<uint32>(MAX_MODEL_KEYFRAMES - 1));
+		const uint32 next = min(kf.nextFrame, static_cast<uint32>(MAX_MODEL_KEYFRAMES - 1));
+
+		palette.resize(boneCount);
+		for (uint32 b = 0; b < boneCount; b++)
 		{
-			Matrix boneWorldMatrix = bones[mesh->boneIndex]->transform * W;
+			palette[b] = Matrix::Lerp(
+				_animTransforms[kf.animIndex].transforms[curr][b],
+				_animTransforms[kf.animIndex].transforms[next][b],
+				kf.ratio);
+		}
+	}
 
-			const auto& vertices = mesh->GetGeometry()->GetVertices();
-			const auto& indices = mesh->GetGeometry()->GetIndices();
+	for (auto mesh : meshes)
+	{
+		const auto& vertices = mesh->GetGeometry()->GetVertices();
+		const auto& indices = mesh->GetGeometry()->GetIndices();
 
-			for (uint32 i = 0; i < indices.size() / 3; ++i)
+		// 정점 전체를 현재 포즈의 월드 좌표로 변환 (공유 정점 중복 스키닝 방지)
+		Matrix bindWorld = bones[mesh->boneIndex]->transform * W;
+		vector<Vec3> posed(vertices.size());
+
+		for (size_t v = 0; v < vertices.size(); v++)
+		{
+			const auto& vtx = vertices[v];
+
+			if (palette.empty() == false)
 			{
-				uint32 i0 = indices[i * 3 + 0];
-				uint32 i1 = indices[i * 3 + 1];
-				uint32 i2 = indices[i * 3 + 2];
+				const float idx[4] = { vtx.blendIndices.x, vtx.blendIndices.y, vtx.blendIndices.z, vtx.blendIndices.w };
+				const float wgt[4] = { vtx.blendWeights.x, vtx.blendWeights.y, vtx.blendWeights.z, vtx.blendWeights.w };
 
-				Vec3 v0 = XMVector3TransformCoord(vertices[i0].position, boneWorldMatrix);
-				Vec3 v1 = XMVector3TransformCoord(vertices[i1].position, boneWorldMatrix);
-				Vec3 v2 = XMVector3TransformCoord(vertices[i2].position, boneWorldMatrix);
+				Vec3 acc = Vec3::Zero;
+				float weightSum = 0.f;
 
-				if (ray.Intersects(v0, v1, v2, OUT distance))
+				for (int32 k = 0; k < 4; k++)
 				{
-					pickPos = ray.position + ray.direction * distance;
-					return true;
+					if (wgt[k] <= 0.f)
+						continue;
+
+					uint32 b = static_cast<uint32>(idx[k]);
+					if (b >= palette.size())
+						continue;
+
+					Vec3 skinned = XMVector3TransformCoord(vtx.position, palette[b]);
+					acc += skinned * wgt[k];
+					weightSum += wgt[k];
 				}
+
+				if (weightSum > 0.0001f)
+				{
+					posed[v] = XMVector3TransformCoord(acc * (1.f / weightSum), W);
+					continue;
+				}
+			}
+
+			// 애니 데이터 없음 / 비스킨 정점 — 기존 바인드포즈 경로
+			posed[v] = XMVector3TransformCoord(vtx.position, bindWorld);
+		}
+
+		for (uint32 i = 0; i < indices.size() / 3; ++i)
+		{
+			const Vec3& v0 = posed[indices[i * 3 + 0]];
+			const Vec3& v1 = posed[indices[i * 3 + 1]];
+			const Vec3& v2 = posed[indices[i * 3 + 2]];
+
+			if (ray.Intersects(v0, v1, v2, OUT distance))
+			{
+				pickPos = ray.position + ray.direction * distance;
+				return true;
 			}
 		}
 	}

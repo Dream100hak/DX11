@@ -272,6 +272,22 @@ void Camera::Render_Deferred()
 		_iblCB->CopyData(iblDesc);
 		lightingShader->SetPSConstantBuffer(8, _iblCB->GetComPtr().Get());
 
+		// CSM (b9) — 캐스케이드 행렬/스플릿 (Light::UpdateCascades 가 메인 카메라 기준 매 프레임 갱신)
+		if (_cascadeCB == nullptr)
+		{
+			_cascadeCB = make_shared<ConstantBuffer<CascadeDesc>>();
+			_cascadeCB->Create();
+		}
+		CascadeDesc csm;
+		for (int32 c = 0; c < CASCADE_COUNT; ++c)
+			csm.cascadeVPT[c] = Light::S_CascadeVPT[c];
+		csm.cascadeSplits = Vec4(Light::S_CascadeSplitView[0], Light::S_CascadeSplitView[1],
+		                         Light::S_CascadeSplitView[2], Light::S_CascadeSplitView[3]);
+		csm.cascadeCount = CASCADE_COUNT;
+		csm.cascadeDebug = _csmDebug ? 1 : 0;
+		_cascadeCB->CopyData(csm);
+		lightingShader->SetPSConstantBuffer(9, _cascadeCB->GetComPtr().Get());
+
 		lightingShader->Bind();
 		lightingShader->PushGlobalData(V, P);
 		lightingShader->PushLightArrayData(*lightArray);

@@ -13,8 +13,8 @@
 Texture2D GBufferAlbedo   : register(t0);
 Texture2D GBufferNormal   : register(t1);
 Texture2D GBufferPosition : register(t2);
-Texture2D SsaoMap         : register(t3);
-Texture2D ShadowMap       : register(t4);
+Texture2D      SsaoMap    : register(t3);
+Texture2DArray ShadowMap  : register(t4); // CSM 배열 — 디버그는 캐스케이드 0 표시
 
 // C++ PassViewerDesc 와 일치
 cbuffer PassViewerBuffer : register(b8)
@@ -81,7 +81,7 @@ float4 PS_Main(ViewerVSOutput input) : SV_TARGET
     }
     else if (ViewMode == 8)   // Shadow Map (라이트 시점 depth)
     {
-        float d = ShadowMap.Sample(PointSampler, uv).r;
+        float d = ShadowMap.Sample(PointSampler, float3(uv, 0)).r; // 캐스케이드 0 슬라이스
         // depth 분포가 far 쪽에 몰리므로 대비 강조
         color = pow(abs(d), 30.0f).xxx;
     }

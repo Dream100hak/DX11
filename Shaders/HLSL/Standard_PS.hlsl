@@ -16,7 +16,7 @@
 Texture2D DiffuseMap  : register(t0);
 Texture2D SpecularMap : register(t1);
 Texture2D NormalMap   : register(t2);
-Texture2D ShadowMap : register(t3);
+Texture2DArray ShadowMap : register(t3); // CSM 캐스케이드 배열 (포워드는 CalcShadowFactor=캐스케이드0)
 Texture2D SsaoMap     : register(t4);
 
 // ===========================================================

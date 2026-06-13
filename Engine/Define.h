@@ -39,6 +39,9 @@ public:										\
 // ──────────────────────────────────────────────────────────
 #define MAX_LIGHTS	16
 
+// Cascaded Shadow Maps — 디렉셔널 섀도우 캐스케이드 수 (HLSL 측 CASCADE_COUNT 와 반드시 일치)
+#define CASCADE_COUNT 4
+
 #define TECH_NORMAL		0;
 #define TECH_OUTLINE	1;
 #define TECH_COLOR		2;

@@ -35,7 +35,7 @@ cbuffer TerrainBuffer : register(b8)
 Texture2DArray LayerMapArray : register(t0);
 Texture2D      BlendMap      : register(t1);
 Texture2D      HeightMap     : register(t2);
-Texture2D    ShadowMap     : register(t3);
+Texture2DArray ShadowMap     : register(t3); // CSM 배열 (포워드 터레인 경로는 캐스케이드 0)
 
 // ---- Vertex Input ──────────────────────────────────────────────────────────
 struct VertexTerrain

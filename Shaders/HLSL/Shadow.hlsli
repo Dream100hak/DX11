@@ -16,15 +16,17 @@ static const float SMAP_DX   = 1.0f / SMAP_SIZE;
 // CalcShadowFactor
 //  shadowPos : VS 에서 Light 공간으로 변환된 위치 (동차좌표)
 // ===========================================================
-float CalcShadowFactor(Texture2D shadowMap, float4 shadowPos)
+// 캐스케이드 배열 슬라이스 PCF 9-tap
+//  shadowMap : 캐스케이드 Texture2DArray, slice : 캐스케이드 인덱스
+//  shadowPos : worldPos 를 해당 캐스케이드 V*P*T 로 변환한 동차좌표
+float CalcShadowFactorArray(Texture2DArray shadowMap, int slice, float4 shadowPos)
 {
-// Perspective divide
     shadowPos.xyz /= shadowPos.w;
 
     float depth = shadowPos.z;
     const float dx = SMAP_DX;
 
-  const float2 offsets[9] =
+    const float2 offsets[9] =
     {
         float2(-dx, -dx), float2(0.0f, -dx), float2(dx, -dx),
         float2(-dx,  0.0f), float2(0.0f,  0.0f), float2(dx,  0.0f),
@@ -33,15 +35,21 @@ float CalcShadowFactor(Texture2D shadowMap, float4 shadowPos)
 
     float percentLit = 0.0f;
     [unroll]
- for (int i = 0; i < 9; ++i)
+    for (int i = 0; i < 9; ++i)
     {
-     percentLit += shadowMap.SampleCmpLevelZero(
-       ShadowSampler,
-   shadowPos.xy + offsets[i],
-      depth).r;
+        percentLit += shadowMap.SampleCmpLevelZero(
+            ShadowSampler,
+            float3(shadowPos.xy + offsets[i], (float)slice),
+            depth).r;
     }
 
     return percentLit / 9.0f;
+}
+
+// 레거시 단일 섀도우 호환 — 캐스케이드 0 슬라이스 샘플 (포워드/터레인 포워드용)
+float CalcShadowFactor(Texture2DArray shadowMap, float4 shadowPos)
+{
+    return CalcShadowFactorArray(shadowMap, 0, shadowPos);
 }
 
 // ===========================================================

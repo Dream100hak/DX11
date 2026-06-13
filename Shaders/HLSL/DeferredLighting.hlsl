@@ -12,11 +12,11 @@
 #include "Shadow.hlsli"
 
 // G-Buffer textures
-Texture2D GBufferAlbedo   : register(t0);
-Texture2D GBufferNormal   : register(t1);
-Texture2D GBufferPosition : register(t2);
-Texture2D ShadowMap       : register(t3);
-Texture2D SsaoMap         : register(t4);
+Texture2D      GBufferAlbedo   : register(t0);
+Texture2D      GBufferNormal   : register(t1);
+Texture2D      GBufferPosition : register(t2);
+Texture2DArray ShadowMap       : register(t3); // CSM 캐스케이드 배열
+Texture2D      SsaoMap         : register(t4);
 
 // IBL (Ibl::Init 에서 베이크)
 TextureCube IrradianceMap  : register(t5);
@@ -31,6 +31,16 @@ cbuffer IblBuffer : register(b8)
     int    UseIbl;
     float  EnvIntensity;
     float2 IblPad;
+};
+
+// CSM (C++ CascadeDesc 와 일치, CASCADE_COUNT=4)
+cbuffer CascadeBuffer : register(b9)
+{
+    matrix CascadeVPT[4];   // 캐스케이드별 V*P*T
+    float4 CascadeSplits;   // 각 캐스케이드 far 의 카메라 뷰공간 거리
+    int    CascadeCount;
+    int    CascadeDebug;    // 1 = 캐스케이드 색 틴트
+    float2 CascadePad;
 };
 
 static const float PREFILTER_MAX_MIP = 4.0f; // Ibl::PREFILTER_MIPS - 1
@@ -129,15 +139,23 @@ float4 PS_Main(LightingVSOutput input) : SV_TARGET
     // 비금속 기본 반사율 4%, 금속은 albedo 가 F0
     float3 F0 = lerp(float3(0.04f, 0.04f, 0.04f), albedo, metallic);
 
-    // 섀도우 팩터 (디렉셔널 섀도우맵)
-    float shadowFactor = 1.0f;
-    float4 shadowHomoPos = mul(float4(worldPos, 1.0f), Shadow);
-    float3 shadowNDC = shadowHomoPos.xyz / shadowHomoPos.w;
-    if (shadowNDC.x > 0.01f && shadowNDC.x < 0.99f &&
-        shadowNDC.y > 0.01f && shadowNDC.y < 0.99f &&
-        shadowNDC.z > 0.0f  && shadowNDC.z < 1.0f)
+    // 섀도우 팩터 (CSM) — 카메라 뷰공간 깊이로 캐스케이드 선택 후 해당 슬라이스 PCF
+    float viewZ = mul(float4(worldPos, 1.0f), V).z;
+    int cascade = CascadeCount - 1;
+    [unroll]
+    for (int ci = 0; ci < CascadeCount; ++ci)
     {
-        shadowFactor = CalcShadowFactor(ShadowMap, shadowHomoPos);
+        if (viewZ <= CascadeSplits[ci]) { cascade = ci; break; }
+    }
+
+    float shadowFactor = 1.0f;
+    float4 shadowHomoPos = mul(float4(worldPos, 1.0f), CascadeVPT[cascade]);
+    float3 shadowNDC = shadowHomoPos.xyz / shadowHomoPos.w;
+    if (shadowNDC.x > 0.001f && shadowNDC.x < 0.999f &&
+        shadowNDC.y > 0.001f && shadowNDC.y < 0.999f &&
+        shadowNDC.z > 0.0f   && shadowNDC.z < 1.0f)
+    {
+        shadowFactor = CalcShadowFactorArray(ShadowMap, cascade, shadowHomoPos);
     }
 
     float3 Lo = float3(0, 0, 0);           // 직접광 누적
@@ -226,6 +244,17 @@ float4 PS_Main(LightingVSOutput input) : SV_TARGET
     float3 emissive = GBufferEmissive.Sample(PointSampler, input.uv).rgb;
 
     float3 litColor = ambient + shadowFactor * Lo + emissive;
+
+    // 캐스케이드 디버그 틴트
+    if (CascadeDebug)
+    {
+        const float3 tints[4] =
+        {
+            float3(1.0f, 0.55f, 0.55f), float3(0.55f, 1.0f, 0.55f),
+            float3(0.55f, 0.7f, 1.0f),  float3(1.0f, 1.0f, 0.55f)
+        };
+        litColor *= tints[cascade];
+    }
 
     return float4(litColor, 1.0f);
 }

@@ -118,9 +118,18 @@ private:
 	ComPtr<ID3D11RasterizerState> _depthRS;
 
 public:
+	// 레거시 단일 섀도우 (포워드/프리뷰 호환용 — 캐스케이드 0 으로 채움)
 	static Matrix S_MatView;
 	static Matrix S_MatProjection;
 	static Matrix S_Shadow;
 
+	// Cascaded Shadow Maps — 메인 카메라 프러스텀을 분할해 매 프레임 갱신
+	static Matrix S_CascadeView[CASCADE_COUNT];
+	static Matrix S_CascadeProj[CASCADE_COUNT];
+	static Matrix S_CascadeVPT[CASCADE_COUNT];      // V*P*T (디퍼드 샘플용)
+	static float  S_CascadeSplitView[CASCADE_COUNT]; // 각 캐스케이드 far 의 카메라 뷰공간 거리
+
+private:
+	void UpdateCascades(); // 디렉셔널: 메인 카메라 프러스텀 기반 캐스케이드 V/P 계산
 };
 

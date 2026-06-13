@@ -102,6 +102,16 @@ struct IblDesc
 	Vec2  padding;
 };
 
+// CSM 런타임(b9, DeferredLighting) 버퍼 HLSL CascadeBuffer와 일치 (CASCADE_COUNT=4 가정)
+struct CascadeDesc
+{
+	Matrix cascadeVPT[CASCADE_COUNT];   // 캐스케이드별 V*P*T (worldPos → 섀도우 텍스처공간)
+	Vec4   cascadeSplits;               // 각 캐스케이드 far 의 카메라 뷰공간 거리 (x..w)
+	int32  cascadeCount = CASCADE_COUNT;
+	int32  cascadeDebug = 0;            // 1 = 캐스케이드 색 틴트 (디버그)
+	Vec2   cascadePad;
+};
+
 // 패스 뷰어(b8) 버퍼 HLSL PassViewer.hlsl PassViewerBuffer와 일치
 struct PassViewerDesc
 {

@@ -46,6 +46,9 @@ public:
 
 		ImGui::SeparatorText("IBL");
 		ImGui::DragFloat("Env Intensity", &_envIntensity, 0.01f, 0.f, 4.f);
+
+		ImGui::SeparatorText("Shadow (CSM)");
+		ImGui::Checkbox("Cascade Debug Tint", &_csmDebug);
 	}
 
 
@@ -152,6 +155,10 @@ private:
 	// IBL (DeferredLighting b8)
 	float _envIntensity = 1.f;
 	shared_ptr<ConstantBuffer<IblDesc>> _iblCB;
+
+	// CSM (DeferredLighting b9) — 캐스케이드 행렬/스플릿 전달
+	bool _csmDebug = false; // 캐스케이드별 색 틴트 (디버그)
+	shared_ptr<ConstantBuffer<struct CascadeDesc>> _cascadeCB;
 
 	// 에디터 선택 아웃라인 (Outline b8) — editorInternal 카메라(씬 뷰)에서만 호출
 	shared_ptr<ConstantBuffer<OutlineDesc>> _outlineCB;

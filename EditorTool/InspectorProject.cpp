@@ -570,8 +570,8 @@ void Inspector::DrawInspectorMesh()
 	std::vector<shared_ptr<Renderer>> renderers;
 	std::vector<shared_ptr<InstancingBuffer>> buffers;
 
+	// 바닥 그리드는 MeshThumbnail 이 내부에서 깐다 (구형 _simpleGrid 제거 — 화면 밖 + 페이드 없음)
 	renderers.push_back(_meshPreviewObj->GetRenderer());
-	renderers.push_back(_simpleGrid->GetRenderer());
 
 	for (int32 i = 0; i < renderers.size(); i++)
 	{
@@ -582,11 +582,6 @@ void Inspector::DrawInspectorMesh()
 		buffer->AddData(data);
 		buffers.push_back(buffer);
 	}
-
-	//SKy는 그냥 인스턴싱 없이 렌더링
- // renderers.push_back(_skyBox->GetRenderer());
-//	shared_ptr<InstancingBuffer> buffer = nullptr;
-//	buffers.push_back(buffer);
 
 	// AABB 자동 핏 — 정사각 RT(512²) 기준 중앙 정렬
 	Matrix V, P;
@@ -603,8 +598,8 @@ void Inspector::DrawInspectorClip()
 	std::vector<shared_ptr<Renderer>> renderers;
 	std::vector<shared_ptr<InstancingBuffer>> buffers;
 
+	// 바닥 그리드는 MeshThumbnail 이 내부에서 깐다 (구형 _simpleGrid 제거)
 	renderers.push_back(_meshPreviewObj->GetRenderer());
-	renderers.push_back(_simpleGrid->GetRenderer());
 
 	for (int32 i = 0; i < renderers.size(); i++)
 	{

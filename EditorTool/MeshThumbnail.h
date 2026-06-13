@@ -17,9 +17,16 @@ private:
 	void CreateColorTexture();
 	void CreateDepthStencilTexture();
 
+	// 모델 프리뷰 바닥 그리드 — 씬 그리드(SceneGrid)와 같은 셰이더/룩, 원점 고정.
+	// 모든 썸네일이 공유 (드로우가 순차 실행이라 안전), 모델/애니 렌더러가 있을 때만 깐다.
+	void DrawGrid(Matrix V, Matrix P, shared_ptr<Light> light);
+
 	uint32 _width;
 	uint32 _height;
 	ComPtr<ID3D11RenderTargetView> _colorMapRTV;
 	ComPtr<ID3D11DepthStencilView> _depthMapDSV;
 	Viewport _vp;
+
+	static shared_ptr<class GameObject> _gridObj;
+	static shared_ptr<class SceneGrid>  _grid;
 };

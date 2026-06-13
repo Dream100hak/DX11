@@ -2,8 +2,13 @@
 #include "MeshThumbnail.h"
 #include "GameObject.h"
 #include "Model.h"
+#include "ModelMesh.h"
 #include "ModelRenderer.h"
 #include "ModelAnimator.h"
+#include "SceneGrid.h"
+
+shared_ptr<GameObject> MeshThumbnail::_gridObj = nullptr;
+shared_ptr<SceneGrid>  MeshThumbnail::_grid    = nullptr;
 
 
 MeshThumbnail::MeshThumbnail(uint32 width, uint32 height)
@@ -19,10 +24,22 @@ MeshThumbnail::MeshThumbnail(uint32 width, uint32 height)
 
 void MeshThumbnail::ComputeFitViewProj(shared_ptr<GameObject> obj, float aspect, Matrix& outV, Matrix& outP)
 {
-	// 로컬 AABB — 모델은 실제 바운딩, 그 외(머티리얼 프리뷰 구체 등)는 단위 박스(반지름 0.5)
-	BoundingBox localBox;
-	localBox.Center = Vec3::Zero;
-	localBox.Extents = Vec3(0.5f, 0.5f, 0.5f);
+	Matrix W = obj->GetTransform()->GetWorldMatrix();
+
+	Vec3 vMin = Vec3(FLT_MAX, FLT_MAX, FLT_MAX);
+	Vec3 vMax = Vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+
+	auto accumulate = [&](const BoundingBox& box, const Matrix& m)
+	{
+		Vec3 corners[8];
+		box.GetCorners(corners);
+		for (int32 i = 0; i < 8; ++i)
+		{
+			Vec3 p = XMVector3TransformCoord(corners[i], m);
+			vMin = ::XMVectorMin(vMin, p);
+			vMax = ::XMVectorMax(vMax, p);
+		}
+	};
 
 	shared_ptr<Model> model = nullptr;
 	if (obj->GetModelRenderer())
@@ -31,20 +48,39 @@ void MeshThumbnail::ComputeFitViewProj(shared_ptr<GameObject> obj, float aspect,
 		model = obj->GetModelAnimator()->GetModel();
 
 	if (model)
-		localBox = model->CalculateModelBoundingBox();
-
-	// 월드 AABB — 8코너를 월드 변환 후 재집계 (스케일/위치 반영)
-	Matrix W = obj->GetTransform()->GetWorldMatrix();
-	Vec3 corners[8];
-	localBox.GetCorners(corners);
-
-	Vec3 vMin = Vec3(FLT_MAX, FLT_MAX, FLT_MAX);
-	Vec3 vMax = Vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
-	for (int32 i = 0; i < 8; ++i)
 	{
-		Vec3 p = XMVector3TransformCoord(corners[i], W);
-		vMin = ::XMVectorMin(vMin, p);
-		vMax = ::XMVectorMax(vMax, p);
+		// 정적 모델은 렌더 시 메시별 본 트랜스폼(PushModelBoneData)이 곱해진다 —
+		// 정점 원공간 AABB(CalculateModelBoundingBox)만 쓰면 본에 회전/이동이 박힌 모델
+		// (예: Tower, 본 Rotation 90°)이 프레임에서 벗어남. 렌더와 동일하게 본을 적용해 집계.
+		// (ModelAnimator 는 스키닝이 본을 적용하므로 원공간 AABB ≈ 바인드포즈)
+		const bool useStaticBone = obj->GetModelRenderer() != nullptr;
+
+		for (auto& mesh : model->GetMeshes())
+		{
+			BoundingBox box;
+			box.Center  = 0.5f * (mesh->aabb.min + mesh->aabb.max);
+			box.Extents = 0.5f * (mesh->aabb.max - mesh->aabb.min);
+
+			Matrix m = W;
+			if (useStaticBone && mesh->bone)
+				m = mesh->bone->transform * W;
+
+			accumulate(box, m);
+		}
+	}
+	else
+	{
+		// 머티리얼 프리뷰 구체 등 — 단위 박스(반지름 0.5)
+		BoundingBox unitBox;
+		unitBox.Center = Vec3::Zero;
+		unitBox.Extents = Vec3(0.5f, 0.5f, 0.5f);
+		accumulate(unitBox, W);
+	}
+
+	if (vMin.x > vMax.x) // 메시 없는 모델 등 — 집계 실패 시 원점 단위 박스로 폴백
+	{
+		vMin = Vec3(-0.5f, -0.5f, -0.5f);
+		vMax = Vec3(0.5f, 0.5f, 0.5f);
 	}
 
 	Vec3 center = 0.5f * (vMin + vMax);
@@ -96,8 +132,44 @@ void MeshThumbnail::Draw(vector<shared_ptr<Renderer>> renderers, Matrix V, Matri
 		renderers[i]->Draw(ctx);
 	}
 
+	// 바닥 그리드 — 모델/애니 프리뷰에만 (머티리얼 구체엔 안 깐다). 모델이 깊이를 쓴 뒤
+	// 깔아야 본체에 가려진 라인이 올바르게 컬링된다.
+	bool hasModel = false;
+	for (auto& r : renderers)
+	{
+		if (r && (r->GetRenderType() == RendererType::Model || r->GetRenderType() == RendererType::Animator))
+		{
+			hasModel = true;
+			break;
+		}
+	}
+	if (hasModel)
+		DrawGrid(V, P, light);
+
 	// 즉시 렌더(ImGui 업데이트 중 호출)이므로 메인 RT 복원 필수
 	GRAPHICS->RestoreMainRenderTarget();
+}
+
+void MeshThumbnail::DrawGrid(Matrix V, Matrix P, shared_ptr<Light> light)
+{
+	if (_grid == nullptr)
+	{
+		_gridObj = make_shared<GameObject>();
+		_gridObj->GetOrAddTransform(); // 원점 고정 (씬 그리드처럼 카메라 추적은 안 함)
+		_gridObj->SetEditorInternal(true);
+		_grid = make_shared<SceneGrid>();
+		_gridObj->AddComponent(_grid);
+
+		// 프리뷰 모델은 최대 축 기준 ~2유닛으로 정규화됨 — 0.5 셀(모델 폭 ~4칸),
+		// 카메라 거리 페이드로 가장자리는 부드럽게 사라진다 (씬 그리드와 동일 룩)
+		_grid->Init(60, 0.5f, 2.5f, 7.0f, 0.4f);
+	}
+
+	RenderContext ctx;
+	ctx.view  = V;
+	ctx.proj  = P;
+	ctx.light = light;
+	_grid->Draw(ctx);
 }
 
 void MeshThumbnail::CreateColorTexture()

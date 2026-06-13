@@ -83,6 +83,12 @@ void Inspector::ShowProjectImage(shared_ptr<MetaData>& metaData, ID3D11ShaderRes
 	ImGui::Dummy(ImVec2(0, 50.f));
 	ImGui::SeparatorText("Texture Preview");
 
+	if (tex == nullptr) // 파일이 사라졌거나 아직 로드 전 — 크래시 방지
+	{
+		ImGui::TextDisabled("미리보기를 불러올 수 없습니다");
+		return;
+	}
+
 	float width = min(tex->GetSize().x, ImGui::GetCurrentWindow()->Size.x);
 	ImGui::Image(icon, ImVec2(width, width));
 
@@ -718,8 +724,12 @@ ID3D11ShaderResourceView* Inspector::GetMetaFileIcon()
 	case SOUND:
 		break;
 	case IMAGE:
-		srv = RESOURCES->GetOrAddTexture(L"FILE_" + metaData->fileName, metaData->fileFullPath + L"\\" + metaData->fileName)->GetComPtr().Get();
+	{
+		// 파일이 사라졌으면(이름변경/삭제된 항목을 아직 선택 중) GetOrAddTexture 가 null 반환 — 역참조 금지
+		auto tex = RESOURCES->GetOrAddTexture(L"FILE_" + metaData->fileName, metaData->fileFullPath + L"\\" + metaData->fileName);
+		srv = (tex != nullptr) ? tex->GetComPtr().Get() : nullptr;
 		break;
+	}
 	case MATERIAL:
 	case MESH:
 	case CLIP:

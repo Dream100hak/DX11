@@ -224,6 +224,8 @@ void FolderContents::RenameItem(shared_ptr<MetaData> meta, const string& newName
 		return;
 	}
 
+	const bool wasSelected = (SELECTED_P == meta);
+
 	filesystem::rename(oldPath, newPath, ec);
 	if (ec)
 	{
@@ -248,6 +250,16 @@ void FolderContents::RenameItem(shared_ptr<MetaData> meta, const string& newName
 
 	ADDLOG("Rename: " + Utils::ToString(meta->fileName) + " -> " + newNameUtf8, LogFilter::Info);
 	RefreshProject();
+
+	// 이전 meta 는 사라진 파일을 가리킴 — 선택 중이었으면 새 이름 항목으로 옮긴다
+	// (안 옮기면 인스펙터가 없는 파일 텍스처를 로드하려다 크래시)
+	if (wasSelected)
+	{
+		shared_ptr<MetaData> newMeta = nullptr;
+		for (auto& [p, m] : CASHE_FILE_LIST)
+			if (m->fileFullPath == meta->fileFullPath && m->fileName == newName) { newMeta = m; break; }
+		TOOL->SetSelectedObjP(newMeta); // 못 찾으면 nullptr (선택 해제)
+	}
 }
 
 void FolderContents::DeleteItem(shared_ptr<MetaData> meta)

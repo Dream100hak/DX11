@@ -15,6 +15,10 @@ public:
 	void ShowProject();
 	void ListFolderHierarchy(const wstring& directory , bool isForcedToggle = false);
 
+	// 파일시스템 재스캔 — 외부에서 추가/변환된 파일을 Folder Contents 에 반영 (증분 추가)
+	void Refresh() { RefreshCasheFileList(_rootDirectory); }
+	const wstring& GetRootDirectory() const { return _rootDirectory; }
+
 private:
 	
 	shared_ptr<Model> CreateModelFile(shared_ptr<MetaData> metaData, const wstring& modelName , const wstring& modelPath );

@@ -75,6 +75,15 @@ void Project::RefreshCasheFileList(const wstring& directory)
 
 		wstring fullPath = directory + L"\\" + fileName;
 
+		// 이미 캐시된 항목은 리소스 재로딩(Load/모델 생성) 없이 건너뛴다 — Refresh 재호출 시
+		// 중복 로드/부작용 방지. 폴더는 새 하위 파일이 생겼을 수 있어 재귀는 계속한다.
+		if (CASHE_FILE_LIST.find(fullPath) != CASHE_FILE_LIST.end())
+		{
+			if (TOOL->GetMetaType(fileName) == MetaType::FOLDER)
+				RefreshCasheFileList(fullPath);
+			continue;
+		}
+
 		auto meta = make_shared<MetaData>();
 		meta->fileName = fileName;
 		meta->fileFullPath = directory;

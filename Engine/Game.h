@@ -64,6 +64,10 @@ public:
 	GameDesc& GetGameDesc() { return _gameDesc; }
 	SceneDesc& GetSceneDesc() { return _sceneDesc; }
 
+	// 외부(탐색기 등) 파일 드래그앤드롭 — WM_DROPFILES 로 받은 절대 경로 목록을 에디터에 전달.
+	// 임포트 로직(폴더 복사/FBX 변환/목록 갱신)은 EditorTool 가 등록한다 (SetPreRenderCallback 패턴).
+	void SetFileDropCallback(std::function<void(const vector<wstring>&)> cb) { _fileDropCallback = cb; }
+
 private:
 	ATOM MyRegisterClass();
 	BOOL InitInstance(int cmdShow);
@@ -75,6 +79,6 @@ private:
 	GameDesc _gameDesc;
 	SceneDesc _sceneDesc;
 
-
+	std::function<void(const vector<wstring>&)> _fileDropCallback;
 };
 

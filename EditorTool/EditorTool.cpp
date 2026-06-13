@@ -41,6 +41,9 @@
 
 #include "Hiearchy.h"
 #include "SceneWindow.h"
+#include "Project.h"
+#include <filesystem>
+#include <algorithm>
 
 void EditorTool::Init()
 {
@@ -70,6 +73,10 @@ void EditorTool::Init()
 
 	// 섀도우맵/SSAO 는 씬 렌더 직전(오브젝트 업데이트 후) 같은 프레임 데이터로 드로우
 	SCENE->SetPreRenderCallback([]() { GET_SINGLE(TextureManager)->DrawTextureMap(); });
+
+	// 외부(탐색기) 파일 드롭 임포트 — FBX 는 자동 변환(메뉴 Convert FBX 와 동일),
+	// 그 외 파일은 현재 Folder Contents 폴더로 복사 후 목록 갱신
+	GAME->SetFileDropCallback([](const vector<wstring>& paths) { EditorTool::ImportDroppedFiles(paths); });
 
 	{
 		// 씬 그리드 — 1m 셀 + 10m 셀 2겹 (editorInternal: 직렬화/게임 뷰 제외, 씬 클리어에도 생존)
@@ -265,7 +272,7 @@ void EditorTool::Update()
 {
 	// ✅ 게임 로직 업데이트
 	SCENE->Update();
-	
+
 	GET_SINGLE(ShortcutManager)->Update();
 	GET_SINGLE(EditorToolManager)->Update();
 	GET_SINGLE(TextureManager)->Update();
@@ -289,5 +296,86 @@ void EditorTool::OnMouseWheel(int32 scrollAmount)
 	{
 		_sceneCam->MoveCam(scrollAmount);
 	}
+}
+
+// 외부(탐색기) 드롭 파일 임포트 — WM_DROPFILES 콜백에서 호출 (메인 스레드, 프레임 밖).
+// FBX: 메뉴 Convert FBX 와 동일하게 Models/<부모폴더명>/ 으로 변환. 그 외: 현재 폴더로 복사.
+void EditorTool::ImportDroppedFiles(const vector<wstring>& paths)
+{
+	auto project = static_pointer_cast<Project>(TOOL->GetEditorWindow(Utils::GetClassNameEX<Project>()));
+
+	int32 imported = 0;
+
+	for (const wstring& src : paths)
+	{
+		std::error_code ec;
+		filesystem::path p(src);
+
+		if (filesystem::is_directory(p, ec)) // 폴더 드롭은 미지원 (파일만)
+		{
+			ADDLOG("Drop: 폴더는 지원하지 않습니다 - " + Utils::ToString(p.filename().wstring()), LogFilter::Warn);
+			continue;
+		}
+
+		wstring ext = p.extension().wstring();
+		std::transform(ext.begin(), ext.end(), ext.begin(), ::towlower);
+
+		if (ext == L".fbx")
+		{
+			// 메뉴 Convert FBX 와 동일 경로 — Models/<FBX 부모폴더명>/
+			wstring folderName = p.parent_path().filename().wstring();
+			wstring stem = p.stem().wstring();
+
+			shared_ptr<UfbxConverter> conv = make_shared<UfbxConverter>();
+			conv->ReadAssetFile(p.wstring());
+
+			if (conv->HasMesh())
+			{
+				conv->ExportMaterialDataByMats(folderName + L"/" + folderName);
+				conv->ExportModelData(folderName + L"/" + folderName);
+				ADDLOG("Drop FBX 변환 -> .mesh/.mmat : " + Utils::ToString(folderName), LogFilter::Info);
+				imported++;
+			}
+			if (conv->GetAnimationCount() > 0)
+			{
+				conv->ExportAnimationData(folderName + L"/" + stem);
+				ADDLOG("Drop FBX 변환 -> .clip : " + Utils::ToString(folderName + L"/" + stem), LogFilter::Info);
+				imported++;
+			}
+			if (conv->HasMesh() == false && conv->GetAnimationCount() == 0)
+				ADDLOG("Drop FBX: 메시/애니 없음 - " + Utils::ToString(p.filename().wstring()), LogFilter::Warn);
+		}
+		else
+		{
+			// 일반 파일 — 현재 Folder Contents 폴더로 복사 (없으면 Assets 루트)
+			wstring target = SELECTED_FOLDER;
+			if (target.empty())
+				target = L"../Resources/Assets";
+
+			filesystem::path destDir = filesystem::absolute(filesystem::path(target), ec);
+			filesystem::create_directories(destDir, ec);
+			filesystem::path dest = destDir / p.filename();
+
+			// 같은 파일을 자기 위치로 떨군 경우(이미 프로젝트 내부) 스킵
+			if (filesystem::exists(dest, ec) && filesystem::equivalent(p, dest, ec))
+			{
+				ADDLOG("Drop: 이미 같은 위치의 파일 - " + Utils::ToString(p.filename().wstring()), LogFilter::Warn);
+				continue;
+			}
+
+			filesystem::copy_file(p, dest, filesystem::copy_options::overwrite_existing, ec);
+			if (ec)
+				ADDLOG("Drop 복사 실패: " + Utils::ToString(p.filename().wstring()) + " (" + ec.message() + ")", LogFilter::Warn);
+			else
+			{
+				ADDLOG("Drop 복사 -> " + Utils::ToString(p.filename().wstring()), LogFilter::Info);
+				imported++;
+			}
+		}
+	}
+
+	// 파일시스템 재스캔 — 새로 추가/변환된 항목을 Folder Contents 에 반영
+	if (imported > 0 && project != nullptr)
+		project->Refresh();
 }
 

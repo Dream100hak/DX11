@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Game.h"
 #include "IExecute.h"
+#include <shellapi.h> // DragAcceptFiles / DragQueryFile (외부 파일 드롭)
 
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -91,6 +92,8 @@ BOOL Game::InitInstance(int cmdShow)
 	::ShowWindow(_gameDesc.hWnd, cmdShow);
 	::UpdateWindow(_gameDesc.hWnd);
 
+	::DragAcceptFiles(_gameDesc.hWnd, TRUE); // 탐색기 등에서 파일 드롭 허용 (WM_DROPFILES)
+
 	return TRUE;
 }
 
@@ -113,6 +116,26 @@ LRESULT CALLBACK Game::WndProc(HWND handle, UINT message, WPARAM wParam, LPARAM 
 
 		_gameDesc.app->OnMouseWheel(scrollAmount);
 		break;
+
+	case WM_DROPFILES:
+	{
+		HDROP hDrop = reinterpret_cast<HDROP>(wParam);
+		const UINT count = ::DragQueryFileW(hDrop, 0xFFFFFFFF, nullptr, 0);
+
+		vector<wstring> paths;
+		paths.reserve(count);
+		for (UINT i = 0; i < count; ++i)
+		{
+			wchar_t buf[MAX_PATH] = L"";
+			if (::DragQueryFileW(hDrop, i, buf, MAX_PATH) > 0)
+				paths.push_back(buf);
+		}
+		::DragFinish(hDrop);
+
+		if (_fileDropCallback && paths.empty() == false)
+			_fileDropCallback(paths);
+		break;
+	}
 
 	case WM_CLOSE:
 	case WM_DESTROY:

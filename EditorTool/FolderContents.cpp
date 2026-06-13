@@ -71,7 +71,9 @@ void FolderContents::Update()
 
 void FolderContents::PopupContextMenu()
 {
-	if (ImGui::BeginPopupContextWindow())
+	// 빈 공간에서만 — 아이템 위 우클릭은 항목별 Rename/Delete 메뉴(RefreshButton)가 잡도록
+	// (NoOpenOverItems 없으면 이 창 메뉴가 아이템 위에서도 열려 항목 메뉴를 덮어버림)
+	if (ImGui::BeginPopupContextWindow(nullptr, ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
 	{
 		if (ImGui::MenuItem("Create Material"))
 		{

@@ -48,7 +48,8 @@ struct LightData
 	Vec3  attenuation;   // (constant, linear, quadratic)
 	float spotAngle;     // cos(half-angle)
 	int32 type;          // 0=Directional, 1=Point, 2=Spot
-	Vec3  padding;
+	int32 shadowIndex;   // 점/스팟 그림자 슬롯 (-1 = 그림자 없음)
+	Vec2  padding;
 };
 
 struct LightArrayDesc
@@ -56,6 +57,12 @@ struct LightArrayDesc
 	LightData lights[MAX_LIGHTS];
 	int32 lightCount = 0;
 	Vec3 padding;
+};
+
+// 점/스팟 그림자(b10, DeferredLighting) — 스팟 라이트별 V*P*T (worldPos → 섀도우 텍스처공간)
+struct PunctualShadowDesc
+{
+	Matrix spotVPT[MAX_PUNCTUAL_SHADOWS];
 };
 
 

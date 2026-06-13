@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "TextureManager.h"
 #include "ShadowMap.h"
+#include "PunctualShadowMap.h"
 #include "Ssao.h"
 #include "Material.h"
 #include "Camera.h"
@@ -11,11 +12,13 @@ void TextureManager::Init()
 	auto camera = CUR_SCENE->GetMainCamera()->GetCamera();
 
 	_smap = make_shared<ShadowMap>(2048, 2048);
+	_punctual = make_shared<PunctualShadowMap>(1024);
 	_ssao = make_shared<Ssao>(GAME->GetSceneDesc().width, GAME->GetSceneDesc().height, camera->GetFov(), camera->GetFar());
 
 	auto mat = RESOURCES->Get<Material>(L"DefaultMaterial");
 
 	mat->SetShadowMap(_smap);
+	mat->SetSpotShadowMap(_punctual);
 	mat->SetSsaoMap(_ssao->GetAmbientPtr());
 
 	// ?붾쾭洹??띿뒪泥섎뒗 ?꾩옱 ImGui::Image(EditorTool::DrawRenderTextures)濡??쒖떆?섎?濡?
@@ -32,6 +35,7 @@ void TextureManager::Update()
 void TextureManager::DrawTextureMap()
 {
 	_smap->Draw();
+	_punctual->Draw(); // 스팟 그림자 슬롯 깊이
 	_ssao->Draw();
 	GRAPHICS->RestoreMainRenderTarget();
 }

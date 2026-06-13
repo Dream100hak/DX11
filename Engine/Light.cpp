@@ -14,6 +14,8 @@ Matrix Light::S_CascadeProj[CASCADE_COUNT];
 Matrix Light::S_CascadeVPT[CASCADE_COUNT];
 float  Light::S_CascadeSplitView[CASCADE_COUNT] = {};
 
+Matrix Light::S_SpotVPT[MAX_PUNCTUAL_SHADOWS];
+
 Light::Light() : Component(ComponentType::Light)
 {
 	SetShadowBoundingSphere();
@@ -154,6 +156,28 @@ void Light::UpdateCascades()
 	S_MatView = S_CascadeView[0];
 	S_MatProjection = S_CascadeProj[0];
 	S_Shadow = S_CascadeVPT[0];
+}
+
+Matrix Light::GetSpotView()
+{
+	Vec3 pos = GetTransform()->GetPosition();
+	Vec3 dir = _desc.direction;
+	if (dir.LengthSquared() < 1e-6f)
+		dir = Vec3(0.f, -1.f, 0.f);
+	dir.Normalize();
+
+	Vec3 up = (fabsf(dir.y) > 0.99f) ? Vec3(0.f, 0.f, 1.f) : Vec3(0.f, 1.f, 0.f);
+	return ::XMMatrixLookAtLH(pos, pos + dir, up);
+}
+
+Matrix Light::GetSpotProj()
+{
+	// 스팟 콘 전체각( = 2×half-angle)을 FOV 로. 가장자리 여유로 살짝 키움
+	float fov = 2.0f * (_spotAngleDeg * XM_PI / 180.f);
+	fov = min(fov * 1.1f, XM_PI * 0.95f);
+	float nearZ = 0.1f;
+	float farZ = max(_range, nearZ + 1.f);
+	return ::XMMatrixPerspectiveFovLH(fov, 1.0f, nearZ, farZ);
 }
 
 void Light::SetShadowBoundingSphere()

@@ -18,6 +18,7 @@ public:
 	shared_ptr<Texture> GetNormalMap()   { return _normalMap; }
 	shared_ptr<Texture> GetSpecularMap() { return _specularMap; }
 	shared_ptr<Texture> GetShadowMap()   { return _shadowMap; }
+	shared_ptr<Texture> GetSpotShadowMap() { return _spotShadowMap; } // 스팟 그림자 배열 (t9)
 	ComPtr<ID3D11ShaderResourceView> GetSsaoMap() { return _ssaoMap; }
 
 	void SetHlslShader(shared_ptr<HlslShader> shader) { _hlslShader = shader; }
@@ -26,6 +27,7 @@ public:
 	void SetNormalMap(shared_ptr<Texture> t)   { _normalMap   = t; }
 	void SetSpecularMap(shared_ptr<Texture> t) { _specularMap = t; }
 	void SetShadowMap(shared_ptr<Texture> t)   { _shadowMap   = t; }
+	void SetSpotShadowMap(shared_ptr<Texture> t) { _spotShadowMap = t; }
 	void SetSsaoMap(ComPtr<ID3D11ShaderResourceView> srv) { _ssaoMap = srv; }
 
 	void Update();
@@ -48,6 +50,7 @@ private:
 	shared_ptr<Texture> _normalMap;
 	shared_ptr<Texture> _specularMap;
 	shared_ptr<Texture> _shadowMap;
+	shared_ptr<Texture> _spotShadowMap;
 	ComPtr<ID3D11ShaderResourceView> _ssaoMap;
 
 	RenderQueue _renderQueue = RenderQueue::Opaque;

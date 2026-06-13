@@ -38,6 +38,7 @@ public:
 		{
 			ImGui::DragFloat("Range", &_range, 0.5f, 0.1f, 1000.f);
 			ImGui::DragFloat3("Attenuation", (float*)&_attenuation, 0.001f, 0.f, 10.f);
+			ImGui::Checkbox("Cast Shadows", &_castShadows);
 		}
 
 		if (_type == Spot)
@@ -92,6 +93,17 @@ public:
 	float GetIntensity() const { return _intensity; }
 	void SetIntensityValue(float v) { _intensity = v; _desc.intensity = v; }
 
+	bool GetCastShadows() const { return _castShadows; }
+	void SetCastShadows(bool v) { _castShadows = v; }
+
+	// 점/스팟 그림자 슬롯 (PunctualShadowMap::Draw 가 매 프레임 할당, -1 = 없음)
+	int32 GetShadowSlot() const { return _shadowSlot; }
+	void  SetShadowSlot(int32 s) { _shadowSlot = s; }
+
+	// 스팟 라이트 그림자용 원근 V/P (라이트 위치/방향/스팟각/거리 기준)
+	Matrix GetSpotView();
+	Matrix GetSpotProj();
+
 	void SetShadowBoundingSphere();
 
 private:
@@ -111,6 +123,9 @@ private:
 	Vec3 _center = Vec3::Zero;
 	float _radius = 150.f;
 
+	bool _castShadows = true; // 점/스팟 그림자 캐스트 여부
+	int32 _shadowSlot = -1;   // 점/스팟 그림자 슬롯 (PunctualShadowMap 가 할당)
+
 	float _depthBias = 100000;
 	float _slopeScaledDepthBias = 1.0f;
 	float _depthBiasClamp = 0.0f;
@@ -128,6 +143,9 @@ public:
 	static Matrix S_CascadeProj[CASCADE_COUNT];
 	static Matrix S_CascadeVPT[CASCADE_COUNT];      // V*P*T (디퍼드 샘플용)
 	static float  S_CascadeSplitView[CASCADE_COUNT]; // 각 캐스케이드 far 의 카메라 뷰공간 거리
+
+	// 스팟 라이트 그림자 — PunctualShadowMap::Draw 가 슬롯별 V*P*T 채움
+	static Matrix S_SpotVPT[MAX_PUNCTUAL_SHADOWS];
 
 private:
 	void UpdateCascades(); // 디렉셔널: 메인 카메라 프러스텀 기반 캐스케이드 V/P 계산

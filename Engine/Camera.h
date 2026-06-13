@@ -160,6 +160,9 @@ private:
 	bool _csmDebug = false; // 캐스케이드별 색 틴트 (디버그)
 	shared_ptr<ConstantBuffer<struct CascadeDesc>> _cascadeCB;
 
+	// 점/스팟 그림자 (DeferredLighting b10) — 스팟 V*P*T 전달
+	shared_ptr<ConstantBuffer<struct PunctualShadowDesc>> _punctualCB;
+
 	// 에디터 선택 아웃라인 (Outline b8) — editorInternal 카메라(씬 뷰)에서만 호출
 	shared_ptr<ConstantBuffer<OutlineDesc>> _outlineCB;
 	void RenderOutlinePass(const Matrix& V, const Matrix& P);

@@ -57,7 +57,8 @@ struct LightData
     float3 attenuation;
     float  spotAngle;
     int    type;
-    float3 pad;
+    int    shadowIndex;   // 점/스팟 그림자 슬롯 (-1 = 없음)
+    float2 pad;
 };
 
 cbuffer LightArrayBuffer : register(b7)
@@ -65,6 +66,13 @@ cbuffer LightArrayBuffer : register(b7)
     LightData lights[16];
     int lightCount;
     float3 lightPadding;
+};
+
+// 점/스팟 그림자 — 스팟 라이트 원근 섀도우 배열 + 슬롯별 V*P*T
+Texture2DArray SpotShadowMap : register(t9);
+cbuffer PunctualShadowBuffer : register(b10)
+{
+    matrix SpotVPT[4];
 };
 
 struct LightingVSOutput
@@ -194,6 +202,27 @@ float4 PS_Main(LightingVSOutput input) : SV_TARGET
         if (NdotL <= 0.0f)
             continue;
 
+        // 라이트별 그림자: 디렉셔널=CSM, 스팟=원근 섀도우맵 슬롯, 그 외=없음
+        float lightShadow = 1.0f;
+        if (lights[i].type == 0)
+        {
+            lightShadow = shadowFactor; // CSM
+        }
+        else if (lights[i].type == 2 && lights[i].shadowIndex >= 0)
+        {
+            float4 sp = mul(float4(worldPos, 1.0f), SpotVPT[lights[i].shadowIndex]);
+            if (sp.w > 0.0f)
+            {
+                float3 sndc = sp.xyz / sp.w;
+                if (sndc.x > 0.001f && sndc.x < 0.999f &&
+                    sndc.y > 0.001f && sndc.y < 0.999f &&
+                    sndc.z > 0.0f   && sndc.z < 1.0f)
+                {
+                    lightShadow = CalcShadowFactorArray(SpotShadowMap, lights[i].shadowIndex, sp);
+                }
+            }
+        }
+
         float3 H = normalize(V_ + L);
         float NdotH = max(dot(N, H), 0.0f);
         float HdotV = max(dot(H, V_), 0.0f);
@@ -206,7 +235,7 @@ float4 PS_Main(LightingVSOutput input) : SV_TARGET
         float3 kd = (1.0f - F) * (1.0f - metallic); // 금속은 디퓨즈 없음
 
         float3 radiance = lights[i].diffuse.rgb * lights[i].intensity * att;
-        Lo += (kd * albedo / PI + specular) * radiance * NdotL;
+        Lo += lightShadow * (kd * albedo / PI + specular) * radiance * NdotL;
     }
 
     // 라이트가 없으면 기본 환경광으로 실루엣만 보이게
@@ -243,7 +272,7 @@ float4 PS_Main(LightingVSOutput input) : SV_TARGET
     // 발광은 라이팅/그림자와 무관하게 가산 — HDR 값이면 BrightPass 를 넘겨 블룸 글로우
     float3 emissive = GBufferEmissive.Sample(PointSampler, input.uv).rgb;
 
-    float3 litColor = ambient + shadowFactor * Lo + emissive;
+    float3 litColor = ambient + Lo + emissive; // 그림자는 라이트별로 Lo 에 이미 적용됨
 
     // 캐스케이드 디버그 틴트
     if (CascadeDebug)

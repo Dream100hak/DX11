@@ -15,8 +15,8 @@ public:
 	void ShowProject();
 	void ListFolderHierarchy(const wstring& directory , bool isForcedToggle = false);
 
-	// 파일시스템 재스캔 — 외부에서 추가/변환된 파일을 Folder Contents 에 반영 (증분 추가)
-	void Refresh() { RefreshCasheFileList(_rootDirectory); }
+	// 파일시스템 재스캔 — 사라진 항목 제거(prune) + 새 항목 추가. 드롭/외부 추가·삭제·이름변경 반영
+	void Refresh();
 	const wstring& GetRootDirectory() const { return _rootDirectory; }
 
 private:

@@ -50,6 +50,14 @@ public:
 	}
 
 	void CreateMaterial();
+
+	// 우클릭 컨텍스트 — 이름 변경 / 삭제 (확인 모달 + 파일시스템 처리 후 Folder 목록 갱신)
+	void DrawRenameModal();
+	void DrawDeleteModal();
+	void RenameItem(shared_ptr<MetaData> meta, const string& newNameUtf8);
+	void DeleteItem(shared_ptr<MetaData> meta);
+	void RefreshProject();
+
 	std::wstring CreateUniqueMaterialName(const std::wstring& folder, const std::wstring& baseName, const std::wstring& extension)
 	{
 		wstring finalName = baseName;
@@ -101,6 +109,12 @@ private:
 
 	float _displayBtnWidth = 75.f;
 	float _displayBtnHeight = 75.f;
+
+	// 컨텍스트 메뉴 대상 + 모달 트리거
+	shared_ptr<MetaData> _ctxTarget = nullptr;
+	bool _openRename = false;
+	bool _openDelete = false;
+	char _renameBuf[256] = {};
 
 };
 

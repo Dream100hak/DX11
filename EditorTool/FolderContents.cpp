@@ -130,7 +130,165 @@ void FolderContents::ShowFolderContents()
 
 	PopupContextMenu();
 
+	// 우클릭 메뉴에서 요청한 이름변경/삭제 모달 (테이블 루프 밖에서 한 번)
+	DrawRenameModal();
+	DrawDeleteModal();
+
 	ImGui::End();
+}
+
+void FolderContents::DrawRenameModal()
+{
+	if (_openRename)
+	{
+		_openRename = false;
+		if (_ctxTarget != nullptr)
+		{
+			string name = Utils::ToString(_ctxTarget->fileName);
+			strncpy_s(_renameBuf, sizeof(_renameBuf), name.c_str(), _TRUNCATE);
+		}
+		ImGui::OpenPopup("Rename##fc");
+	}
+
+	if (ImGui::BeginPopupModal("Rename##fc", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+	{
+		ImGui::Text("New name (확장자 포함):");
+		ImGui::SetNextItemWidth(320.f);
+		const bool enter = ImGui::InputText("##renamebuf", _renameBuf, sizeof(_renameBuf), ImGuiInputTextFlags_EnterReturnsTrue);
+		ImGui::TextDisabled("주의: 연결 파일(.mesh<->.mmat 등)은 자동으로 같이 바뀌지 않습니다.");
+
+		if (ImGui::Button("OK", ImVec2(80, 0)) || enter)
+		{
+			RenameItem(_ctxTarget, _renameBuf);
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel", ImVec2(80, 0)))
+			ImGui::CloseCurrentPopup();
+
+		ImGui::EndPopup();
+	}
+}
+
+void FolderContents::DrawDeleteModal()
+{
+	if (_openDelete)
+	{
+		_openDelete = false;
+		ImGui::OpenPopup("Delete##fc");
+	}
+
+	if (ImGui::BeginPopupModal("Delete##fc", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+	{
+		if (_ctxTarget != nullptr)
+		{
+			const bool isFolder = (_ctxTarget->metaType == MetaType::FOLDER);
+			ImGui::Text("'%s' %s 삭제할까요?",
+				Utils::ToString(_ctxTarget->fileName).c_str(),
+				isFolder ? "폴더(하위 포함)를" : "파일을");
+		}
+		ImGui::TextDisabled("되돌릴 수 없습니다.");
+
+		if (ImGui::Button("Delete", ImVec2(80, 0)))
+		{
+			DeleteItem(_ctxTarget);
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel", ImVec2(80, 0)))
+			ImGui::CloseCurrentPopup();
+
+		ImGui::EndPopup();
+	}
+}
+
+void FolderContents::RenameItem(shared_ptr<MetaData> meta, const string& newNameUtf8)
+{
+	if (meta == nullptr)
+		return;
+
+	wstring newName = Utils::ToWString(newNameUtf8);
+	if (newName.empty() || newName == meta->fileName)
+		return;
+
+	filesystem::path dir(meta->fileFullPath);
+	filesystem::path oldPath = dir / meta->fileName;
+	filesystem::path newPath = dir / newName;
+
+	std::error_code ec;
+	if (filesystem::exists(newPath, ec))
+	{
+		ADDLOG("Rename: 같은 이름이 이미 있습니다 - " + newNameUtf8, LogFilter::Warn);
+		return;
+	}
+
+	filesystem::rename(oldPath, newPath, ec);
+	if (ec)
+	{
+		ADDLOG("Rename 실패: " + ec.message(), LogFilter::Warn);
+		return;
+	}
+
+	// 이전 경로 키 캐시 제거 (새 항목은 Refresh 가 추가)
+	const wstring oldKey = meta->fileFullPath + L'/' + meta->fileName;
+	_meshPreviewthumbnails.erase(oldKey);
+	_meshPreviewObjs.erase(oldKey);
+	_meshScales.erase(oldKey);
+
+	// 폴더 이름 변경 시 현재 열린 경로가 그 아래면 새 경로로 보정
+	if (meta->metaType == MetaType::FOLDER)
+	{
+		const wstring oldFull = oldPath.wstring();
+		const wstring newFull = newPath.wstring();
+		if (SELECTED_FOLDER == oldFull || SELECTED_FOLDER.rfind(oldFull + L"\\", 0) == 0)
+			SELECTED_FOLDER = newFull + SELECTED_FOLDER.substr(oldFull.size());
+	}
+
+	ADDLOG("Rename: " + Utils::ToString(meta->fileName) + " -> " + newNameUtf8, LogFilter::Info);
+	RefreshProject();
+}
+
+void FolderContents::DeleteItem(shared_ptr<MetaData> meta)
+{
+	if (meta == nullptr)
+		return;
+
+	filesystem::path target = filesystem::path(meta->fileFullPath) / meta->fileName;
+
+	std::error_code ec;
+	filesystem::remove_all(target, ec); // 파일/폴더(하위 포함) 모두
+	if (ec)
+	{
+		ADDLOG("Delete 실패: " + ec.message(), LogFilter::Warn);
+		return;
+	}
+
+	const wstring key = meta->fileFullPath + L'/' + meta->fileName;
+	_meshPreviewthumbnails.erase(key);
+	_meshPreviewObjs.erase(key);
+	_meshScales.erase(key);
+
+	// 삭제 항목을 인스펙터가 계속 가리키지 않게 선택 해제
+	if (SELECTED_P == meta)
+		TOOL->SetSelectedObjP(nullptr);
+
+	// 현재 열린 폴더(또는 그 조상)를 지웠으면 부모로 이동
+	if (meta->metaType == MetaType::FOLDER)
+	{
+		const wstring deleted = target.wstring();
+		if (SELECTED_FOLDER == deleted || SELECTED_FOLDER.rfind(deleted + L"\\", 0) == 0)
+			SELECTED_FOLDER = meta->fileFullPath;
+	}
+
+	ADDLOG("Delete: " + Utils::ToString(meta->fileName), LogFilter::Info);
+	RefreshProject();
+}
+
+void FolderContents::RefreshProject()
+{
+	auto project = static_pointer_cast<Project>(TOOL->GetEditorWindow(Utils::GetClassNameEX<Project>()));
+	if (project != nullptr)
+		project->Refresh();
 }
 
 void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta, int32 columns, int32 id)
@@ -276,7 +434,8 @@ void FolderContents::DisplayItem(const wstring& path, shared_ptr<MetaData>& meta
 
 void FolderContents::RefreshButton(ID3D11ShaderResourceView* srv, shared_ptr<MetaData>& meta, int32 id, std::function<void()> onDoubleClickCallback)
 {
-	ImGui::PushID(id);
+	// meta 포인터로 고유 ID — 기존 id 는 파일끼리 전부 0 이라 충돌(컨텍스트 메뉴/상태 오작동)
+	ImGui::PushID(meta.get());
 	if (srv != nullptr)
 	{
 		if (ImGui::ImageButton(srv, ImVec2(_displayBtnWidth, _displayBtnHeight))) {
@@ -288,6 +447,15 @@ void FolderContents::RefreshButton(ID3D11ShaderResourceView* srv, shared_ptr<Met
 		{
 			if (onDoubleClickCallback)
 				onDoubleClickCallback();
+		}
+
+		// 우클릭 컨텍스트 메뉴 — 이름 변경 / 삭제 (모달은 ShowFolderContents 에서 처리)
+		if (ImGui::BeginPopupContextItem())
+		{
+			TOOL->SetSelectedObjP(meta); // 우클릭한 항목을 선택 상태로
+			if (ImGui::MenuItem("Rename")) { _ctxTarget = meta; _openRename = true; }
+			if (ImGui::MenuItem("Delete")) { _ctxTarget = meta; _openDelete = true; }
+			ImGui::EndPopup();
 		}
 	}
 	ImGui::PopID();

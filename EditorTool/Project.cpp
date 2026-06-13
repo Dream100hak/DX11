@@ -59,6 +59,22 @@ shared_ptr<Model> Project::CreateModelFile(shared_ptr<MetaData> metaData, const 
 	return model;
 }
 
+void Project::Refresh()
+{
+	// 1) 사라진 파일/폴더 정리 — 삭제·이름변경·외부 제거 반영 (증분 스캔은 추가만 하므로 필요)
+	for (auto it = CASHE_FILE_LIST.begin(); it != CASHE_FILE_LIST.end(); )
+	{
+		std::error_code ec;
+		if (filesystem::exists(it->first, ec) == false)
+			it = CASHE_FILE_LIST.erase(it);
+		else
+			++it;
+	}
+
+	// 2) 새 항목 추가 (이미 캐시된 항목은 스킵)
+	RefreshCasheFileList(_rootDirectory);
+}
+
 void Project::RefreshCasheFileList(const wstring& directory)
 {
 	wstring searchPath = directory + L"\\*.*";

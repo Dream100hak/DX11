@@ -209,6 +209,13 @@ void FolderContents::RenameItem(shared_ptr<MetaData> meta, const string& newName
 	if (meta == nullptr)
 		return;
 
+	// 모델(.mesh/.mmat)은 폴더+파일+내부경로를 함께 바꾸는 묶음 리네임으로 위임
+	if (meta->metaType == MetaType::MESH || meta->metaType == MetaType::MODEL_MAT)
+	{
+		RenameModelBundle(meta, newNameUtf8);
+		return;
+	}
+
 	wstring newName = Utils::ToWString(newNameUtf8);
 	if (newName.empty() || newName == meta->fileName)
 		return;
@@ -259,6 +266,114 @@ void FolderContents::RenameItem(shared_ptr<MetaData> meta, const string& newName
 		for (auto& [p, m] : CASHE_FILE_LIST)
 			if (m->fileFullPath == meta->fileFullPath && m->fileName == newName) { newMeta = m; break; }
 		TOOL->SetSelectedObjP(newMeta); // 못 찾으면 nullptr (선택 해제)
+	}
+}
+
+void FolderContents::RenameModelBundle(shared_ptr<MetaData> meta, const string& newBaseUtf8)
+{
+	// 새 베이스명 — 사용자가 확장자를 붙여도 stem 만 사용
+	wstring newBase = filesystem::path(Utils::ToWString(newBaseUtf8)).stem().wstring();
+	if (newBase.empty())
+		return;
+
+	filesystem::path folder(meta->fileFullPath);   // .../Models/Tower
+	const wstring oldBase = folder.filename().wstring(); // Tower (규약상 mesh/mmat stem 과 동일)
+	if (newBase == oldBase)
+		return;
+
+	filesystem::path parent = folder.parent_path();
+	filesystem::path newFolder = parent / newBase;
+
+	std::error_code ec;
+	if (filesystem::exists(newFolder, ec))
+	{
+		ADDLOG("Rename: 같은 이름의 폴더가 이미 있습니다 - " + newBaseUtf8, LogFilter::Warn);
+		return;
+	}
+
+	const bool wasSelected = (SELECTED_P == meta);
+	const wstring oldPrefix = folder.wstring();
+
+	// 1) 폴더 통째로 이동 (mesh/mmat/clip/텍스처 전부 함께)
+	filesystem::rename(folder, newFolder, ec);
+	if (ec)
+	{
+		ADDLOG("Rename 실패(folder): " + ec.message(), LogFilter::Warn);
+		return;
+	}
+
+	// 2) .mmat 내부 머티리얼 경로의 폴더 부분을 새 폴더로 갱신 + 파일명 변경
+	//    (.mmat = int32 count + count×string[머티리얼경로]. 머티리얼 파일명은 유지, 폴더만 교체)
+	filesystem::path oldMmat = newFolder / (oldBase + L".mmat");
+	if (filesystem::exists(oldMmat, ec))
+	{
+		vector<string> mats;
+		{
+			shared_ptr<FileUtils> in = make_shared<FileUtils>();
+			in->Open(oldMmat.wstring(), FileMode::Read);
+			int32 count = in->Read<int32>();
+			for (int32 i = 0; i < count; ++i)
+				mats.push_back(in->Read<string>());
+		}
+		for (string& s : mats)
+		{
+			string baseName = filesystem::path(s).filename().string(); // 예: watchtower
+			s = "../Resources/Assets/Models/" + Utils::ToString(newBase) + "/" + baseName;
+		}
+
+		filesystem::path newMmat = newFolder / (newBase + L".mmat");
+		{
+			shared_ptr<FileUtils> out = make_shared<FileUtils>();
+			out->Open(newMmat.wstring(), FileMode::Write);
+			out->Write<int32>(static_cast<int32>(mats.size()));
+			for (string& s : mats)
+				out->Write<string>(s);
+		}
+		if (newMmat != oldMmat)
+			filesystem::remove(oldMmat, ec);
+	}
+
+	// 3) .mesh / 레거시 .xml 파일명도 새 베이스명으로 (텍스처/클립은 이름 유지)
+	auto renameInside = [&](const wstring& ext)
+	{
+		filesystem::path o = newFolder / (oldBase + ext);
+		filesystem::path n = newFolder / (newBase + ext);
+		if (o != n && filesystem::exists(o, ec))
+			filesystem::rename(o, n, ec);
+	};
+	renameInside(L".mesh");
+	renameInside(L".xml");
+
+	// 4) 옛 폴더 경로로 캐싱된 썸네일/프리뷰/스케일 제거 (새 항목은 Refresh 가 재생성)
+	auto eraseByPrefix = [&](auto& map)
+	{
+		for (auto it = map.begin(); it != map.end(); )
+		{
+			if (it->first.rfind(oldPrefix, 0) == 0)
+				it = map.erase(it);
+			else
+				++it;
+		}
+	};
+	eraseByPrefix(_meshPreviewthumbnails);
+	eraseByPrefix(_meshPreviewObjs);
+	eraseByPrefix(_meshScales);
+
+	// 5) 열린 폴더가 이동 대상이면 새 경로로 보정
+	if (SELECTED_FOLDER == oldPrefix || SELECTED_FOLDER.rfind(oldPrefix + L"\\", 0) == 0)
+		SELECTED_FOLDER = newFolder.wstring() + SELECTED_FOLDER.substr(oldPrefix.size());
+
+	ADDLOG("Rename model: " + Utils::ToString(oldBase) + " -> " + Utils::ToString(newBase), LogFilter::Info);
+	RefreshProject();
+
+	// 6) 선택을 새 .mesh 항목으로 이동
+	if (wasSelected)
+	{
+		const wstring newMeshName = newBase + L".mesh";
+		shared_ptr<MetaData> newMeta = nullptr;
+		for (auto& [p, m] : CASHE_FILE_LIST)
+			if (m->fileFullPath == newFolder.wstring() && m->fileName == newMeshName) { newMeta = m; break; }
+		TOOL->SetSelectedObjP(newMeta);
 	}
 }
 

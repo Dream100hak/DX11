@@ -55,6 +55,9 @@ public:
 	void DrawRenameModal();
 	void DrawDeleteModal();
 	void RenameItem(shared_ptr<MetaData> meta, const string& newNameUtf8);
+	// 모델 묶음 리네임 — 폴더 + .mesh + .mmat(+레거시 .xml) 파일명 + .mmat 내부 머티리얼 경로까지.
+	// (엔진은 Models/<이름>/<이름>.mesh 규약이라 폴더/파일명/내부경로가 모두 일치해야 로드됨)
+	void RenameModelBundle(shared_ptr<MetaData> meta, const string& newBaseUtf8);
 	void DeleteItem(shared_ptr<MetaData> meta);
 	void RefreshProject();
 

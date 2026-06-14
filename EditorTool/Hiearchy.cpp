@@ -11,6 +11,8 @@
 #include "Model.h"
 #include "MeshRenderer.h"
 #include "Material.h"
+#include "Terrain.h"
+#include "GameObject.h"
 #include "Camera.h"
 
 Hiearchy::Hiearchy(Vec2 pos, Vec2 size)
@@ -196,10 +198,7 @@ void Hiearchy::ShowHiearchy()
 
 			if (ImGui::MenuItem("Create Terrain"))
 			{
-				UndoManager::Record(); id = GUI->CreateEmptyGameObject();
-				TOOL->SetSelectedObjH(id);
-
-				ADDLOG("Create Terrain", LogFilter::Info);
+				id = CreateTerrain();
 			}
 	
 			ImGui::EndMenu();
@@ -358,7 +357,46 @@ int32 Hiearchy::CreateSky()
 
 int32 Hiearchy::CreateTerrain()
 {
-	return 0;
+	if (CUR_SCENE->GetTerrain() != nullptr)
+	{
+		ADDLOG("Terrain already exists in scene", LogFilter::Warn);
+		return -1;
+	}
+
+	UndoManager::Record();
+
+	// CreateLight 패턴 — 컴포넌트 부착 후 마지막에 Scene::Add 해야 _terrains 에 등록됨.
+	// (CreateEmptyGameObject 는 빈 오브젝트를 먼저 Add 해서 터레인이 등록 안 됨)
+	auto obj = make_shared<GameObject>();
+	obj->SetObjectName(L"Terrain");
+	obj->GetOrAddTransform()->SetPosition(Vec3::Zero); // 터레인은 원점 렌더
+
+	// 평탄 지형(513x513, 셀 1.0). heightMap 파일 없음 → 높이 0. 기존 레이어/블렌드 텍스처 재사용.
+	TerrainInfo info{};
+	info.heightMapFilename = L""; // 평탄
+	info.blendMapFilename  = L"../Resources/Assets/Textures/Terrain/blend.dds";
+	info.layerMapFilenames.push_back(L"../Resources/Assets/Textures/Terrain/grass.dds");
+	info.layerMapFilenames.push_back(L"../Resources/Assets/Textures/Terrain/darkdirt.dds");
+	info.layerMapFilenames.push_back(L"../Resources/Assets/Textures/Terrain/stone.dds");
+	info.layerMapFilenames.push_back(L"../Resources/Assets/Textures/Terrain/lightdirt.dds");
+	info.layerMapFilenames.push_back(L"../Resources/Assets/Textures/Terrain/snow.dds");
+	info.heightScale     = 50.0f;
+	info.heightmapWidth  = 513;  // (8*64+1) — 패치 정합
+	info.heightmapHeight = 513;
+	info.cellSpacing     = 1.0f;
+
+	auto terrain = make_shared<Terrain>();
+	obj->AddComponent(terrain);
+
+	auto mat = RESOURCES->Get<Material>(L"DefaultMaterial")->Clone();
+	mat->GetMaterialDesc().roughness = 0.9f; // 지면 — 거의 무광
+	terrain->Init(info, mat);
+
+	CUR_SCENE->Add(obj); // 터레인 부착 후 추가 → Scene::Add 가 _terrains 에 등록
+	TOOL->SetSelectedObjH(obj->GetId());
+
+	ADDLOG("Create Terrain (flat 513x513)", LogFilter::Info);
+	return obj->GetId();
 }
 
 // 게임 카메라 — 플레이 중 Game 뷰가 이 시점으로 렌더 (에디터 카메라와 별개)

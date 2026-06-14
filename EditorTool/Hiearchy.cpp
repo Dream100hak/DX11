@@ -13,6 +13,7 @@
 #include "Material.h"
 #include "Terrain.h"
 #include "GameObject.h"
+#include <filesystem>
 #include "Camera.h"
 
 Hiearchy::Hiearchy(Vec2 pos, Vec2 size)
@@ -48,15 +49,40 @@ void Hiearchy::ShowHiearchy()
 			MetaData** metaPtr = static_cast<MetaData**>(payload->Data);
 			shared_ptr<MetaData> metaData = std::make_shared<MetaData>(**metaPtr);
 
-			if(metaData->metaType == MetaType::MESH)
+			int32 id = -1;
+			if (metaData->metaType == MetaType::MESH)
 			{
-				auto model = RESOURCES->Get<Model>(metaData->fileFullPath + L"/" + metaData->fileName);
+				// SceneWindow 드롭과 동일하게 실제 로드 (RESOURCES->Get 은 미등록 시 null → CreateModelMesh 크래시)
+				shared_ptr<Model> model = make_shared<Model>();
+				wstring modelName = metaData->fileName.substr(0, metaData->fileName.find('.'));
+				model->ReadModel(modelName + L'/' + modelName);
 
-				int32 id = GUI->CreateModelMesh(model);
+				wstring mmatPath = L"../Resources/Assets/Models/" + modelName + L'/' + modelName + L".mmat";
+				if (std::filesystem::exists(mmatPath))
+					model->ReadMaterial(modelName + L'/' + modelName);
+				else
+					model->ReadMaterialByXml(modelName + L'/' + modelName);
+
+				id = GUI->CreateModelMesh(model);
+			}
+			else if (metaData->metaType == MetaType::CLIP)
+			{
+				// 클립 드롭 = 애니메이터 모델 배치 (SceneWindow 와 동일)
+				wstring modelName = std::filesystem::path(metaData->fileFullPath).filename().wstring();
+				wstring modelPath = metaData->fileFullPath + L'/' + modelName;
+				auto model = RESOURCES->Get<Model>(modelPath);
+				if (model)
+				{
+					int32 animIndex = model->GetAnimIndexByFileName(metaData->fileName);
+					id = GUI->CreateModelAnimatorMesh(model, Vec3::Zero, animIndex);
+				}
+			}
+
+			if (id != -1)
+			{
 				CUR_SCENE->UnPickAll();
 				TOOL->SetSelectedObjH(id);
 				CUR_SCENE->GetCreatedObject(id)->SetUIPicked(true);
-				
 				ADDLOG("Create Model", LogFilter::Info);
 			}
 

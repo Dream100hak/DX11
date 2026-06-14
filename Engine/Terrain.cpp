@@ -528,11 +528,41 @@ void Terrain::FlattenAll(float height)
 	UploadHeightmap();
 }
 
-void Terrain::GenerateFoliage(int32 count, float widthScale, float heightScale)
+void Terrain::GenerateFoliage(int32 count, float widthScale, float heightScale, int32 densityLayer)
 {
 	if (_foliage == nullptr)
 		_foliage = make_shared<Foliage>();
-	_foliage->Generate(this, count, widthScale, heightScale);
+	_foliage->Generate(this, count, widthScale, heightScale, densityLayer);
+}
+
+float Terrain::SampleLayerWeight(float x, float z, int32 layer)
+{
+	EnsureEditableBlend(); // 비압축 BGRA 블렌드를 CPU 미러로 확보 (1회)
+	if (_blendEditable == false || _blendW == 0 || _blendH == 0)
+		return 1.f; // 블렌드 없으면 균일 분산
+
+	float worldW = GetWorldWidth(), worldD = GetWorldDepth();
+	if (worldW <= 0.f || worldD <= 0.f)
+		return 1.f;
+
+	float u = (x + 0.5f * worldW) / worldW;
+	float v = (0.5f * worldD - z) / worldD;
+	int32 px = (int32)(max(0.f, min(1.f, u)) * (_blendW - 1));
+	int32 py = (int32)(max(0.f, min(1.f, v)) * (_blendH - 1));
+
+	const uint8* p = &_blendCPU[((size_t)py * _blendW + px) * 4]; // BGRA
+	float B = p[0] / 255.f, G = p[1] / 255.f, R = p[2] / 255.f, A = p[3] / 255.f;
+
+	// 채널: R=레이어1, G=레이어2, B=레이어3, A=레이어4, 베이스=레이어0
+	switch (layer)
+	{
+	case 0: return (1.f - R) * (1.f - G) * (1.f - B) * (1.f - A); // 베이스 가시 비중
+	case 1: return R;
+	case 2: return G;
+	case 3: return B;
+	case 4: return A;
+	}
+	return 1.f;
 }
 
 void Terrain::ClearFoliage()

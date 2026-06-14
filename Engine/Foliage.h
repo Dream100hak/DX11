@@ -24,7 +24,8 @@ public:
 	~Foliage();
 
 	// 터레인 표면(GetHeight)에 count 개 잔디를 절차적으로 분산 생성
-	void Generate(Terrain* terrain, int32 count, float widthScale, float heightScale);
+	// densityLayer >= 0 이면 해당 블렌드 레이어 가중치에 비례해 분산(거부 샘플링)
+	void Generate(Terrain* terrain, int32 count, float widthScale, float heightScale, int32 densityLayer = -1);
 	void Clear();
 	void RenderGBuffer(Matrix V, Matrix P, float dt);
 

@@ -104,11 +104,25 @@ void TerrainWindow::Update()
 	ImGui::SeparatorText("Foliage (Grass)");
 	static int32 grassCount = 4000;
 	static float grassW = 0.6f, grassH = 1.0f;
-	ImGui::DragInt("Count", &grassCount, 50.f, 0, 200000);
+	static int32 densityLayer = 0; // 0 = Uniform, 1..5 = 블렌드 레이어 0..4
+	ImGui::DragInt("Count", &grassCount, 50.f, 0, 300000);
 	ImGui::DragFloat("Blade Width", &grassW, 0.01f, 0.05f, 5.f);
 	ImGui::DragFloat("Blade Height", &grassH, 0.01f, 0.05f, 10.f);
+	// 밀도 소스: Uniform(균일) 또는 칠한 블렌드 레이어 가중치 비례. 라벨에 실제 텍스처명 표시.
+	std::string densLabels[6];
+	densLabels[0] = "Uniform";
+	for (int32 i = 0; i < 5; ++i)
+	{
+		std::string nm = (i < (int32)info.layerMapFilenames.size())
+			? Utils::ToString(std::filesystem::path(info.layerMapFilenames[i]).stem().wstring())
+			: "(none)";
+		densLabels[i + 1] = "Layer " + std::to_string(i) + " : " + nm;
+	}
+	const char* densItems[6] = { densLabels[0].c_str(), densLabels[1].c_str(), densLabels[2].c_str(),
+		densLabels[3].c_str(), densLabels[4].c_str(), densLabels[5].c_str() };
+	ImGui::Combo("Density By", &densityLayer, densItems, IM_ARRAYSIZE(densItems));
 	if (ImGui::Button("Generate Grass"))
-		terrain->GenerateFoliage(grassCount, grassW, grassH);
+		terrain->GenerateFoliage(grassCount, grassW, grassH, densityLayer - 1); // -1 = Uniform
 	ImGui::SameLine();
 	if (ImGui::Button("Clear Grass"))
 		terrain->ClearFoliage();

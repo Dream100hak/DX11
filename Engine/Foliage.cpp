@@ -52,7 +52,7 @@ void Foliage::EnsureResources()
 	_paramsCB->Create();
 }
 
-void Foliage::Generate(Terrain* terrain, int32 count, float widthScale, float heightScale)
+void Foliage::Generate(Terrain* terrain, int32 count, float widthScale, float heightScale, int32 densityLayer)
 {
 	EnsureResources();
 	Clear();
@@ -78,10 +78,26 @@ void Foliage::Generate(Terrain* terrain, int32 count, float widthScale, float he
 	vector<vector<InstancingData>> buckets(CD * CD);
 	vector<float> minY(CD * CD, +1e9f), maxY(CD * CD, -1e9f);
 
-	for (int32 i = 0; i < count; ++i)
+	// densityLayer 지정 시 거부 샘플링(레이어 가중치 비례) — 칠 안 한 곳이 많으면 목표보다 적게 심길 수 있어
+	// 시도 횟수에 상한을 둔다.
+	int32 placed = 0;
+	int32 attempts = 0;
+	const int32 maxAttempts = count * 12 + 2000;
+	while (placed < count && attempts < maxAttempts)
 	{
+		++attempts;
+
 		float x = -halfW + margin + rnd() * (2.f * halfW - 2.f * margin);
 		float z = -halfD + margin + rnd() * (2.f * halfD - 2.f * margin);
+
+		if (densityLayer >= 0)
+		{
+			float w = terrain->SampleLayerWeight(x, z, densityLayer);
+			w = w * w; // 제곱으로 대비 강화 — 부분적으로 칠한 곳(흙 등)에 잔디가 남는 걸 줄임
+			if (rnd() >= w) // 가중치에 비례해 채택
+				continue;
+		}
+
 		float y = terrain->GetHeight(x, z);
 		float yaw = rnd() * 6.2831853f;
 		float w = widthScale * (0.7f + 0.6f * rnd());
@@ -104,6 +120,8 @@ void Foliage::Generate(Terrain* terrain, int32 count, float widthScale, float he
 		float top = y + h * 1.5f;
 		if (y < minY[ci]) minY[ci] = y;
 		if (top > maxY[ci]) maxY[ci] = top;
+
+		++placed;
 	}
 
 	// 청크순으로 평탄화 + 구간/AABB 기록 (인스턴스 버퍼는 한 개, 구간만 나눠 그림)

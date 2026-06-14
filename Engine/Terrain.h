@@ -75,10 +75,14 @@ public:
 	bool SaveEditedTerrain();
 
 	// ── 식생(잔디) — Terrain 이 소유, Camera Pass 1 에서 터레인 직후 렌더 ──
-	void GenerateFoliage(int32 count, float widthScale, float heightScale);
+	// densityLayer: -1 = 균일, 0~4 = 해당 블렌드 레이어 가중치에 비례해 분산(칠한 곳에만)
+	void GenerateFoliage(int32 count, float widthScale, float heightScale, int32 densityLayer = -1);
 	void ClearFoliage();
 	void RenderFoliageGBuffer(Matrix V, Matrix P, float dt);
 	shared_ptr<class Foliage> GetFoliage() { return _foliage; }
+
+	// 월드(x,z)에서 블렌드 레이어 가중치 [0,1] — 식생 밀도용 (layer 0=베이스~4). 블렌드 없으면 1.
+	float SampleLayerWeight(float x, float z, int32 layer);
 
 	void TerrainRenderer(Matrix V, Matrix P);
 	void TerrainRendererGBuffer(Matrix V, Matrix P);     // ?뷀띁??GBuffer fill (Camera::Render_Deferred Pass 1)

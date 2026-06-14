@@ -27,6 +27,9 @@ public:
 	// ImGuizmo 기반 트랜스폼 기즈모 (이동/회전/스케일 + 스냅 + F 포커스)
 	void EditTransform();
 
+	// 라이트 기즈모 — 방향(디렉셔널)/원뿔(스팟)/구(포인트) 와이어프레임 (유니티/언리얼식)
+	void DrawLightGizmos();
+
 	// 씬 RT 이미지 표시 + SceneDesc(이미지 영역 rect)/카메라 출력 RT 갱신
 	void DrawSceneImage();
 

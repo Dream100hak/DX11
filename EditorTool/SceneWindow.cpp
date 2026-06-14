@@ -370,6 +370,9 @@ void SceneWindow::EditTransform()
 	// 씬 RT 이미지 — 기즈모는 같은 drawList 뒤에 그려져 이미지 위에 표시됨
 	DrawSceneImage();
 
+	// 라이트 기즈모 — 선택 여부와 무관하게 항상 표시 (아래 트랜스폼 기즈모 가드보다 먼저)
+	DrawLightGizmos();
+
 	if (_tr == nullptr || _tr->GetGameObject() == nullptr || _tr->GetGameObject()->IsIgnoredTransformEdit())
 	{
 		_bUsing = false;
@@ -442,5 +445,143 @@ void SceneWindow::EditTransform()
 
 	// 기즈모 드래그/호버 중에는 씬뷰 픽킹 차단
 	_bUsing = ImGuizmo::IsUsing() || ImGuizmo::IsOver();
+}
+
+void SceneWindow::DrawLightGizmos()
+{
+	auto scene = CUR_SCENE;
+	if (scene == nullptr || scene->GetMainCamera() == nullptr)
+		return;
+
+	const SceneDesc& sd = GAME->GetSceneDesc();
+	ImDrawList* dl = sd.drawList;
+	if (dl == nullptr)
+		return;
+
+	Matrix VP = MAIN_CAM->GetViewMatrix() * MAIN_CAM->GetProjectionMatrix();
+
+	// 월드 → 씬 이미지 스크린 좌표 (카메라 뒤면 false)
+	auto w2s = [&](const Vec3& w, ImVec2& out) -> bool
+	{
+		Vec4 c = Vec4::Transform(Vec4(w.x, w.y, w.z, 1.f), VP);
+		if (c.w <= 0.001f)
+			return false;
+		float x = c.x / c.w, y = c.y / c.w;
+		out = ImVec2(sd.x + (x * 0.5f + 0.5f) * sd.width, sd.y + (-y * 0.5f + 0.5f) * sd.height);
+		return true;
+	};
+	auto line3d = [&](const Vec3& a, const Vec3& b, ImU32 col, float th)
+	{
+		ImVec2 pa, pb;
+		if (w2s(a, pa) && w2s(b, pb))
+			dl->AddLine(pa, pb, col, th);
+	};
+	// 라이트 방향 기준 정규직교 기저
+	auto basis = [](Vec3 dir, Vec3& right, Vec3& up)
+	{
+		Vec3 wup = (fabsf(dir.y) > 0.99f) ? Vec3(0, 0, 1) : Vec3(0, 1, 0);
+		right = wup.Cross(dir); right.Normalize();
+		up = dir.Cross(right);  up.Normalize();
+	};
+
+	for (auto& lo : scene->GetLights())
+	{
+		auto lc = lo->GetLight();
+		if (lc == nullptr)
+			continue;
+
+		Vec3 pos = lo->GetTransform()->GetPosition();
+		const bool selected = (SELECTED_H == lo->GetId());
+		const ImU32 col = selected ? IM_COL32(255, 225, 70, 255) : IM_COL32(255, 215, 90, 170);
+
+		// 라이트 위치 마커 (항상 표시)
+		ImVec2 marker;
+		if (w2s(pos, marker))
+			dl->AddCircleFilled(marker, selected ? 5.f : 3.5f, col);
+
+		Vec3 dir = lc->GetLightDesc().direction;
+		if (dir.LengthSquared() < 1e-6f) dir = Vec3(0.f, -1.f, 0.f);
+		dir.Normalize();
+		Vec3 right, up; basis(dir, right, up);
+
+		// 선택 안 된 라이트는 콘/구 와이어프레임 생략 — 화면이 지저분해지는 걸 막음 (유니티식).
+		// 대신 어느 쪽을 비추는지 짧은 방향 선만 표시.
+		if (selected == false)
+		{
+			if (lc->GetLightType() != Point)
+				line3d(pos, pos + dir * 2.5f, col, 1.5f);
+			continue;
+		}
+
+		if (lc->GetLightType() == Directional)
+		{
+			// 평행 광선 4개 + 중심 화살표
+			const float r = 3.f, len = 14.f;
+			for (int i = 0; i < 4; ++i)
+			{
+				float a = i * XM_PIDIV2;
+				Vec3 off = right * (cosf(a) * r) + up * (sinf(a) * r);
+				line3d(pos + off, pos + off + dir * len, col, 1.5f);
+			}
+			Vec3 tip = pos + dir * len;
+			line3d(pos, tip, col, 2.f);
+			// 화살촉
+			line3d(tip, tip - dir * 3.f + right * 1.5f, col, 2.f);
+			line3d(tip, tip - dir * 3.f - right * 1.5f, col, 2.f);
+		}
+		else if (lc->GetLightType() == Point)
+		{
+			const float rad = lc->GetRange();
+			const int seg = 32;
+			auto circle = [&](const Vec3& a1, const Vec3& a2)
+			{
+				ImVec2 prev; bool have = false;
+				for (int i = 0; i <= seg; ++i)
+				{
+					float a = (float)i / seg * XM_2PI;
+					Vec3 p = pos + a1 * (cosf(a) * rad) + a2 * (sinf(a) * rad);
+					ImVec2 s;
+					if (w2s(p, s)) { if (have) dl->AddLine(prev, s, col, 1.2f); prev = s; have = true; }
+					else have = false;
+				}
+			};
+			circle(Vec3(1, 0, 0), Vec3(0, 1, 0));
+			circle(Vec3(1, 0, 0), Vec3(0, 0, 1));
+			circle(Vec3(0, 1, 0), Vec3(0, 0, 1));
+		}
+		else // Spot
+		{
+			const float range = lc->GetRange();
+			const float halfAng = lc->GetSpotAngleDeg() * XM_PI / 180.f;
+
+			// 콘 끝을 range(공중)이 아니라 빛이 실제로 닿는 지면(y=0)까지 클램프 —
+			// 공중에 뜬 원판이 "비추는 곳"과 달라 보이던 문제 해결. 아래로 향할 때만 적용.
+			float coneLen = range;
+			if (dir.y < -0.01f)
+			{
+				float t = -pos.y / dir.y; // pos + dir*t 의 y == 0
+				if (t > 0.f && t < range)
+					coneLen = t;
+			}
+			const float baseR = coneLen * tanf(halfAng);
+			Vec3 baseC = pos + dir * coneLen;
+			const int seg = 24;
+			ImVec2 prev; bool have = false;
+			for (int i = 0; i <= seg; ++i)
+			{
+				float a = (float)i / seg * XM_2PI;
+				Vec3 p = baseC + right * (cosf(a) * baseR) + up * (sinf(a) * baseR);
+				ImVec2 s;
+				if (w2s(p, s)) { if (have) dl->AddLine(prev, s, col, 1.2f); prev = s; have = true; }
+				else have = false;
+			}
+			for (int i = 0; i < 4; ++i) // apex → base 스포크
+			{
+				float a = i * XM_PIDIV2;
+				Vec3 p = baseC + right * (cosf(a) * baseR) + up * (sinf(a) * baseR);
+				line3d(pos, p, col, 1.4f);
+			}
+		}
+	}
 }
 

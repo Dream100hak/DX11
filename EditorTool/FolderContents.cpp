@@ -742,7 +742,8 @@ void FolderContents::CreateMeshPreviewThumbnail(shared_ptr<MetaData>& meta , sha
 	MeshThumbnail::ComputeFitViewProj(obj, 1.f, V, P);
 
 	// 즉시 렌더 — 구 잡큐(JOB_POST_RENDER)는 ImGui 가 그린 뒤 실행되어 첫 프레임이 검었음
-	thumbnail->Draw(renderers, V , P , _meshPreviewLight->GetLight(), buffers);
+	// 폴더컨텐츠 썸네일엔 그리드 끔 (그리드는 인스펙터 프리뷰 전용)
+	thumbnail->Draw(renderers, V , P , _meshPreviewLight->GetLight(), buffers, false);
 
 	const wstring key = meta->fileFullPath + L'/' + meta->fileName;
 	_meshPreviewthumbnails.insert(make_pair(key, thumbnail));

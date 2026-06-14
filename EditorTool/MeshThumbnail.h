@@ -7,7 +7,8 @@ public:
 	MeshThumbnail(uint32 width, uint32 height);
 	~MeshThumbnail();
 
-	void Draw(vector<shared_ptr<Renderer>> renderers, Matrix V , Matrix P, shared_ptr<Light> light, vector<shared_ptr<class InstancingBuffer>> buffers);
+	// drawGrid: 모델 프리뷰 바닥 그리드 표시 여부 (인스펙터 프리뷰만 true, 폴더컨텐츠 썸네일은 false)
+	void Draw(vector<shared_ptr<Renderer>> renderers, Matrix V , Matrix P, shared_ptr<Light> light, vector<shared_ptr<class InstancingBuffer>> buffers, bool drawGrid = true);
 
 	// 오브젝트 월드 AABB 기준 자동 핏 V/P (유니티식 3/4 시점, 중앙 정렬)
 	// — 고정 카메라는 모델 크기/위치마다 빗나가고, 씬 종횡비 P 는 정사각 RT 에서 찌그러짐

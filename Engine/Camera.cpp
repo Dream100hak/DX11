@@ -361,6 +361,10 @@ void Camera::Render_Deferred()
 	GET_SINGLE(InstancingManager)->Render(fwdCtx, _vecBackground);
 	GET_SINGLE(InstancingManager)->Render(fwdCtx, _vecTransparent);
 
+	// ── Pass 3.5: Depth of Field — 전체 합성된 HDR sceneColor 에 깊이 기반 블러 ──
+	if (_dofEnabled)
+		RenderDoF(V, P, w, h);
+
 	// ── 에디터 전용: 선택 오브젝트 아웃라인 (씬 뷰 카메라에서만, sceneColor + GBuffer 스텐실) ──
 	if (GetGameObject()->IsEditorInternal())
 		RenderOutlinePass(V, P);
@@ -704,6 +708,12 @@ void Camera::EnsureSceneColor(uint32 w, uint32 h)
 	CHECK(DEVICE->CreateRenderTargetView(_volTex.Get(), nullptr, _volRTV.GetAddressOf()));
 	CHECK(DEVICE->CreateShaderResourceView(_volTex.Get(), nullptr, _volSRV.GetAddressOf()));
 
+	// DoF 결과 버퍼
+	_dofTex.Reset(); _dofRTV.Reset(); _dofSRV.Reset();
+	CHECK(DEVICE->CreateTexture2D(&desc, nullptr, _dofTex.GetAddressOf()));
+	CHECK(DEVICE->CreateRenderTargetView(_dofTex.Get(), nullptr, _dofRTV.GetAddressOf()));
+	CHECK(DEVICE->CreateShaderResourceView(_dofTex.Get(), nullptr, _dofSRV.GetAddressOf()));
+
 	// Auto-exposure 로그휘도 밉체인 (고정 256² R16F, GenerateMips 로 평균 산출)
 	{
 		_lumTex.Reset(); _lumRTV.Reset(); _lumSRV.Reset();
@@ -880,6 +890,52 @@ void Camera::RenderVolumetric(const Matrix& V, const Matrix& P, uint32 w, uint32
 	DCT->CopyResource(_sceneColorTex.Get(), _volTex.Get());
 
 	// 렌더타겟 복원 (Pass 3 가 sceneColor 에 이어 그리도록)
+	ID3D11RenderTargetView* scRTV = _sceneColorRTV.Get();
+	DCT->OMSetRenderTargets(1, &scRTV, _gBuffer->GetDSV().Get());
+}
+
+// Depth of Field — sceneColor + GBuffer worldpos(깊이) 로 CoC 가변 블러. SSR/Vol 과 동일 패턴.
+void Camera::RenderDoF(const Matrix& V, const Matrix& P, uint32 w, uint32 h)
+{
+	auto shader = RESOURCES->Get<HlslShader>(L"Dof_HLSL");
+	if (shader == nullptr || _dofRTV == nullptr || _gBuffer == nullptr)
+		return;
+
+	ID3D11RenderTargetView* rtv = _dofRTV.Get();
+	DCT->OMSetRenderTargets(1, &rtv, nullptr);
+	D3D11_VIEWPORT vp{};
+	vp.Width = static_cast<float>(w); vp.Height = static_cast<float>(h); vp.MaxDepth = 1.f;
+	DCT->RSSetViewports(1, &vp);
+
+	RENDER_STATES->BindAllSamplersPS();
+	shader->SetPSSRV(0, _sceneColorSRV.Get());
+	shader->SetPSSRV(1, _gBuffer->GetSRV(GBuffer::RT_POSITION).Get());
+
+	if (_dofCB == nullptr)
+	{
+		_dofCB = make_shared<ConstantBuffer<DofDesc>>();
+		_dofCB->Create();
+	}
+	DofDesc dd;
+	dd.focusDist = _dofFocusDist;
+	dd.focusRange = _dofFocusRange;
+	dd.maxCoC = _dofMaxCoC;
+	dd.invScreen = Vec2(1.f / max(1u, w), 1.f / max(1u, h));
+	_dofCB->CopyData(dd);
+	shader->SetPSConstantBuffer(10, _dofCB->GetComPtr().Get());
+
+	shader->Bind();
+	shader->PushGlobalData(V, P);
+
+	DCT->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	DCT->OMSetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::DisableDepth).Get(), 0);
+	DCT->Draw(3, 0);
+	DCT->OMSetDepthStencilState(nullptr, 0);
+
+	shader->SetPSSRV(0, nullptr);
+	shader->SetPSSRV(1, nullptr);
+	DCT->CopyResource(_sceneColorTex.Get(), _dofTex.Get());
+
 	ID3D11RenderTargetView* scRTV = _sceneColorRTV.Get();
 	DCT->OMSetRenderTargets(1, &scRTV, _gBuffer->GetDSV().Get());
 }

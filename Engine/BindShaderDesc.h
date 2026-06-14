@@ -117,6 +117,17 @@ struct ExposureDesc
 	Vec2  padding;
 };
 
+// Depth of Field (Dof b10) — HLSL DofBuffer 와 일치
+struct DofDesc
+{
+	float focusDist = 25.f;
+	float focusRange = 40.f;
+	float maxCoC = 7.f;
+	float pad = 0.f;
+	Vec2  invScreen = Vec2(1.f / 1280.f, 1.f / 720.f);
+	Vec2  pad2;
+};
+
 // 볼류메트릭 라이트 (Volumetric b10) — HLSL VolumetricBuffer 와 일치
 struct VolumetricDesc
 {

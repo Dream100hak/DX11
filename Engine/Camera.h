@@ -65,6 +65,15 @@ public:
 			ImGui::DragFloat("Vol Intensity", &_volIntensity, 0.02f, 0.f, 5.f);
 			ImGui::DragFloat("Vol Scatter G", &_volScatterG, 0.01f, 0.f, 0.95f);
 		}
+
+		ImGui::SeparatorText("Depth of Field");
+		ImGui::Checkbox("DoF", &_dofEnabled);
+		if (_dofEnabled)
+		{
+			ImGui::DragFloat("Focus Dist", &_dofFocusDist, 0.5f, 0.f, 2000.f);
+			ImGui::DragFloat("Focus Range", &_dofFocusRange, 0.5f, 1.f, 2000.f);
+			ImGui::DragFloat("Max Blur", &_dofMaxCoC, 0.1f, 0.f, 30.f);
+		}
 	}
 
 
@@ -203,6 +212,17 @@ private:
 	ComPtr<ID3D11ShaderResourceView> _volSRV;
 	shared_ptr<ConstantBuffer<struct VolumetricDesc>> _volCB;
 	void RenderVolumetric(const Matrix& V, const Matrix& P, uint32 w, uint32 h);
+
+	// Depth of Field — Pass 3 직후 HDR sceneColor 에 깊이 기반 가변 블러
+	bool  _dofEnabled = false;
+	float _dofFocusDist = 25.f;
+	float _dofFocusRange = 40.f;
+	float _dofMaxCoC = 7.f;
+	ComPtr<ID3D11Texture2D>          _dofTex;
+	ComPtr<ID3D11RenderTargetView>   _dofRTV;
+	ComPtr<ID3D11ShaderResourceView> _dofSRV;
+	shared_ptr<ConstantBuffer<struct DofDesc>> _dofCB;
+	void RenderDoF(const Matrix& V, const Matrix& P, uint32 w, uint32 h);
 
 	// IBL (DeferredLighting b8)
 	float _envIntensity = 1.f;

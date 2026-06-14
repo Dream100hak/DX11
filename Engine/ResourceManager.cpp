@@ -386,6 +386,16 @@ void ResourceManager::CreateDeferredShaders()
 		GetOrAddHlslShader(L"Volumetric_HLSL", desc);
 	}
 
+	// Depth of Field (풀스크린)
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Dof.hlsl";
+		desc.psFile  = L"Dof.hlsl";
+		desc.vsEntry = "VS_Main";
+		desc.psEntry = "PS_Main";
+		GetOrAddHlslShader(L"Dof_HLSL", desc);
+	}
+
 	// Tonemap (HDR sceneColor -> 백스크린 ACES + 감마 보정)
 	{
 		HlslShaderDesc desc;

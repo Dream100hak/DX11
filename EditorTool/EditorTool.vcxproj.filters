@@ -280,6 +280,9 @@
     <None Include="..\Shaders\HLSL\Volumetric.hlsl">
       <Filter>Shaders\HLSL</Filter>
     </None>
+    <None Include="..\Shaders\HLSL\Dof.hlsl">
+      <Filter>Shaders\HLSL</Filter>
+    </None>
     <None Include="..\Shaders\HLSL\Thumbnail.hlsl">
       <Filter>Shaders\HLSL</Filter>
     </None>

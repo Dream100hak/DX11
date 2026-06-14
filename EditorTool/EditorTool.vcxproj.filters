@@ -232,8 +232,12 @@
     <None Include="..\Shaders\HLSL\Lighting.hlsli">
       <Filter>Shaders\HLSL</Filter>
     </None>
-    <None Include="..\Shaders\HLSL\Standard_VS.hlsl" />
-    <None Include="..\Shaders\HLSL\Standard_PS.hlsl" />
+    <None Include="..\Shaders\HLSL\Standard_VS.hlsl">
+      <Filter>Shaders\HLSL</Filter>
+    </None>
+    <None Include="..\Shaders\HLSL\Standard_PS.hlsl">
+      <Filter>Shaders\HLSL</Filter>
+    </None>
     <None Include="..\Shaders\HLSL\Collider.hlsl">
       <Filter>Shaders\HLSL</Filter>
     </None>
@@ -259,6 +263,21 @@
       <Filter>Shaders\HLSL</Filter>
     </None>
     <None Include="..\Shaders\HLSL\Terrain.hlsl">
+      <Filter>Shaders\HLSL</Filter>
+    </None>
+    <None Include="..\Shaders\HLSL\Grass.hlsl">
+      <Filter>Shaders\HLSL</Filter>
+    </None>
+    <None Include="..\Shaders\HLSL\Tree.hlsl">
+      <Filter>Shaders\HLSL</Filter>
+    </None>
+    <None Include="..\Shaders\HLSL\Ssr.hlsl">
+      <Filter>Shaders\HLSL</Filter>
+    </None>
+    <None Include="..\Shaders\HLSL\Exposure.hlsl">
+      <Filter>Shaders\HLSL</Filter>
+    </None>
+    <None Include="..\Shaders\HLSL\Volumetric.hlsl">
       <Filter>Shaders\HLSL</Filter>
     </None>
     <None Include="..\Shaders\HLSL\Thumbnail.hlsl">

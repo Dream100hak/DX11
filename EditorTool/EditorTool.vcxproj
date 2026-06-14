@@ -110,6 +110,11 @@
     <None Include="..\Shaders\HLSL\SceneGrid.hlsl" />
     <None Include="..\Shaders\HLSL\DebugTexture.hlsl" />
     <None Include="..\Shaders\HLSL\CubeMap.hlsl" />
+    <None Include="..\Shaders\HLSL\Grass.hlsl" />
+    <None Include="..\Shaders\HLSL\Tree.hlsl" />
+    <None Include="..\Shaders\HLSL\Ssr.hlsl" />
+    <None Include="..\Shaders\HLSL\Exposure.hlsl" />
+    <None Include="..\Shaders\HLSL\Volumetric.hlsl" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

@@ -205,8 +205,12 @@
     <ClInclude Include="Renderer.h">
       <Filter>05. Component</Filter>
     </ClInclude>
-    <ClInclude Include="Foliage.h" />
-    <ClInclude Include="Frustum.h" />
+    <ClInclude Include="Foliage.h">
+      <Filter>05. Component</Filter>
+    </ClInclude>
+    <ClInclude Include="Frustum.h">
+      <Filter>01. Graphics\Render</Filter>
+    </ClInclude>
     <ClInclude Include="RenderStateManager.h">
       <Filter>02. Managers</Filter>
     </ClInclude>
@@ -216,9 +220,15 @@
     <ClInclude Include="RenderContext.h">
       <Filter>01. Graphics\Render</Filter>
     </ClInclude>
-    <ClInclude Include="GBuffer.h" />
-    <ClInclude Include="Ibl.h" />
-    <ClInclude Include="ImGuizmo.h" />
+    <ClInclude Include="GBuffer.h">
+      <Filter>01. Graphics\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Ibl.h">
+      <Filter>01. Graphics\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="ImGuizmo.h">
+      <Filter>98. Utils\ImGUI</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -416,17 +426,27 @@
     <ClCompile Include="Renderer.cpp">
       <Filter>05. Component</Filter>
     </ClCompile>
-    <ClCompile Include="Foliage.cpp" />
-    <ClCompile Include="Frustum.cpp" />
+    <ClCompile Include="Foliage.cpp">
+      <Filter>05. Component</Filter>
+    </ClCompile>
+    <ClCompile Include="Frustum.cpp">
+      <Filter>01. Graphics\Render</Filter>
+    </ClCompile>
     <ClCompile Include="RenderStateManager.cpp">
       <Filter>02. Managers</Filter>
     </ClCompile>
     <ClCompile Include="HlslShader.cpp">
       <Filter>01. Graphics\Shader</Filter>
     </ClCompile>
-    <ClCompile Include="GBuffer.cpp" />
-    <ClCompile Include="Ibl.cpp" />
-    <ClCompile Include="ImGuizmo.cpp" />
+    <ClCompile Include="GBuffer.cpp">
+      <Filter>01. Graphics\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Ibl.cpp">
+      <Filter>01. Graphics\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="ImGuizmo.cpp">
+      <Filter>98. Utils\ImGUI</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="98. Utils">

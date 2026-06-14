@@ -136,6 +136,7 @@ std::shared_ptr<Material> Material::Clone()
 	material->_specularMap  = _specularMap;
 	material->_shadowMap    = _shadowMap;
 	material->_spotShadowMap = _spotShadowMap;
+	material->_pointShadowCube = _pointShadowCube;
 	material->_ssaoMap      = _ssaoMap;
 	material->_renderQueue  = _renderQueue;   // 렌더 큐도 복사
 

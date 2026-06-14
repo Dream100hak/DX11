@@ -41,6 +41,18 @@ void Light::Update()
 	{
 		UpdateMatrix();
 	}
+	else
+	{
+		// 스팟/포인트: 트랜스폼 전방(Look)을 라이트 방향으로 — 기즈모 회전으로 조준.
+		// (이게 없으면 _desc.direction 이 (0,0,0) 이라 스팟 콘 판정이 0 → 빛이 안 나가고
+		//  콘 기즈모도 고정됨 = "기즈모 넣었더니 라이트 동작 안 함"의 원인)
+		Vec3 look = GetTransform()->GetLook();
+		if (look.LengthSquared() > 1e-6f)
+		{
+			look.Normalize();
+			_desc.direction = look;
+		}
+	}
 }
 
 void Light::UpdateMatrix()

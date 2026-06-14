@@ -1,17 +1,31 @@
 #pragma once
-// 점/스팟 라이트 그림자 — 현재는 스팟 라이트 원근 섀도우맵 (Texture2DArray, MAX_PUNCTUAL_SHADOWS 슬라이스).
-// Draw 가 씬의 그림자-캐스팅 스팟 라이트에 슬롯을 할당하고 슬롯별 깊이를 렌더.
-// (포인트 라이트 큐브맵은 다음 단계)
+// 점/스팟 라이트 그림자.
+//  - 스팟: 원근 섀도우맵 (Texture2DArray, MAX_PUNCTUAL_SHADOWS 슬롯) — 베이스 Texture SRV
+//  - 포인트: 큐브 섀도우맵 (TextureCubeArray, MAX_PUNCTUAL_SHADOWS 큐브 × 6면) — _pointCubeSRV
+// Draw 가 그림자-캐스팅 점/스팟 라이트에 슬롯을 할당하고 깊이를 렌더.
 class PunctualShadowMap : public Texture
 {
 public:
-	PunctualShadowMap(uint32 size);
+	PunctualShadowMap(uint32 spotSize, uint32 pointSize);
 	~PunctualShadowMap();
 
-	void Draw(); // 스팟 그림자 슬롯 할당 + 슬롯별 깊이 렌더 + Light::S_SpotVPT 채움
+	void Draw();
+
+	ComPtr<ID3D11ShaderResourceView> GetPointCubeSRV() { return _pointCubeSRV; }
 
 private:
-	uint32 _size;
-	ComPtr<ID3D11DepthStencilView> _slotDSV[MAX_PUNCTUAL_SHADOWS];
-	Viewport _vp;
+	void CreateSpotArray();
+	void CreatePointCubeArray();
+
+	uint32 _spotSize;
+	uint32 _pointSize;
+
+	// 스팟 (원근 2D 배열) — SRV 는 베이스 Texture::_shaderResourveView
+	ComPtr<ID3D11DepthStencilView> _spotDSV[MAX_PUNCTUAL_SHADOWS];
+	Viewport _spotVp;
+
+	// 포인트 (큐브 배열) — 6면 × 큐브 수 만큼의 DSV + 큐브배열 SRV
+	ComPtr<ID3D11DepthStencilView> _pointFaceDSV[MAX_PUNCTUAL_SHADOWS * 6];
+	ComPtr<ID3D11ShaderResourceView> _pointCubeSRV;
+	Viewport _pointVp;
 };

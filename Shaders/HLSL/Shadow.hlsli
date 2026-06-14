@@ -19,11 +19,11 @@ static const float SMAP_DX   = 1.0f / SMAP_SIZE;
 // 캐스케이드 배열 슬라이스 PCF 9-tap
 //  shadowMap : 캐스케이드 Texture2DArray, slice : 캐스케이드 인덱스
 //  shadowPos : worldPos 를 해당 캐스케이드 V*P*T 로 변환한 동차좌표
-float CalcShadowFactorArray(Texture2DArray shadowMap, int slice, float4 shadowPos)
+float CalcShadowFactorArray(Texture2DArray shadowMap, int slice, float4 shadowPos, float bias)
 {
     shadowPos.xyz /= shadowPos.w;
 
-    float depth = shadowPos.z;
+    float depth = shadowPos.z - bias; // 섀도 아크네(지글지글 줄무늬) 방지용 깊이 바이어스
     const float dx = SMAP_DX;
 
     const float2 offsets[9] =
@@ -44,6 +44,12 @@ float CalcShadowFactorArray(Texture2DArray shadowMap, int slice, float4 shadowPo
     }
 
     return percentLit / 9.0f;
+}
+
+// 바이어스 없는 오버로드 (CSM 등 기존 호출 호환)
+float CalcShadowFactorArray(Texture2DArray shadowMap, int slice, float4 shadowPos)
+{
+    return CalcShadowFactorArray(shadowMap, slice, shadowPos, 0.0f);
 }
 
 // 레거시 단일 섀도우 호환 — 캐스케이드 0 슬라이스 샘플 (포워드/터레인 포워드용)

@@ -12,13 +12,14 @@ void TextureManager::Init()
 	auto camera = CUR_SCENE->GetMainCamera()->GetCamera();
 
 	_smap = make_shared<ShadowMap>(2048, 2048);
-	_punctual = make_shared<PunctualShadowMap>(1024);
+	_punctual = make_shared<PunctualShadowMap>(1024, 512); // 스팟 1024, 포인트 큐브면 512
 	_ssao = make_shared<Ssao>(GAME->GetSceneDesc().width, GAME->GetSceneDesc().height, camera->GetFov(), camera->GetFar());
 
 	auto mat = RESOURCES->Get<Material>(L"DefaultMaterial");
 
 	mat->SetShadowMap(_smap);
 	mat->SetSpotShadowMap(_punctual);
+	mat->SetPointShadowCube(_punctual->GetPointCubeSRV());
 	mat->SetSsaoMap(_ssao->GetAmbientPtr());
 
 	// ?붾쾭洹??띿뒪泥섎뒗 ?꾩옱 ImGui::Image(EditorTool::DrawRenderTextures)濡??쒖떆?섎?濡?

@@ -40,8 +40,10 @@ shared_ptr<LightArrayDesc> Camera::CollectLights(shared_ptr<Scene> scene)
 		data.range      = lc->GetRange();
 		data.attenuation = lc->GetAttenuation();
 		data.spotAngle  = lc->GetSpotAngleCos();
-		// 점/스팟 그림자 슬롯 (PunctualShadowMap::Draw 가 같은 프레임 pre-render 에서 할당) — 스팟만 적용
-		data.shadowIndex = (lc->GetLightType() == LightType::Spot) ? lc->GetShadowSlot() : -1;
+		// 점/스팟 그림자 슬롯 (PunctualShadowMap::Draw 가 같은 프레임 pre-render 에서 할당)
+		// 스팟=2D 배열 슬롯, 포인트=큐브 배열 슬롯 (셰이더에서 type 으로 분기)
+		data.shadowIndex = (lc->GetLightType() == LightType::Spot || lc->GetLightType() == LightType::Point)
+			? lc->GetShadowSlot() : -1;
 
 		lightArray->lightCount++;
 	}
@@ -295,6 +297,8 @@ void Camera::Render_Deferred()
 		{
 			if (mat->GetSpotShadowMap())
 				lightingShader->SetPSSRV(9, mat->GetSpotShadowMap()->GetComPtr().Get());
+			if (mat->GetPointShadowCube())
+				lightingShader->SetPSSRV(10, mat->GetPointShadowCube().Get());
 		}
 		if (_punctualCB == nullptr)
 		{

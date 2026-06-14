@@ -68,12 +68,27 @@ cbuffer LightArrayBuffer : register(b7)
     float3 lightPadding;
 };
 
-// 점/스팟 그림자 — 스팟 라이트 원근 섀도우 배열 + 슬롯별 V*P*T
-Texture2DArray SpotShadowMap : register(t9);
+// 점/스팟 그림자
+Texture2DArray   SpotShadowMap  : register(t9);  // 스팟 원근 섀도우 배열
+TextureCubeArray PointShadowCube : register(t10); // 포인트 큐브 섀도우 배열 (깊이)
 cbuffer PunctualShadowBuffer : register(b10)
 {
     matrix SpotVPT[4];
 };
+
+// 포인트 큐브 그림자 — 방향으로 샘플, 메이저축 거리로 NDC 깊이 재구성해 비교
+//  lightPos→frag 방향의 큐브 깊이(가장 가까운 캐스터)와 현재 프래그 깊이 비교
+float PointShadowFactor(int cubeIndex, float3 fragToLight, float range)
+{
+    float3 dir = -fragToLight; // light → frag
+    float  major = max(abs(dir.x), max(abs(dir.y), abs(dir.z)));
+    float  nearZ = 0.1f;
+    float  farZ = max(range, nearZ + 1.0f);
+    // XMMatrixPerspectiveFovLH 의 z_ndc = f*(viewZ-n)/(viewZ*(f-n)), viewZ = major
+    float  compareDepth = farZ * (major - nearZ) / (major * (farZ - nearZ));
+    compareDepth -= 0.003f; // 바이어스 (셀프 섀도우 방지)
+    return PointShadowCube.SampleCmpLevelZero(ShadowSampler, float4(dir, (float)cubeIndex), compareDepth).r;
+}
 
 struct LightingVSOutput
 {
@@ -185,7 +200,12 @@ float4 PS_Main(LightingVSOutput input) : SV_TARGET
             float d = length(toLight);
             if (d > lights[i].range) continue;
             L = toLight / d;
-            att = 1.0f / (lights[i].attenuation.x + lights[i].attenuation.y * d + lights[i].attenuation.z * d * d);
+            // 부드러운 거리 감쇠: 라이트 근처 ~1, range 경계에서 0.
+            // 물리 역제곱(1/(c+ld+qd²))은 에디터 스케일(range 수십m)에서 너무 빨리 깜깜해져
+            // 바닥에 빛 풀이 안 보였음 → (1-t²)² 윈도우로 교체 (t = d/range).
+            float distT = d / lights[i].range;
+            float window = saturate(1.0f - distT * distT);
+            att = window * window;
 
             if (lights[i].type == 2)
             {
@@ -208,6 +228,11 @@ float4 PS_Main(LightingVSOutput input) : SV_TARGET
         {
             lightShadow = shadowFactor; // CSM
         }
+        else if (lights[i].type == 1 && lights[i].shadowIndex >= 0)
+        {
+            // 포인트: 큐브 그림자 (frag→light = position - worldPos)
+            lightShadow = PointShadowFactor(lights[i].shadowIndex, lights[i].position - worldPos, lights[i].range);
+        }
         else if (lights[i].type == 2 && lights[i].shadowIndex >= 0)
         {
             float4 sp = mul(float4(worldPos, 1.0f), SpotVPT[lights[i].shadowIndex]);
@@ -218,7 +243,9 @@ float4 PS_Main(LightingVSOutput input) : SV_TARGET
                     sndc.y > 0.001f && sndc.y < 0.999f &&
                     sndc.z > 0.0f   && sndc.z < 1.0f)
                 {
-                    lightShadow = CalcShadowFactorArray(SpotShadowMap, lights[i].shadowIndex, sp);
+                    // 경사 기반 바이어스: 빛에 비스듬할수록(NdotL 작을수록) 크게 — 아크네 줄무늬 제거
+                    float spotBias = 0.0015f + 0.006f * (1.0f - saturate(NdotL));
+                    lightShadow = CalcShadowFactorArray(SpotShadowMap, lights[i].shadowIndex, sp, spotBias);
                 }
             }
         }

@@ -82,6 +82,9 @@ public:
 	// Render_Deferred 최종 출력 오버라이드 — nullptr 이면 백버퍼 (Game 뷰가 자기 RT 지정)
 	void SetFinalOutput(ComPtr<ID3D11RenderTargetView> rtv) { _finalRTV = rtv; }
 
+	float GetEnvIntensity() const { return _envIntensity; }
+	void  SetEnvIntensity(float v) { _envIntensity = v; }
+
 private:
 	ProjectionType _type = ProjectionType::Perspective;
 	Matrix _matView = Matrix::Identity;

@@ -577,6 +577,31 @@ void Terrain::RenderFoliageGBuffer(Matrix V, Matrix P, float dt)
 		_foliage->RenderGBuffer(V, P, dt);
 }
 
+void Terrain::GenerateTrees(int32 count, float widthScale, float heightScale, int32 densityLayer)
+{
+	if (_trees == nullptr)
+	{
+		_trees = make_shared<Foliage>();
+		_trees->SetKind(FoliageKind::Tree);
+		_trees->Params().MaxDist = 400.f;   // 나무는 멀리까지 보이게
+		_trees->Params().FadeRange = 80.f;
+		_trees->Params().WindStrength = 0.15f;
+	}
+	_trees->Generate(this, count, widthScale, heightScale, densityLayer);
+}
+
+void Terrain::ClearTrees()
+{
+	if (_trees)
+		_trees->Clear();
+}
+
+void Terrain::RenderTreesGBuffer(Matrix V, Matrix P, float dt)
+{
+	if (_trees)
+		_trees->RenderGBuffer(V, P, dt);
+}
+
 void Terrain::EnsureEditableBlend()
 {
 	if (_blendEditable || _blendMap == nullptr)

@@ -336,6 +336,16 @@ void ResourceManager::CreateDeferredShaders()
 		GetOrAddHlslShader(L"Grass_GBuffer_HLSL", desc);
 	}
 
+	// 식생(나무) GBuffer — 인스턴스 저폴리 메시(줄기+캐노피)
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Tree.hlsl";
+		desc.psFile  = L"Tree.hlsl";
+		desc.vsEntry = "VS_Tree";
+		desc.psEntry = "PS_Tree";
+		GetOrAddHlslShader(L"Tree_GBuffer_HLSL", desc);
+	}
+
 	// Deferred Lighting (fullscreen triangle, no vertex buffer)
 	{
 		HlslShaderDesc desc;

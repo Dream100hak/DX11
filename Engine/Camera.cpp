@@ -222,8 +222,10 @@ void Camera::Render_Deferred()
 		if (auto terrain = terrainObj->GetTerrain())
 		{
 			terrain->TerrainRendererGBuffer(V, P);
-			// 식생(잔디) — 터레인 직후 GBuffer 로 (바람 애니: 프레임 델타 누적)
-			terrain->RenderFoliageGBuffer(V, P, GET_SINGLE(TimeManager)->GetDeltaTime());
+			// 식생 — 터레인 직후 GBuffer 로 (바람 애니: 프레임 델타 누적)
+			float dt = GET_SINGLE(TimeManager)->GetDeltaTime();
+			terrain->RenderFoliageGBuffer(V, P, dt); // 잔디
+			terrain->RenderTreesGBuffer(V, P, dt);   // 나무
 		}
 	}
 

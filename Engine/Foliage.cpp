@@ -22,6 +22,17 @@ void Foliage::EnsureResources()
 	if (_quadVB != nullptr)
 		return;
 
+	if (_kind == FoliageKind::Tree)
+		BuildTreeMesh();
+	else
+		BuildGrassMesh();
+
+	_paramsCB = make_shared<ConstantBuffer<GrassParamsDesc>>();
+	_paramsCB->Create();
+}
+
+void Foliage::BuildGrassMesh()
+{
 	const float hw = 0.5f, H = 1.0f;
 
 	// 크로스 쿼드 — 수직 두 장(XY/ZY)으로 모든 각도에서 보이게. 노멀은 셰이더가 위쪽으로 덮음.
@@ -47,9 +58,59 @@ void Foliage::EnsureResources()
 	_quadIB->Create(idx);
 
 	_shader = RESOURCES->Get<HlslShader>(L"Grass_GBuffer_HLSL");
+}
 
-	_paramsCB = make_shared<ConstantBuffer<GrassParamsDesc>>();
-	_paramsCB->Create();
+void Foliage::BuildTreeMesh()
+{
+	// 저폴리 나무 — 육각 줄기 기둥(uv.x=0 갈색) + 원뿔 캐노피(uv.x=1 초록).
+	// 로컬 단위: 밑동 y=0, 줄기 끝 hT, 캐노피 apex yTop. 인스턴스 스케일로 전체 크기 조절.
+	const int32 seg = 6;
+	const float rT = 0.10f, hT = 1.1f;   // 줄기 반경/높이
+	const float rC = 0.85f, yC0 = 0.8f, yTop = 3.0f; // 캐노피 밑반경/시작높이/끝
+
+	vector<VertexTextureNormalData> v;
+	vector<uint32> idx;
+
+	// ── 줄기(육각 기둥) ──
+	for (int32 i = 0; i < seg; ++i)
+	{
+		float a = (float)i / seg * 6.2831853f;
+		float nx = cosf(a), nz = sinf(a);
+		// 아래/위 링 정점 (uv.x=0)
+		v.push_back({ Vec3(nx * rT, 0.f, nz * rT), Vec2(0.f, 0.f), Vec3(nx, 0.f, nz) });
+		v.push_back({ Vec3(nx * rT, hT, nz * rT), Vec2(0.f, 1.f), Vec3(nx, 0.f, nz) });
+	}
+	for (int32 i = 0; i < seg; ++i)
+	{
+		int32 a0 = i * 2, a1 = i * 2 + 1;
+		int32 b0 = ((i + 1) % seg) * 2, b1 = ((i + 1) % seg) * 2 + 1;
+		idx.insert(idx.end(), { (uint32)a0,(uint32)b0,(uint32)a1, (uint32)a1,(uint32)b0,(uint32)b1 });
+	}
+
+	// ── 캐노피(원뿔) ── apex + 밑링 (uv.x=1)
+	uint32 apex = (uint32)v.size();
+	v.push_back({ Vec3(0.f, yTop, 0.f), Vec2(1.f, 1.f), Vec3(0.f, 1.f, 0.f) });
+	uint32 ringStart = (uint32)v.size();
+	for (int32 i = 0; i < seg; ++i)
+	{
+		float a = (float)i / seg * 6.2831853f;
+		float nx = cosf(a), nz = sinf(a);
+		Vec3 nrm = Vec3(nx, 0.5f, nz); nrm.Normalize();
+		v.push_back({ Vec3(nx * rC, yC0, nz * rC), Vec2(1.f, 0.f), nrm });
+	}
+	for (int32 i = 0; i < seg; ++i)
+	{
+		uint32 c0 = ringStart + i;
+		uint32 c1 = ringStart + (i + 1) % seg;
+		idx.insert(idx.end(), { apex, c0, c1 });
+	}
+
+	_quadVB = make_shared<VertexBuffer>();
+	_quadVB->Create(v, 0, false);
+	_quadIB = make_shared<IndexBuffer>();
+	_quadIB->Create(idx);
+
+	_shader = RESOURCES->Get<HlslShader>(L"Tree_GBuffer_HLSL");
 }
 
 void Foliage::Generate(Terrain* terrain, int32 count, float widthScale, float heightScale, int32 densityLayer)

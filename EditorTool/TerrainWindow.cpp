@@ -137,5 +137,25 @@ void TerrainWindow::Update()
 		ImGui::DragFloat("Fade Range", &fo->Params().FadeRange, 0.5f, 1.f, 500.f);
 	}
 
+	ImGui::SeparatorText("Foliage (Trees)");
+	static int32 treeCount = 300;
+	static float treeW = 1.4f, treeH = 2.2f;
+	static int32 treeDensity = 0; // 0=Uniform, 1..5=레이어0..4
+	ImGui::DragInt("Tree Count", &treeCount, 5.f, 0, 50000);
+	ImGui::DragFloat("Tree Scale W", &treeW, 0.02f, 0.1f, 10.f);
+	ImGui::DragFloat("Tree Scale H", &treeH, 0.02f, 0.1f, 20.f);
+	ImGui::Combo("Tree Density By", &treeDensity, densItems, IM_ARRAYSIZE(densItems));
+	if (ImGui::Button("Generate Trees"))
+		terrain->GenerateTrees(treeCount, treeW, treeH, treeDensity - 1);
+	ImGui::SameLine();
+	if (ImGui::Button("Clear Trees"))
+		terrain->ClearTrees();
+	if (auto tr = terrain->GetTrees())
+	{
+		ImGui::Text("Trees: %d  (chunks %d/%d)", tr->GetCount(), tr->GetVisibleChunks(), tr->GetChunkCount());
+		ImGui::DragFloat("Tree View Dist", &tr->Params().MaxDist, 1.f, 5.f, 4000.f);
+		ImGui::DragFloat("Tree Fade", &tr->Params().FadeRange, 0.5f, 1.f, 800.f);
+	}
+
 	ImGui::End();
 }

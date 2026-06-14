@@ -81,6 +81,12 @@ public:
 	void RenderFoliageGBuffer(Matrix V, Matrix P, float dt);
 	shared_ptr<class Foliage> GetFoliage() { return _foliage; }
 
+	// 나무 — 잔디와 동일 인프라(Foliage, Tree 종류)
+	void GenerateTrees(int32 count, float widthScale, float heightScale, int32 densityLayer = -1);
+	void ClearTrees();
+	void RenderTreesGBuffer(Matrix V, Matrix P, float dt);
+	shared_ptr<class Foliage> GetTrees() { return _trees; }
+
 	// 월드(x,z)에서 블렌드 레이어 가중치 [0,1] — 식생 밀도용 (layer 0=베이스~4). 블렌드 없으면 1.
 	float SampleLayerWeight(float x, float z, int32 layer);
 
@@ -123,6 +129,7 @@ private:
 
 	shared_ptr<class TerrainMesh> _mesh = nullptr;
 	shared_ptr<class Foliage> _foliage = nullptr; // 식생(잔디)
+	shared_ptr<class Foliage> _trees = nullptr;   // 식생(나무)
 
 	TerrainBuffer _terrainDesc;
 	shared_ptr<ConstantBuffer<TerrainBuffer>> _terrainBuffer;

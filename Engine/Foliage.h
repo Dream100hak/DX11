@@ -17,11 +17,15 @@ struct GrassParamsDesc
 
 class Terrain;
 
+enum class FoliageKind { Grass, Tree };
+
 class Foliage
 {
 public:
 	Foliage();
 	~Foliage();
+
+	void SetKind(FoliageKind k) { _kind = k; } // Generate 전에 호출 (메시/셰이더 결정)
 
 	// 터레인 표면(GetHeight)에 count 개 잔디를 절차적으로 분산 생성
 	// densityLayer >= 0 이면 해당 블렌드 레이어 가중치에 비례해 분산(거부 샘플링)
@@ -36,6 +40,10 @@ public:
 
 private:
 	void EnsureResources();
+	void BuildGrassMesh(); // 크로스 쿼드(양면)
+	void BuildTreeMesh();  // 저폴리 줄기(육각 기둥) + 원뿔 캐노피
+
+	FoliageKind _kind = FoliageKind::Grass;
 
 	// 절두체 컬링 단위 — 인스턴스 버퍼의 연속 구간 + 월드 AABB
 	struct Chunk

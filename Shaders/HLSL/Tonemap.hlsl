@@ -9,6 +9,14 @@
 
 Texture2D SceneColor : register(t0);
 Texture2D BloomTex   : register(t1);
+Texture2D AvgLumMip  : register(t2); // 로그휘도 밉체인 (최상위 밉 = 평균)
+
+cbuffer ExposureBuffer : register(b8)
+{
+    int   UseExposure;
+    float ExposureKey;
+    float2 ExpPad;
+};
 
 struct TonemapVSOutput
 {
@@ -39,6 +47,17 @@ float3 ACESFilm(float3 x)
 float4 PS_Main(TonemapVSOutput input) : SV_TARGET
 {
     float3 hdr = SceneColor.Sample(PointSampler, input.uv).rgb;
+
+    // Auto-exposure — 로그휘도 밉체인 최상위(평균)로 노출 산출 후 곱함
+    if (UseExposure)
+    {
+        float avgLogLum = AvgLumMip.SampleLevel(LinearSampler, float2(0.5f, 0.5f), 20.0f).r;
+        float avgLum = exp(avgLogLum);
+        float exposure = ExposureKey / max(avgLum, 1e-3f);
+        exposure = clamp(exposure, 0.05f, 4.0f); // 과노출/암부 폭주 방지
+        hdr *= exposure;
+    }
+
     hdr += BloomTex.Sample(LinearSampler, input.uv).rgb; // Bloom 합성 (강도는 BrightPass 에서 적용)
     float3 ldr = ACESFilm(hdr);
     ldr = pow(abs(ldr), 1.0f / 2.2f); // linear -> 감마 인코딩

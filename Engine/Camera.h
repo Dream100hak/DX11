@@ -44,6 +44,10 @@ public:
 		}
 		ImGui::Checkbox("FXAA", &_fxaaEnabled);
 
+		ImGui::Checkbox("Auto Exposure", &_exposureEnabled);
+		if (_exposureEnabled)
+			ImGui::DragFloat("Exposure Key", &_exposureKey, 0.005f, 0.01f, 2.f);
+
 		ImGui::SeparatorText("IBL");
 		ImGui::DragFloat("Env Intensity", &_envIntensity, 0.01f, 0.f, 4.f);
 
@@ -170,6 +174,15 @@ private:
 	ComPtr<ID3D11RenderTargetView>   _ssrRTV;
 	ComPtr<ID3D11ShaderResourceView> _ssrSRV;
 	void RenderSSR(const Matrix& V, const Matrix& P, uint32 w, uint32 h);
+
+	// Auto-exposure — 로그휘도 밉체인으로 평균 휘도 산출 → Tonemap 에서 노출 적용
+	bool  _exposureEnabled = true;
+	float _exposureKey = 0.18f;
+	ComPtr<ID3D11Texture2D>          _lumTex;  // R16F, 풀 밉체인
+	ComPtr<ID3D11RenderTargetView>   _lumRTV;  // mip0
+	ComPtr<ID3D11ShaderResourceView> _lumSRV;
+	shared_ptr<ConstantBuffer<struct ExposureDesc>> _exposureCB;
+	void RenderLuminance(uint32 w, uint32 h);
 
 	// IBL (DeferredLighting b8)
 	float _envIntensity = 1.f;

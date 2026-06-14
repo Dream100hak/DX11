@@ -109,6 +109,14 @@ struct IblDesc
 	Vec2  padding;
 };
 
+// Auto-exposure (Tonemap b8) — HLSL ExposureBuffer 와 일치
+struct ExposureDesc
+{
+	int32 useExposure = 0;
+	float exposureKey = 0.18f; // 중간 회색 키값 (클수록 밝게)
+	Vec2  padding;
+};
+
 // CSM 런타임(b9, DeferredLighting) 버퍼 HLSL CascadeBuffer와 일치 (CASCADE_COUNT=4 가정)
 struct CascadeDesc
 {

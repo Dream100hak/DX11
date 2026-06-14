@@ -365,6 +365,10 @@ void Camera::Render_Deferred()
 	if (_bloomEnabled)
 		RenderBloom(w, h);
 
+	// ── Auto-exposure: sceneColor 평균 로그휘도 산출 (Tonemap 이 노출 적용) ──
+	if (_exposureEnabled)
+		RenderLuminance(w, h);
+
 	// 최종 출력 바인딩 — 기본은 백버퍼, _finalRTV 지정 시 외부 RT (Game 뷰)
 	auto bindFinalTarget = [&]()
 	{
@@ -409,6 +413,19 @@ void Camera::Render_Deferred()
 		tonemapShader->Bind();
 		tonemapShader->SetPSSRV(0, _sceneColorSRV.Get());
 		tonemapShader->SetPSSRV(1, _bloomEnabled ? _bloomSRV[0].Get() : nullptr);
+		tonemapShader->SetPSSRV(2, _exposureEnabled ? _lumSRV.Get() : nullptr); // 평균 휘도 밉체인
+
+		// Auto-exposure 파라미터 (b8)
+		if (_exposureCB == nullptr)
+		{
+			_exposureCB = make_shared<ConstantBuffer<ExposureDesc>>();
+			_exposureCB->Create();
+		}
+		ExposureDesc expDesc;
+		expDesc.useExposure = _exposureEnabled ? 1 : 0;
+		expDesc.exposureKey = _exposureKey;
+		_exposureCB->CopyData(expDesc);
+		tonemapShader->SetPSConstantBuffer(8, _exposureCB->GetComPtr().Get());
 
 		DCT->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		DCT->OMSetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::DisableDepth).Get(), 0);
@@ -417,6 +434,7 @@ void Camera::Render_Deferred()
 
 		tonemapShader->SetPSSRV(0, nullptr);
 		tonemapShader->SetPSSRV(1, nullptr);
+		tonemapShader->SetPSSRV(2, nullptr);
 	}
 
 	// ── FXAA: LDR 중간 버퍼 → 최종 타겟 ──
@@ -676,6 +694,28 @@ void Camera::EnsureSceneColor(uint32 w, uint32 h)
 	CHECK(DEVICE->CreateRenderTargetView(_ssrTex.Get(), nullptr, _ssrRTV.GetAddressOf()));
 	CHECK(DEVICE->CreateShaderResourceView(_ssrTex.Get(), nullptr, _ssrSRV.GetAddressOf()));
 
+	// Auto-exposure 로그휘도 밉체인 (고정 256² R16F, GenerateMips 로 평균 산출)
+	{
+		_lumTex.Reset(); _lumRTV.Reset(); _lumSRV.Reset();
+		D3D11_TEXTURE2D_DESC ld{};
+		ld.Width = 256; ld.Height = 256;
+		ld.MipLevels = 0; // 풀 밉체인
+		ld.ArraySize = 1;
+		ld.Format = DXGI_FORMAT_R16_FLOAT;
+		ld.SampleDesc.Count = 1;
+		ld.Usage = D3D11_USAGE_DEFAULT;
+		ld.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+		ld.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
+		CHECK(DEVICE->CreateTexture2D(&ld, nullptr, _lumTex.GetAddressOf()));
+
+		D3D11_RENDER_TARGET_VIEW_DESC rd{};
+		rd.Format = DXGI_FORMAT_R16_FLOAT;
+		rd.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+		rd.Texture2D.MipSlice = 0;
+		CHECK(DEVICE->CreateRenderTargetView(_lumTex.Get(), &rd, _lumRTV.GetAddressOf()));
+		CHECK(DEVICE->CreateShaderResourceView(_lumTex.Get(), nullptr, _lumSRV.GetAddressOf()));
+	}
+
 	// Bloom ping-pong (하프 해상도 HDR)
 	D3D11_TEXTURE2D_DESC bloomDesc = desc;
 	bloomDesc.Width  = max(1u, w / 2);
@@ -734,6 +774,43 @@ void Camera::RenderSSR(const Matrix& V, const Matrix& P, uint32 w, uint32 h)
 	shader->SetPSSRV(2, nullptr);
 	shader->SetPSSRV(3, nullptr);
 	DCT->CopyResource(_sceneColorTex.Get(), _ssrTex.Get());
+
+	// 렌더타겟 복원 — Pass 3(스카이박스/투명)이 sceneColor 에 이어 그리도록.
+	// (복원 안 하면 _ssrRTV 에 그려져 버려짐 → "스카이박스가 검게 보임" 버그)
+	ID3D11RenderTargetView* scRTV = _sceneColorRTV.Get();
+	DCT->OMSetRenderTargets(1, &scRTV, _gBuffer->GetDSV().Get());
+}
+
+// Auto-exposure 1단계 — sceneColor 의 로그 휘도를 _lumTex(256²) mip0 에 렌더 후 GenerateMips.
+// 최상위 밉(1×1)이 로그 휘도 평균 → Tonemap 이 노출 산출.
+void Camera::RenderLuminance(uint32 w, uint32 h)
+{
+	auto shader = RESOURCES->Get<HlslShader>(L"Luminance_HLSL");
+	if (shader == nullptr || _lumRTV == nullptr || _sceneColorSRV == nullptr)
+		return;
+
+	ID3D11RenderTargetView* rtv = _lumRTV.Get();
+	DCT->OMSetRenderTargets(1, &rtv, nullptr);
+
+	D3D11_VIEWPORT vp{};
+	vp.Width = 256.f; vp.Height = 256.f; vp.MaxDepth = 1.f;
+	DCT->RSSetViewports(1, &vp);
+
+	RENDER_STATES->BindAllSamplersPS();
+	shader->Bind();
+	shader->SetPSSRV(0, _sceneColorSRV.Get());
+
+	DCT->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	DCT->OMSetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::DisableDepth).Get(), 0);
+	DCT->Draw(3, 0);
+	DCT->OMSetDepthStencilState(nullptr, 0);
+
+	shader->SetPSSRV(0, nullptr);
+
+	// GenerateMips 전 RTV 해제 — 같은 리소스 RTV+SRV 동시 바인딩 해저드 방지
+	ID3D11RenderTargetView* nullRTV[1] = { nullptr };
+	DCT->OMSetRenderTargets(1, nullRTV, nullptr);
+	DCT->GenerateMips(_lumSRV.Get()); // 밉체인 = 점진 다운샘플 평균
 }
 
 // Bloom — sceneColor 에서 임계값 이상 휘도 추출(하프 해상도) 후 분리형 가우시안 블러.

@@ -37,6 +37,10 @@ private:
 	void CreateConstantBuffers();
 	ComPtr<ID3D12Resource> CreateUploadBuffer(const void* data, size_t size); // 단순 업로드힙 버퍼
 
+	// Phase 2 (DXR)
+	void BuildAccelerationStructures(); // 정적 지오메트리 → BLAS + TLAS (1회)
+	ComPtr<ID3D12Resource> CreateDefaultBuffer(UINT64 size, D3D12_RESOURCE_STATES state, bool allowUAV);
+
 private:
 	UINT _width = 0;
 	UINT _height = 0;
@@ -70,6 +74,14 @@ private:
 	UINT                              _indexCount = 0;
 	ComPtr<ID3D12Resource>            _cb[FRAME_COUNT];
 	void*                             _cbMapped[FRAME_COUNT] = {};
+
+	// Phase 2 — 가속구조 (BLAS/TLAS), RayQuery 인라인 RT 용
+	ComPtr<ID3D12Resource>            _blas;
+	ComPtr<ID3D12Resource>            _blasScratch;
+	ComPtr<ID3D12Resource>            _tlas;
+	ComPtr<ID3D12Resource>            _tlasScratch;
+	ComPtr<ID3D12Resource>            _instanceBuffer;
+	UINT                              _vertexCount = 0;
 
 	D3D12_RAYTRACING_TIER             _dxrTier = D3D12_RAYTRACING_TIER_NOT_SUPPORTED;
 	std::wstring                      _adapterName;

@@ -94,4 +94,12 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
+  <!-- RayQuery(SM6.5) 런타임 = dxcompiler.dll + dxil.dll 을 exe 옆으로 복사 (없으면 빌드는 통과, 런타임에 DLL 필요) -->
+  <Target Name="CopyDxcRuntime" AfterTargets="Build">
+    <ItemGroup>
+      <DxcRuntime Include="$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxcompiler.dll" />
+      <DxcRuntime Include="$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(DxcRuntime)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" ContinueOnError="true" />
+  </Target>
 </Project>

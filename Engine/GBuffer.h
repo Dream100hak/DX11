@@ -19,6 +19,7 @@ public:
 
 	ComPtr<ID3D11DepthStencilView> GetDSV() const { return _dsv; }
 	ComPtr<ID3D11ShaderResourceView> GetSRV(int index) const { return _srvs[index]; }
+	ComPtr<ID3D11RenderTargetView> GetRTV(int index) const { return _rtvs[index]; } // 데칼: 알베도 RT 단독 바인딩용
 
 	uint32 GetWidth() const { return _width; }
 	uint32 GetHeight() const { return _height; }

@@ -205,6 +205,9 @@
     <ClInclude Include="Renderer.h">
       <Filter>05. Component</Filter>
     </ClInclude>
+    <ClInclude Include="Decal.h">
+      <Filter>05. Component</Filter>
+    </ClInclude>
     <ClInclude Include="Foliage.h">
       <Filter>05. Component</Filter>
     </ClInclude>
@@ -424,6 +427,9 @@
       <Filter>00. Engine\Resource</Filter>
     </ClCompile>
     <ClCompile Include="Renderer.cpp">
+      <Filter>05. Component</Filter>
+    </ClCompile>
+    <ClCompile Include="Decal.cpp">
       <Filter>05. Component</Filter>
     </ClCompile>
     <ClCompile Include="Foliage.cpp">

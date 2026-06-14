@@ -116,6 +116,7 @@
     <None Include="..\Shaders\HLSL\Exposure.hlsl" />
     <None Include="..\Shaders\HLSL\Volumetric.hlsl" />
     <None Include="..\Shaders\HLSL\Dof.hlsl" />
+    <None Include="..\Shaders\HLSL\Decal.hlsl" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

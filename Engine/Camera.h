@@ -223,6 +223,12 @@ private:
 	shared_ptr<ConstantBuffer<struct VolumetricDesc>> _volCB;
 	void RenderVolumetric(const Matrix& V, const Matrix& P, uint32 w, uint32 h);
 
+	// 디퍼드 데칼 — GBuffer fill 직후 박스 투영으로 albedo 에 블렌드
+	shared_ptr<class VertexBuffer> _decalCubeVB;
+	shared_ptr<class IndexBuffer>  _decalCubeIB;
+	shared_ptr<ConstantBuffer<struct DecalDesc>> _decalCB;
+	void RenderDecals(const Matrix& V, const Matrix& P, uint32 w, uint32 h);
+
 	// Depth of Field — Pass 3 직후 HDR sceneColor 에 깊이 기반 가변 블러
 	bool  _dofEnabled = false;
 	float _dofFocusDist = 25.f;

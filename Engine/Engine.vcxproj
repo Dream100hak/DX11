@@ -161,6 +161,7 @@
     <ClInclude Include="ConstantBuffer.h" />
     <ClInclude Include="Define.h" />
     <ClInclude Include="EnginePch.h" />
+    <ClInclude Include="Decal.h" />
     <ClInclude Include="Foliage.h" />
     <ClInclude Include="Frustum.h" />
     <ClInclude Include="HlslShader.h" />
@@ -238,6 +239,7 @@
     <ClCompile Include="Component.cpp" />
     <ClCompile Include="ConstantBuffer.cpp" />
     <ClCompile Include="Engine.cpp" />
+    <ClCompile Include="Decal.cpp" />
     <ClCompile Include="Foliage.cpp" />
     <ClCompile Include="Frustum.cpp" />
     <ClCompile Include="HlslShader.cpp" />

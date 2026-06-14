@@ -125,6 +125,17 @@ struct AdaptDesc
 	Vec2  padding;
 };
 
+// 디퍼드 데칼 (Decal b10) — HLSL DecalBuffer 와 일치
+struct DecalDesc
+{
+	Matrix decalWorld = Matrix::Identity;
+	Matrix decalInvWorld = Matrix::Identity;
+	float  opacity = 1.f;
+	Vec3   pad;
+	Vec2   invScreen = Vec2(1.f / 1280.f, 1.f / 720.f);
+	Vec2   pad2;
+};
+
 // Depth of Field (Dof b10) — HLSL DofBuffer 와 일치
 struct DofDesc
 {

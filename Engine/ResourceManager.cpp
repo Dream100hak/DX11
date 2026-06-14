@@ -406,6 +406,16 @@ void ResourceManager::CreateDeferredShaders()
 		GetOrAddHlslShader(L"Dof_HLSL", desc);
 	}
 
+	// 디퍼드 데칼 (박스 투영)
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Decal.hlsl";
+		desc.psFile  = L"Decal.hlsl";
+		desc.vsEntry = "VS_Main";
+		desc.psEntry = "PS_Main";
+		GetOrAddHlslShader(L"Decal_HLSL", desc);
+	}
+
 	// Tonemap (HDR sceneColor -> 백스크린 ACES + 감마 보정)
 	{
 		HlslShaderDesc desc;

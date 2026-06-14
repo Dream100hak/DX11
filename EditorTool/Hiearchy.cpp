@@ -12,6 +12,7 @@
 #include "MeshRenderer.h"
 #include "Material.h"
 #include "Terrain.h"
+#include "Decal.h"
 #include "GameObject.h"
 #include <filesystem>
 #include "Camera.h"
@@ -226,7 +227,12 @@ void Hiearchy::ShowHiearchy()
 			{
 				id = CreateTerrain();
 			}
-	
+
+			if (ImGui::MenuItem("Create Decal"))
+			{
+				id = CreateDecal();
+			}
+
 			ImGui::EndMenu();
 		}
 
@@ -423,6 +429,29 @@ int32 Hiearchy::CreateTerrain()
 
 	ADDLOG("Create Terrain (flat 513x513)", LogFilter::Info);
 	return obj->GetId();
+}
+
+int32 Hiearchy::CreateDecal()
+{
+	UndoManager::Record();
+	int32 id = GUI->CreateEmptyGameObject();
+	TOOL->SetSelectedObjH(id);
+
+	auto obj = CUR_SCENE->GetCreatedObject(id);
+	obj->SetObjectName(L"Decal");
+
+	// 카메라 앞 지면 근처에 박스 배치 (Y 범위가 표면을 포함해야 투영됨)
+	auto camTr = CUR_SCENE->GetMainCamera()->GetTransform();
+	Vec3 pos = camTr->GetLocalPosition() + camTr->GetLook() * 25.f;
+	obj->GetOrAddTransform()->SetPosition(pos);
+	obj->GetOrAddTransform()->SetLocalScale(Vec3(6.f, 6.f, 6.f)); // CreateEmpty 의 0.01 원복 + 박스 크기
+
+	auto decal = make_shared<Decal>();
+	obj->AddComponent(decal);
+	decal->Init(L"../Resources/Assets/Textures/Leather.jpg"); // 기본 데칼 텍스처 (인스펙터에서 교체)
+
+	ADDLOG("Create Decal", LogFilter::Info);
+	return id;
 }
 
 // 게임 카메라 — 플레이 중 Game 뷰가 이 시점으로 렌더 (에디터 카메라와 별개)

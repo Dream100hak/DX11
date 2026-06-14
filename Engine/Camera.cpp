@@ -15,6 +15,12 @@
 #include "GBuffer.h"
 #include "HlslShader.h"
 #include "RenderStateManager.h"
+#include "GameObject.h"
+#include "Decal.h"
+#include "VertexBuffer.h"
+#include "IndexBuffer.h"
+#include "VertexData.h"
+#include "Geometry.h"
 
 shared_ptr<LightArrayDesc> Camera::CollectLights(shared_ptr<Scene> scene)
 {
@@ -230,6 +236,9 @@ void Camera::Render_Deferred()
 	}
 
 	HlslShader::S_ForceWireframe = false; // 이후 패스(라이팅/포스트)는 항상 솔리드
+
+	// ── Pass 1.5: 디퍼드 데칼 — albedo RT 에 박스 투영 블렌드 (라이팅 전) ──
+	RenderDecals(V, P, w, h);
 
 	// ── Pass 2: Deferred lighting (fullscreen) → HDR sceneColor ──
 	// 백버퍼가 아닌 씬 크기 HDR 버퍼에 라이팅 — GBuffer DSV 와 크기가 일치하므로
@@ -913,6 +922,96 @@ void Camera::RenderVolumetric(const Matrix& V, const Matrix& P, uint32 w, uint32
 	// 렌더타겟 복원 (Pass 3 가 sceneColor 에 이어 그리도록)
 	ID3D11RenderTargetView* scRTV = _sceneColorRTV.Get();
 	DCT->OMSetRenderTargets(1, &scRTV, _gBuffer->GetDSV().Get());
+}
+
+// 디퍼드 데칼 — GBuffer fill 직후 albedo RT 에 박스 투영 블렌드. 라이팅이 변형된 albedo 를 읽음.
+void Camera::RenderDecals(const Matrix& V, const Matrix& P, uint32 w, uint32 h)
+{
+	auto scene = CUR_SCENE;
+	if (scene == nullptr || _gBuffer == nullptr)
+		return;
+
+	// 씬의 데칼 수집
+	vector<shared_ptr<Decal>> decals;
+	for (auto& obj : scene->GetObjects())
+	{
+		if (obj == nullptr) continue;
+		auto d = obj->GetComponent<Decal>();
+		if (d != nullptr && d->GetTexture() != nullptr && d->GetTexture()->GetComPtr() != nullptr)
+			decals.push_back(d);
+	}
+	if (decals.empty())
+		return;
+
+	auto shader = RESOURCES->Get<HlslShader>(L"Decal_HLSL");
+	if (shader == nullptr)
+		return;
+
+	// 단위 큐브 (lazy) — 외향 CCW
+	if (_decalCubeVB == nullptr)
+	{
+		const float s = 0.5f;
+		vector<VertexTextureNormalData> v(8);
+		v[0].position = Vec3(-s, -s, -s); v[1].position = Vec3( s, -s, -s);
+		v[2].position = Vec3( s,  s, -s); v[3].position = Vec3(-s,  s, -s);
+		v[4].position = Vec3(-s, -s,  s); v[5].position = Vec3( s, -s,  s);
+		v[6].position = Vec3( s,  s,  s); v[7].position = Vec3(-s,  s,  s);
+		vector<uint32> idx = {
+			0,2,1, 0,3,2,  // -Z
+			4,5,6, 4,6,7,  // +Z
+			0,1,5, 0,5,4,  // -Y
+			3,7,6, 3,6,2,  // +Y
+			0,4,7, 0,7,3,  // -X
+			1,2,6, 1,6,5,  // +X
+		};
+		_decalCubeVB = make_shared<VertexBuffer>(); _decalCubeVB->Create(v, 0, false);
+		_decalCubeIB = make_shared<IndexBuffer>();  _decalCubeIB->Create(idx);
+	}
+	if (_decalCB == nullptr)
+	{
+		_decalCB = make_shared<ConstantBuffer<DecalDesc>>();
+		_decalCB->Create();
+	}
+
+	// albedo RT 단독 바인딩 (worldpos 는 SRV 로 읽음) + 알파 블렌드, 깊이 테스트 없음
+	ID3D11RenderTargetView* rtv = _gBuffer->GetRTV(GBuffer::RT_ALBEDO).Get();
+	DCT->OMSetRenderTargets(1, &rtv, nullptr);
+	D3D11_VIEWPORT vp{}; vp.Width = (float)w; vp.Height = (float)h; vp.MaxDepth = 1.f;
+	DCT->RSSetViewports(1, &vp);
+
+	RENDER_STATES->BindAllSamplersPS();
+	// DrawIndexed 내부 Bind 가 상태를 덮으므로 셰이더에 직접 set
+	shader->SetBlendState(RENDER_STATES->GetBS(BlendStateType::AlphaBlend));
+	shader->SetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::DisableDepth));
+	shader->SetRasterizerState(RENDER_STATES->GetRS(RasterizerStateType::SolidCullBack));
+	shader->SetPSSRV(0, _gBuffer->GetSRV(GBuffer::RT_POSITION).Get());
+
+	_decalCubeVB->PushData();
+	_decalCubeIB->PushData();
+
+	for (auto& d : decals)
+	{
+		Matrix world = d->GetGameObject()->GetTransform()->GetWorldMatrix();
+		DecalDesc dd;
+		dd.decalWorld = world;
+		dd.decalInvWorld = world.Invert();
+		dd.opacity = d->GetOpacity();
+		dd.invScreen = Vec2(1.f / max(1u, w), 1.f / max(1u, h));
+		_decalCB->CopyData(dd);
+		shader->SetVSConstantBuffer(10, _decalCB->GetComPtr().Get());
+		shader->SetPSConstantBuffer(10, _decalCB->GetComPtr().Get());
+		shader->SetPSSRV(1, d->GetTexture()->GetComPtr().Get());
+
+		shader->PushGlobalData(V, P);
+		shader->DrawIndexed(_decalCubeIB->GetCount());
+	}
+
+	shader->SetPSSRV(0, nullptr);
+	shader->SetPSSRV(1, nullptr);
+	// 셰이더 상태 원복 (다음 사용/다른 패스 영향 방지)
+	shader->SetBlendState(nullptr);
+	shader->SetDepthStencilState(nullptr);
+	shader->SetRasterizerState(nullptr);
 }
 
 // Depth of Field — sceneColor + GBuffer worldpos(깊이) 로 CoC 가변 블러. SSR/Vol 과 동일 패턴.

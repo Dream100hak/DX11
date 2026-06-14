@@ -1,6 +1,8 @@
 #include "pch.h"
 #include <fstream>
 #include <sstream>
+#include <filesystem>
+#include <algorithm>
 #include "TerrainMesh.h"
 #include "Terrain.h"
 #include "MathUtils.h"
@@ -25,7 +27,15 @@ void TerrainMesh::CreateTerrain(const TerrainInfo& initInfo)
 	_numIndices = (_cols - 1) * (_cols - 1);
 
 	LoadHeightmap();
-	Smooth();
+
+	// 편집본(.r32)은 이미 최종 높이 — Smooth 를 돌리면 재로드마다 미세하게 변형되므로 생략.
+	{
+		std::string ext = std::filesystem::path(_info.heightMapFilename).extension().string();
+		std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+		if (ext != ".r32")
+			Smooth();
+	}
+
 	CalcAllPatchBoundsY();
 
 	_geometry = make_shared<Geometry<VertexTerrain>>();
@@ -130,29 +140,29 @@ void TerrainMesh::CreateBuffers()
 
 void TerrainMesh::LoadHeightmap()
 {
-	// A height for each vertex
-	std::vector<unsigned char> in(_info.heightmapWidth * _info.heightmapHeight);
+	const size_t count = (size_t)_info.heightmapHeight * _info.heightmapWidth;
+	_heightmap.assign(count, 0.f);
 
-	// Open the file.
-	std::ifstream inFile;
-	inFile.open(_info.heightMapFilename.c_str(), std::ios_base::binary);
+	// 확장자 판별 — .r32 = 에디터 저장본(float32 절대 높이), 그 외 = 8-bit RAW(스케일 적용)
+	std::string ext = std::filesystem::path(_info.heightMapFilename).extension().string();
+	std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 
-	if (inFile)
+	if (ext == ".r32")
 	{
-		// Read the RAW bytes.
+		std::ifstream inFile(_info.heightMapFilename.c_str(), std::ios_base::binary);
+		if (inFile)
+			inFile.read(reinterpret_cast<char*>(_heightmap.data()), (std::streamsize)(count * sizeof(float)));
+		return;
+	}
+
+	// 기존 8-bit RAW 경로 — 픽셀(0~255)을 heightScale 로 스케일
+	std::vector<unsigned char> in(count);
+	std::ifstream inFile(_info.heightMapFilename.c_str(), std::ios_base::binary);
+	if (inFile)
 		inFile.read((char*)&in[0], (std::streamsize)in.size());
 
-		// Done with file.
-		inFile.close();
-	}
-
-	// Copy the array data into a float array and scale it.
-	_heightmap.resize(_info.heightmapHeight * _info.heightmapWidth, 0);
-
-	for (uint32 i = 0; i < _info.heightmapHeight * _info.heightmapWidth; ++i)
-	{
+	for (size_t i = 0; i < count; ++i)
 		_heightmap[i] = (in[i] / 255.0f) * _info.heightScale;
-	}
 }
 
 void TerrainMesh::Smooth()

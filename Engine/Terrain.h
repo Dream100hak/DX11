@@ -69,6 +69,11 @@ public:
 	float GetWorldDepth() const;
 	shared_ptr<class TerrainMesh> GetTerrainMesh() { return _mesh; }
 
+	// 편집 결과를 파일로 저장: 높이맵=float32 raw(.r32), 블렌드=.dds.
+	// TerrainInfo 파일명을 편집본으로 갱신 → 이후 File>Save Scene 하면 .scene 에 영속되어
+	// 다음 로드 때 편집된 지형이 그대로 재생성된다. 성공 시 true.
+	bool SaveEditedTerrain();
+
 	void TerrainRenderer(Matrix V, Matrix P);
 	void TerrainRendererGBuffer(Matrix V, Matrix P);     // ?뷀띁??GBuffer fill (Camera::Render_Deferred Pass 1)
 	void TerrainRendererNotPS(Matrix V, Matrix P);

@@ -1,5 +1,6 @@
 #include "pch.h"
 #include <filesystem>
+#include <fstream>
 #include "Terrain.h"
 #include "MathUtils.h"
 #include "Camera.h"
@@ -603,6 +604,51 @@ void Terrain::UploadBlend()
 	if (_blendEditTex == nullptr)
 		return;
 	DCT->UpdateSubresource(_blendEditTex.Get(), 0, nullptr, _blendCPU.data(), _blendW * 4, 0);
+}
+
+bool Terrain::SaveEditedTerrain()
+{
+	if (_mesh == nullptr)
+		return false;
+
+	namespace fs = std::filesystem;
+
+	// ── 높이맵 → float32 raw (.r32). 원본과 같은 폴더, "<stem>_edit.r32" ──
+	fs::path hpath = _info.heightMapFilename.empty()
+		? fs::path(L"../Resources/Assets/Textures/Terrain/terrain.r32")
+		: fs::path(_info.heightMapFilename);
+	hpath.replace_filename(hpath.stem().wstring() + L"_edit.r32");
+	{
+		auto& hm = _mesh->HeightMapRef();
+		std::ofstream out(hpath, std::ios::binary);
+		if (out.is_open() == false)
+			return false;
+		out.write(reinterpret_cast<const char*>(hm.data()), (std::streamsize)(hm.size() * sizeof(float)));
+	}
+	_info.heightMapFilename = hpath.wstring();
+
+	// ── 블렌드 → DDS (편집본이 승격된 경우만; 미페인트면 원본 유지) ──
+	if (_blendEditable && _blendW > 0 && _blendH > 0)
+	{
+		fs::path bpath = _info.blendMapFilename.empty()
+			? fs::path(L"../Resources/Assets/Textures/Terrain/blend.dds")
+			: fs::path(_info.blendMapFilename);
+		bpath.replace_filename(bpath.stem().wstring() + L"_edit.dds");
+
+		DirectX::Image img{};
+		img.width = _blendW;
+		img.height = _blendH;
+		img.format = DXGI_FORMAT_B8G8R8A8_UNORM;
+		img.rowPitch = (size_t)_blendW * 4;
+		img.slicePitch = (size_t)_blendW * _blendH * 4;
+		img.pixels = _blendCPU.data();
+
+		if (FAILED(::SaveToDDSFile(img, DirectX::DDS_FLAGS_NONE, bpath.c_str())))
+			return false;
+		_info.blendMapFilename = bpath.wstring();
+	}
+
+	return true;
 }
 
 void Terrain::PaintLayer(const Vec3& worldHit, float radius, float strength, int32 layer)

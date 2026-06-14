@@ -3,6 +3,8 @@
 #include "Terrain.h"
 #include "GameObject.h"
 #include "Utils.h"
+#include "Define.h"
+#include "LogWindow.h"
 #include <filesystem>
 #include <string>
 
@@ -87,6 +89,16 @@ void TerrainWindow::Update()
 	ImGui::DragFloat("Flat Height", &flatHeight, 0.1f);
 	if (ImGui::Button("Flatten All"))
 		terrain->FlattenAll(flatHeight);
+
+	ImGui::SeparatorText("Save / Load");
+	if (ImGui::Button("Save Terrain Files"))
+	{
+		if (terrain->SaveEditedTerrain())
+			ADDLOG("Terrain saved (*_edit.r32 + *_edit.dds). Now File > Save Scene to persist.", LogFilter::Info);
+		else
+			ADDLOG("Terrain save failed", LogFilter::Warn);
+	}
+	ImGui::TextDisabled("Writes height(.r32)/blend(.dds), updates paths.\nThen File > Save Scene to keep edits.");
 
 	ImGui::End();
 }

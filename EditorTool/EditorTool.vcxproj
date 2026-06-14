@@ -113,6 +113,7 @@
     <None Include="..\Shaders\HLSL\Grass.hlsl" />
     <None Include="..\Shaders\HLSL\Tree.hlsl" />
     <None Include="..\Shaders\HLSL\Ssr.hlsl" />
+    <None Include="..\Shaders\HLSL\Ssgi.hlsl" />
     <None Include="..\Shaders\HLSL\Exposure.hlsl" />
     <None Include="..\Shaders\HLSL\Volumetric.hlsl" />
     <None Include="..\Shaders\HLSL\Dof.hlsl" />

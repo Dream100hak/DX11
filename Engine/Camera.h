@@ -60,6 +60,14 @@ public:
 		ImGui::SeparatorText("Reflections (SSR)");
 		ImGui::Checkbox("SSR", &_ssrEnabled);
 
+		ImGui::SeparatorText("Global Illumination (SSGI)");
+		ImGui::Checkbox("SSGI", &_ssgiEnabled);
+		if (_ssgiEnabled)
+		{
+			ImGui::DragFloat("GI Intensity", &_ssgiIntensity, 0.02f, 0.f, 5.f);
+			ImGui::DragFloat("GI Radius", &_ssgiRadius, 0.1f, 0.5f, 60.f);
+		}
+
 		ImGui::SeparatorText("Volumetric (God Rays)");
 		ImGui::Checkbox("Volumetric", &_volEnabled);
 		if (_volEnabled)
@@ -199,6 +207,18 @@ private:
 	ComPtr<ID3D11RenderTargetView>   _ssrRTV;
 	ComPtr<ID3D11ShaderResourceView> _ssrSRV;
 	void RenderSSR(const Matrix& V, const Matrix& P, uint32 w, uint32 h);
+
+	// SSGI (스크린스페이스 GI) — 라이팅된 sceneColor 반구 레이마치로 1바운스 간접 디퓨즈 합성.
+	// 동적 조명/시간대에 반응 (정적 IBL 보완). Pass 2 직후, SSR 전.
+	bool  _ssgiEnabled = true;
+	float _ssgiIntensity = 1.0f;
+	float _ssgiRadius = 12.0f;   // 월드 레이 길이(간접광 수집 반경)
+	uint32 _ssgiFrame = 0;       // 샘플 회전용 프레임 카운터
+	ComPtr<ID3D11Texture2D>          _ssgiTex;
+	ComPtr<ID3D11RenderTargetView>   _ssgiRTV;
+	ComPtr<ID3D11ShaderResourceView> _ssgiSRV;
+	shared_ptr<ConstantBuffer<struct SsgiDesc>> _ssgiCB;
+	void RenderSSGI(const Matrix& V, const Matrix& P, uint32 w, uint32 h);
 
 	// Auto-exposure — 로그휘도 밉체인으로 평균 휘도 산출 → Tonemap 에서 노출 적용
 	bool  _exposureEnabled = true;

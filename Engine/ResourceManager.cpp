@@ -366,6 +366,16 @@ void ResourceManager::CreateDeferredShaders()
 		GetOrAddHlslShader(L"Ssr_HLSL", desc);
 	}
 
+	// SSGI (스크린스페이스 GI, 풀스크린)
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Ssgi.hlsl";
+		desc.psFile  = L"Ssgi.hlsl";
+		desc.vsEntry = "VS_Main";
+		desc.psEntry = "PS_Main";
+		GetOrAddHlslShader(L"Ssgi_HLSL", desc);
+	}
+
 	// Auto-exposure 로그휘도 (풀스크린 → 밉체인)
 	{
 		HlslShaderDesc desc;

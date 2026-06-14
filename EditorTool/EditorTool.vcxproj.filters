@@ -274,6 +274,9 @@
     <None Include="..\Shaders\HLSL\Ssr.hlsl">
       <Filter>Shaders\HLSL</Filter>
     </None>
+    <None Include="..\Shaders\HLSL\Ssgi.hlsl">
+      <Filter>Shaders\HLSL</Filter>
+    </None>
     <None Include="..\Shaders\HLSL\Exposure.hlsl">
       <Filter>Shaders\HLSL</Filter>
     </None>

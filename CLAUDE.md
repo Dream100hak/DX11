@@ -64,6 +64,7 @@ Camera::Render_Deferred()
   Pass 1:   GBuffer fill (albedo+metallic / normal+roughness / worldpos+mask / emissive) + Terrain GBuffer + Foliage(잔디/나무 인스턴싱)
   Pass 2:   DeferredLighting fullscreen -> HDR sceneColor (Cook-Torrance + IBL t5/t6/t7 + CSM Shadow t3 + SSAO t4 + spot t9 / point cube t10)
             + Clustered shading: 디렉셔널은 b7 인라인(CSM), 점/스팟은 froxel 클러스터 라이트 리스트(t11~t13)로 픽셀당 자기 클러스터만 순회
+  Pass 2.4: SSGI (Ssgi.hlsl) — 라이팅된 sceneColor 반구 레이마치 1바운스 간접 디퓨즈 -> _ssgiTex -> CopyResource sceneColor
   Pass 2.5: SSR (Ssr.hlsl) — sceneColor+GBuffer 월드 레이마치 반사 -> _ssrTex -> CopyResource sceneColor
   Pass 2.7: Volumetric (Volumetric.hlsl) — CSM 그림자 레이마치 갓레이(HG phase) -> _volTex -> CopyResource sceneColor
   Pass 3:   Background(sky)/Transparent(particles)/Overlay -> sceneColor (GBuffer depth shared)
@@ -74,7 +75,8 @@ Camera::Render_Deferred()
 ```
 - IBL: `Engine/Ibl` bakes once at startup (`IblBake.hlsl` — irradiance/prefiltered/BRDF LUT). Env map = desertcube1024.dds (shared with skybox).
 - GOTCHA: SSR/Volumetric 은 별도 RT 에 합성 후 `CopyResource` 로 sceneColor 복원 + **렌더타겟을 sceneColorRTV+GBuffer DSV 로 복원**해야 Pass 3 스카이박스가 sceneColor 에 그려짐 (안 하면 스카이 검게).
-- Post-process toggles/params: Camera inspector — Bloom(Threshold/Intensity), FXAA, Auto Exposure(Key), SSR, Volumetric(Density/Intensity/Scatter G), EnvIntensity, Cascade Debug, Wire.
+- Post-process toggles/params: Camera inspector — Bloom(Threshold/Intensity), FXAA, Auto Exposure(Key), SSR, SSGI(Intensity/Radius), Volumetric(Density/Intensity/Scatter G), EnvIntensity, Cascade Debug, Wire.
+- **SSGI** (Ssgi.hlsl, b8 SsgiBuffer): 픽셀 반구 코사인 가중 레이를 월드 레이마치(10 ray × 14 step) → 화면 내 지오메트리 히트 시 그 지점 라이팅된 sceneColor 를 모아 `indirect = albedo × mean(hit)` 가산. 라이팅 결과를 직접 읽어 **동적 조명/시간대에 반응**(정적 IBL 보완). SSR 과 동일하게 별도 RT 합성 후 CopyResource + RT 복원. 한계: 화면 밖 정보 없음, 저샘플 노이즈(디노이즈 미적용).
 
 ### Constant Buffer Layout
 - `b0` GlobalData (V,P,VP,VInv,Shadow,Time) / `b1` TransformData / `b2` LightData / `b3` MaterialData (+Roughness/Metallic)

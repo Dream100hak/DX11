@@ -184,6 +184,17 @@ struct VolumetricDesc
 	float pad = 0.f;
 };
 
+// SSGI(b8, Ssgi.hlsl) — 스크린스페이스 간접 디퓨즈
+struct SsgiDesc
+{
+	float intensity = 1.0f;
+	float radius = 12.0f;   // 월드 레이 길이
+	float screenW = 1280.f;
+	float screenH = 720.f;
+	float frame = 0.f;      // 샘플 회전(노이즈)용
+	Vec3  pad;
+};
+
 // CSM 런타임(b9, DeferredLighting) 버퍼 HLSL CascadeBuffer와 일치 (CASCADE_COUNT=4 가정)
 struct CascadeDesc
 {

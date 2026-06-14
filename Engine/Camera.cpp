@@ -395,6 +395,10 @@ void Camera::Render_Deferred()
 		_clusterLighting->Unbind(lightingShader); // t11~t13 해제
 	}
 
+	// ── Pass 2.4: SSGI (스크린스페이스 GI) — 라이팅된 sceneColor 로 1바운스 간접 디퓨즈 합성 ──
+	if (_ssgiEnabled)
+		RenderSSGI(V, P, w, h);
+
 	// ── Pass 2.5: SSR (스크린스페이스 반사) — sceneColor(불투명 라이팅 결과) + GBuffer ──
 	if (_ssrEnabled)
 		RenderSSR(V, P, w, h);
@@ -762,6 +766,12 @@ void Camera::EnsureSceneColor(uint32 w, uint32 h)
 	CHECK(DEVICE->CreateRenderTargetView(_volTex.Get(), nullptr, _volRTV.GetAddressOf()));
 	CHECK(DEVICE->CreateShaderResourceView(_volTex.Get(), nullptr, _volSRV.GetAddressOf()));
 
+	// SSGI 결과 버퍼 (sceneColor 와 동일 포맷 — 간접광 합성 후 CopyResource)
+	_ssgiTex.Reset(); _ssgiRTV.Reset(); _ssgiSRV.Reset();
+	CHECK(DEVICE->CreateTexture2D(&desc, nullptr, _ssgiTex.GetAddressOf()));
+	CHECK(DEVICE->CreateRenderTargetView(_ssgiTex.Get(), nullptr, _ssgiRTV.GetAddressOf()));
+	CHECK(DEVICE->CreateShaderResourceView(_ssgiTex.Get(), nullptr, _ssgiSRV.GetAddressOf()));
+
 	// DoF 결과 버퍼
 	_dofTex.Reset(); _dofRTV.Reset(); _dofSRV.Reset();
 	CHECK(DEVICE->CreateTexture2D(&desc, nullptr, _dofTex.GetAddressOf()));
@@ -868,6 +878,61 @@ void Camera::RenderSSR(const Matrix& V, const Matrix& P, uint32 w, uint32 h)
 
 	// 렌더타겟 복원 — Pass 3(스카이박스/투명)이 sceneColor 에 이어 그리도록.
 	// (복원 안 하면 _ssrRTV 에 그려져 버려짐 → "스카이박스가 검게 보임" 버그)
+	ID3D11RenderTargetView* scRTV = _sceneColorRTV.Get();
+	DCT->OMSetRenderTargets(1, &scRTV, _gBuffer->GetDSV().Get());
+}
+
+// SSGI — 라이팅된 sceneColor 를 픽셀 반구 방향으로 월드 레이마치해 1바운스 간접 디퓨즈를 모아
+// (간접) = albedo × Σ(히트 sceneColor) 를 sceneColor 에 가산. SSR 과 동일하게 별도 타겟 후 CopyResource.
+void Camera::RenderSSGI(const Matrix& V, const Matrix& P, uint32 w, uint32 h)
+{
+	auto shader = RESOURCES->Get<HlslShader>(L"Ssgi_HLSL");
+	if (shader == nullptr || _ssgiRTV == nullptr || _sceneColorSRV == nullptr || _gBuffer == nullptr)
+		return;
+
+	ID3D11RenderTargetView* rtv = _ssgiRTV.Get();
+	DCT->OMSetRenderTargets(1, &rtv, nullptr);
+
+	D3D11_VIEWPORT vp{};
+	vp.Width = static_cast<float>(w);
+	vp.Height = static_cast<float>(h);
+	vp.MaxDepth = 1.f;
+	DCT->RSSetViewports(1, &vp);
+
+	RENDER_STATES->BindAllSamplersPS();
+	shader->SetPSSRV(0, _sceneColorSRV.Get());
+	shader->SetPSSRV(1, _gBuffer->GetSRV(GBuffer::RT_ALBEDO).Get());
+	shader->SetPSSRV(2, _gBuffer->GetSRV(GBuffer::RT_NORMAL).Get());
+	shader->SetPSSRV(3, _gBuffer->GetSRV(GBuffer::RT_POSITION).Get());
+
+	if (_ssgiCB == nullptr)
+	{
+		_ssgiCB = make_shared<ConstantBuffer<SsgiDesc>>();
+		_ssgiCB->Create();
+	}
+	SsgiDesc sg;
+	sg.intensity = _ssgiIntensity;
+	sg.radius    = _ssgiRadius;
+	sg.screenW   = static_cast<float>(w);
+	sg.screenH   = static_cast<float>(h);
+	sg.frame     = static_cast<float>(_ssgiFrame++);
+	_ssgiCB->CopyData(sg);
+	shader->SetPSConstantBuffer(8, _ssgiCB->GetComPtr().Get());
+
+	shader->Bind();
+	shader->PushGlobalData(V, P);
+
+	DCT->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	DCT->OMSetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::DisableDepth).Get(), 0);
+	DCT->Draw(3, 0);
+	DCT->OMSetDepthStencilState(nullptr, 0);
+
+	shader->SetPSSRV(0, nullptr);
+	shader->SetPSSRV(1, nullptr);
+	shader->SetPSSRV(2, nullptr);
+	shader->SetPSSRV(3, nullptr);
+	DCT->CopyResource(_sceneColorTex.Get(), _ssgiTex.Get());
+
 	ID3D11RenderTargetView* scRTV = _sceneColorRTV.Get();
 	DCT->OMSetRenderTargets(1, &scRTV, _gBuffer->GetDSV().Get());
 }

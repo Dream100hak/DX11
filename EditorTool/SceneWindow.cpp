@@ -368,6 +368,14 @@ void SceneWindow::EditTransform()
 	if (ImGui::RadioButton("World", currentGizmoMode == World)) currentGizmoMode = World;
 	ImGui::SameLine();
 	ImGui::Checkbox("Snap", &useSnap);
+	ImGui::SameLine();
+	// 씬 뷰 와이어프레임 토글 (GBuffer 지오메트리 패스만 와이어프레임)
+	if (MAIN_CAM != nullptr)
+	{
+		bool wire = MAIN_CAM->GetWireframe();
+		if (ImGui::Checkbox("Wire", &wire))
+			MAIN_CAM->SetWireframe(wire);
+	}
 
 	// 씬 RT 이미지 — 기즈모는 같은 drawList 뒤에 그려져 이미지 위에 표시됨
 	DrawSceneImage();

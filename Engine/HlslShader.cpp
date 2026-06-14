@@ -3,6 +3,8 @@
 #include "Light.h"
 #include "Utils.h"
 
+bool HlslShader::S_ForceWireframe = false;
+
 HlslShader::HlslShader() : Super(ResourceType::Shader)
 {
 }
@@ -127,7 +129,8 @@ void HlslShader::Bind()
 	if (_blendState)         dct->OMSetBlendState(_blendState.Get(), _blendFactor, _sampleMask);
 	else                     dct->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
 
-	if (_rasterizerState)    dct->RSSetState(_rasterizerState.Get());
+	if (S_ForceWireframe)    dct->RSSetState(GRAPHICS->GetWireframeRS().Get()); // 씬뷰 와이어프레임
+	else if (_rasterizerState) dct->RSSetState(_rasterizerState.Get());
 	else                     dct->RSSetState(nullptr);
 
 	if (_depthStencilState)  dct->OMSetDepthStencilState(_depthStencilState.Get(), _stencilRef);

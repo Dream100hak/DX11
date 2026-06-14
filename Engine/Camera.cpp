@@ -206,6 +206,9 @@ void Camera::Render_Deferred()
 	DCT->OMSetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::Default).Get(), 0);
 	DCT->RSSetState(RENDER_STATES->GetRS(RasterizerStateType::SolidCullBack).Get());
 
+	// 씬 뷰 와이어프레임 토글 — GBuffer 지오메트리 패스 동안만 (풀스크린 라이팅 패스는 솔리드 유지)
+	HlslShader::S_ForceWireframe = _wireframe;
+
 	RenderContext gbufCtx;
 	gbufCtx.view = V;
 	gbufCtx.proj = P;
@@ -219,6 +222,8 @@ void Camera::Render_Deferred()
 		if (auto terrain = terrainObj->GetTerrain())
 			terrain->TerrainRendererGBuffer(V, P);
 	}
+
+	HlslShader::S_ForceWireframe = false; // 이후 패스(라이팅/포스트)는 항상 솔리드
 
 	// ── Pass 2: Deferred lighting (fullscreen) → HDR sceneColor ──
 	// 백버퍼가 아닌 씬 크기 HDR 버퍼에 라이팅 — GBuffer DSV 와 크기가 일치하므로
@@ -580,9 +585,12 @@ void Camera::RenderOutlinePass(const Matrix& V, const Matrix& P)
 		if (go->GetRenderer() == nullptr)
 			continue;
 
-		// 거리 비례 폭 — 화면상 두께가 대략 일정하게 유지
+		// 거리 비례 폭 — 화면상 두께를 대략 유지하되, 멀어질수록 월드 팽창량이 무한정 커져
+		// 둥근 부위(머리 등)가 부풀어 굵어지던 문제로 상한을 둔다.
+		// 상한 이후엔 월드 고정폭 → 멀수록 화면상 얇아짐("멀리서 줄어들어야" 충족).
 		float dist  = Vec3::Distance(camPos, go->GetTransform()->GetPosition());
-		float width = max(0.01f, dist * 0.0035f);
+		float width = dist * 0.0018f;
+		width = max(0.006f, min(width, 0.04f));
 
 		setPassStates(true);
 		drawObject(go, 0.f);    // 마크: 원본 메시 영역을 스텐실에 기록

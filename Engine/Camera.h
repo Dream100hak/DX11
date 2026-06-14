@@ -85,6 +85,10 @@ public:
 	float GetEnvIntensity() const { return _envIntensity; }
 	void  SetEnvIntensity(float v) { _envIntensity = v; }
 
+	// 씬 뷰 와이어프레임 — GBuffer 지오메트리 패스만 와이어프레임으로 (씬뷰 툴바 토글)
+	bool GetWireframe() const { return _wireframe; }
+	void SetWireframe(bool v) { _wireframe = v; }
+
 private:
 	ProjectionType _type = ProjectionType::Perspective;
 	Matrix _matView = Matrix::Identity;
@@ -154,6 +158,8 @@ private:
 	ComPtr<ID3D11ShaderResourceView> _ldrSRV;
 	shared_ptr<ConstantBuffer<PostProcessDesc>> _postCB;
 	void RenderBloom(uint32 w, uint32 h);
+
+	bool _wireframe = false; // 씬 뷰 와이어프레임 토글
 
 	// IBL (DeferredLighting b8)
 	float _envIntensity = 1.f;

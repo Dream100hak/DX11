@@ -62,6 +62,10 @@ public:
 	void Bind();   // IA ~ OM 전체 바인딩
 	void Unbind();// SRV 슬롯 해제
 
+	// 전역 와이어프레임 오버라이드 — 켜지면 Bind 가 셰이더 RS 대신 와이어프레임 RS 바인딩.
+	// (씬 뷰 와이어프레임 토글: Camera 가 GBuffer 지오메트리 패스 동안만 켠다)
+	static bool S_ForceWireframe;
+
 	// ---- Constant Buffer (슬롯별 바인딩) ----
 	// 각 스테이지별 CB 설정 - raw ptr로 전달
 	void SetVSConstantBuffer(UINT slot, ID3D11Buffer* buffer);

@@ -61,15 +61,19 @@ DX11/
 ### Rendering Flow (Deferred PBR + HDR)
 ```
 Camera::Render_Deferred()
-  Pass 1: GBuffer fill (albedo+metallic / normal+roughness / worldpos+mask) + Terrain GBuffer
-  Pass 2: DeferredLighting fullscreen -> HDR sceneColor (Cook-Torrance + IBL t5/t6/t7 + Shadow t3 + SSAO t4)
-  Pass 3: Background(sky)/Transparent(particles)/Overlay -> sceneColor (GBuffer depth shared)
-  Bloom:  BrightPass -> BlurH -> BlurV (b8 PostProcessBuffer)
-  Pass 4: Tonemap(ACES+gamma, bloom t1) -> FXAA -> backbuffer
+  Pass 1:   GBuffer fill (albedo+metallic / normal+roughness / worldpos+mask / emissive) + Terrain GBuffer + Foliage(잔디/나무 인스턴싱)
+  Pass 2:   DeferredLighting fullscreen -> HDR sceneColor (Cook-Torrance + IBL t5/t6/t7 + CSM Shadow t3 + SSAO t4 + spot t9 / point cube t10)
+  Pass 2.5: SSR (Ssr.hlsl) — sceneColor+GBuffer 월드 레이마치 반사 -> _ssrTex -> CopyResource sceneColor
+  Pass 2.7: Volumetric (Volumetric.hlsl) — CSM 그림자 레이마치 갓레이(HG phase) -> _volTex -> CopyResource sceneColor
+  Pass 3:   Background(sky)/Transparent(particles)/Overlay -> sceneColor (GBuffer depth shared)
+  Bloom:    BrightPass -> BlurH -> BlurV (b8 PostProcessBuffer)
+  Exposure: Exposure.hlsl 로그휘도 -> 256² 밉체인(GenerateMips) 평균
+  Pass 4:   Tonemap(ACES + Auto-exposure + gamma, bloom t1) -> FXAA -> backbuffer
   + PassViewer overlay (scene top-left combo / KEY_4), KEY_3 GBuffer split debug
 ```
 - IBL: `Engine/Ibl` bakes once at startup (`IblBake.hlsl` — irradiance/prefiltered/BRDF LUT). Env map = desertcube1024.dds (shared with skybox).
-- Post-process toggles/params: Camera inspector (Bloom on/off+Threshold+Intensity, FXAA, EnvIntensity).
+- GOTCHA: SSR/Volumetric 은 별도 RT 에 합성 후 `CopyResource` 로 sceneColor 복원 + **렌더타겟을 sceneColorRTV+GBuffer DSV 로 복원**해야 Pass 3 스카이박스가 sceneColor 에 그려짐 (안 하면 스카이 검게).
+- Post-process toggles/params: Camera inspector — Bloom(Threshold/Intensity), FXAA, Auto Exposure(Key), SSR, Volumetric(Density/Intensity/Scatter G), EnvIntensity, Cascade Debug, Wire.
 
 ### Constant Buffer Layout
 - `b0` GlobalData (V,P,VP,VInv,Shadow,Time) / `b1` TransformData / `b2` LightData / `b3` MaterialData (+Roughness/Metallic)
@@ -184,6 +188,16 @@ Camera::Render_Deferred()
   베이스 `Renderer::TransformBoundingBox`는 1×1×1 고정 박스(대형 커스텀 렌더러는 virtual 오버라이드 없으면 절두체 컬링당함),
   베이스 `GetInstanceID()`는 (0,0) 고정(오버라이드 없으면 같은 타입끼리 배칭돼 하나만 그려짐).
 - `Camera::SortGameObject`: editorInternal 오브젝트는 editorInternal 카메라(씬 뷰)에서만 렌더 — Game 뷰/프리뷰에 그리드·드래그 프리뷰 안 보임.
+
+## Terrain Editor & Foliage (commits 144~153)
+
+- **TerrainWindow** (도킹 창): Sculpt(Raise/Lower/Smooth/Flatten) + Paint(레이어 블렌드) + Save/Load + Foliage(잔디/나무).
+- **Sculpt**: 브러시 반경 내 `_heightmap`(CPU float) 수정 → 패치 Y바운드 재계산 → GPU 높이맵 텍스처 `UpdateSubresource`.
+  정점 재생성 없이 DS 변위/노멀/CPU `GetHeight` 동기화. `Terrain::RaycastTerrain`(높이필드 march+이분탐색)로 브러시 중심.
+- **Paint**: 기존 `blend.dds`(비압축 BGRA, 밉맵 다수)를 스테이징 **mip0 CopySubresourceRegion** 으로 리드백 → CPU 미러+편집 텍스처 승격(`_blendMap` SRV 교체). 채널 R/G/B/A=레이어1~4, base=레이어0.
+- **Save/Load**: 높이맵=`<stem>_edit.r32`(float32, 8-bit 계단현상 없음), 블렌드=`<stem>_edit.dds`. TerrainInfo 경로 갱신 → .scene 영속. `.r32` 로드 시 Smooth 생략.
+- **Create Terrain**(Hiearchy): GameObject 생성 → Terrain 부착+Init → **마지막에 Scene::Add**(그래야 `_terrains` 등록 — CreateLight 패턴). CreateEmptyGameObject(빈 obj 선등록) 쓰면 GetTerrain null.
+- **Foliage** (`Engine/Foliage`, Grass/Tree): Terrain 소유, Camera Pass 1 에서 터레인 직후 렌더. 자체 인스턴스 버퍼(수천~, InstancingManager 캡 500 우회), 16×16 청크 + Frustum/거리 컬링, VS 거리 페이드. Grass=절차적 블레이드 알파컷, Tree=절차적 저폴리(줄기+원뿔). 블렌드맵 레이어 가중치 비례 밀도(거부 샘플링). 생성 파라미터만 .scene 저장 → 로드 시 결정적 재생성.
 
 ## Known Issues
 

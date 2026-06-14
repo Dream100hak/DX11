@@ -9,29 +9,43 @@ struct SceneCB
 {
 	XMFLOAT4X4 mvp;
 	XMFLOAT4X4 model;
-	XMFLOAT4   lightDir;
+	XMFLOAT4   lightDir;  // xyz=방향, w=세기
 	XMFLOAT4   camPos;
+	XMFLOAT4   gridMin;   // 프로브 볼륨 최소
+	XMFLOAT4   gridMax;   // 프로브 볼륨 최대
+	XMFLOAT4   gridDim;   // x,y,z=프로브 격자 수, w=프로브당 레이 수
+	XMFLOAT4   giParams;  // x=GI 세기, y=frame, z=ambient
 };
 
 struct Vtx
 {
 	XMFLOAT3 pos;
 	XMFLOAT3 nrm;
+	XMFLOAT3 col;  // 알베도(정점색) — 바닥=빨강, 큐브=흰색
 };
 
 // 래스터 셰이더 (SM5.1, FXC). row_major 로 DirectXMath(행우선)와 일치 → 전치 불필요.
-static const char* kMeshShader = R"(
+// 공용 SceneCB 정의 (그래픽스/컴퓨트 동일 레이아웃)
+static const char* kSceneCB = R"(
 cbuffer SceneCB : register(b0)
 {
     row_major float4x4 gMVP;
     row_major float4x4 gModel;
-    float4 gLightDir;
+    float4 gLightDir;   // xyz dir, w intensity
     float4 gCamPos;
+    float4 gGridMin;
+    float4 gGridMax;
+    float4 gGridDim;    // x,y,z probe counts, w rays/probe
+    float4 gGI;         // x giStrength, y frame, z ambient
 };
-RaytracingAccelerationStructure gScene : register(t0); // TLAS (인라인 RT)
+)";
 
-struct VSIn  { float3 pos : POSITION; float3 nrm : NORMAL; };
-struct VSOut { float4 pos : SV_POSITION; float3 wnrm : NORMAL; float3 wpos : TEXCOORD0; };
+static const std::string kMeshShader = std::string(kSceneCB) + R"(
+RaytracingAccelerationStructure gScene  : register(t0); // TLAS (RayQuery 그림자)
+StructuredBuffer<float3>        gProbes : register(t1); // DDGI 프로브 irradiance
+
+struct VSIn  { float3 pos : POSITION; float3 nrm : NORMAL; float3 col : COLOR; };
+struct VSOut { float4 pos : SV_POSITION; float3 wnrm : NORMAL; float3 wpos : TEXCOORD0; float3 col : COLOR; };
 
 VSOut VSMain(VSIn i)
 {
@@ -39,34 +53,122 @@ VSOut VSMain(VSIn i)
     o.pos  = mul(float4(i.pos, 1.0), gMVP);
     o.wnrm = mul(i.nrm, (float3x3)gModel);
     o.wpos = mul(float4(i.pos, 1.0), gModel).xyz;
+    o.col  = i.col;
     return o;
 }
+
+// 프로브 볼륨 트라이리니어 샘플 (DC irradiance)
+float3 SampleProbes(float3 wpos)
+{
+    int PX = (int)gGridDim.x, PY = (int)gGridDim.y, PZ = (int)gGridDim.z;
+    float3 g = saturate((wpos - gGridMin.xyz) / (gGridMax.xyz - gGridMin.xyz));
+    float3 f = g * float3(PX - 1, PY - 1, PZ - 1);
+    int3 c0 = (int3)floor(f);
+    float3 fr = f - (float3)c0;
+
+    float3 acc = 0;
+    [unroll] for (int s = 0; s < 8; ++s)
+    {
+        int3 o = int3(s & 1, (s >> 1) & 1, (s >> 2) & 1);
+        int3 c = min(c0 + o, int3(PX - 1, PY - 1, PZ - 1));
+        int idx = c.x + c.y * PX + c.z * PX * PY;
+        float3 w3 = lerp(1.0 - fr, fr, (float3)o);
+        acc += gProbes[idx] * (w3.x * w3.y * w3.z);
+    }
+    return acc;
+}
+
 float4 PSMain(VSOut i) : SV_TARGET
 {
     float3 N = normalize(i.wnrm);
     float3 L = normalize(-gLightDir.xyz);
     float  ndl = saturate(dot(N, L));
 
-    // ── 하드웨어 레이트레이싱 그림자 (RayQuery, 인라인 RT) ──
+    // ── RT 그림자 (RayQuery) ──
     float shadow = 1.0;
     if (ndl > 0.0)
     {
         RayDesc ray;
-        ray.Origin    = i.wpos + N * 0.02; // 셀프히트 바이어스
+        ray.Origin = i.wpos + N * 0.02;
         ray.Direction = L;
         ray.TMin = 0.001;
         ray.TMax = 100.0;
-
         RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_CULL_NON_OPAQUE> q;
         q.TraceRayInline(gScene, RAY_FLAG_NONE, 0xFF, ray);
         q.Proceed();
-        if (q.CommittedStatus() != COMMITTED_NOTHING)
-            shadow = 0.0; // 빛으로 가는 길이 막힘 → 그림자
+        if (q.CommittedStatus() != COMMITTED_NOTHING) shadow = 0.0;
     }
 
-    float3 base = float3(0.80, 0.55, 0.38);
-    float3 col = base * (0.18 + 0.82 * ndl * shadow); // 앰비언트 + 직접광(그림자 적용)
+    float3 albedo   = i.col;
+    float3 direct   = albedo * (ndl * shadow) * gLightDir.w;       // 직접광(흰빛)
+    float3 indirect = albedo * SampleProbes(i.wpos) * gGI.x;        // DDGI 간접광(색 바운스)
+    float3 col = albedo * gGI.z + direct + indirect;               // 미세 앰비언트 + 직접 + 간접
     return float4(col, 1.0);
+}
+)";
+
+// DDGI 프로브 수집 — 컴퓨트에서 프로브마다 RT 레이를 구면 방향으로 쏘아
+// 1차 직접광(히트 표면의 albedo×N·L)을 평균 → DC irradiance 로 저장.
+static const std::string kGatherShader = std::string(kSceneCB) + R"(
+struct Vtx { float3 pos; float3 nrm; float3 col; };
+
+RaytracingAccelerationStructure gScene   : register(t0);
+StructuredBuffer<Vtx>           gVerts    : register(t1);
+StructuredBuffer<uint>          gIndices  : register(t2);
+RWStructuredBuffer<float3>      gProbesRW : register(u0);
+
+// 구면 균일 분포 (피보나치)
+float3 FibDir(uint i, uint n)
+{
+    float k = i + 0.5;
+    float phi = 6.2831853 * frac(k * 0.61803399);
+    float cosT = 1.0 - 2.0 * k / n;
+    float sinT = sqrt(saturate(1.0 - cosT * cosT));
+    return float3(cos(phi) * sinT, cosT, sin(phi) * sinT);
+}
+
+[numthreads(64, 1, 1)]
+void CSMain(uint3 tid : SV_DispatchThreadID)
+{
+    uint PX = (uint)gGridDim.x, PY = (uint)gGridDim.y, PZ = (uint)gGridDim.z;
+    uint pi = tid.x;
+    if (pi >= PX * PY * PZ) return;
+
+    uint px = pi % PX, py = (pi / PX) % PY, pz = pi / (PX * PY);
+    float3 t = float3(px / max(PX - 1.0, 1.0), py / max(PY - 1.0, 1.0), pz / max(PZ - 1.0, 1.0));
+    float3 ppos = lerp(gGridMin.xyz, gGridMax.xyz, t);
+
+    uint K = (uint)gGridDim.w;
+    float3 L = normalize(-gLightDir.xyz);
+
+    float3 sum = 0;
+    for (uint r = 0; r < K; ++r)
+    {
+        float3 dir = FibDir(r, K);
+        RayDesc ray; ray.Origin = ppos; ray.Direction = dir; ray.TMin = 0.02; ray.TMax = 40.0;
+        RayQuery<RAY_FLAG_CULL_NON_OPAQUE> q;
+        q.TraceRayInline(gScene, RAY_FLAG_NONE, 0xFF, ray);
+        q.Proceed();
+
+        float3 rad;
+        if (q.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
+        {
+            uint prim = q.CommittedPrimitiveIndex();
+            float2 b = q.CommittedTriangleBarycentrics();
+            uint i0 = gIndices[prim * 3 + 0], i1 = gIndices[prim * 3 + 1], i2 = gIndices[prim * 3 + 2];
+            Vtx v0 = gVerts[i0], v1 = gVerts[i1], v2 = gVerts[i2];
+            float w0 = 1.0 - b.x - b.y;
+            float3 n = normalize(v0.nrm * w0 + v1.nrm * b.x + v2.nrm * b.y);
+            float3 alb = v0.col * w0 + v1.col * b.x + v2.col * b.y;
+            rad = alb * saturate(dot(n, L)) * gLightDir.w; // 1차 직접광 (그림자 생략)
+        }
+        else
+        {
+            rad = float3(0.10, 0.12, 0.16); // 하늘
+        }
+        sum += rad;
+    }
+    gProbesRW[pi] = sum * (1.0 / K); // 평균 입사휘도 ≈ DC irradiance
 }
 )";
 
@@ -91,6 +193,9 @@ void D3D12Device::Init(HWND hwnd, UINT width, UINT height)
 
 	// Phase 2 — 정적 지오메트리 가속구조
 	BuildAccelerationStructures();
+
+	// Phase 3 — DDGI 프로브 볼륨
+	CreateGI();
 }
 
 void D3D12Device::EnableDebugLayer()
@@ -219,18 +324,22 @@ void D3D12Device::CreateDepthBuffer()
 
 void D3D12Device::CreateRootSignature()
 {
-	// 루트 파라미터: 0 = CBV(b0) SceneCB, 1 = SRV(t0) TLAS (RayQuery)
-	D3D12_ROOT_PARAMETER params[2]{};
+	// 루트 파라미터: 0 = CBV(b0), 1 = SRV(t0) TLAS, 2 = SRV(t1) 프로브
+	D3D12_ROOT_PARAMETER params[3]{};
 	params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
 	params[0].Descriptor.ShaderRegister = 0;
 	params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-	params[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; // TLAS 를 루트 SRV 로 바인딩
+	params[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; // TLAS
 	params[1].Descriptor.ShaderRegister = 0; // t0
 	params[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
+	params[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; // 프로브 irradiance
+	params[2].Descriptor.ShaderRegister = 1; // t1
+	params[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
 	D3D12_ROOT_SIGNATURE_DESC rs{};
-	rs.NumParameters = 2;
+	rs.NumParameters = 3;
 	rs.pParameters = params;
 	rs.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
@@ -279,13 +388,14 @@ ComPtr<IDxcBlob> CompileDxc(const char* src, const wchar_t* entry, const wchar_t
 
 void D3D12Device::CreatePipeline()
 {
-	ComPtr<IDxcBlob> vs = CompileDxc(kMeshShader, L"VSMain", L"vs_6_5");
-	ComPtr<IDxcBlob> ps = CompileDxc(kMeshShader, L"PSMain", L"ps_6_5");
+	ComPtr<IDxcBlob> vs = CompileDxc(kMeshShader.c_str(), L"VSMain", L"vs_6_5");
+	ComPtr<IDxcBlob> ps = CompileDxc(kMeshShader.c_str(), L"PSMain", L"ps_6_5");
 
 	D3D12_INPUT_ELEMENT_DESC layout[] =
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "COLOR",    0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 	};
 
 	D3D12_RASTERIZER_DESC rast{};
@@ -354,36 +464,38 @@ void D3D12Device::CreateCubeGeometry()
 	// 정적 월드공간 지오메트리 (model=항등) — 바닥 위에 큐브.
 	// RT 가 같은 버퍼로 BLAS 를 만들어 동일 지오메트리에 그림자 레이를 쏜다.
 	std::vector<Vtx> verts;
-	std::vector<uint16_t> indices;
+	std::vector<uint32_t> indices; // RayQuery/StructuredBuffer 접근 위해 32비트
 
-	auto addQuad = [&](XMFLOAT3 a, XMFLOAT3 b, XMFLOAT3 c, XMFLOAT3 d, XMFLOAT3 n)
+	auto addQuad = [&](XMFLOAT3 a, XMFLOAT3 b, XMFLOAT3 c, XMFLOAT3 d, XMFLOAT3 n, XMFLOAT3 col)
 	{
-		uint16_t base = (uint16_t)verts.size();
-		verts.push_back({ a, n }); verts.push_back({ b, n });
-		verts.push_back({ c, n }); verts.push_back({ d, n });
+		uint32_t base = (uint32_t)verts.size();
+		verts.push_back({ a, n, col }); verts.push_back({ b, n, col });
+		verts.push_back({ c, n, col }); verts.push_back({ d, n, col });
 		indices.push_back(base); indices.push_back(base + 1); indices.push_back(base + 2);
 		indices.push_back(base); indices.push_back(base + 2); indices.push_back(base + 3);
 	};
 
-	// 큐브 (중심 y=0.9, 반치수 0.8 → y 0.1~1.7)
+	// 큐브 (중심 y=0.9, 반치수 0.8) — 밝은 흰색 (바닥의 빨간 바운스가 잘 보이게)
 	const float h = 0.8f, cy = 0.9f;
+	const XMFLOAT3 cubeC(0.85f, 0.82f, 0.80f);
 	auto P = [&](float x, float y, float z) { return XMFLOAT3(x, y + cy, z); };
-	addQuad(P(-h, h,-h), P(-h, h, h), P( h, h, h), P( h, h,-h), { 0, 1, 0}); // top
-	addQuad(P(-h,-h, h), P(-h,-h,-h), P( h,-h,-h), P( h,-h, h), { 0,-1, 0}); // bottom
-	addQuad(P( h, h,-h), P( h, h, h), P( h,-h, h), P( h,-h,-h), { 1, 0, 0}); // +X
-	addQuad(P(-h, h, h), P(-h, h,-h), P(-h,-h,-h), P(-h,-h, h), {-1, 0, 0}); // -X
-	addQuad(P( h, h, h), P(-h, h, h), P(-h,-h, h), P( h,-h, h), { 0, 0, 1}); // +Z
-	addQuad(P(-h, h,-h), P( h, h,-h), P( h,-h,-h), P(-h,-h,-h), { 0, 0,-1}); // -Z
+	addQuad(P(-h, h,-h), P(-h, h, h), P( h, h, h), P( h, h,-h), { 0, 1, 0}, cubeC); // top
+	addQuad(P(-h,-h, h), P(-h,-h,-h), P( h,-h,-h), P( h,-h, h), { 0,-1, 0}, cubeC); // bottom
+	addQuad(P( h, h,-h), P( h, h, h), P( h,-h, h), P( h,-h,-h), { 1, 0, 0}, cubeC); // +X
+	addQuad(P(-h, h, h), P(-h, h,-h), P(-h,-h,-h), P(-h,-h, h), {-1, 0, 0}, cubeC); // -X
+	addQuad(P( h, h, h), P(-h, h, h), P(-h,-h, h), P( h,-h, h), { 0, 0, 1}, cubeC); // +Z
+	addQuad(P(-h, h,-h), P( h, h,-h), P( h,-h,-h), P(-h,-h,-h), { 0, 0,-1}, cubeC); // -Z
 
-	// 바닥 평면 (y=0, ±6)
+	// 바닥 평면 (y=0, ±6) — 빨강 (간접광 색 바운스 확인용)
 	const float g = 6.f;
-	addQuad(XMFLOAT3(-g, 0, g), XMFLOAT3(g, 0, g), XMFLOAT3(g, 0,-g), XMFLOAT3(-g, 0,-g), { 0, 1, 0 });
+	const XMFLOAT3 floorC(0.90f, 0.12f, 0.10f);
+	addQuad(XMFLOAT3(-g, 0, g), XMFLOAT3(g, 0, g), XMFLOAT3(g, 0,-g), XMFLOAT3(-g, 0,-g), { 0, 1, 0 }, floorC);
 
 	_vertexCount = (UINT)verts.size();
 	_indexCount = (UINT)indices.size();
 
 	const size_t vbSize = verts.size() * sizeof(Vtx);
-	const size_t ibSize = indices.size() * sizeof(uint16_t);
+	const size_t ibSize = indices.size() * sizeof(uint32_t);
 
 	_vb = CreateUploadBuffer(verts.data(), vbSize);
 	_vbv.BufferLocation = _vb->GetGPUVirtualAddress();
@@ -392,7 +504,7 @@ void D3D12Device::CreateCubeGeometry()
 
 	_ib = CreateUploadBuffer(indices.data(), ibSize);
 	_ibv.BufferLocation = _ib->GetGPUVirtualAddress();
-	_ibv.Format = DXGI_FORMAT_R16_UINT;
+	_ibv.Format = DXGI_FORMAT_R32_UINT;
 	_ibv.SizeInBytes = (UINT)ibSize;
 }
 
@@ -427,7 +539,7 @@ void D3D12Device::BuildAccelerationStructures()
 	geom.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
 	geom.Triangles.IndexBuffer = _ib->GetGPUVirtualAddress();
 	geom.Triangles.IndexCount = _indexCount;
-	geom.Triangles.IndexFormat = DXGI_FORMAT_R16_UINT;
+	geom.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;
 
 	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS blasIn{};
 	blasIn.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
@@ -489,6 +601,73 @@ void D3D12Device::BuildAccelerationStructures()
 	WaitForGpu();
 }
 
+void D3D12Device::Transition(ID3D12Resource* res, D3D12_RESOURCE_STATES& cur, D3D12_RESOURCE_STATES to)
+{
+	if (cur == to) return;
+	D3D12_RESOURCE_BARRIER b{};
+	b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	b.Transition.pResource = res;
+	b.Transition.StateBefore = cur;
+	b.Transition.StateAfter = to;
+	b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+	_cmdList->ResourceBarrier(1, &b);
+	cur = to;
+}
+
+void D3D12Device::CreateGI()
+{
+	// 프로브 버퍼 (float3 × PROBE_COUNT) — 컴퓨트 UAV 쓰기 / 픽셀 SRV 읽기
+	_probes = CreateDefaultBuffer(PROBE_COUNT * sizeof(XMFLOAT3), D3D12_RESOURCE_STATE_COMMON, true);
+	_probeState = D3D12_RESOURCE_STATE_COMMON;
+
+	// 컴퓨트 루트 시그니처: b0 CBV, u0 probes, t0 TLAS, t1 verts, t2 indices (전부 루트 디스크립터)
+	D3D12_ROOT_PARAMETER p[5]{};
+	p[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; p[0].Descriptor.ShaderRegister = 0;
+	p[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV; p[1].Descriptor.ShaderRegister = 0;
+	p[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; p[2].Descriptor.ShaderRegister = 0;
+	p[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; p[3].Descriptor.ShaderRegister = 1;
+	p[4].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; p[4].Descriptor.ShaderRegister = 2;
+	for (auto& rp : p) rp.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+	D3D12_ROOT_SIGNATURE_DESC rs{};
+	rs.NumParameters = 5;
+	rs.pParameters = p;
+	rs.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+
+	ComPtr<ID3DBlob> sig, err;
+	ThrowIfFailed(D3D12SerializeRootSignature(&rs, D3D_ROOT_SIGNATURE_VERSION_1, &sig, &err), "Serialize GI RootSig");
+	ThrowIfFailed(_device->CreateRootSignature(0, sig->GetBufferPointer(), sig->GetBufferSize(), IID_PPV_ARGS(&_giRootSig)), "Create GI RootSig");
+
+	ComPtr<IDxcBlob> cs = CompileDxc(kGatherShader.c_str(), L"CSMain", L"cs_6_5");
+
+	D3D12_COMPUTE_PIPELINE_STATE_DESC pso{};
+	pso.pRootSignature = _giRootSig.Get();
+	pso.CS = { cs->GetBufferPointer(), cs->GetBufferSize() };
+	ThrowIfFailed(_device->CreateComputePipelineState(&pso, IID_PPV_ARGS(&_giPSO)), "Create GI PSO");
+}
+
+void D3D12Device::DispatchGI()
+{
+	// 프로브를 UAV 상태로 → RT 레이 수집 → 픽셀 읽기용 SRV 로 전환
+	Transition(_probes.Get(), _probeState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+	_cmdList->SetPipelineState(_giPSO.Get());
+	_cmdList->SetComputeRootSignature(_giRootSig.Get());
+	_cmdList->SetComputeRootConstantBufferView(0, _cb[_frameIndex]->GetGPUVirtualAddress());
+	_cmdList->SetComputeRootUnorderedAccessView(1, _probes->GetGPUVirtualAddress());
+	_cmdList->SetComputeRootShaderResourceView(2, _tlas->GetGPUVirtualAddress());
+	_cmdList->SetComputeRootShaderResourceView(3, _vb->GetGPUVirtualAddress());
+	_cmdList->SetComputeRootShaderResourceView(4, _ib->GetGPUVirtualAddress());
+	_cmdList->Dispatch((PROBE_COUNT + 63) / 64, 1, 1);
+
+	D3D12_RESOURCE_BARRIER uav{};
+	uav.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+	uav.UAV.pResource = _probes.Get();
+	_cmdList->ResourceBarrier(1, &uav);
+
+	Transition(_probes.Get(), _probeState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+}
+
 void D3D12Device::CreateConstantBuffers()
 {
 	const size_t cbSize = (sizeof(SceneCB) + 255) & ~size_t(255); // 256 정렬
@@ -513,20 +692,26 @@ void D3D12Device::Render()
 	float aspect = float(_width) / float(_height);
 	XMMATRIX proj = XMMatrixPerspectiveFovLH(XMConvertToRadians(55.f), aspect, 0.1f, 100.f);
 
-	// 빛이 머리 위를 천천히 도는 형태 (그림자가 바닥을 쓸고 지나감)
+	// 빛이 머리 위를 천천히 도는 형태 (그림자/간접광이 같이 변함)
 	float a = _time * 0.6f;
-	XMFLOAT4 lightDir(cosf(a) * 0.6f, -1.0f, sinf(a) * 0.6f, 0.f);
 
 	SceneCB cb;
 	XMStoreFloat4x4(&cb.mvp, model * view * proj); // row_major HLSL → 전치 불필요
 	XMStoreFloat4x4(&cb.model, model);
-	cb.lightDir = lightDir;
+	cb.lightDir = XMFLOAT4(cosf(a) * 0.6f, -1.0f, sinf(a) * 0.6f, 1.2f); // w=세기
 	XMStoreFloat4(&cb.camPos, eye);
+	cb.gridMin  = XMFLOAT4(-6.5f, 0.2f, -6.5f, 0.f);
+	cb.gridMax  = XMFLOAT4( 6.5f, 4.0f,  6.5f, 0.f);
+	cb.gridDim  = XMFLOAT4(float(PROBE_X), float(PROBE_Y), float(PROBE_Z), 128.f); // 128 rays/probe
+	cb.giParams = XMFLOAT4(2.2f, _time * 60.f, 0.03f, 0.f); // GI세기 / frame / 미세 앰비언트
 	memcpy(_cbMapped[_frameIndex], &cb, sizeof(cb));
 
 	auto alloc = _allocators[_frameIndex];
 	ThrowIfFailed(alloc->Reset(), "Allocator Reset");
-	ThrowIfFailed(_cmdList->Reset(alloc.Get(), _pso.Get()), "CmdList Reset");
+	ThrowIfFailed(_cmdList->Reset(alloc.Get(), nullptr), "CmdList Reset");
+
+	// ── DDGI: 프로브 irradiance 갱신 (컴퓨트 RT) — 라스터 전에 ──
+	DispatchGI();
 
 	D3D12_RESOURCE_BARRIER toRT{};
 	toRT.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -550,9 +735,11 @@ void D3D12Device::Render()
 	_cmdList->RSSetViewports(1, &vp);
 	_cmdList->RSSetScissorRects(1, &sc);
 
+	_cmdList->SetPipelineState(_pso.Get()); // 그래픽스 PSO (컴퓨트 후 복귀)
 	_cmdList->SetGraphicsRootSignature(_rootSig.Get());
 	_cmdList->SetGraphicsRootConstantBufferView(0, _cb[_frameIndex]->GetGPUVirtualAddress());
 	_cmdList->SetGraphicsRootShaderResourceView(1, _tlas->GetGPUVirtualAddress()); // TLAS (RayQuery)
+	_cmdList->SetGraphicsRootShaderResourceView(2, _probes->GetGPUVirtualAddress()); // DDGI 프로브
 	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	_cmdList->IASetVertexBuffers(0, 1, &_vbv);
 	_cmdList->IASetIndexBuffer(&_ibv);

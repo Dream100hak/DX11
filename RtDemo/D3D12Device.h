@@ -41,6 +41,11 @@ private:
 	void BuildAccelerationStructures(); // 정적 지오메트리 → BLAS + TLAS (1회)
 	ComPtr<ID3D12Resource> CreateDefaultBuffer(UINT64 size, D3D12_RESOURCE_STATES state, bool allowUAV);
 
+	// Phase 3 (DDGI)
+	void CreateGI();    // 프로브 버퍼 + 컴퓨트 루트시그/PSO
+	void DispatchGI();  // 매 프레임 RT 레이로 프로브 irradiance 갱신
+	void Transition(ID3D12Resource* res, D3D12_RESOURCE_STATES& cur, D3D12_RESOURCE_STATES to);
+
 private:
 	UINT _width = 0;
 	UINT _height = 0;
@@ -82,6 +87,16 @@ private:
 	ComPtr<ID3D12Resource>            _tlasScratch;
 	ComPtr<ID3D12Resource>            _instanceBuffer;
 	UINT                              _vertexCount = 0;
+
+	// Phase 3 — DDGI 프로브 볼륨 (DC irradiance, 컴퓨트 RT 수집)
+	static const UINT PROBE_X = 10;
+	static const UINT PROBE_Y = 5;
+	static const UINT PROBE_Z = 10;
+	static const UINT PROBE_COUNT = PROBE_X * PROBE_Y * PROBE_Z;
+	ComPtr<ID3D12RootSignature>       _giRootSig;
+	ComPtr<ID3D12PipelineState>       _giPSO;
+	ComPtr<ID3D12Resource>            _probes;       // float3[PROBE_COUNT] (UAV/SRV)
+	D3D12_RESOURCE_STATES             _probeState = D3D12_RESOURCE_STATE_COMMON;
 
 	D3D12_RAYTRACING_TIER             _dxrTier = D3D12_RAYTRACING_TIER_NOT_SUPPORTED;
 	std::wstring                      _adapterName;

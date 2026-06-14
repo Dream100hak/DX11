@@ -26,3 +26,26 @@ float PS_Luminance(VSOut input) : SV_TARGET
     float lum = dot(c, float3(0.2126f, 0.7152f, 0.0722f));
     return log(max(lum, 1e-2f)); // 하한 상향 — 검은 여백/그늘이 기하평균을 폭락시키는 것 방지
 }
+
+// ── Auto-exposure 2단계: 시간적 적응(눈 적응) ──
+// t0: 로그휘도 밉체인(평균=최상위 밉)  t1: 직전 프레임 적응 휘도(1x1, linear)
+//   adapted = lerp(prev, avgLum, 1-exp(-dt*speed))  → Tonemap 이 이 1x1 을 읽어 노출 산출
+Texture2D PrevAdapt : register(t1);
+
+cbuffer AdaptBuffer : register(b10)
+{
+    float DeltaTime;
+    float AdaptSpeed;
+    float2 AdaptPad;
+};
+
+float PS_Adapt(VSOut input) : SV_TARGET
+{
+    float avgLogLum = SceneColor.SampleLevel(LinearSampler, float2(0.5f, 0.5f), 20.0f).r; // t0=lumTex 최상위 밉
+    float avgLum = exp(avgLogLum);
+    float prev = PrevAdapt.SampleLevel(PointSampler, float2(0.5f, 0.5f), 0.0f).r;
+    if (prev <= 1e-4f)
+        return avgLum; // 초기 프레임 스냅
+    float rate = saturate(1.0f - exp(-DeltaTime * AdaptSpeed));
+    return prev + (avgLum - prev) * rate;
+}

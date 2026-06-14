@@ -376,6 +376,16 @@ void ResourceManager::CreateDeferredShaders()
 		GetOrAddHlslShader(L"Luminance_HLSL", desc);
 	}
 
+	// Auto-exposure 적응 (1x1 핑퐁 — 눈 적응)
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Exposure.hlsl";
+		desc.psFile  = L"Exposure.hlsl";
+		desc.vsEntry = "VS_Main";
+		desc.psEntry = "PS_Adapt";
+		GetOrAddHlslShader(L"ExposureAdapt_HLSL", desc);
+	}
+
 	// 볼류메트릭 라이트 (갓레이, 풀스크린)
 	{
 		HlslShaderDesc desc;

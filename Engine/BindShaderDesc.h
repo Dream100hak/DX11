@@ -117,6 +117,14 @@ struct ExposureDesc
 	Vec2  padding;
 };
 
+// Auto-exposure 적응 (Exposure PS_Adapt b10) — HLSL AdaptBuffer 와 일치
+struct AdaptDesc
+{
+	float deltaTime = 0.f;
+	float adaptSpeed = 2.5f; // 클수록 빠르게 수렴 (눈 적응 속도)
+	Vec2  padding;
+};
+
 // Depth of Field (Dof b10) — HLSL DofBuffer 와 일치
 struct DofDesc
 {

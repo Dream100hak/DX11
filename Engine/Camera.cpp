@@ -421,7 +421,7 @@ void Camera::Render_Deferred()
 		tonemapShader->Bind();
 		tonemapShader->SetPSSRV(0, _sceneColorSRV.Get());
 		tonemapShader->SetPSSRV(1, _bloomEnabled ? _bloomSRV[0].Get() : nullptr);
-		tonemapShader->SetPSSRV(2, _exposureEnabled ? _lumSRV.Get() : nullptr); // 평균 휘도 밉체인
+		tonemapShader->SetPSSRV(2, _exposureEnabled ? _adaptSRV[_adaptIdx].Get() : nullptr); // 적응 휘도(1x1, linear)
 
 		// Auto-exposure 파라미터 (b8)
 		if (_exposureCB == nullptr)
@@ -444,6 +444,10 @@ void Camera::Render_Deferred()
 		tonemapShader->SetPSSRV(1, nullptr);
 		tonemapShader->SetPSSRV(2, nullptr);
 	}
+
+	// 적응 핑퐁 토글 — 이번 프레임 결과가 다음 프레임의 "직전값"이 됨
+	if (_exposureEnabled)
+		_adaptIdx = 1 - _adaptIdx;
 
 	// ── FXAA: LDR 중간 버퍼 → 최종 타겟 ──
 	if (_fxaaEnabled)
@@ -734,6 +738,23 @@ void Camera::EnsureSceneColor(uint32 w, uint32 h)
 		rd.Texture2D.MipSlice = 0;
 		CHECK(DEVICE->CreateRenderTargetView(_lumTex.Get(), &rd, _lumRTV.GetAddressOf()));
 		CHECK(DEVICE->CreateShaderResourceView(_lumTex.Get(), nullptr, _lumSRV.GetAddressOf()));
+
+		// 적응 휘도 1x1 핑퐁 (R32F, 0 초기화 → 첫 프레임 스냅)
+		D3D11_TEXTURE2D_DESC ad{};
+		ad.Width = 1; ad.Height = 1; ad.MipLevels = 1; ad.ArraySize = 1;
+		ad.Format = DXGI_FORMAT_R32_FLOAT; ad.SampleDesc.Count = 1;
+		ad.Usage = D3D11_USAGE_DEFAULT;
+		ad.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+		float zero = 0.f;
+		D3D11_SUBRESOURCE_DATA initZero{}; initZero.pSysMem = &zero; initZero.SysMemPitch = sizeof(float);
+		for (int i = 0; i < 2; ++i)
+		{
+			_adaptTex[i].Reset(); _adaptRTV[i].Reset(); _adaptSRV[i].Reset();
+			CHECK(DEVICE->CreateTexture2D(&ad, &initZero, _adaptTex[i].GetAddressOf()));
+			CHECK(DEVICE->CreateRenderTargetView(_adaptTex[i].Get(), nullptr, _adaptRTV[i].GetAddressOf()));
+			CHECK(DEVICE->CreateShaderResourceView(_adaptTex[i].Get(), nullptr, _adaptSRV[i].GetAddressOf()));
+		}
+		_adaptIdx = 0;
 	}
 
 	// Bloom ping-pong (하프 해상도 HDR)
@@ -970,6 +991,38 @@ void Camera::RenderLuminance(uint32 w, uint32 h)
 	ID3D11RenderTargetView* nullRTV[1] = { nullptr };
 	DCT->OMSetRenderTargets(1, nullRTV, nullptr);
 	DCT->GenerateMips(_lumSRV.Get()); // 밉체인 = 점진 다운샘플 평균
+
+	// ── 시간적 적응: cur = lerp(prev, avg, dt) — 1x1 핑퐁 ──
+	if (auto adaptShader = RESOURCES->Get<HlslShader>(L"ExposureAdapt_HLSL"))
+	{
+		const int32 cur = _adaptIdx;
+		const int32 prev = 1 - _adaptIdx;
+
+		ID3D11RenderTargetView* art = _adaptRTV[cur].Get();
+		DCT->OMSetRenderTargets(1, &art, nullptr);
+		D3D11_VIEWPORT avp{}; avp.Width = 1.f; avp.Height = 1.f; avp.MaxDepth = 1.f;
+		DCT->RSSetViewports(1, &avp);
+
+		adaptShader->SetPSSRV(0, _lumSRV.Get());          // 평균(로그) 밉체인
+		adaptShader->SetPSSRV(1, _adaptSRV[prev].Get());  // 직전 적응값
+
+		if (_adaptCB == nullptr) { _adaptCB = make_shared<ConstantBuffer<AdaptDesc>>(); _adaptCB->Create(); }
+		AdaptDesc ad;
+		ad.deltaTime = GET_SINGLE(TimeManager)->GetDeltaTime();
+		ad.adaptSpeed = _adaptSpeed;
+		_adaptCB->CopyData(ad);
+		adaptShader->SetPSConstantBuffer(10, _adaptCB->GetComPtr().Get());
+
+		adaptShader->Bind();
+		DCT->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		DCT->OMSetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::DisableDepth).Get(), 0);
+		DCT->Draw(3, 0);
+		DCT->OMSetDepthStencilState(nullptr, 0);
+
+		adaptShader->SetPSSRV(0, nullptr);
+		adaptShader->SetPSSRV(1, nullptr);
+		// cur 이 이번 프레임 결과 — Tonemap 이 _adaptSRV[_adaptIdx] 를 읽음. 다음 프레임 위해 토글.
+	}
 }
 
 // Bloom — sceneColor 에서 임계값 이상 휘도 추출(하프 해상도) 후 분리형 가우시안 블러.

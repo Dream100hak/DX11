@@ -46,7 +46,10 @@ public:
 
 		ImGui::Checkbox("Auto Exposure", &_exposureEnabled);
 		if (_exposureEnabled)
+		{
 			ImGui::DragFloat("Exposure Key", &_exposureKey, 0.005f, 0.01f, 2.f);
+			ImGui::DragFloat("Adapt Speed", &_adaptSpeed, 0.1f, 0.1f, 30.f); // 클수록 즉각
+		}
 
 		ImGui::SeparatorText("IBL");
 		ImGui::DragFloat("Env Intensity", &_envIntensity, 0.01f, 0.f, 4.f);
@@ -200,6 +203,13 @@ private:
 	ComPtr<ID3D11RenderTargetView>   _lumRTV;  // mip0
 	ComPtr<ID3D11ShaderResourceView> _lumSRV;
 	shared_ptr<ConstantBuffer<struct ExposureDesc>> _exposureCB;
+	// 시간적 적응(눈 적응) — 1x1 핑퐁(직전/현재 적응 휘도), Tonemap 이 현재본을 읽음
+	float _adaptSpeed = 2.5f;
+	ComPtr<ID3D11Texture2D>          _adaptTex[2];
+	ComPtr<ID3D11RenderTargetView>   _adaptRTV[2];
+	ComPtr<ID3D11ShaderResourceView> _adaptSRV[2];
+	int32 _adaptIdx = 0;
+	shared_ptr<ConstantBuffer<struct AdaptDesc>> _adaptCB;
 	void RenderLuminance(uint32 w, uint32 h);
 
 	// 볼류메트릭 라이트(갓레이) — SSR 직후 sceneColor+CSM 로 인스캐터링 합성

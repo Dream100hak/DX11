@@ -51,9 +51,9 @@ float4 PS_Main(TonemapVSOutput input) : SV_TARGET
     // Auto-exposure — 로그휘도 밉체인 최상위(평균)로 노출 산출 후 곱함
     if (UseExposure)
     {
-        float avgLogLum = AvgLumMip.SampleLevel(LinearSampler, float2(0.5f, 0.5f), 20.0f).r;
-        float avgLum = exp(avgLogLum);
-        float exposure = ExposureKey / max(avgLum, 1e-3f);
+        // t2 = 시간적 적응된 휘도(1x1, linear) — exp 불필요
+        float adapted = AvgLumMip.SampleLevel(LinearSampler, float2(0.5f, 0.5f), 0.0f).r;
+        float exposure = ExposureKey / max(adapted, 1e-3f);
         exposure = clamp(exposure, 0.05f, 4.0f); // 과노출/암부 폭주 방지
         hdr *= exposure;
     }

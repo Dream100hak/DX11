@@ -61,12 +61,23 @@ struct LightData
     float2 pad;
 };
 
-cbuffer LightArrayBuffer : register(b7)
+// ── Clustered shading (b7 + t11~t13) — Engine/ClusterLighting.cpp 와 레이아웃 일치 ──
+cbuffer ClusterParams : register(b7)
 {
-    LightData lights[16];
-    int lightCount;
-    float3 lightPadding;
+    uint3  ClusterGrid;         // (16,9,24)
+    uint   MaxLightsPerCluster; // 64
+    float  ClusterZNear;
+    float  ClusterZFar;
+    uint   PunctualCount;       // ClusterLights 유효 개수
+    uint   DirCount;            // DirLights 유효 개수
+    float2 ClusterScreen;
+    float2 ClusterPad;
+    LightData DirLights[4];     // 디렉셔널(화면 전체) — 클러스터 컬링 대상 아님
 };
+
+StructuredBuffer<LightData> ClusterLights  : register(t11); // 펑추얼(점/스팟) 라이트
+StructuredBuffer<uint>      ClusterCounts  : register(t12); // 클러스터별 라이트 수
+StructuredBuffer<uint>      ClusterIndices : register(t13); // 평탄 라이트 인덱스 리스트
 
 // 점/스팟 그림자
 Texture2DArray   SpotShadowMap  : register(t9);  // 스팟 원근 섀도우 배열
@@ -142,6 +153,24 @@ float3 FresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)
     return F0 + (fMax - F0) * pow(saturate(1.0f - cosTheta), 5.0f);
 }
 
+// 단일 라이트 Cook-Torrance 기여 (radiance/그림자 제외, NdotL 포함)
+float3 ShadePBR(float3 N, float3 V_, float3 L, float NdotV,
+                float3 albedo, float metallic, float roughness, float3 F0)
+{
+    float  NdotL = saturate(dot(N, L));
+    float3 H     = normalize(V_ + L);
+    float  NdotH = max(dot(N, H), 0.0f);
+    float  HdotV = max(dot(H, V_), 0.0f);
+
+    float  D = DistributionGGX(NdotH, roughness);
+    float  G = GeometrySmith(NdotV, NdotL, roughness);
+    float3 F = FresnelSchlick(HdotV, F0);
+
+    float3 specular = (D * G * F) / max(4.0f * NdotV * NdotL, 1e-4f);
+    float3 kd = (1.0f - F) * (1.0f - metallic); // 금속은 디퓨즈 없음
+    return (kd * albedo / PI + specular) * NdotL;
+}
+
 float4 PS_Main(LightingVSOutput input) : SV_TARGET
 {
     float4 albedoData   = GBufferAlbedo.Sample(PointSampler, input.uv);
@@ -184,89 +213,88 @@ float4 PS_Main(LightingVSOutput input) : SV_TARGET
     float3 Lo = float3(0, 0, 0);           // 직접광 누적
     float3 ambientAccum = float3(0, 0, 0); // 앰비언트 누적
 
-    [unroll(16)]
-    for (int i = 0; i < lightCount; ++i)
+    // ── 디렉셔널 라이트 (화면 전체) — CSM 그림자 ──
+    [loop]
+    for (uint d = 0; d < DirCount; ++d)
     {
-        float3 L = float3(0, 0, 1);
-        float att = 1.0f;
+        ambientAccum += DirLights[d].ambient.rgb * DirLights[d].intensity;
 
-        if (lights[i].type == 0)
+        float3 L = -normalize(DirLights[d].direction);
+        if (dot(N, L) <= 0.0f) continue;
+
+        float3 radiance = DirLights[d].diffuse.rgb * DirLights[d].intensity;
+        Lo += shadowFactor * ShadePBR(N, V_, L, NdotV, albedo, metallic, roughness, F0) * radiance;
+    }
+
+    // ── 펑추얼 라이트 (점/스팟) — 픽셀이 속한 클러스터의 라이트만 순회 ──
+    {
+        uint cx = min((uint)(input.uv.x * ClusterGrid.x), ClusterGrid.x - 1);
+        uint cy = min((uint)(input.uv.y * ClusterGrid.y), ClusterGrid.y - 1);
+        // Z 로그 슬라이스 (ClusterLighting.cpp 의 sliceFromZ 와 동일 매핑)
+        float sliceF = log(max(viewZ, ClusterZNear) / ClusterZNear) / log(ClusterZFar / ClusterZNear) * ClusterGrid.z;
+        uint cz = (uint)clamp(sliceF, 0.0f, (float)ClusterGrid.z - 1.0f);
+        uint clusterIdx = cx + cy * ClusterGrid.x + cz * ClusterGrid.x * ClusterGrid.y;
+
+        uint count = ClusterCounts[clusterIdx];
+        uint baseI = clusterIdx * MaxLightsPerCluster;
+
+        [loop]
+        for (uint li = 0; li < count; ++li)
         {
-            L = -normalize(lights[i].direction);
-        }
-        else
-        {
-            float3 toLight = lights[i].position - worldPos;
-            float d = length(toLight);
-            if (d > lights[i].range) continue;
-            L = toLight / d;
-            // 부드러운 거리 감쇠: 라이트 근처 ~1, range 경계에서 0.
-            // 물리 역제곱(1/(c+ld+qd²))은 에디터 스케일(range 수십m)에서 너무 빨리 깜깜해져
-            // 바닥에 빛 풀이 안 보였음 → (1-t²)² 윈도우로 교체 (t = d/range).
-            float distT = d / lights[i].range;
+            LightData lt = ClusterLights[ClusterIndices[baseI + li]];
+
+            float3 toLight = lt.position - worldPos;
+            float dist = length(toLight);
+            if (dist > lt.range) continue;
+            float3 L = toLight / dist;
+
+            // (1-t²)² 거리 윈도우 (t = d/range)
+            float distT = dist / lt.range;
             float window = saturate(1.0f - distT * distT);
-            att = window * window;
+            float att = window * window;
 
-            if (lights[i].type == 2)
+            if (lt.type == 2) // 스팟 콘
             {
-                float cosAngle = dot(-L, normalize(lights[i].direction));
-                float outerCos = lights[i].spotAngle;
+                float cosAngle = dot(-L, normalize(lt.direction));
+                float outerCos = lt.spotAngle;
                 float innerCos = lerp(outerCos, 1.0f, 0.3f);
                 att *= saturate((cosAngle - outerCos) / (innerCos - outerCos));
             }
-        }
 
-        ambientAccum += lights[i].ambient.rgb * lights[i].intensity * att;
+            ambientAccum += lt.ambient.rgb * lt.intensity * att;
 
-        float NdotL = dot(N, L);
-        if (NdotL <= 0.0f)
-            continue;
+            float NdotL = dot(N, L);
+            if (NdotL <= 0.0f) continue;
 
-        // 라이트별 그림자: 디렉셔널=CSM, 스팟=원근 섀도우맵 슬롯, 그 외=없음
-        float lightShadow = 1.0f;
-        if (lights[i].type == 0)
-        {
-            lightShadow = shadowFactor; // CSM
-        }
-        else if (lights[i].type == 1 && lights[i].shadowIndex >= 0)
-        {
-            // 포인트: 큐브 그림자 (frag→light = position - worldPos)
-            lightShadow = PointShadowFactor(lights[i].shadowIndex, lights[i].position - worldPos, lights[i].range);
-        }
-        else if (lights[i].type == 2 && lights[i].shadowIndex >= 0)
-        {
-            float4 sp = mul(float4(worldPos, 1.0f), SpotVPT[lights[i].shadowIndex]);
-            if (sp.w > 0.0f)
+            // 라이트별 그림자: 포인트=큐브, 스팟=원근 섀도우맵 슬롯
+            float lightShadow = 1.0f;
+            if (lt.type == 1 && lt.shadowIndex >= 0)
             {
-                float3 sndc = sp.xyz / sp.w;
-                if (sndc.x > 0.001f && sndc.x < 0.999f &&
-                    sndc.y > 0.001f && sndc.y < 0.999f &&
-                    sndc.z > 0.0f   && sndc.z < 1.0f)
+                lightShadow = PointShadowFactor(lt.shadowIndex, lt.position - worldPos, lt.range);
+            }
+            else if (lt.type == 2 && lt.shadowIndex >= 0)
+            {
+                float4 sp = mul(float4(worldPos, 1.0f), SpotVPT[lt.shadowIndex]);
+                if (sp.w > 0.0f)
                 {
-                    // 경사 기반 바이어스: 빛에 비스듬할수록(NdotL 작을수록) 크게 — 아크네 줄무늬 제거
-                    float spotBias = 0.0015f + 0.006f * (1.0f - saturate(NdotL));
-                    lightShadow = CalcShadowFactorArray(SpotShadowMap, lights[i].shadowIndex, sp, spotBias);
+                    float3 sndc = sp.xyz / sp.w;
+                    if (sndc.x > 0.001f && sndc.x < 0.999f &&
+                        sndc.y > 0.001f && sndc.y < 0.999f &&
+                        sndc.z > 0.0f   && sndc.z < 1.0f)
+                    {
+                        float spotBias = 0.0015f + 0.006f * (1.0f - saturate(NdotL));
+                        lightShadow = CalcShadowFactorArray(SpotShadowMap, lt.shadowIndex, sp, spotBias);
+                    }
                 }
             }
+
+            float3 radiance = lt.diffuse.rgb * lt.intensity * att;
+            Lo += lightShadow * ShadePBR(N, V_, L, NdotV, albedo, metallic, roughness, F0) * radiance;
         }
-
-        float3 H = normalize(V_ + L);
-        float NdotH = max(dot(N, H), 0.0f);
-        float HdotV = max(dot(H, V_), 0.0f);
-
-        float  D = DistributionGGX(NdotH, roughness);
-        float  G = GeometrySmith(NdotV, NdotL, roughness);
-        float3 F = FresnelSchlick(HdotV, F0);
-
-        float3 specular = (D * G * F) / max(4.0f * NdotV * NdotL, 1e-4f);
-        float3 kd = (1.0f - F) * (1.0f - metallic); // 금속은 디퓨즈 없음
-
-        float3 radiance = lights[i].diffuse.rgb * lights[i].intensity * att;
-        Lo += lightShadow * (kd * albedo / PI + specular) * radiance * NdotL;
     }
 
     // 라이트가 없으면 기본 환경광으로 실루엣만 보이게
-    if (lightCount == 0)
+    if (DirCount == 0 && PunctualCount == 0)
         ambientAccum = float3(0.45f, 0.45f, 0.45f);
 
     // SSAO: 앰비언트 항에 가림도 적용 (UseSsao 플래그로 토글)

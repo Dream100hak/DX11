@@ -160,6 +160,10 @@ private:
 	shared_ptr<class GBuffer> _gBuffer;
 	bool _showGBufferDebug = false;
 
+	// 클러스터 셰이딩 — froxel 격자 라이트 컬링 (MAX_LIGHTS 16 제약 제거)
+	shared_ptr<class ClusterLighting> _clusterLighting;
+	vector<struct LightData> _allLights;
+
 	// HDR sceneColor 텍스처와 스카이박스/지형 지오메트리가 모두 쓰는 렌더 타겟+깊이 버퍼.
 	// GBuffer DSV와 렌더가 분리됨: Pass 3 스카이박스 렌더 시 렌더 타겟으로 사용하지만 (백스크린 GBuffer DSV
 	// 렌더 영역 밖으로 OMSetRenderTargets가 조정되므로 깊이 버퍼 문제 해결됨). 풀스크린 지오메트리가 백스크린으로 출력됨.
@@ -256,4 +260,5 @@ private:
 	void RenderOutlinePass(const Matrix& V, const Matrix& P);
 
 	shared_ptr<class LightArrayDesc> CollectLights(shared_ptr<class Scene> scene);
+	void CollectAllLights(shared_ptr<class Scene> scene, vector<struct LightData>& out);
 };

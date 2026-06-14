@@ -59,6 +59,30 @@ struct LightArrayDesc
 	Vec3 padding;
 };
 
+// ── Clustered shading ──
+// 디퍼드 라이팅 패스(b7) 클러스터 파라미터. 펑추얼(점/스팟) 라이트는 구조화버퍼(t11~t13)로
+// 클러스터별 인덱스 리스트를 통해 전달되고, 디렉셔널은 화면 전체에 영향이라 여기 인라인으로 둔다.
+// HLSL DeferredLighting.hlsl 의 cbuffer ClusterParams(b7) 와 레이아웃 일치 필수.
+#define MAX_CLUSTER_DIR_LIGHTS 4
+struct ClusterParamsDesc
+{
+	uint32 gridX = 16;
+	uint32 gridY = 9;
+	uint32 gridZ = 24;
+	uint32 maxPerCluster = 64;
+
+	float  zNear = 0.1f;
+	float  zFar = 1000.f;
+	uint32 punctualCount = 0;  // 구조화버퍼 ClusterLights 의 유효 라이트 수
+	uint32 dirCount = 0;       // dirLights 유효 수
+
+	float  screenW = 0.f;
+	float  screenH = 0.f;
+	Vec2   pad;
+
+	LightData dirLights[MAX_CLUSTER_DIR_LIGHTS];
+};
+
 // 점/스팟 그림자(b10, DeferredLighting) — 스팟 라이트별 V*P*T (worldPos → 섀도우 텍스처공간)
 struct PunctualShadowDesc
 {

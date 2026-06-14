@@ -169,6 +169,7 @@
     <ClInclude Include="FileUtils.h" />
     <ClInclude Include="Game.h" />
     <ClInclude Include="GBuffer.h" />
+    <ClInclude Include="ClusterLighting.h" />
     <ClInclude Include="Ibl.h" />
     <ClInclude Include="GameObject.h" />
     <ClInclude Include="Geometry.h" />
@@ -247,6 +248,7 @@
     <ClCompile Include="FileUtils.cpp" />
     <ClCompile Include="Game.cpp" />
     <ClCompile Include="GBuffer.cpp" />
+    <ClCompile Include="ClusterLighting.cpp" />
     <ClCompile Include="Ibl.cpp" />
     <ClCompile Include="GameObject.cpp" />
     <ClCompile Include="Geometry.cpp" />

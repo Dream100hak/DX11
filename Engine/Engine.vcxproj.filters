@@ -226,6 +226,9 @@
     <ClInclude Include="GBuffer.h">
       <Filter>01. Graphics\Render</Filter>
     </ClInclude>
+    <ClInclude Include="ClusterLighting.h">
+      <Filter>01. Graphics\Render</Filter>
+    </ClInclude>
     <ClInclude Include="Ibl.h">
       <Filter>01. Graphics\Render</Filter>
     </ClInclude>
@@ -445,6 +448,9 @@
       <Filter>01. Graphics\Shader</Filter>
     </ClCompile>
     <ClCompile Include="GBuffer.cpp">
+      <Filter>01. Graphics\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="ClusterLighting.cpp">
       <Filter>01. Graphics\Render</Filter>
     </ClCompile>
     <ClCompile Include="Ibl.cpp">

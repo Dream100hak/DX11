@@ -63,6 +63,7 @@ DX11/
 Camera::Render_Deferred()
   Pass 1:   GBuffer fill (albedo+metallic / normal+roughness / worldpos+mask / emissive) + Terrain GBuffer + Foliage(잔디/나무 인스턴싱)
   Pass 2:   DeferredLighting fullscreen -> HDR sceneColor (Cook-Torrance + IBL t5/t6/t7 + CSM Shadow t3 + SSAO t4 + spot t9 / point cube t10)
+            + Clustered shading: 디렉셔널은 b7 인라인(CSM), 점/스팟은 froxel 클러스터 라이트 리스트(t11~t13)로 픽셀당 자기 클러스터만 순회
   Pass 2.5: SSR (Ssr.hlsl) — sceneColor+GBuffer 월드 레이마치 반사 -> _ssrTex -> CopyResource sceneColor
   Pass 2.7: Volumetric (Volumetric.hlsl) — CSM 그림자 레이마치 갓레이(HG phase) -> _volTex -> CopyResource sceneColor
   Pass 3:   Background(sky)/Transparent(particles)/Overlay -> sceneColor (GBuffer depth shared)
@@ -77,9 +78,19 @@ Camera::Render_Deferred()
 
 ### Constant Buffer Layout
 - `b0` GlobalData (V,P,VP,VInv,Shadow,Time) / `b1` TransformData / `b2` LightData / `b3` MaterialData (+Roughness/Metallic)
-- `b4` BoneData / `b5` ModelBoneBuffer (per-mesh static bone) / `b6` TweenBuffer / `b7` LightArray (MAX_LIGHTS=16)
+- `b4` BoneData / `b5` ModelBoneBuffer (per-mesh static bone) / `b6` TweenBuffer / `b7` LightArray (포워드 MAX_LIGHTS=16) — **DeferredLighting 에선 b7 = ClusterParams**
 - `b8` pass-specific (Terrain/Ssao/Particle/IblBake/Ibl/PostProcess/PassViewer)
 - Sampler s0~s4, Material SRV t0~t4 (Diffuse/Specular/Normal/Shadow/Ssao)
+
+### Clustered Shading (commit 165)
+- **`Engine/ClusterLighting`** — 뷰 절두체를 16×9×24 froxel 격자(Z 로그 분포)로 분할, **CPU 라이트 컬링**.
+  매 프레임 씬의 모든 점/스팟 라이트를 자기가 겹치는 클러스터에만 배정(구-AABB 테스트) → 클러스터별 라이트 인덱스 리스트를
+  동적 구조화버퍼(`StructuredBuffer` SRV 경로 재사용)로 업로드. **MAX_LIGHTS 16 제약 제거(수백 개)**.
+- GPU 바인딩: `t11` ClusterLights(LightData[256]) / `t12` ClusterCounts(uint[3456]) / `t13` ClusterIndices(uint[3456×64]) / `b7` ClusterParams.
+  DeferredLighting PS 는 픽셀 uv+viewZ 로 클러스터 인덱스를 산출해 해당 클러스터 라이트만 순회 (셰이더·CPU 슬라이스 매핑 동일해야 함).
+- **디렉셔널 라이트는 클러스터 컬링 대상 아님** — 화면 전체 영향이라 ClusterParams(b7) 에 인라인(`DirLights[4]`), CSM 그림자 유지.
+- 포워드(투명/파티클) 경로는 여전히 CollectLights 의 16개 cbuffer LightArray(b7) 사용 — 셰이더가 달라 b7 레이아웃 충돌 없음.
+- 한계: CPU 컬링(추후 컴퓨트셰이더 이관 가능), 포워드 경로 16개 캡 잔존.
 
 ### Render Queue
 - `RenderQueue`: Background / Opaque / AlphaTest / Transparent / Overlay (set via Material `_renderQueue`)

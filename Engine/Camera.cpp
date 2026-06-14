@@ -13,6 +13,7 @@
 #include "ModelMesh.h"
 #include "Ibl.h"
 #include "GBuffer.h"
+#include "ClusterLighting.h"
 #include "HlslShader.h"
 #include "RenderStateManager.h"
 #include "GameObject.h"
@@ -54,6 +55,36 @@ shared_ptr<LightArrayDesc> Camera::CollectLights(shared_ptr<Scene> scene)
 		lightArray->lightCount++;
 	}
 	return lightArray;
+}
+
+// 클러스터 셰이딩용 — MAX_LIGHTS(16) 캡 없이 씬의 모든 라이트를 LightData 로 수집.
+// (포워드/투명 경로는 여전히 CollectLights 의 16개 cbuffer 배열을 사용)
+void Camera::CollectAllLights(shared_ptr<Scene> scene, vector<LightData>& out)
+{
+	out.clear();
+	auto& lights = scene->GetLights();
+	out.reserve(lights.size());
+	for (auto& lightObj : lights)
+	{
+		if (out.size() >= ClusterLighting::MAX_PUNCTUAL) break;
+		auto lc = lightObj->GetLight();
+		if (!lc) continue;
+
+		const LightDesc& ld = lc->GetLightDesc();
+		LightData data{};
+		data.diffuse     = ld.diffuse;
+		data.ambient     = ld.ambient;
+		data.intensity   = ld.intensity;
+		data.type        = static_cast<int32>(lc->GetLightType());
+		data.direction   = ld.direction;
+		data.position    = lightObj->GetTransform()->GetPosition();
+		data.range       = lc->GetRange();
+		data.attenuation = lc->GetAttenuation();
+		data.spotAngle   = lc->GetSpotAngleCos();
+		data.shadowIndex = (lc->GetLightType() == LightType::Spot || lc->GetLightType() == LightType::Point)
+			? lc->GetShadowSlot() : -1;
+		out.push_back(data);
+	}
 }
 
 void Camera::SortGameObject()
@@ -195,6 +226,13 @@ void Camera::Render_Deferred()
 	_width  = static_cast<float>(w);
 	_height = static_cast<float>(h);
 
+	// 클러스터 셰이딩 — 씬의 모든 라이트를 froxel 격자에 CPU 컬링 → 구조화버퍼 업로드.
+	// 디퍼드 라이팅 패스가 픽셀당 자기 클러스터의 라이트만 순회 (MAX_LIGHTS 16 제약 제거).
+	if (_clusterLighting == nullptr)
+		_clusterLighting = make_shared<ClusterLighting>();
+	CollectAllLights(scene, _allLights);
+	_clusterLighting->Build(V, P, _width, _height, max(GetNear(), 0.1f), GetFar(), _allLights);
+
 	if (!_gBuffer || _gBuffer->GetWidth() != w || _gBuffer->GetHeight() != h)
 	{
 		_gBuffer = make_shared<GBuffer>();
@@ -331,9 +369,11 @@ void Camera::Render_Deferred()
 		_punctualCB->CopyData(punctual);
 		lightingShader->SetPSConstantBuffer(10, _punctualCB->GetComPtr().Get());
 
+		// 클러스터 라이트 리스트 — t11~t13 + ClusterParams(b7)
+		_clusterLighting->Bind(lightingShader);
+
 		lightingShader->Bind();
 		lightingShader->PushGlobalData(V, P);
-		lightingShader->PushLightArrayData(*lightArray);
 
 		MaterialDesc defaultMat;
 		defaultMat.ambient  = Vec4(1.f);
@@ -352,6 +392,7 @@ void Camera::Render_Deferred()
 		lightingShader->SetPSSRV(6, nullptr);
 		lightingShader->SetPSSRV(7, nullptr);
 		lightingShader->SetPSSRV(8, nullptr); // Emissive RT 해제 (다음 프레임 GBuffer RTV 바인딩과 충돌 방지)
+		_clusterLighting->Unbind(lightingShader); // t11~t13 해제
 	}
 
 	// ── Pass 2.5: SSR (스크린스페이스 반사) — sceneColor(불투명 라이팅 결과) + GBuffer ──

@@ -632,8 +632,9 @@ void SceneWindow::DrawTerrainBrush()
 
 		const int seg = 40;
 		const float r = TerrainWindow::S_Radius;
-		ImU32 col = (TerrainWindow::S_Mode == 1) ? IM_COL32(255, 120, 90, 230)  // Lower=빨강
-			: IM_COL32(120, 220, 255, 230);                                    // 그 외=하늘
+		ImU32 col = (TerrainWindow::S_Tool == 1) ? IM_COL32(140, 255, 140, 230) // Paint=초록
+			: (TerrainWindow::S_Mode == 1) ? IM_COL32(255, 120, 90, 230)       // Lower=빨강
+			: IM_COL32(120, 220, 255, 230);                                    // Sculpt 그 외=하늘
 		ImVec2 prev; bool have = false;
 		for (int i = 0; i <= seg; ++i)
 		{
@@ -651,9 +652,14 @@ void SceneWindow::DrawTerrainBrush()
 			dl->AddCircleFilled(cen, 3.f, col);
 	}
 
-	// 좌클릭 드래그 → 스컬프팅 (MouseDown = 누르고 있는 동안 매 프레임 적용)
+	// 좌클릭 드래그 → 스컬프팅/페인팅 (MouseDown = 누르고 있는 동안 매 프레임 적용)
 	const ImGuiIO& io = ImGui::GetIO();
 	if (io.MouseDown[0])
-		terrain->Sculpt(hit, TerrainWindow::S_Radius, TerrainWindow::S_Strength, TerrainWindow::S_Mode);
+	{
+		if (TerrainWindow::S_Tool == 1)
+			terrain->PaintLayer(hit, TerrainWindow::S_Radius, TerrainWindow::S_Strength, TerrainWindow::S_Layer);
+		else
+			terrain->Sculpt(hit, TerrainWindow::S_Radius, TerrainWindow::S_Strength, TerrainWindow::S_Mode);
+	}
 }
 

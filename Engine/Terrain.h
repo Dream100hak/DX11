@@ -61,6 +61,8 @@ public:
 	bool RaycastTerrain(const Vec3& rayOrigin, const Vec3& rayDir, Vec3& outHit) const;
 	// 브러시로 worldHit 주변 높이를 수정 (mode: 0=올림 1=내림 2=스무드 3=평탄화)
 	void Sculpt(const Vec3& worldHit, float radius, float strength, int32 mode);
+	// 블렌드맵에 레이어 가중치를 칠함 (layer: 0=베이스 ~ 4). 첫 호출 시 기존 블렌드맵을 편집본으로 승격.
+	void PaintLayer(const Vec3& worldHit, float radius, float strength, int32 layer);
 	// 전체 높이를 height 로 — "평탄 지형" 리셋
 	void FlattenAll(float height);
 	float GetWorldWidth() const; // (heightmapWidth-1)*cellSpacing
@@ -77,10 +79,19 @@ private:
 	void CreateInspectorLayerViews();
 	void CreateHeightmapSRV();
 	void UploadHeightmap(); // _mesh 높이맵 → GPU 텍스처 재업로드 (UpdateSubresource)
+	void EnsureEditableBlend(); // 기존 블렌드맵(비압축 BGRA)을 CPU 미러+편집 텍스처로 승격
+	void UploadBlend();         // _blendCPU → 편집 블렌드 텍스처 재업로드
 
 private:
 
 	shared_ptr<Texture> _blendMap;
+
+	// 블렌드맵 페인팅 — 기존 텍스처를 CPU 미러 + 편집 텍스처로 승격 (_blendMap SRV 교체)
+	std::vector<uint8>      _blendCPU;     // BGRA 픽셀 미러
+	uint32                  _blendW = 0;
+	uint32                  _blendH = 0;
+	ComPtr<ID3D11Texture2D> _blendEditTex; // UpdateSubresource 대상
+	bool                    _blendEditable = false;
 
 	shared_ptr<Texture> _layerMapArray;
 	ComPtr<ID3D11ShaderResourceView> _heightMapSRV;

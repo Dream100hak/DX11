@@ -525,3 +525,144 @@ void Terrain::FlattenAll(float height)
 	_mesh->RebuildBoundsAndUploadVB();
 	UploadHeightmap();
 }
+
+void Terrain::EnsureEditableBlend()
+{
+	if (_blendEditable || _blendMap == nullptr)
+		return;
+
+	ComPtr<ID3D11Texture2D> src = _blendMap->GetTexture2D();
+	if (src == nullptr)
+		return;
+
+	D3D11_TEXTURE2D_DESC sd{};
+	src->GetDesc(&sd);
+	// 비압축 32bpp(BGRA/RGBA) 만 지원 — 압축 DDS 면 리드백 생략(편집 불가)
+	if (sd.Format != DXGI_FORMAT_B8G8R8A8_UNORM && sd.Format != DXGI_FORMAT_R8G8B8A8_UNORM)
+		return;
+
+	_blendW = sd.Width;
+	_blendH = sd.Height;
+
+	// ── 스테이징 복사로 기존 픽셀 리드백 (기존 스플랫 보존) ──
+	D3D11_TEXTURE2D_DESC stg = sd;
+	stg.Usage = D3D11_USAGE_STAGING;
+	stg.BindFlags = 0;
+	stg.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+	stg.MiscFlags = 0;
+	stg.MipLevels = 1;
+	stg.ArraySize = 1;
+
+	ComPtr<ID3D11Texture2D> stgTex;
+	if (FAILED(DEVICE->CreateTexture2D(&stg, nullptr, stgTex.GetAddressOf())))
+		return;
+	// blend.dds 는 밉맵 다수 → CopyResource(desc 불일치)는 실패. mip0 만 단일밉 스테이징으로 복사.
+	DCT->CopySubresourceRegion(stgTex.Get(), 0, 0, 0, 0, src.Get(), 0, nullptr);
+
+	_blendCPU.assign((size_t)_blendW * _blendH * 4, 0);
+	D3D11_MAPPED_SUBRESOURCE m{};
+	if (SUCCEEDED(DCT->Map(stgTex.Get(), 0, D3D11_MAP_READ, 0, &m)))
+	{
+		for (uint32 y = 0; y < _blendH; ++y)
+			memcpy(&_blendCPU[(size_t)y * _blendW * 4], (uint8*)m.pData + (size_t)y * m.RowPitch, (size_t)_blendW * 4);
+		DCT->Unmap(stgTex.Get(), 0);
+	}
+
+	// ── 편집용 DEFAULT 텍스처 + SRV (같은 포맷) 생성 후 _blendMap SRV 교체 ──
+	D3D11_TEXTURE2D_DESC ed{};
+	ed.Width = _blendW;
+	ed.Height = _blendH;
+	ed.MipLevels = 1;
+	ed.ArraySize = 1;
+	ed.Format = sd.Format;
+	ed.SampleDesc.Count = 1;
+	ed.Usage = D3D11_USAGE_DEFAULT;
+	ed.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+
+	D3D11_SUBRESOURCE_DATA init{};
+	init.pSysMem = _blendCPU.data();
+	init.SysMemPitch = _blendW * 4;
+	if (FAILED(DEVICE->CreateTexture2D(&ed, &init, _blendEditTex.GetAddressOf())))
+		return;
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC sv{};
+	sv.Format = sd.Format;
+	sv.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	sv.Texture2D.MostDetailedMip = 0;
+	sv.Texture2D.MipLevels = 1;
+	ComPtr<ID3D11ShaderResourceView> srv;
+	if (FAILED(DEVICE->CreateShaderResourceView(_blendEditTex.Get(), &sv, srv.GetAddressOf())))
+		return;
+
+	_blendMap->SetSRV(srv); // 렌더(t1)가 편집본을 쓰도록 교체
+	_blendEditable = true;
+}
+
+void Terrain::UploadBlend()
+{
+	if (_blendEditTex == nullptr)
+		return;
+	DCT->UpdateSubresource(_blendEditTex.Get(), 0, nullptr, _blendCPU.data(), _blendW * 4, 0);
+}
+
+void Terrain::PaintLayer(const Vec3& worldHit, float radius, float strength, int32 layer)
+{
+	EnsureEditableBlend();
+	if (_blendEditable == false || radius <= 0.f)
+		return;
+
+	if (layer < 0) layer = 0;
+	if (layer > 4) layer = 4;
+
+	// 블렌드 채널: t.r=레이어1, t.g=레이어2, t.b=레이어3, t.a=레이어4, 모두 0=베이스(레이어0).
+	// BGRA 메모리 순서 기준 "순수 레이어 L" 타깃 바이트 (B,G,R,A)
+	static const uint8 targets[5][4] = {
+		{0,0,0,0},     // L0 base
+		{0,0,255,0},   // L1 → R
+		{0,255,0,0},   // L2 → G
+		{255,0,0,0},   // L3 → B
+		{0,0,0,255},   // L4 → A
+	};
+	const uint8* tgt = targets[layer];
+
+	const float worldW = GetWorldWidth();
+	const float worldD = GetWorldDepth();
+	if (worldW <= 0.f || worldD <= 0.f)
+		return;
+	const float halfW = 0.5f * worldW;
+	const float halfD = 0.5f * worldD;
+
+	// 월드 → 블렌드 픽셀 (UV: u=+x, v=+z 윗쪽; GetHeight row 방향과 동일)
+	float u = (worldHit.x + halfW) / worldW;
+	float v = (halfD - worldHit.z) / worldD;
+	float cx = u * (_blendW - 1);
+	float cy = v * (_blendH - 1);
+	float radPx = radius / worldW * _blendW;
+	if (radPx < 1.f) radPx = 1.f;
+
+	int32 x0 = (int32)floorf(cx - radPx) - 1, x1 = (int32)ceilf(cx + radPx) + 1;
+	int32 y0 = (int32)floorf(cy - radPx) - 1, y1 = (int32)ceilf(cy + radPx) + 1;
+
+	for (int32 y = y0; y <= y1; ++y)
+	{
+		if (y < 0 || y >= (int32)_blendH) continue;
+		for (int32 x = x0; x <= x1; ++x)
+		{
+			if (x < 0 || x >= (int32)_blendW) continue;
+			float dx = x - cx, dy = y - cy;
+			float dist = sqrtf(dx * dx + dy * dy);
+			if (dist > radPx) continue;
+
+			float f = 1.f - dist / radPx;
+			float fall = f * f * (3.f - 2.f * f);
+			float amt = strength * fall;
+			if (amt > 1.f) amt = 1.f;
+
+			uint8* px = &_blendCPU[((size_t)y * _blendW + x) * 4];
+			for (int32 c = 0; c < 4; ++c)
+				px[c] = (uint8)(px[c] + (int32)((tgt[c] - (int32)px[c]) * amt));
+		}
+	}
+
+	UploadBlend();
+}

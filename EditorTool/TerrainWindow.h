@@ -13,8 +13,10 @@ public:
 	virtual void Update() override;
 
 	// SceneWindow 브러시가 읽는 편집 상태
-	static bool  S_Edit;     // 편집 모드 on/off (켜지면 씬뷰 좌클릭이 픽킹 대신 스컬프팅)
-	static int32 S_Mode;     // 0=Raise 1=Lower 2=Smooth 3=Flatten
+	static bool  S_Edit;     // 편집 모드 on/off (켜지면 씬뷰 좌클릭이 픽킹 대신 브러시)
+	static int32 S_Tool;     // 0=Sculpt(높이) 1=Paint(텍스처)
+	static int32 S_Mode;     // Sculpt: 0=Raise 1=Lower 2=Smooth 3=Flatten
+	static int32 S_Layer;    // Paint: 0=베이스 ~ 4
 	static float S_Radius;   // 브러시 월드 반경
 	static float S_Strength; // 브러시 세기
 };

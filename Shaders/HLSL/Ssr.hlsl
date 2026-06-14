@@ -76,7 +76,26 @@ float4 PS_Main(VSOut input) : SV_TARGET
 
         if (diff > 0.0f && diff < thickness)
         {
-            float3 refl = SceneColor.Sample(LinearSampler, suv).rgb;
+            // 거칠기 비례 소프트 반사 — 매끄러우면 선명(1탭), 거칠수록 UV 디스크 블러
+            float3 refl;
+            if (rough < 0.05f)
+            {
+                refl = SceneColor.Sample(LinearSampler, suv).rgb;
+            }
+            else
+            {
+                const float2 kTap[8] =
+                {
+                    float2( 1, 0), float2(-1, 0), float2( 0, 1), float2( 0,-1),
+                    float2( 0.7, 0.7), float2(-0.7, 0.7), float2( 0.7,-0.7), float2(-0.7,-0.7)
+                };
+                float blurUV = rough * 0.02f; // UV 공간 블러 반경 (거칠기 비례)
+                refl = SceneColor.Sample(LinearSampler, suv).rgb;
+                [unroll]
+                for (int t = 0; t < 8; ++t)
+                    refl += SceneColor.Sample(LinearSampler, suv + kTap[t] * blurUV).rgb;
+                refl /= 9.0f;
+            }
 
             // 가중: 메탈릭/프레넬(그레이징↑) × (1-거칠기) × 화면 가장자리 페이드
             float  fres = pow(1.0f - NdotV, 4.0f);

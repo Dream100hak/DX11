@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "TerrainWindow.h"
 #include "Terrain.h"
+#include "Foliage.h"
 #include "GameObject.h"
 #include "Utils.h"
 #include "Define.h"
@@ -99,6 +100,25 @@ void TerrainWindow::Update()
 			ADDLOG("Terrain save failed", LogFilter::Warn);
 	}
 	ImGui::TextDisabled("Writes height(.r32)/blend(.dds), updates paths.\nThen File > Save Scene to keep edits.");
+
+	ImGui::SeparatorText("Foliage (Grass)");
+	static int32 grassCount = 4000;
+	static float grassW = 0.6f, grassH = 1.0f;
+	ImGui::DragInt("Count", &grassCount, 50.f, 0, 200000);
+	ImGui::DragFloat("Blade Width", &grassW, 0.01f, 0.05f, 5.f);
+	ImGui::DragFloat("Blade Height", &grassH, 0.01f, 0.05f, 10.f);
+	if (ImGui::Button("Generate Grass"))
+		terrain->GenerateFoliage(grassCount, grassW, grassH);
+	ImGui::SameLine();
+	if (ImGui::Button("Clear Grass"))
+		terrain->ClearFoliage();
+
+	if (auto fo = terrain->GetFoliage())
+	{
+		ImGui::Text("Instances: %d", fo->GetCount());
+		ImGui::DragFloat("Wind Strength", &fo->Params().WindStrength, 0.005f, 0.f, 3.f);
+		ImGui::DragFloat("Wind Freq", &fo->Params().WindFreq, 0.01f, 0.f, 10.f);
+	}
 
 	ImGui::End();
 }

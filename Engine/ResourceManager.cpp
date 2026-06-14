@@ -326,6 +326,16 @@ void ResourceManager::CreateDeferredShaders()
 		GetOrAddHlslShader(L"GBufferAnim_HLSL", desc);
 	}
 
+	// 식생(잔디) GBuffer — 인스턴스 쿼드 + 바람 + 절차적 블레이드 알파컷
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Grass.hlsl";
+		desc.psFile  = L"Grass.hlsl";
+		desc.vsEntry = "VS_Grass";
+		desc.psEntry = "PS_Grass";
+		GetOrAddHlslShader(L"Grass_GBuffer_HLSL", desc);
+	}
+
 	// Deferred Lighting (fullscreen triangle, no vertex buffer)
 	{
 		HlslShaderDesc desc;

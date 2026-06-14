@@ -74,6 +74,12 @@ public:
 	// 다음 로드 때 편집된 지형이 그대로 재생성된다. 성공 시 true.
 	bool SaveEditedTerrain();
 
+	// ── 식생(잔디) — Terrain 이 소유, Camera Pass 1 에서 터레인 직후 렌더 ──
+	void GenerateFoliage(int32 count, float widthScale, float heightScale);
+	void ClearFoliage();
+	void RenderFoliageGBuffer(Matrix V, Matrix P, float dt);
+	shared_ptr<class Foliage> GetFoliage() { return _foliage; }
+
 	void TerrainRenderer(Matrix V, Matrix P);
 	void TerrainRendererGBuffer(Matrix V, Matrix P);     // ?뷀띁??GBuffer fill (Camera::Render_Deferred Pass 1)
 	void TerrainRendererNotPS(Matrix V, Matrix P);
@@ -112,6 +118,7 @@ private:
 	TerrainInfo _info;
 
 	shared_ptr<class TerrainMesh> _mesh = nullptr;
+	shared_ptr<class Foliage> _foliage = nullptr; // 식생(잔디)
 
 	TerrainBuffer _terrainDesc;
 	shared_ptr<ConstantBuffer<TerrainBuffer>> _terrainBuffer;

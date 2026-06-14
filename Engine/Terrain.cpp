@@ -2,6 +2,7 @@
 #include <filesystem>
 #include <fstream>
 #include "Terrain.h"
+#include "Foliage.h"
 #include "MathUtils.h"
 #include "Camera.h"
 #include "Light.h"
@@ -525,6 +526,25 @@ void Terrain::FlattenAll(float height)
 	std::fill(hm.begin(), hm.end(), height);
 	_mesh->RebuildBoundsAndUploadVB();
 	UploadHeightmap();
+}
+
+void Terrain::GenerateFoliage(int32 count, float widthScale, float heightScale)
+{
+	if (_foliage == nullptr)
+		_foliage = make_shared<Foliage>();
+	_foliage->Generate(this, count, widthScale, heightScale);
+}
+
+void Terrain::ClearFoliage()
+{
+	if (_foliage)
+		_foliage->Clear();
+}
+
+void Terrain::RenderFoliageGBuffer(Matrix V, Matrix P, float dt)
+{
+	if (_foliage)
+		_foliage->RenderGBuffer(V, P, dt);
 }
 
 void Terrain::EnsureEditableBlend()

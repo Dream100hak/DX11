@@ -220,7 +220,11 @@ void Camera::Render_Deferred()
 	if (auto terrainObj = scene->GetTerrain())
 	{
 		if (auto terrain = terrainObj->GetTerrain())
+		{
 			terrain->TerrainRendererGBuffer(V, P);
+			// 식생(잔디) — 터레인 직후 GBuffer 로 (바람 애니: 프레임 델타 누적)
+			terrain->RenderFoliageGBuffer(V, P, GET_SINGLE(TimeManager)->GetDeltaTime());
+		}
 	}
 
 	HlslShader::S_ForceWireframe = false; // 이후 패스(라이팅/포스트)는 항상 솔리드

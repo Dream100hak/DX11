@@ -227,8 +227,12 @@ MeshOutput VS_Animation(VertexModel input)
     output.position  = mul(posW, VP);
 
     output.uv        = input.uv;
-    output.normal    = normalize(mul(input.normal,  (float3x3)input.world));
-    output.tangent   = normalize(mul(input.tangent, (float3x3)input.world));
+    // 노멀/탄젠트도 본 스키닝 행렬로 먼저 변형해야 함 — 예전엔 world 만 적용해
+    // 위치는 애니로 휘는데 노멀은 바인드포즈에 고정 → 등/회전 부위가 진흙 묻은 듯 얼룩지던 버그.
+    float3 skinNormal  = mul(input.normal,  (float3x3)skinMat);
+    float3 skinTangent = mul(input.tangent, (float3x3)skinMat);
+    output.normal    = normalize(mul(skinNormal,  (float3x3)input.world));
+    output.tangent   = normalize(mul(skinTangent, (float3x3)input.world));
 
     output.ssao  = mul(output.position, T);
     output.picked    = input.isPicked;

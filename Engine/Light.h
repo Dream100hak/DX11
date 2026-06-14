@@ -31,6 +31,10 @@ public:
 		if (ImGui::Combo("Light Type", &selected, "Directional\0Point\0Spot\0"))
 			_type = static_cast<LightType>(selected);
 
+		// 라이트 색상 — diffuse 가 실제 빛 색(클러스터/포워드 radiance). ambient 는 환경 폴백.
+		ImGui::ColorEdit3("Color", (float*)&_desc.diffuse);
+		ImGui::ColorEdit3("Ambient", (float*)&_desc.ambient);
+
 		ImGui::DragFloat("Intensity", &_intensity, 0.01f, 0.f, 100.f);
 		SetIntensity(_intensity);
 

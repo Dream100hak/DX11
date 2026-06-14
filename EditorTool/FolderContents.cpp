@@ -66,6 +66,15 @@ void FolderContents::Init()
 
 void FolderContents::Update()
 {
+	// 드래그 중이 아니면 떠도는 프리뷰(에디터-내부 모델)를 씬에서 제거.
+	// 프리뷰는 드래그 중에만 씬에 올라가고 드롭 시 SceneWindow 가 내리지만,
+	// 드롭이 오버레이/창에 먹히거나 취소되면 씬에 남아 "붙어서 같이 온" 팬텀처럼 보였다.
+	if (ImGui::GetDragDropPayload() == nullptr)
+	{
+		for (auto& [k, pv] : _meshPreviewObjs)
+			if (pv) CUR_SCENE->Remove(pv);
+	}
+
 	ShowFolderContents(); // 위치/크기는 도크가 결정
 }
 
@@ -805,29 +814,32 @@ void FolderContents::DragModelFileToGUIWnd(shared_ptr<MetaData>& meta, const wst
 			int32 x = INPUT->GetMousePos().x;
 			int32 y = INPUT->GetMousePos().y;
 
-			Matrix V = MAIN_CAM->GetViewMatrix();
-			Matrix P = MAIN_CAM->GetProjectionMatrix();
-			Viewport& vp = GRAPHICS->GetViewport();
+			// 커서 아래 지형 표면에 배치 — 카메라 레이 ↔ 지형 교차(높이필드).
+			// (예전엔 y=0 평면 교차 후 GetHeight 보정 → 기복/언덕 지형에서 (x,z)가 커서와 어긋나
+			//  여러 모델이 한 곳에 뭉쳐 떨어지던 버그. 브러시와 동일한 RaycastTerrain 으로 교체)
+			Vec3 o, d;
+			CUR_SCENE->ScreenToWorldRay(x, y, o, d);
 
-			Vec3 n = vp.Unproject(Vec3(x, y, 0), Matrix::Identity, V, P);
-			Vec3 f = vp.Unproject(Vec3(x, y, 1), Matrix::Identity, V, P);
+			Vec3 hitPoint;
+			bool hit = false;
 
-			Vec3 start = MAIN_CAM->GetTransform()->GetPosition();
-			Vec3 direction = f - n;
-			direction.Normalize();
-
-			float rayLength = 1000.0f;
-			float t = -start.y / direction.y; // y=0
-
-			if (t > 0 && t < rayLength)
+			if (shared_ptr<GameObject> terrainObj = CUR_SCENE->GetTerrain())
 			{
-				Vec3 hitPoint = start + direction * t;
+				if (auto terrain = terrainObj->GetTerrain())
+				{
+					Vec3 hp;
+					if (terrain->RaycastTerrain(o, d, hp)) { hitPoint = hp; hit = true; }
+				}
+			}
 
-				shared_ptr<GameObject> terrain = CUR_SCENE->GetTerrain();
+			if (hit == false) // 지형 없음/미적중 — y=0 평면 폴백
+			{
+				float t = (fabsf(d.y) > 1e-5f) ? (-o.y / d.y) : -1.f;
+				if (t > 0.f && t < 1000.f) { hitPoint = o + d * t; hit = true; }
+			}
 
-				if (terrain)
-					hitPoint.y = terrain->GetTerrain()->GetHeight(hitPoint.x, hitPoint.z);
-
+			if (hit)
+			{
 				obj->GetTransform()->SetScale(Vec3(scaleRatio));
 				obj->GetTransform()->SetPosition(hitPoint);
 			}

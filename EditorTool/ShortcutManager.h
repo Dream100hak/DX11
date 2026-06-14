@@ -14,5 +14,7 @@ public:
 	void CreateEmpty();
 	void DeleteObject();
 
+private:
+	int64 _clipboardId = -1; // Ctrl+C 로 복사한 오브젝트 id (Ctrl+V 로 반복 붙여넣기)
 };
 

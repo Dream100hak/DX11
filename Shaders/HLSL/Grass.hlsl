@@ -11,7 +11,9 @@ cbuffer GrassBuffer : register(b8)
     float GameTime;
     float WindStrength;
     float WindFreq;
-    float GrassPad;
+    float MaxDist;      // 이 거리에서 완전히 사라짐
+    float FadeRange;    // MaxDist 앞 페이드 구간 (블레이드 축소)
+    float3 GrassPad;
 };
 
 struct VSInput
@@ -37,11 +39,17 @@ MeshOutput VS_Grass(VSInput input)
 {
     MeshOutput o = (MeshOutput)0;
 
-    // 인스턴스 변환 (POSITION 은 R32G32B32 → w 는 IA 가 1.0 으로 채움 = 평행이동 유효)
-    float4 wpos = mul(input.position, input.world);
+    // 거리 페이드 — 인스턴스 밑동(월드 평행이동)까지 거리로 블레이드를 0 까지 축소(원거리 자연 소멸)
+    float3 basePos = float3(input.world._41, input.world._42, input.world._43);
+    float  dist = distance(CameraPositionWS(), basePos);
+    float  fade = saturate((MaxDist - dist) / max(FadeRange, 0.001f));
 
-    // 바람 스웨이 — 끝(uv.y≈1)일수록 크게, 인스턴스 위치로 위상 분산
+    // 끝으로 갈수록 좁아지는 가중치는 원본 로컬 y 기준 (페이드 축소 전)
     float heightW = saturate(input.position.y);
+
+    // 밑동(로컬 원점) 기준으로 fade 만큼 축소 → fade=0 이면 한 점으로 붕괴(비가시)
+    float3 localScaled = input.position.xyz * fade;
+    float4 wpos = mul(float4(localScaled, 1.0f), input.world);
     float phase = wpos.x * 0.35f + wpos.z * 0.45f;
     float sx = sin(GameTime * WindFreq + phase);
     float sz = cos(GameTime * WindFreq * 0.7f + phase * 1.3f);

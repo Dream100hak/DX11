@@ -116,8 +116,11 @@ void TerrainWindow::Update()
 	if (auto fo = terrain->GetFoliage())
 	{
 		ImGui::Text("Instances: %d", fo->GetCount());
+		ImGui::Text("Chunks visible: %d / %d", fo->GetVisibleChunks(), fo->GetChunkCount());
 		ImGui::DragFloat("Wind Strength", &fo->Params().WindStrength, 0.005f, 0.f, 3.f);
 		ImGui::DragFloat("Wind Freq", &fo->Params().WindFreq, 0.01f, 0.f, 10.f);
+		ImGui::DragFloat("View Distance", &fo->Params().MaxDist, 1.f, 5.f, 2000.f);
+		ImGui::DragFloat("Fade Range", &fo->Params().FadeRange, 0.5f, 1.f, 500.f);
 	}
 
 	ImGui::End();

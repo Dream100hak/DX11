@@ -35,6 +35,12 @@ public:
 		int row = (int)floorf(d);
 		int col = (int)floorf(c);
 
+		// 경계 밖(에지 근처 피킹/레이캐스트)에서 OOB 인덱싱 크래시 방지 — 가장자리 셀로 클램프
+		if (row < 0) row = 0;
+		if (col < 0) col = 0;
+		if (row > (int)_info.heightmapHeight - 2) row = (int)_info.heightmapHeight - 2;
+		if (col > (int)_info.heightmapWidth  - 2) col = (int)_info.heightmapWidth  - 2;
+
 		// Grab the heights of the cell we are in.
 		// A*--*B
 		//  | /|
@@ -65,8 +71,16 @@ public:
 	}
 
 
-	std::vector<float> GetHeightMap() {return  _heightmap ; } 
-	
+	std::vector<float> GetHeightMap() {return  _heightmap ; }
+
+	// ── 에디터 편집용 ──
+	std::vector<float>& HeightMapRef() { return _heightmap; } // 직접 수정용 (스컬프팅)
+	uint32 GetHmWidth()  const { return _info.heightmapWidth; }
+	uint32 GetHmHeight() const { return _info.heightmapHeight; }
+	float  GetCellSpacing() const { return _info.cellSpacing; }
+	// 높이맵 수정 후 패치 Y바운드 재계산 + 정점 BoundsY 갱신 + VB 재업로드 (컬링/테셀 정확도 유지)
+	void   RebuildBoundsAndUploadVB();
+
 	shared_ptr<VertexBuffer> GetVertexBuffer() { return _vertexBuffer; }
 	shared_ptr<IndexBuffer> GetIndexBuffer() { return _indexBuffer; }
 	shared_ptr<Geometry<VertexTerrain>> GetGeometry() { return _geometry; }

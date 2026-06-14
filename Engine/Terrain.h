@@ -56,6 +56,17 @@ public:
 	shared_ptr<Texture> GetLayerMap() { return _layerMapArray; }
 	const TerrainInfo& GetInfo() const { return _info; } // 씬 직렬화용
 
+	// ── 에디터 편집 API (TerrainWindow/SceneWindow 브러시) ──
+	// 카메라 레이 ↔ 지형(높이필드) 교차 — 브러시 중심 월드 좌표를 찾음. 지형은 원점 정렬 가정.
+	bool RaycastTerrain(const Vec3& rayOrigin, const Vec3& rayDir, Vec3& outHit) const;
+	// 브러시로 worldHit 주변 높이를 수정 (mode: 0=올림 1=내림 2=스무드 3=평탄화)
+	void Sculpt(const Vec3& worldHit, float radius, float strength, int32 mode);
+	// 전체 높이를 height 로 — "평탄 지형" 리셋
+	void FlattenAll(float height);
+	float GetWorldWidth() const; // (heightmapWidth-1)*cellSpacing
+	float GetWorldDepth() const;
+	shared_ptr<class TerrainMesh> GetTerrainMesh() { return _mesh; }
+
 	void TerrainRenderer(Matrix V, Matrix P);
 	void TerrainRendererGBuffer(Matrix V, Matrix P);     // ?뷀띁??GBuffer fill (Camera::Render_Deferred Pass 1)
 	void TerrainRendererNotPS(Matrix V, Matrix P);
@@ -65,6 +76,7 @@ private:
 
 	void CreateInspectorLayerViews();
 	void CreateHeightmapSRV();
+	void UploadHeightmap(); // _mesh 높이맵 → GPU 텍스처 재업로드 (UpdateSubresource)
 
 private:
 
@@ -72,6 +84,7 @@ private:
 
 	shared_ptr<Texture> _layerMapArray;
 	ComPtr<ID3D11ShaderResourceView> _heightMapSRV;
+	ComPtr<ID3D11Texture2D>          _heightMapTex; // 편집 시 UpdateSubresource 대상 (핸들 보관)
 
 	std::vector<shared_ptr<Texture>> _layerViews;
 

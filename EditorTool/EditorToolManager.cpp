@@ -12,6 +12,7 @@
 #include "Project.h"
 #include "FolderContents.h"
 #include "LogWindow.h"
+#include "TerrainWindow.h"
 
 #include "Utils.h"
 
@@ -41,6 +42,7 @@ void EditorToolManager::Init()
 	auto inspector = make_shared<Inspector>(Vec2(W - inspW, menuH), Vec2(inspW, H - menuH));
 	auto project = make_shared<Project>(Vec2(0, botY), Vec2(colW, botH));
 	auto folderContents = make_shared<FolderContents>(Vec2(colW, botY), Vec2(W - inspW - colW, botH));
+	auto terrainWnd = make_shared<TerrainWindow>(Vec2(sceneSize.x, menuH), Vec2(colW, sceneSize.y)); // 도킹 탭으로 합류
 
 	_editorWindows.insert({ Utils::GetPtrName(sceneWnd) , sceneWnd });
 	_editorWindows.insert({ Utils::GetPtrName(gameWnd) , gameWnd });
@@ -51,6 +53,7 @@ void EditorToolManager::Init()
 	_editorWindows.insert({ Utils::GetPtrName(project) , project });
 	_editorWindows.insert({ Utils::GetPtrName(folderContents) , folderContents });
 	_editorWindows.insert({ Utils::GetPtrName(log) , log });
+	_editorWindows.insert({ Utils::GetPtrName(terrainWnd) , terrainWnd });
 
 	for (auto wnd : _editorWindows)
 	{

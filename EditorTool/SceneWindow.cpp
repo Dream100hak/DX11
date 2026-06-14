@@ -10,6 +10,8 @@
 #include "Light.h"
 #include "SceneGrid.h"
 #include "FolderContents.h"
+#include "TerrainWindow.h"
+#include "Terrain.h"
 #include "RenderContext.h"  // 렌더 컨텍스트
 #include "MeshRenderer.h"   // 메시 렌더러
 #include "ModelRenderer.h"  // 모델 렌더러
@@ -373,6 +375,14 @@ void SceneWindow::EditTransform()
 	// 라이트 기즈모 — 선택 여부와 무관하게 항상 표시 (아래 트랜스폼 기즈모 가드보다 먼저)
 	DrawLightGizmos();
 
+	// 터레인 편집 모드: 트랜스폼 기즈모/픽킹 대신 브러시 스컬프팅으로 전환
+	if (TerrainWindow::S_Edit)
+	{
+		DrawTerrainBrush();
+		_bUsing = true; // 씬뷰 픽킹 블록(_bUsing==false) 차단
+		return;
+	}
+
 	if (_tr == nullptr || _tr->GetGameObject() == nullptr || _tr->GetGameObject()->IsIgnoredTransformEdit())
 	{
 		_bUsing = false;
@@ -583,5 +593,67 @@ void SceneWindow::DrawLightGizmos()
 			}
 		}
 	}
+}
+
+void SceneWindow::DrawTerrainBrush()
+{
+	auto scene = CUR_SCENE;
+	shared_ptr<GameObject> terrainObj = scene ? scene->GetTerrain() : nullptr;
+	shared_ptr<Terrain> terrain = terrainObj ? terrainObj->GetTerrain() : nullptr;
+	if (terrain == nullptr)
+		return;
+
+	int32 mx = INPUT->GetMousePos().x;
+	int32 my = INPUT->GetMousePos().y;
+	if (GRAPHICS->IsMouseInViewport(mx, my) == false || GUI->IsHoveringWindow() == false)
+		return;
+
+	// 카메라 레이 ↔ 지형 교차로 브러시 중심 찾기
+	Vec3 o, d;
+	scene->ScreenToWorldRay(mx, my, o, d);
+	Vec3 hit;
+	if (terrain->RaycastTerrain(o, d, hit) == false)
+		return;
+
+	// 브러시 링 — 지형 표면을 따라 원을 샘플해 그림
+	const SceneDesc& sd = GAME->GetSceneDesc();
+	ImDrawList* dl = sd.drawList;
+	if (dl != nullptr)
+	{
+		Matrix VP = MAIN_CAM->GetViewMatrix() * MAIN_CAM->GetProjectionMatrix();
+		auto w2s = [&](const Vec3& w, ImVec2& out) -> bool
+		{
+			Vec4 c = Vec4::Transform(Vec4(w.x, w.y, w.z, 1.f), VP);
+			if (c.w <= 0.001f) return false;
+			out = ImVec2(sd.x + (c.x / c.w * 0.5f + 0.5f) * sd.width,
+				sd.y + (-c.y / c.w * 0.5f + 0.5f) * sd.height);
+			return true;
+		};
+
+		const int seg = 40;
+		const float r = TerrainWindow::S_Radius;
+		ImU32 col = (TerrainWindow::S_Mode == 1) ? IM_COL32(255, 120, 90, 230)  // Lower=빨강
+			: IM_COL32(120, 220, 255, 230);                                    // 그 외=하늘
+		ImVec2 prev; bool have = false;
+		for (int i = 0; i <= seg; ++i)
+		{
+			float a = (float)i / seg * XM_2PI;
+			float wx = hit.x + cosf(a) * r;
+			float wz = hit.z + sinf(a) * r;
+			float wy = terrain->GetHeight(wx, wz) + 0.1f;
+			ImVec2 s;
+			if (w2s(Vec3(wx, wy, wz), s)) { if (have) dl->AddLine(prev, s, col, 1.6f); prev = s; have = true; }
+			else have = false;
+		}
+		// 중심 점
+		ImVec2 cen;
+		if (w2s(Vec3(hit.x, terrain->GetHeight(hit.x, hit.z) + 0.1f, hit.z), cen))
+			dl->AddCircleFilled(cen, 3.f, col);
+	}
+
+	// 좌클릭 드래그 → 스컬프팅 (MouseDown = 누르고 있는 동안 매 프레임 적용)
+	const ImGuiIO& io = ImGui::GetIO();
+	if (io.MouseDown[0])
+		terrain->Sculpt(hit, TerrainWindow::S_Radius, TerrainWindow::S_Strength, TerrainWindow::S_Mode);
 }
 

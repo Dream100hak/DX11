@@ -101,6 +101,25 @@ void TerrainMesh::CreateTerrain(const TerrainInfo& initInfo)
 	CreateBuffers();
 }
 
+void TerrainMesh::RebuildBoundsAndUploadVB()
+{
+	// 스컬프팅으로 _heightmap 이 바뀐 뒤: 패치별 min/max Y 재계산 → 정점 BoundsY 갱신 → VB 재생성.
+	// (정점은 패치 코너만 있어 수십 개 수준 — 매 스트로크 재생성해도 저렴)
+	CalcAllPatchBoundsY();
+
+	vector<VertexTerrain> vtx = _geometry->GetVertices(); // const& → 복사 후 수정
+	for (uint32 i = 0; i < _rows - 1; ++i)
+	{
+		for (uint32 j = 0; j < _cols - 1; ++j)
+		{
+			uint32 patchID = i * (_cols - 1) + j;
+			vtx[i * _cols + j].BoundsY = _patchBoundsY[patchID];
+		}
+	}
+	_geometry->SetVertices(vtx);
+	_vertexBuffer->Create(_geometry->GetVertices());
+}
+
 void TerrainMesh::CreateBuffers()
 {
 	_vertexBuffer = make_shared<VertexBuffer>();

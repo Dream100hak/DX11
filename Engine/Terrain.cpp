@@ -368,8 +368,8 @@ void Terrain::CreateHeightmapSRV()
 
 	HRESULT hr;
 
-	ID3D11Texture2D* hmapTex = 0;
-	hr = DEVICE->CreateTexture2D(&texDesc, &data, &hmapTex);
+	_heightMapTex.Reset();
+	hr = DEVICE->CreateTexture2D(&texDesc, &data, _heightMapTex.GetAddressOf()); // 핸들 보관 (편집 시 UpdateSubresource)
 	CHECK(hr);
 
 	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
@@ -378,6 +378,150 @@ void Terrain::CreateHeightmapSRV()
 	srvDesc.Texture2D.MostDetailedMip = 0;
 	srvDesc.Texture2D.MipLevels = -1;
 
-	hr = DEVICE->CreateShaderResourceView(hmapTex, &srvDesc, _heightMapSRV.GetAddressOf());
+	hr = DEVICE->CreateShaderResourceView(_heightMapTex.Get(), &srvDesc, _heightMapSRV.GetAddressOf());
 	CHECK(hr);
+}
+
+void Terrain::UploadHeightmap()
+{
+	if (_heightMapTex == nullptr || _mesh == nullptr)
+		return;
+
+	auto& hm = _mesh->HeightMapRef();
+	std::vector<uint16> hmap(hm.size());
+	std::transform(hm.begin(), hm.end(), hmap.begin(), MathUtils::ConvertFloatToHalf);
+
+	DCT->UpdateSubresource(_heightMapTex.Get(), 0, nullptr,
+		hmap.data(), _info.heightmapWidth * sizeof(uint16), 0);
+}
+
+float Terrain::GetWorldWidth() const { return _mesh ? (_info.heightmapWidth  - 1) * _info.cellSpacing : 0.f; }
+float Terrain::GetWorldDepth() const { return _mesh ? (_info.heightmapHeight - 1) * _info.cellSpacing : 0.f; }
+
+bool Terrain::RaycastTerrain(const Vec3& o, const Vec3& d, Vec3& outHit) const
+{
+	if (_mesh == nullptr)
+		return false;
+
+	const float halfW = 0.5f * GetWorldWidth();
+	const float halfD = 0.5f * GetWorldDepth();
+	const float step = max(_info.cellSpacing * 0.5f, 0.05f);
+	const float maxDist = 8000.f;
+
+	auto inside = [&](const Vec3& p) {
+		return p.x >= -halfW && p.x <= halfW && p.z >= -halfD && p.z <= halfD;
+	};
+
+	float prevT = 0.f;
+	bool  havePrev = false;
+	for (float t = 0.f; t < maxDist; t += step)
+	{
+		Vec3 p = o + d * t;
+		if (inside(p) == false)
+		{
+			havePrev = false; // 지형 밖 — 표면 비교 생략 (에지 클램프 오판 방지)
+			continue;
+		}
+
+		float h = _mesh->GetHeight(p.x, p.z);
+		float diff = p.y - h; // >0 위, <=0 표면 아래(교차)
+		if (diff <= 0.f)
+		{
+			float a = havePrev ? prevT : max(0.f, t - step);
+			float b = t;
+			for (int it = 0; it < 20; ++it) // 이분 정밀화
+			{
+				float m = (a + b) * 0.5f;
+				Vec3 pm = o + d * m;
+				float hm = _mesh->GetHeight(pm.x, pm.z);
+				if (pm.y - hm <= 0.f) b = m; else a = m;
+			}
+			outHit = o + d * b;
+			return true;
+		}
+		prevT = t;
+		havePrev = true;
+	}
+	return false;
+}
+
+void Terrain::Sculpt(const Vec3& worldHit, float radius, float strength, int32 mode)
+{
+	if (_mesh == nullptr || radius <= 0.f)
+		return;
+
+	auto& hm = _mesh->HeightMapRef();
+	const int32 W = (int32)_info.heightmapWidth;
+	const int32 H = (int32)_info.heightmapHeight;
+	const float cs = _info.cellSpacing;
+	const float halfW = 0.5f * GetWorldWidth();
+	const float halfD = 0.5f * GetWorldDepth();
+
+	// 월드 → 셀 인덱스 (GetHeight 의 역변환과 동일: col=(x+halfW)/cs, row=(halfD-z)/cs)
+	const float cf = (worldHit.x + halfW) / cs;
+	const float rf = (halfD - worldHit.z) / cs;
+	const int32 cc = (int32)lroundf(cf);
+	const int32 cr = (int32)lroundf(rf);
+	const int32 rad = (int32)ceilf(radius / cs) + 1;
+
+	const float target = _mesh->GetHeight(worldHit.x, worldHit.z); // 평탄화 기준 높이
+
+	for (int32 i = cr - rad; i <= cr + rad; ++i)
+	{
+		if (i < 0 || i >= H) continue;
+		for (int32 j = cc - rad; j <= cc + rad; ++j)
+		{
+			if (j < 0 || j >= W) continue;
+
+			float wx = -halfW + j * cs;
+			float wz = halfD - i * cs;
+			float dx = wx - worldHit.x, dz = wz - worldHit.z;
+			float dist = sqrtf(dx * dx + dz * dz);
+			if (dist > radius) continue;
+
+			float u = 1.f - (dist / radius);
+			float fall = u * u * (3.f - 2.f * u); // smoothstep 페이드
+			float& h = hm[i * W + j];
+
+			switch (mode)
+			{
+			case 0: h += strength * fall; break; // 올림
+			case 1: h -= strength * fall; break; // 내림
+			case 2: // 스무드 (3x3 평균으로 끌어당김)
+			{
+				float avg = 0.f; int32 n = 0;
+				for (int32 a = -1; a <= 1; ++a)
+					for (int32 b = -1; b <= 1; ++b)
+					{
+						int32 ii = i + a, jj = j + b;
+						if (ii < 0 || ii >= H || jj < 0 || jj >= W) continue;
+						avg += hm[ii * W + jj]; ++n;
+					}
+				if (n > 0) avg /= n;
+				float k = strength * fall * 0.5f; if (k > 1.f) k = 1.f;
+				h = h + (avg - h) * k;
+				break;
+			}
+			case 3: // 평탄화 (브러시 중심 높이로 끌어당김)
+			{
+				float k = strength * fall; if (k > 1.f) k = 1.f;
+				h = h + (target - h) * k;
+				break;
+			}
+			}
+		}
+	}
+
+	_mesh->RebuildBoundsAndUploadVB();
+	UploadHeightmap();
+}
+
+void Terrain::FlattenAll(float height)
+{
+	if (_mesh == nullptr)
+		return;
+	auto& hm = _mesh->HeightMapRef();
+	std::fill(hm.begin(), hm.end(), height);
+	_mesh->RebuildBoundsAndUploadVB();
+	UploadHeightmap();
 }

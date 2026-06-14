@@ -41,6 +41,7 @@
     <ClInclude Include="UndoManager.h" />
     <ClInclude Include="SceneWindow.h" />
     <ClInclude Include="ShadowMap.h" />
+    <ClInclude Include="TerrainWindow.h" />
     <ClInclude Include="PunctualShadowMap.h" />
     <ClInclude Include="ShortcutManager.h" />
     <ClInclude Include="SimpleGrid.h" />
@@ -79,6 +80,7 @@
     <ClCompile Include="SceneSerializer.cpp" />
     <ClCompile Include="UndoManager.cpp" />
     <ClCompile Include="SceneWindow.cpp" />
+    <ClCompile Include="TerrainWindow.cpp" />
     <ClCompile Include="ShadowMap.cpp" />
     <ClCompile Include="PunctualShadowMap.cpp" />
     <ClCompile Include="ShortcutManager.cpp" />

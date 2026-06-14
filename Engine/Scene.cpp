@@ -216,6 +216,24 @@ std::shared_ptr<class GameObject> Scene::Pick(int32 screenX, int32 screenY)
 
 	return picked;
 }
+void Scene::ScreenToWorldRay(int32 screenX, int32 screenY, Vec3& outOrigin, Vec3& outDir)
+{
+	shared_ptr<Camera> camera = GetMainCamera()->GetCamera();
+
+	float width = GRAPHICS->GetViewport().GetWidth();
+	float height = GRAPHICS->GetViewport().GetHeight();
+
+	Matrix projectionMatrix = camera->GetProjectionMatrix();
+	float viewX = (+2.0f * screenX / width - 1.0f) / projectionMatrix(0, 0);
+	float viewY = (-2.0f * screenY / height + 1.0f) / projectionMatrix(1, 1);
+
+	Matrix viewMatrixInv = camera->GetViewMatrix().Invert();
+
+	outOrigin = XMVector3TransformCoord(Vec4(0.0f, 0.0f, 0.0f, 1.0f), viewMatrixInv);
+	outDir = XMVector3TransformNormal(Vec4(viewX, viewY, 1.0f, 0.0f), viewMatrixInv);
+	outDir.Normalize();
+}
+
 std::shared_ptr<class GameObject> Scene::MeshPick(int32 screenX, int32 screenY)
 {
 	shared_ptr<Camera> camera = GetMainCamera()->GetCamera();

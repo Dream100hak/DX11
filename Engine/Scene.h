@@ -48,6 +48,9 @@ public:
 	shared_ptr<class GameObject> Pick(int32 screenX, int32 screenY);
 	shared_ptr<class GameObject> MeshPick(int32 screenX, int32 screenY);
 
+	// 스크린(뷰포트) 좌표 → 월드 레이 (MeshPick 와 동일한 언프로젝트). 터레인 브러시 등에서 재사용.
+	void ScreenToWorldRay(int32 screenX, int32 screenY, Vec3& outOrigin, Vec3& outDir);
+
 	void UnPickAll();
 
 	void CheckCollision();

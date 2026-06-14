@@ -38,6 +38,12 @@ public:
 	int32 GetChunkCount() const { return (int32)_chunks.size(); }
 	GrassParamsDesc& Params() { return _params; }
 
+	// 직렬화용 — 마지막 Generate 의 생성 파라미터 (재생성 시 동일 레이아웃 복원)
+	int32 GetGenCount() const { return _genCount; }
+	float GetGenWidth() const { return _genWidth; }
+	float GetGenHeight() const { return _genHeight; }
+	int32 GetGenDensityLayer() const { return _genDensityLayer; }
+
 private:
 	void EnsureResources();
 	void BuildGrassMesh(); // 크로스 쿼드(양면)
@@ -60,6 +66,12 @@ private:
 	int32 _chunkDim = 16;          // 터레인을 chunkDim×chunkDim 청크로 분할
 	int32 _visibleChunks = 0;
 	vector<Chunk> _chunks;
+
+	// 마지막 Generate 파라미터 (직렬화/재생성용)
+	int32 _genCount = 0;
+	float _genWidth = 0.6f;
+	float _genHeight = 1.0f;
+	int32 _genDensityLayer = -1;
 
 	shared_ptr<class HlslShader> _shader;
 	shared_ptr<ConstantBuffer<GrassParamsDesc>> _paramsCB;

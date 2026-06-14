@@ -117,6 +117,11 @@ void Foliage::Generate(Terrain* terrain, int32 count, float widthScale, float he
 {
 	EnsureResources();
 	Clear();
+	// 생성 파라미터 기억 (씬 저장/재생성용)
+	_genCount = count;
+	_genWidth = widthScale;
+	_genHeight = heightScale;
+	_genDensityLayer = densityLayer;
 	if (terrain == nullptr || count <= 0)
 		return;
 

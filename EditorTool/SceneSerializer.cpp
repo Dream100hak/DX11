@@ -16,6 +16,7 @@
 #include "Light.h"
 #include "Camera.h"
 #include "Terrain.h"
+#include "Foliage.h"
 #include "SkyCubeMap.h"
 #include "ParticleSystem.h"
 
@@ -255,6 +256,26 @@ namespace
 				WriteWstrAttr(layerEl, "file", layer);
 				el->LinkEndChild(layerEl);
 			}
+
+			// 식생(잔디/나무) — 결정적 스캐터라 생성 파라미터만 저장(로드 시 재생성)
+			auto writeFoliage = [&](const char* tag, shared_ptr<Foliage> fo)
+			{
+				if (fo == nullptr || fo->GetGenCount() <= 0)
+					return;
+				XMLElement* fe = doc->NewElement(tag);
+				fe->SetAttribute("count", fo->GetGenCount());
+				fe->SetAttribute("width", fo->GetGenWidth());
+				fe->SetAttribute("height", fo->GetGenHeight());
+				fe->SetAttribute("densityLayer", fo->GetGenDensityLayer());
+				fe->SetAttribute("windStrength", fo->Params().WindStrength);
+				fe->SetAttribute("windFreq", fo->Params().WindFreq);
+				fe->SetAttribute("maxDist", fo->Params().MaxDist);
+				fe->SetAttribute("fadeRange", fo->Params().FadeRange);
+				el->LinkEndChild(fe);
+			};
+			writeFoliage("Grass", terrain->GetFoliage());
+			writeFoliage("Trees", terrain->GetTrees());
+
 			objEl->LinkEndChild(el);
 		}
 
@@ -590,6 +611,35 @@ namespace
 				terrain->Init(info, mat);
 
 				sTerrainCache[terrainKey] = terrain;
+			}
+
+			// 식생(잔디/나무) 복원 — 결정적 스캐터라 파라미터만으로 동일 레이아웃 재생성
+			if (auto terrainComp = obj->GetTerrain())
+			{
+				if (auto ge = el->FirstChildElement("Grass"))
+				{
+					terrainComp->GenerateFoliage(ge->IntAttribute("count"), ge->FloatAttribute("width"),
+						ge->FloatAttribute("height"), ge->IntAttribute("densityLayer", -1));
+					if (auto fo = terrainComp->GetFoliage())
+					{
+						fo->Params().WindStrength = ge->FloatAttribute("windStrength", fo->Params().WindStrength);
+						fo->Params().WindFreq = ge->FloatAttribute("windFreq", fo->Params().WindFreq);
+						fo->Params().MaxDist = ge->FloatAttribute("maxDist", fo->Params().MaxDist);
+						fo->Params().FadeRange = ge->FloatAttribute("fadeRange", fo->Params().FadeRange);
+					}
+				}
+				if (auto te = el->FirstChildElement("Trees"))
+				{
+					terrainComp->GenerateTrees(te->IntAttribute("count"), te->FloatAttribute("width"),
+						te->FloatAttribute("height"), te->IntAttribute("densityLayer", -1));
+					if (auto tr = terrainComp->GetTrees())
+					{
+						tr->Params().WindStrength = te->FloatAttribute("windStrength", tr->Params().WindStrength);
+						tr->Params().WindFreq = te->FloatAttribute("windFreq", tr->Params().WindFreq);
+						tr->Params().MaxDist = te->FloatAttribute("maxDist", tr->Params().MaxDist);
+						tr->Params().FadeRange = te->FloatAttribute("fadeRange", tr->Params().FadeRange);
+					}
+				}
 			}
 		}
 

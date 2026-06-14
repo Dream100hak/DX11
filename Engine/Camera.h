@@ -49,6 +49,9 @@ public:
 
 		ImGui::SeparatorText("Shadow (CSM)");
 		ImGui::Checkbox("Cascade Debug Tint", &_csmDebug);
+
+		ImGui::SeparatorText("Reflections (SSR)");
+		ImGui::Checkbox("SSR", &_ssrEnabled);
 	}
 
 
@@ -160,6 +163,13 @@ private:
 	void RenderBloom(uint32 w, uint32 h);
 
 	bool _wireframe = false; // 씬 뷰 와이어프레임 토글
+
+	// SSR (스크린스페이스 반사) — Pass 2 직후 sceneColor+GBuffer 로 반사 합성
+	bool _ssrEnabled = true;
+	ComPtr<ID3D11Texture2D>          _ssrTex;
+	ComPtr<ID3D11RenderTargetView>   _ssrRTV;
+	ComPtr<ID3D11ShaderResourceView> _ssrSRV;
+	void RenderSSR(const Matrix& V, const Matrix& P, uint32 w, uint32 h);
 
 	// IBL (DeferredLighting b8)
 	float _envIntensity = 1.f;

@@ -356,6 +356,16 @@ void ResourceManager::CreateDeferredShaders()
 		GetOrAddHlslShader(L"DeferredLighting_HLSL", desc);
 	}
 
+	// SSR (스크린스페이스 반사, 풀스크린)
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Ssr.hlsl";
+		desc.psFile  = L"Ssr.hlsl";
+		desc.vsEntry = "VS_Main";
+		desc.psEntry = "PS_Main";
+		GetOrAddHlslShader(L"Ssr_HLSL", desc);
+	}
+
 	// Tonemap (HDR sceneColor -> 백스크린 ACES + 감마 보정)
 	{
 		HlslShaderDesc desc;

@@ -345,6 +345,10 @@ void Camera::Render_Deferred()
 		lightingShader->SetPSSRV(8, nullptr); // Emissive RT 해제 (다음 프레임 GBuffer RTV 바인딩과 충돌 방지)
 	}
 
+	// ── Pass 2.5: SSR (스크린스페이스 반사) — sceneColor(불투명 라이팅 결과) + GBuffer ──
+	if (_ssrEnabled)
+		RenderSSR(V, P, w, h);
+
 	// ── Pass 3: Forward pass (skybox + transparent) — sceneColor + G-Buffer depth ──
 	RenderContext fwdCtx;
 	fwdCtx.view = V;
@@ -666,6 +670,12 @@ void Camera::EnsureSceneColor(uint32 w, uint32 h)
 	CHECK(DEVICE->CreateRenderTargetView(_sceneColorTex.Get(), nullptr, _sceneColorRTV.GetAddressOf()));
 	CHECK(DEVICE->CreateShaderResourceView(_sceneColorTex.Get(), nullptr, _sceneColorSRV.GetAddressOf()));
 
+	// SSR 결과 버퍼 (sceneColor 와 동일 포맷 — 반사 합성 후 sceneColor 로 CopyResource)
+	_ssrTex.Reset(); _ssrRTV.Reset(); _ssrSRV.Reset();
+	CHECK(DEVICE->CreateTexture2D(&desc, nullptr, _ssrTex.GetAddressOf()));
+	CHECK(DEVICE->CreateRenderTargetView(_ssrTex.Get(), nullptr, _ssrRTV.GetAddressOf()));
+	CHECK(DEVICE->CreateShaderResourceView(_ssrTex.Get(), nullptr, _ssrSRV.GetAddressOf()));
+
 	// Bloom ping-pong (하프 해상도 HDR)
 	D3D11_TEXTURE2D_DESC bloomDesc = desc;
 	bloomDesc.Width  = max(1u, w / 2);
@@ -685,6 +695,45 @@ void Camera::EnsureSceneColor(uint32 w, uint32 h)
 	CHECK(DEVICE->CreateTexture2D(&ldrDesc, nullptr, _ldrTex.GetAddressOf()));
 	CHECK(DEVICE->CreateRenderTargetView(_ldrTex.Get(), nullptr, _ldrRTV.GetAddressOf()));
 	CHECK(DEVICE->CreateShaderResourceView(_ldrTex.Get(), nullptr, _ldrSRV.GetAddressOf()));
+}
+
+// SSR — sceneColor(불투명 라이팅 결과) + GBuffer 로 반사 합성 → _ssrTex → sceneColor 로 복사.
+// 별도 타겟에 (sceneColor + 반사) 를 쓰고 CopyResource 로 되돌려 read-write 충돌 회피.
+void Camera::RenderSSR(const Matrix& V, const Matrix& P, uint32 w, uint32 h)
+{
+	auto shader = RESOURCES->Get<HlslShader>(L"Ssr_HLSL");
+	if (shader == nullptr || _ssrRTV == nullptr || _sceneColorSRV == nullptr || _gBuffer == nullptr)
+		return;
+
+	ID3D11RenderTargetView* rtv = _ssrRTV.Get();
+	DCT->OMSetRenderTargets(1, &rtv, nullptr);
+
+	D3D11_VIEWPORT vp{};
+	vp.Width = static_cast<float>(w);
+	vp.Height = static_cast<float>(h);
+	vp.MaxDepth = 1.f;
+	DCT->RSSetViewports(1, &vp);
+
+	RENDER_STATES->BindAllSamplersPS();
+	shader->SetPSSRV(0, _sceneColorSRV.Get());
+	shader->SetPSSRV(1, _gBuffer->GetSRV(GBuffer::RT_ALBEDO).Get());
+	shader->SetPSSRV(2, _gBuffer->GetSRV(GBuffer::RT_NORMAL).Get());
+	shader->SetPSSRV(3, _gBuffer->GetSRV(GBuffer::RT_POSITION).Get());
+
+	shader->Bind();
+	shader->PushGlobalData(V, P);
+
+	DCT->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	DCT->OMSetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::DisableDepth).Get(), 0);
+	DCT->Draw(3, 0);
+	DCT->OMSetDepthStencilState(nullptr, 0);
+
+	// SRV 해제 후 결과를 sceneColor 로 복사
+	shader->SetPSSRV(0, nullptr);
+	shader->SetPSSRV(1, nullptr);
+	shader->SetPSSRV(2, nullptr);
+	shader->SetPSSRV(3, nullptr);
+	DCT->CopyResource(_sceneColorTex.Get(), _ssrTex.Get());
 }
 
 // Bloom — sceneColor 에서 임계값 이상 휘도 추출(하프 해상도) 후 분리형 가우시안 블러.

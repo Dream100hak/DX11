@@ -56,6 +56,15 @@ public:
 
 		ImGui::SeparatorText("Reflections (SSR)");
 		ImGui::Checkbox("SSR", &_ssrEnabled);
+
+		ImGui::SeparatorText("Volumetric (God Rays)");
+		ImGui::Checkbox("Volumetric", &_volEnabled);
+		if (_volEnabled)
+		{
+			ImGui::DragFloat("Vol Density", &_volDensity, 0.002f, 0.f, 1.f);
+			ImGui::DragFloat("Vol Intensity", &_volIntensity, 0.02f, 0.f, 5.f);
+			ImGui::DragFloat("Vol Scatter G", &_volScatterG, 0.01f, 0.f, 0.95f);
+		}
 	}
 
 
@@ -183,6 +192,17 @@ private:
 	ComPtr<ID3D11ShaderResourceView> _lumSRV;
 	shared_ptr<ConstantBuffer<struct ExposureDesc>> _exposureCB;
 	void RenderLuminance(uint32 w, uint32 h);
+
+	// 볼류메트릭 라이트(갓레이) — SSR 직후 sceneColor+CSM 로 인스캐터링 합성
+	bool  _volEnabled = true;
+	float _volDensity = 0.04f;
+	float _volIntensity = 0.6f;
+	float _volScatterG = 0.76f;
+	ComPtr<ID3D11Texture2D>          _volTex;
+	ComPtr<ID3D11RenderTargetView>   _volRTV;
+	ComPtr<ID3D11ShaderResourceView> _volSRV;
+	shared_ptr<ConstantBuffer<struct VolumetricDesc>> _volCB;
+	void RenderVolumetric(const Matrix& V, const Matrix& P, uint32 w, uint32 h);
 
 	// IBL (DeferredLighting b8)
 	float _envIntensity = 1.f;

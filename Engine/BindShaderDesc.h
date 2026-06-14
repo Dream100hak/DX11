@@ -117,6 +117,19 @@ struct ExposureDesc
 	Vec2  padding;
 };
 
+// 볼류메트릭 라이트 (Volumetric b10) — HLSL VolumetricBuffer 와 일치
+struct VolumetricDesc
+{
+	Vec3  sunDir = Vec3(0.f, -1.f, 0.f);
+	float sunIntensity = 0.6f;
+	Vec3  sunColor = Vec3(1.f, 0.95f, 0.85f);
+	float fogDensity = 0.04f;
+	float scatterG = 0.76f;     // HG 전방산란
+	float stepCount = 48.f;
+	float maxDistance = 300.f;
+	float pad = 0.f;
+};
+
 // CSM 런타임(b9, DeferredLighting) 버퍼 HLSL CascadeBuffer와 일치 (CASCADE_COUNT=4 가정)
 struct CascadeDesc
 {

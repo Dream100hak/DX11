@@ -349,6 +349,10 @@ void Camera::Render_Deferred()
 	if (_ssrEnabled)
 		RenderSSR(V, P, w, h);
 
+	// ── Pass 2.7: 볼류메트릭 라이트(갓레이) — sceneColor + CSM 그림자 레이마치 ──
+	if (_volEnabled)
+		RenderVolumetric(V, P, w, h);
+
 	// ── Pass 3: Forward pass (skybox + transparent) — sceneColor + G-Buffer depth ──
 	RenderContext fwdCtx;
 	fwdCtx.view = V;
@@ -694,6 +698,12 @@ void Camera::EnsureSceneColor(uint32 w, uint32 h)
 	CHECK(DEVICE->CreateRenderTargetView(_ssrTex.Get(), nullptr, _ssrRTV.GetAddressOf()));
 	CHECK(DEVICE->CreateShaderResourceView(_ssrTex.Get(), nullptr, _ssrSRV.GetAddressOf()));
 
+	// 볼류메트릭 결과 버퍼 (sceneColor 와 동일 포맷 — 합성 후 CopyResource)
+	_volTex.Reset(); _volRTV.Reset(); _volSRV.Reset();
+	CHECK(DEVICE->CreateTexture2D(&desc, nullptr, _volTex.GetAddressOf()));
+	CHECK(DEVICE->CreateRenderTargetView(_volTex.Get(), nullptr, _volRTV.GetAddressOf()));
+	CHECK(DEVICE->CreateShaderResourceView(_volTex.Get(), nullptr, _volSRV.GetAddressOf()));
+
 	// Auto-exposure 로그휘도 밉체인 (고정 256² R16F, GenerateMips 로 평균 산출)
 	{
 		_lumTex.Reset(); _lumRTV.Reset(); _lumSRV.Reset();
@@ -777,6 +787,99 @@ void Camera::RenderSSR(const Matrix& V, const Matrix& P, uint32 w, uint32 h)
 
 	// 렌더타겟 복원 — Pass 3(스카이박스/투명)이 sceneColor 에 이어 그리도록.
 	// (복원 안 하면 _ssrRTV 에 그려져 버려짐 → "스카이박스가 검게 보임" 버그)
+	ID3D11RenderTargetView* scRTV = _sceneColorRTV.Get();
+	DCT->OMSetRenderTargets(1, &scRTV, _gBuffer->GetDSV().Get());
+}
+
+// 볼류메트릭 라이트(갓레이) — sceneColor + GBuffer worldpos + CSM 그림자 레이마치.
+// SSR 과 동일하게 별도 타겟에 합성 후 CopyResource 로 sceneColor 복원.
+void Camera::RenderVolumetric(const Matrix& V, const Matrix& P, uint32 w, uint32 h)
+{
+	auto shader = RESOURCES->Get<HlslShader>(L"Volumetric_HLSL");
+	if (shader == nullptr || _volRTV == nullptr || _gBuffer == nullptr)
+		return;
+
+	// CSM 그림자 배열 (DefaultMaterial 에 바인딩된 것)
+	ComPtr<ID3D11ShaderResourceView> csm;
+	if (auto mat = RESOURCES->Get<Material>(L"DefaultMaterial"))
+		if (mat->GetShadowMap())
+			csm = mat->GetShadowMap()->GetComPtr();
+	if (csm == nullptr)
+		return; // 그림자 없으면 갓레이 스킵
+
+	// 메인 디렉셔널 라이트(태양)
+	Vec3 sunDir(0.f, -1.f, 0.f);
+	Vec3 sunColor(1.f, 0.95f, 0.85f);
+	for (auto& lo : CUR_SCENE->GetLights())
+	{
+		auto lc = lo->GetLight();
+		if (lc && lc->GetLightType() == Directional)
+		{
+			Vec3 d = lc->GetLightDesc().direction;
+			if (d.LengthSquared() > 1e-6f) { d.Normalize(); sunDir = d; }
+			Color c = lc->GetLightDesc().diffuse;
+			sunColor = Vec3(c.x, c.y, c.z);
+			break;
+		}
+	}
+
+	ID3D11RenderTargetView* rtv = _volRTV.Get();
+	DCT->OMSetRenderTargets(1, &rtv, nullptr);
+	D3D11_VIEWPORT vp{};
+	vp.Width = static_cast<float>(w); vp.Height = static_cast<float>(h); vp.MaxDepth = 1.f;
+	DCT->RSSetViewports(1, &vp);
+
+	RENDER_STATES->BindAllSamplersPS();
+	shader->SetPSSRV(0, _sceneColorSRV.Get());
+	shader->SetPSSRV(1, _gBuffer->GetSRV(GBuffer::RT_POSITION).Get());
+	shader->SetPSSRV(2, csm.Get());
+
+	// b9 CascadeBuffer (라이팅 패스와 동일 데이터)
+	if (_cascadeCB == nullptr)
+	{
+		_cascadeCB = make_shared<ConstantBuffer<CascadeDesc>>();
+		_cascadeCB->Create();
+	}
+	CascadeDesc csmDesc;
+	for (int32 c = 0; c < CASCADE_COUNT; ++c)
+		csmDesc.cascadeVPT[c] = Light::S_CascadeVPT[c];
+	csmDesc.cascadeSplits = Vec4(Light::S_CascadeSplitView[0], Light::S_CascadeSplitView[1],
+	                             Light::S_CascadeSplitView[2], Light::S_CascadeSplitView[3]);
+	csmDesc.cascadeCount = CASCADE_COUNT;
+	_cascadeCB->CopyData(csmDesc);
+	shader->SetPSConstantBuffer(9, _cascadeCB->GetComPtr().Get());
+
+	// b10 VolumetricBuffer
+	if (_volCB == nullptr)
+	{
+		_volCB = make_shared<ConstantBuffer<VolumetricDesc>>();
+		_volCB->Create();
+	}
+	VolumetricDesc vd;
+	vd.sunDir = sunDir;
+	vd.sunIntensity = _volIntensity;
+	vd.sunColor = sunColor;
+	vd.fogDensity = _volDensity;
+	vd.scatterG = _volScatterG;
+	vd.stepCount = 48.f;
+	vd.maxDistance = 300.f;
+	_volCB->CopyData(vd);
+	shader->SetPSConstantBuffer(10, _volCB->GetComPtr().Get());
+
+	shader->Bind();
+	shader->PushGlobalData(V, P);
+
+	DCT->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	DCT->OMSetDepthStencilState(RENDER_STATES->GetDSS(DepthStencilStateType::DisableDepth).Get(), 0);
+	DCT->Draw(3, 0);
+	DCT->OMSetDepthStencilState(nullptr, 0);
+
+	shader->SetPSSRV(0, nullptr);
+	shader->SetPSSRV(1, nullptr);
+	shader->SetPSSRV(2, nullptr);
+	DCT->CopyResource(_sceneColorTex.Get(), _volTex.Get());
+
+	// 렌더타겟 복원 (Pass 3 가 sceneColor 에 이어 그리도록)
 	ID3D11RenderTargetView* scRTV = _sceneColorRTV.Get();
 	DCT->OMSetRenderTargets(1, &scRTV, _gBuffer->GetDSV().Get());
 }

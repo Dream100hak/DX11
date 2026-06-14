@@ -376,6 +376,16 @@ void ResourceManager::CreateDeferredShaders()
 		GetOrAddHlslShader(L"Luminance_HLSL", desc);
 	}
 
+	// 볼류메트릭 라이트 (갓레이, 풀스크린)
+	{
+		HlslShaderDesc desc;
+		desc.vsFile  = L"Volumetric.hlsl";
+		desc.psFile  = L"Volumetric.hlsl";
+		desc.vsEntry = "VS_Main";
+		desc.psEntry = "PS_Main";
+		GetOrAddHlslShader(L"Volumetric_HLSL", desc);
+	}
+
 	// Tonemap (HDR sceneColor -> 백스크린 ACES + 감마 보정)
 	{
 		HlslShaderDesc desc;

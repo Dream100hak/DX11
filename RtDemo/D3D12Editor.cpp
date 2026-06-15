@@ -4,6 +4,8 @@
 #include "imgui_impl_win32.h"
 #include "ImGuizmo.h"
 #include <filesystem>
+#include <fstream>
+#include <sstream>
 
 namespace fs = std::filesystem;
 
@@ -135,6 +137,32 @@ void D3D12Device::BuildUI()
 	ImGui::NewFrame();
 	ImGuizmo::BeginFrame();
 
+	// ── 메인 메뉴바 (File / View / 우측 통계) ──
+	if (ImGui::BeginMainMenuBar())
+	{
+		if (ImGui::BeginMenu("File"))
+		{
+			if (ImGui::MenuItem("Save Scene")) SaveScene();
+			if (ImGui::MenuItem("Load Scene")) LoadScene();
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("View"))
+		{
+			ImGui::MenuItem("Grid", nullptr, &_showGrid);
+			ImGui::MenuItem("Sky", nullptr, &_showSky);
+			ImGui::MenuItem("Bloom", nullptr, &_bloomOn);
+			ImGui::MenuItem("Wireframe", nullptr, &_wireframe);
+			ImGui::EndMenu();
+		}
+		float fps = ImGui::GetIO().Framerate;
+		char stat[128];
+		snprintf(stat, sizeof(stat), "%.1f FPS  |  %u tris  |  %u probes  |  DXR RT", fps, _indexCount / 3, PROBE_COUNT);
+		float tw = ImGui::CalcTextSize(stat).x;
+		ImGui::SameLine(ImGui::GetWindowWidth() - tw - 16.0f);
+		ImGui::TextDisabled("%s", stat);
+		ImGui::EndMainMenuBar();
+	}
+
 	// 전체화면 도킹 호스트 (배경 없음 → 중앙 패스스루로 뒤의 3D 씬뷰 노출)
 	ImGuiViewport* vp = ImGui::GetMainViewport();
 	ImGui::SetNextWindowPos(vp->WorkPos);
@@ -246,6 +274,56 @@ void D3D12Device::DrawSceneView()
 	}
 	ImGui::End();
 	ImGui::PopStyleVar();
+}
+
+// ── 씬 저장/로드 (.rtscene 텍스트) — <Assets>/Scenes/quick.rtscene ──
+static std::wstring QuickScenePath(const std::wstring& root)
+{
+	fs::path dir = fs::path(root) / L"Scenes";
+	std::error_code ec; fs::create_directories(dir, ec);
+	return (dir / L"quick.rtscene").wstring();
+}
+
+void D3D12Device::SaveScene()
+{
+	std::ofstream f(QuickScenePath(_assetRoot));
+	if (!f) return;
+	f << "cam " << _camPos.x << ' ' << _camPos.y << ' ' << _camPos.z << ' ' << _camYaw << ' ' << _camPitch << '\n';
+	f << "sun " << _lightIntensity << ' ' << _lightAngle << ' ' << (_lightAnimate ? 1 : 0) << '\n';
+	f << "point " << (_pointOn ? 1 : 0) << ' ' << _pointPos.x << ' ' << _pointPos.y << ' ' << _pointPos.z
+	  << ' ' << _pointColor.x << ' ' << _pointColor.y << ' ' << _pointColor.z << ' ' << _pointIntensity << ' ' << _pointRadius << '\n';
+	f << "gi " << _giStrength << ' ' << _ambient << ' ' << _exposure << '\n';
+	f << "mat " << _matMetallic << ' ' << _matRoughness << ' ' << _matEmissive << ' ' << _matTint << '\n';
+	f << "model " << WToUtf8((_modelDir + _modelStem + L".mesh")) << '\n';
+	f << "xform";
+	const float* m = &_modelMatrix._11;
+	for (int i = 0; i < 16; ++i) f << ' ' << m[i];
+	f << '\n';
+}
+
+void D3D12Device::LoadScene()
+{
+	std::ifstream f(QuickScenePath(_assetRoot));
+	if (!f) return;
+	std::string line;
+	std::string modelUtf8;
+	while (std::getline(f, line))
+	{
+		std::istringstream s(line); std::string tag; s >> tag;
+		if (tag == "cam") s >> _camPos.x >> _camPos.y >> _camPos.z >> _camYaw >> _camPitch;
+		else if (tag == "sun") { int an; s >> _lightIntensity >> _lightAngle >> an; _lightAnimate = an != 0; }
+		else if (tag == "point") { int on; s >> on >> _pointPos.x >> _pointPos.y >> _pointPos.z >> _pointColor.x >> _pointColor.y >> _pointColor.z >> _pointIntensity >> _pointRadius; _pointOn = on != 0; }
+		else if (tag == "gi") s >> _giStrength >> _ambient >> _exposure;
+		else if (tag == "mat") s >> _matMetallic >> _matRoughness >> _matEmissive >> _matTint;
+		else if (tag == "model") { std::getline(s >> std::ws, modelUtf8); }
+		else if (tag == "xform") { float* m = &_pendingMatrix._11; for (int i = 0; i < 16; ++i) s >> m[i]; _hasPendingMatrix = true; }
+	}
+	if (!modelUtf8.empty())
+	{
+		int n = MultiByteToWideChar(CP_UTF8, 0, modelUtf8.c_str(), (int)modelUtf8.size(), nullptr, 0);
+		std::wstring wp(n, L'\0'); MultiByteToWideChar(CP_UTF8, 0, modelUtf8.c_str(), (int)modelUtf8.size(), wp.data(), n);
+		_pendingModel = wp; // 다음 프레임 GPU 유휴 시 로드 + _pendingMatrix 적용
+	}
 }
 
 // 씬뷰 클릭 레이 → 모델 AABB / 바닥 평면 픽킹 → 하이어라키 선택

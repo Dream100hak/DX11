@@ -68,11 +68,12 @@ void D3D12Device::Render()
 	UpdateCamera(1.0f / 60.0f);
 	BuildUI(); // ImGui 패널(CPU) — 카메라/라이팅/GI 파라미터 편집
 
-	// 더블클릭 모델 교체 (GPU 유휴 시점)
+	// 더블클릭/씬로드 모델 교체 (GPU 유휴 시점)
 	if (!_pendingModel.empty())
 	{
 		std::wstring path = _pendingModel; _pendingModel.clear();
 		LoadModelFromFile(path);
+		if (_hasPendingMatrix) { _modelMatrix = _pendingMatrix; _hasPendingMatrix = false; } // 씬로드 트랜스폼 복원
 	}
 
 	// Scene 창 크기 변경 시 오프스크린 RT 재생성 (전체 플러시로 직전 프레임 GPU 유휴)
@@ -161,7 +162,7 @@ void D3D12Device::Render()
 		_cmdList->DrawIndexedInstanced(_modelIndexCount, 1, 0, 0, 0);
 	}
 
-	_cmdList->SetPipelineState(_pso.Get()); // 그래픽스 PSO (컴퓨트 후 복귀)
+	_cmdList->SetPipelineState(_wireframe ? _wirePSO.Get() : _pso.Get()); // 그래픽스 PSO (컴퓨트 후 복귀)
 	_cmdList->SetGraphicsRootSignature(_rootSig.Get());
 	_cmdList->SetGraphicsRootConstantBufferView(0, _cb[_frameIndex]->GetGPUVirtualAddress());
 	_cmdList->SetGraphicsRootShaderResourceView(1, _tlas->GetGPUVirtualAddress()); // TLAS (RayQuery)

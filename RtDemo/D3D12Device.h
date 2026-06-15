@@ -112,6 +112,7 @@ private:
 	ComPtr<ID3D12PipelineState>       _skyPSO;     // 절차적 스카이박스
 	ComPtr<ID3D12PipelineState>       _gridPSO;    // 무한 씬 그리드
 	ComPtr<ID3D12PipelineState>       _outlinePSO; // 선택 아웃라인(인버티드 헐)
+	ComPtr<ID3D12PipelineState>       _wirePSO;    // 와이어프레임 토글
 	DXGI_FORMAT                       _sceneFmt = DXGI_FORMAT_R16G16B16A16_FLOAT; // 씬 RT(HDR)
 
 	// 포스트프로세스 (S3 톤맵 / S4 블룸) — 공용 SRV 힙 + 루트시그
@@ -163,9 +164,13 @@ private:
 	std::wstring                      _modelDir;       // 현재 모델 폴더(.mmat/.mat/텍스처 기준)
 	std::wstring                      _modelStem;      // 현재 모델 스템(예: Archer)
 	std::wstring                      _modelLabel = L"Archer"; // 하이어라키/인스펙터 표시명
-	std::wstring                      _pendingModel;   // 더블클릭 로드 대기 경로 (다음 프레임 처리)
+	std::wstring                      _pendingModel;   // 더블클릭/씬로드 모델 경로 (다음 프레임 처리)
 	DirectX::XMFLOAT4X4               _modelMatrix;    // 기즈모 트랜스폼 (정점에 매프레임 적용 → RT 일치)
 	bool                              _modelMatrixInit = false;
+	DirectX::XMFLOAT4X4               _pendingMatrix;  // 씬 로드 시 모델 로드 후 적용할 트랜스폼
+	bool                              _hasPendingMatrix = false;
+	void                              SaveScene();     // .rtscene 저장
+	void                              LoadScene();     // .rtscene 로드
 
 	// PBR 텍스처 — 다중 머티리얼: 머티리얼 슬롯당 3개(디퓨즈/노멀/스펙) 연속 SRV 힙.
 	// 드로우 시 서브메시의 matSlot 으로 테이블 핸들을 slot*3 만큼 오프셋.

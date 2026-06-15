@@ -172,22 +172,31 @@ float4 PSMain(VSOut i) : SV_TARGET
         if (q.CommittedStatus() != COMMITTED_NOTHING) shadow = 0.0;
     }
 
-    float3 albedo   = (gUseTex != 0) ? gDiffuse.Sample(gSamp, i.uv).rgb : i.col; // 텍스처 or 정점색
-    float3 direct   = albedo * (ndl * shadow) * gLightDir.w;        // 직접광
+    // 머티리얼 파라미터는 모델(텍스처)에만 적용, 바닥은 고정값
+    float metallic  = (gUseTex != 0) ? gMatParams.x : 0.0;
+    float roughness = (gUseTex != 0) ? gMatParams.y : 0.6;
+    float emissive  = (gUseTex != 0) ? gMatParams.z : 0.0;
+    float tint      = (gUseTex != 0) ? gMatParams.w : 1.0;
+    float3 albedo   = ((gUseTex != 0) ? gDiffuse.Sample(gSamp, i.uv).rgb : i.col) * tint; // 텍스처 or 정점색 × 틴트
+    // 금속은 디퓨즈 감소 (에너지 보존 근사)
+    float3 direct   = albedo * (ndl * shadow) * gLightDir.w * (1.0 - metallic * 0.75);
 
-    // ── 스펙큘러 (Blinn-Phong, 스펙맵 마스크) ──
+    // ── 스펙큘러 (Blinn-Phong, 거칠기→지수, 금속→albedo 색) ──
     float3 spec = 0;
-    if (gUseTex != 0 && ndl > 0.0)
+    if (ndl > 0.0)
     {
         float3 V = normalize(gCamPos.xyz - i.wpos);
         float3 H = normalize(L + V);
-        float  m = gSpecMap.Sample(gSamp, i.uv).r;
-        spec = pow(saturate(dot(N, H)), 48.0) * m * shadow * gLightDir.w;
+        float  m = (gUseTex != 0) ? gSpecMap.Sample(gSamp, i.uv).r : 1.0;
+        float  power = lerp(8.0, 256.0, 1.0 - roughness);
+        float3 specColor = lerp(float3(0.04, 0.04, 0.04), albedo, metallic); // 비금속 F0≈0.04
+        spec = pow(saturate(dot(N, H)), power) * m * shadow * gLightDir.w * specColor * (1.0 - roughness * 0.5);
     }
 
     ProbeSH sh      = SampleProbes(i.wpos, N);
     float3 indirect = albedo * EvalIrradiance(sh, N) * gGI.x;       // DDGI 간접광 (가시성 가중)
     float3 col = albedo * gGI.z + direct + indirect + spec;        // 앰비언트 + 직접 + 간접 + 스펙
+    col += albedo * emissive;                                       // 이미시브 (HDR → 블룸)
     return float4(col, 1.0);
 }
 )";

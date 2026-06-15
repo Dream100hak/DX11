@@ -277,6 +277,12 @@ void D3D12Device::DrawInspector()
 		ImGui::SameLine(); if (ImGui::RadioButton("Scale", _gizmoOp == 896)) _gizmoOp = 896;
 		if (ImGui::Button("Reset Transform")) { DirectX::XMStoreFloat4x4(&_modelMatrix, DirectX::XMMatrixIdentity()); }
 		ImGui::Spacing();
+		ImGui::SeparatorText("Material (PBR)");
+		ImGui::SliderFloat("Metallic", &_matMetallic, 0.0f, 1.0f);
+		ImGui::SliderFloat("Roughness", &_matRoughness, 0.02f, 1.0f);
+		ImGui::SliderFloat("Emissive", &_matEmissive, 0.0f, 5.0f);
+		ImGui::SliderFloat("Albedo Tint", &_matTint, 0.0f, 2.0f);
+		ImGui::Spacing();
 		ImGui::Text("Vertices : %u", _vertexCount);
 		ImGui::Text("Triangles: %u", _indexCount / 3);
 		ImGui::Text("Bones    : %u", (unsigned)_bonesData.size());

@@ -29,6 +29,18 @@ struct SceneCB
 	DirectX::XMFLOAT4   pointPos;  // xyz 점광원 위치, w 반경
 	DirectX::XMFLOAT4   pointColor;// rgb 색, w 세기
 	DirectX::XMFLOAT4   matParams; // x metallic, y roughness, z emissive, w albedoTint
+	DirectX::XMFLOAT4   sunColor;
+	DirectX::XMFLOAT4   fog;
+	DirectX::XMFLOAT4   grade;
+	DirectX::XMFLOAT4   skyZenith;
+	DirectX::XMFLOAT4   skyHorizon;
+	DirectX::XMFLOAT4   dbg;
+	DirectX::XMFLOAT4   spotPos;
+	DirectX::XMFLOAT4   spotDir;
+	DirectX::XMFLOAT4   spotColor;
+	DirectX::XMFLOAT4   tint;
+	DirectX::XMFLOAT4   ptPos[4];
+	DirectX::XMFLOAT4   ptCol[4];
 };
 
 // ───────────────────────────────────────────────────────────
@@ -216,7 +228,7 @@ private:
 	void                              DrawInspector();
 	void                              DrawFolderContents();
 	void                              DrawSceneView();
-	enum class SelEntity { Model, Floor, Sun, DDGI, Camera, Point };
+	enum class SelEntity { Model, Floor, Sun, DDGI, Camera, Point, Spot, Post };
 	SelEntity                         _sel = SelEntity::Model; // 하이어라키 선택 → 인스펙터 표시 대상
 	void                              CreateSceneRT(UINT w, UINT h); // 씬 오프스크린 RT/깊이 (재)생성
 	ImGuiDx12                         _imgui;
@@ -252,6 +264,31 @@ private:
 	float                             _matMetallic = 0.0f, _matRoughness = 0.5f, _matEmissive = 0.0f, _matTint = 1.0f;
 	// 뷰포트 토글 (S10)
 	bool                              _showGrid = true, _showSky = true, _bloomOn = true, _wireframe = false;
+
+	// ── 20종 확장 상태 ──
+	float                             _fov = 55.f, _moveSpeed = 3.5f, _fastMul = 2.6f; // T1
+	bool                              _gizmoLocal = false, _snapOn = false; float _snapT = 0.5f, _snapR = 15.f, _snapS = 0.1f; // T2
+	DirectX::XMFLOAT3                 _sunColor{ 1.0f, 0.96f, 0.88f }; float _envIntensity = 1.0f; // T5
+	float                             _bloomThreshold = 1.0f; // T6 (셰이더 전달)
+	int                               _tonemapOp = 0; // T7: 0 ACES / 1 Reinhard / 2 Filmic
+	float                             _contrast = 1.0f, _saturation = 1.0f, _temperature = 0.0f, _vignette = 0.25f; // T8
+	DirectX::XMFLOAT3                 _fogColor{ 0.55f, 0.62f, 0.72f }; float _fogDensity = 0.0f; // T9
+	bool                              _fxaaOn = true; // T10
+	float                             _shadowSoft = 0.0f; // T11 (소프트 그림자 반경)
+	bool                              _reflectOn = false; float _reflectStrength = 0.5f; // T12
+	bool                              _spotOn = false; DirectX::XMFLOAT3 _spotPos{ -1.6f, 2.4f, 0.0f }, _spotColor{ 0.5f, 0.7f, 1.0f }; // T13
+	float                             _spotIntensity = 6.0f, _spotRadius = 9.0f, _spotConeDeg = 28.0f; DirectX::XMFLOAT3 _spotDir{ 0.4f, -1.0f, 0.0f };
+	static const int                  MAX_PT = 4; // T14 다중 점광원
+	int                               _ptCount = 1; DirectX::XMFLOAT4 _ptPosArr[MAX_PT]{}; DirectX::XMFLOAT4 _ptColArr[MAX_PT]{};
+	bool                              _probeViz = false; // T15
+	int                               _debugView = 0;    // T16: 0 none/1 albedo/2 normal/3 depth/4 GI
+	bool                              _animPaused = false; float _animSpeed = 1.0f, _animTimeAcc = 0.0f; // T17
+	std::vector<std::wstring>         _clips; int _curClip = 0; // T18
+	bool                              _wantShot = false; // T19
+	DirectX::XMFLOAT3                 _skyZenith{ 0.13f, 0.22f, 0.44f }, _skyHorizon{ 0.52f, 0.60f, 0.72f }; float _sunSize = 900.f; // T20
+	DirectX::XMFLOAT3                 _diffuseTint{ 1.0f, 1.0f, 1.0f }; // T4 RGB 틴트
+	void                              SaveScreenshot(); // T19
+	void                              ScanClips();      // T18
 	// FolderContents 상태
 	std::wstring                      _assetRoot;          // Resources/Assets 절대경로
 	std::wstring                      _curDir;             // 현재 탐색 폴더

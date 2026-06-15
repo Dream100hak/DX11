@@ -41,13 +41,30 @@ void D3D12Device::UpdateCamera(float dt)
 	else if (_rmbDown) { _rmbDown = false; ShowCursor(TRUE); }
 
 	if (!focused) return;
-	if (!sceneKey && !_rmbDown) return; // Scene 포커스(또는 우클릭 플라이) 시에만 이동
 
-	// 이동 (시선 기준)
 	XMVECTOR fwd = CamForward(_camYaw, _camPitch);
 	XMVECTOR up  = XMVectorSet(0, 1, 0, 0);
 	XMVECTOR right = XMVector3Normalize(XMVector3Cross(up, fwd));
-	float speed = ((GetAsyncKeyState(VK_SHIFT) & 0x8000) ? 9.0f : 3.5f) * dt;
+
+	// 기즈모 단축키 + F 포커스 (플라이 아닐 때, Scene 포커스 시)
+	if (sceneKey && !_rmbDown)
+	{
+		if (GetAsyncKeyState('W') & 0x8000) _gizmoOp = 7;   // translate
+		if (GetAsyncKeyState('E') & 0x8000) _gizmoOp = 120; // rotate
+		if (GetAsyncKeyState('R') & 0x8000) _gizmoOp = 896; // scale
+		if (GetAsyncKeyState('F') & 0x8000)
+		{
+			XMVECTOR c = XMVectorScale(XMVectorAdd(XMLoadFloat3(&_modelMin), XMLoadFloat3(&_modelMax)), 0.5f);
+			XMVECTOR ext = XMVectorSubtract(XMLoadFloat3(&_modelMax), XMLoadFloat3(&_modelMin));
+			float rad = XMVectorGetX(XMVector3Length(ext)) * 0.5f + 0.5f;
+			XMStoreFloat3(&_camPos, XMVectorSubtract(c, XMVectorScale(fwd, rad * 2.6f)));
+		}
+		return; // 플라이 아니면 이동 안 함 (단축키 우선)
+	}
+
+	if (!_rmbDown) return; // 이동은 우클릭 플라이 모드에서만
+
+	float speed = _moveSpeed * ((GetAsyncKeyState(VK_SHIFT) & 0x8000) ? _fastMul : 1.0f) * dt;
 	XMVECTOR pos = XMLoadFloat3(&_camPos);
 	if (GetAsyncKeyState('W') & 0x8000) pos = XMVectorAdd(pos, XMVectorScale(fwd, speed));
 	if (GetAsyncKeyState('S') & 0x8000) pos = XMVectorSubtract(pos, XMVectorScale(fwd, speed));
@@ -65,6 +82,7 @@ void D3D12Device::UpdateCamera(float dt)
 void D3D12Device::Render()
 {
 	_time += 1.0f / 60.0f;
+	if (!_animPaused) _animTimeAcc += (1.0f / 60.0f) * _animSpeed; // 애니 재생/속도
 	UpdateCamera(1.0f / 60.0f);
 	BuildUI(); // ImGui 패널(CPU) — 카메라/라이팅/GI 파라미터 편집
 
@@ -88,7 +106,7 @@ void D3D12Device::Render()
 	XMVECTOR up  = XMVectorSet(0.f, 1.f, 0.f, 0.f);
 	XMMATRIX view = XMMatrixLookAtLH(eye, XMVectorAdd(eye, fwd), up);
 	float aspect = float(_sceneW) / float(_sceneH); // 씬 RT 비율 (왜곡 방지)
-	XMMATRIX proj = XMMatrixPerspectiveFovLH(XMConvertToRadians(55.f), aspect, 0.1f, 100.f);
+	XMMATRIX proj = XMMatrixPerspectiveFovLH(XMConvertToRadians(_fov), aspect, 0.1f, 200.f);
 	XMStoreFloat4x4(&_viewM, view); // ImGuizmo 용 (다음 프레임 BuildUI 에서 사용)
 	XMStoreFloat4x4(&_projM, proj);
 
@@ -109,6 +127,22 @@ void D3D12Device::Render()
 	cb.pointPos   = XMFLOAT4(_pointPos.x, _pointPos.y, _pointPos.z, _pointRadius);
 	cb.pointColor = XMFLOAT4(_pointColor.x * _pointIntensity, _pointColor.y * _pointIntensity, _pointColor.z * _pointIntensity, _pointOn ? 1.f : 0.f);
 	cb.matParams  = XMFLOAT4(_matMetallic, _matRoughness, _matEmissive, _matTint);
+	cb.sunColor   = XMFLOAT4(_sunColor.x, _sunColor.y, _sunColor.z, _envIntensity);
+	cb.fog        = XMFLOAT4(_fogColor.x, _fogColor.y, _fogColor.z, _fogDensity);
+	cb.grade      = XMFLOAT4(_contrast, _saturation, _temperature, _vignette);
+	cb.skyZenith  = XMFLOAT4(_skyZenith.x, _skyZenith.y, _skyZenith.z, _shadowSoft);
+	cb.skyHorizon = XMFLOAT4(_skyHorizon.x, _skyHorizon.y, _skyHorizon.z, _sunSize);
+	cb.dbg        = XMFLOAT4(float(_debugView), _probeViz ? 1.f : 0.f, float(_tonemapOp), _reflectOn ? _reflectStrength : 0.f);
+	// 스팟 라이트
+	XMVECTOR sd = XMVector3Normalize(XMLoadFloat3(&_spotDir));
+	XMFLOAT3 sdn; XMStoreFloat3(&sdn, sd);
+	cb.spotPos    = XMFLOAT4(_spotPos.x, _spotPos.y, _spotPos.z, _spotRadius);
+	cb.spotDir    = XMFLOAT4(sdn.x, sdn.y, sdn.z, cosf(XMConvertToRadians(_spotConeDeg)));
+	cb.spotColor  = XMFLOAT4(_spotColor.x * _spotIntensity, _spotColor.y * _spotIntensity, _spotColor.z * _spotIntensity, _spotOn ? 1.f : 0.f);
+	cb.tint       = XMFLOAT4(_diffuseTint.x * _matTint, _diffuseTint.y * _matTint, _diffuseTint.z * _matTint, 1.f);
+	// 다중 점광원 (slot0 = 기본 점광원과 동기화)
+	_ptPosArr[0] = cb.pointPos; _ptColArr[0] = cb.pointColor;
+	for (int i = 0; i < MAX_PT; ++i) { cb.ptPos[i] = (i < _ptCount) ? _ptPosArr[i] : XMFLOAT4(0,0,0,0); cb.ptCol[i] = (i < _ptCount) ? _ptColArr[i] : XMFLOAT4(0,0,0,0); }
 	memcpy(_cbMapped[_frameIndex], &cb, sizeof(cb));
 
 	// ── 모델 갱신: 스키닝(or 바인드) + 기즈모 트랜스폼 적용 → VB (GPU 유휴, 전체 플러시) ──
@@ -223,7 +257,7 @@ void D3D12Device::Render()
 		D3D12_RECT bsc{ 0,0,LONG(_bloomW),LONG(_bloomH) };
 		float tx = 1.0f / float(_bloomW), ty = 1.0f / float(_bloomH);
 
-		auto pass = [&](ID3D12PipelineState* pso, D3D12_CPU_DESCRIPTOR_HANDLE rtv, UINT srcSlot, const float c[4])
+		auto pass = [&](ID3D12PipelineState* pso, D3D12_CPU_DESCRIPTOR_HANDLE rtv, UINT srcSlot, const float c[8])
 		{
 			_cmdList->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
 			_cmdList->RSSetViewports(1, &bvp); _cmdList->RSSetScissorRects(1, &bsc);
@@ -232,16 +266,16 @@ void D3D12Device::Render()
 			_cmdList->SetDescriptorHeaps(1, ph);
 			D3D12_GPU_DESCRIPTOR_HANDLE t = post; t.ptr += UINT64(srcSlot) * _postSrvInc;
 			_cmdList->SetGraphicsRootDescriptorTable(0, t);
-			_cmdList->SetGraphicsRoot32BitConstants(1, 4, c, 0);
+			_cmdList->SetGraphicsRoot32BitConstants(1, 8, c, 0);
 			_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 			_cmdList->DrawInstanced(3, 1, 0, 0);
 		};
-		float none[4] = { 0,0,0,0 };
-		float blurH[4] = { tx, ty, 1.0f, 0.0f };
-		float blurV[4] = { tx, ty, 0.0f, 1.0f };
+		float bright[8] = { _bloomThreshold, 0,0,0,0,0,0,0 };
+		float blurH[8] = { tx, ty, 1.0f, 0.0f, 0,0,0,0 };
+		float blurV[8] = { tx, ty, 0.0f, 1.0f, 0,0,0,0 };
 		// 브라이트패스: 씬(slot0) → bloomA
 		Transition(_bloomA.Get(), _bloomAState, D3D12_RESOURCE_STATE_RENDER_TARGET);
-		pass(_brightPSO.Get(), bA, 0, none);
+		pass(_brightPSO.Get(), bA, 0, bright);
 		Transition(_bloomA.Get(), _bloomAState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 		// BlurH: bloomA(slot1) → bloomB
 		Transition(_bloomB.Get(), _bloomBState, D3D12_RESOURCE_STATE_RENDER_TARGET);
@@ -267,8 +301,9 @@ void D3D12Device::Render()
 		ID3D12DescriptorHeap* ph[] = { _postSrvHeap.Get() };
 		_cmdList->SetDescriptorHeaps(1, ph);
 		_cmdList->SetGraphicsRootDescriptorTable(0, _postSrvHeap->GetGPUDescriptorHandleForHeapStart());
-		float pc[4] = { _exposure, _bloomIntensity, (_bloomOn && _bloomReady) ? 1.0f : 0.0f, 0.0f };
-		_cmdList->SetGraphicsRoot32BitConstants(1, 4, pc, 0);
+		float pc[8] = { _exposure, _bloomIntensity, (_bloomOn && _bloomReady) ? 1.0f : 0.0f, float(_tonemapOp),
+		                _contrast, _saturation, _temperature, _vignette };
+		_cmdList->SetGraphicsRoot32BitConstants(1, 8, pc, 0);
 		_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		_cmdList->DrawInstanced(3, 1, 0, 0);
 	}

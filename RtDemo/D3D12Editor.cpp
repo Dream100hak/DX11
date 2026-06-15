@@ -221,6 +221,8 @@ void D3D12Device::DrawHierarchy()
 		{ "[Sun] Directional Light", SelEntity::Sun },
 		{ "[GI]  DDGI Volume", SelEntity::DDGI },
 		{ "[Pt]  Point Light", SelEntity::Point },
+		{ "[Spt] Spot Light", SelEntity::Spot },
+		{ "[FX]  Post / Render", SelEntity::Post },
 		{ modelItem, SelEntity::Model },
 		{ "[Geo] Floor", SelEntity::Floor },
 	};
@@ -261,8 +263,11 @@ void D3D12Device::DrawSceneView()
 		ImGuizmo::SetRect(imgPos.x, imgPos.y, avail.x, avail.y);
 		if (_sel == SelEntity::Model)
 		{
+			float snapVal = (_gizmoOp == 7) ? _snapT : (_gizmoOp == 120) ? _snapR : _snapS;
+			float snap3[3] = { snapVal, snapVal, snapVal };
 			ImGuizmo::Manipulate((const float*)&_viewM, (const float*)&_projM,
-				(ImGuizmo::OPERATION)_gizmoOp, ImGuizmo::WORLD, (float*)&_modelMatrix);
+				(ImGuizmo::OPERATION)_gizmoOp, _gizmoLocal ? ImGuizmo::LOCAL : ImGuizmo::WORLD,
+				(float*)&_modelMatrix, nullptr, _snapOn ? snap3 : nullptr);
 		}
 		else // Point — 이동만
 		{
@@ -378,77 +383,147 @@ void D3D12Device::DrawInspector()
 		ImGui::SeparatorText("Editor Camera");
 		ImGui::Text("Pos   %.2f  %.2f  %.2f", _camPos.x, _camPos.y, _camPos.z);
 		ImGui::Text("Yaw %.2f   Pitch %.2f", _camYaw, _camPitch);
-		ImGui::Spacing();
-		ImGui::SeparatorText("Post-process");
-		ImGui::SliderFloat("Exposure", &_exposure, 0.1f, 4.0f);
-		ImGui::TextDisabled("ACES tonemap + gamma (HDR pipeline)");
-		ImGui::Spacing();
-		ImGui::TextDisabled("RMB drag = look,  WASD = move");
-		ImGui::TextDisabled("Q/E = up/down,  Shift = fast");
+		ImGui::SliderFloat("FOV", &_fov, 25.0f, 100.0f);                 // T1
+		ImGui::SliderFloat("Move Speed", &_moveSpeed, 0.5f, 20.0f);      // T1
+		if (ImGui::Button("Reset Camera"))                              // T1
+		{ _camPos = { 3.4f, 2.4f, -4.6f }; _camYaw = -0.637f; _camPitch = -0.232f; _fov = 55.0f; }
+		ImGui::TextDisabled("Hold RMB to fly: WASD/QE, Shift=fast");
+		ImGui::TextDisabled("W/E/R=gizmo, F=focus (no RMB)");
 		break;
 
 	case SelEntity::Sun:
-		ImGui::SeparatorText("Directional Light");
+		ImGui::SeparatorText("Directional Light");                      // T5
 		ImGui::SliderFloat("Intensity", &_lightIntensity, 0.0f, 4.0f);
+		ImGui::ColorEdit3("Sun Color", &_sunColor.x);
+		ImGui::SliderFloat("Env Intensity", &_envIntensity, 0.0f, 3.0f);
 		ImGui::Checkbox("Animate Sun", &_lightAnimate);
-		if (!_lightAnimate)
-			ImGui::SliderFloat("Sun Angle", &_lightAngle, -3.14159f, 3.14159f);
-		ImGui::TextDisabled("RT shadow + DDGI react in real time");
+		if (!_lightAnimate) ImGui::SliderFloat("Sun Angle", &_lightAngle, -3.14159f, 3.14159f);
+		ImGui::SliderFloat("Shadow Softness", &_shadowSoft, 0.0f, 0.12f); // T11
+		ImGui::SeparatorText("Sky");                                    // T20
+		ImGui::ColorEdit3("Zenith", &_skyZenith.x);
+		ImGui::ColorEdit3("Horizon", &_skyHorizon.x);
+		ImGui::SliderFloat("Sun Size", &_sunSize, 50.0f, 4000.0f);
 		break;
 
 	case SelEntity::DDGI:
 		ImGui::SeparatorText("DDGI Volume");
 		ImGui::SliderFloat("GI Strength", &_giStrength, 0.0f, 1.5f);
 		ImGui::SliderFloat("Ambient", &_ambient, 0.0f, 0.2f);
+		ImGui::Checkbox("Show Probes", &_probeViz);                      // T15
 		ImGui::Spacing();
 		ImGui::Text("Probes : %u  (%dx%dx%d)", PROBE_COUNT, PROBE_X, PROBE_Y, PROBE_Z);
-		ImGui::Text("Oct depth: %dx%d / probe", PROBE_OCT, PROBE_OCT);
-		ImGui::TextDisabled("SH-L1 irradiance + Chebyshev visibility");
-		break;
-
-	case SelEntity::Model:
-		ImGui::SeparatorText(("Model: " + WToUtf8(_modelLabel)).c_str());
-		// 기즈모 조작 모드 (ImGuizmo: TRANSLATE=7 / ROTATE=120 / SCALE=896)
-		ImGui::TextDisabled("Gizmo:");
-		ImGui::SameLine(); if (ImGui::RadioButton("Move", _gizmoOp == 7)) _gizmoOp = 7;
-		ImGui::SameLine(); if (ImGui::RadioButton("Rotate", _gizmoOp == 120)) _gizmoOp = 120;
-		ImGui::SameLine(); if (ImGui::RadioButton("Scale", _gizmoOp == 896)) _gizmoOp = 896;
-		if (ImGui::Button("Reset Transform")) { DirectX::XMStoreFloat4x4(&_modelMatrix, DirectX::XMMatrixIdentity()); }
-		ImGui::Spacing();
-		ImGui::SeparatorText("Material (PBR)");
-		ImGui::SliderFloat("Metallic", &_matMetallic, 0.0f, 1.0f);
-		ImGui::SliderFloat("Roughness", &_matRoughness, 0.02f, 1.0f);
-		ImGui::SliderFloat("Emissive", &_matEmissive, 0.0f, 5.0f);
-		ImGui::SliderFloat("Albedo Tint", &_matTint, 0.0f, 2.0f);
-		ImGui::Spacing();
-		ImGui::Text("Vertices : %u", _vertexCount);
-		ImGui::Text("Triangles: %u", _indexCount / 3);
-		ImGui::Text("Bones    : %u", (unsigned)_bonesData.size());
-		ImGui::Text("Submeshes: %u   Materials: %u", (unsigned)_submeshes.size(), _matCount);
-		if (!_submeshes.empty() && ImGui::TreeNodeEx("Submeshes / Materials", ImGuiTreeNodeFlags_DefaultOpen))
-		{
-			for (size_t i = 0; i < _submeshes.size(); ++i)
-				ImGui::BulletText("%s  (%u tris, slot %u)",
-					_submeshes[i].materialName.c_str(), _submeshes[i].indexCount / 3,
-					i < _subMatSlot.size() ? _subMatSlot[i] : 0u);
-			ImGui::TreePop();
-		}
+		ImGui::TextDisabled("SH-L1 + Chebyshev oct-depth visibility");
 		break;
 
 	case SelEntity::Point:
-		ImGui::SeparatorText("Point Light");
-		ImGui::Checkbox("Enabled", &_pointOn);
-		ImGui::DragFloat3("Position", &_pointPos.x, 0.05f);
-		ImGui::ColorEdit3("Color", &_pointColor.x);
-		ImGui::SliderFloat("Intensity", &_pointIntensity, 0.0f, 12.0f);
-		ImGui::SliderFloat("Radius", &_pointRadius, 0.5f, 20.0f);
-		ImGui::TextDisabled("RT shadow ray to point; move via gizmo too");
+	{
+		ImGui::SeparatorText("Point Lights");                           // T14
+		ImGui::Checkbox("Enabled (Light 0)", &_pointOn);
+		ImGui::SliderInt("Light Count", &_ptCount, 1, MAX_PT);
+		ImGui::Separator();
+		ImGui::TextDisabled("Light 0 (gizmo-movable)");
+		ImGui::DragFloat3("Position##0", &_pointPos.x, 0.05f);
+		ImGui::ColorEdit3("Color##0", &_pointColor.x);
+		ImGui::SliderFloat("Intensity##0", &_pointIntensity, 0.0f, 12.0f);
+		ImGui::SliderFloat("Radius##0", &_pointRadius, 0.5f, 20.0f);
+		for (int li = 1; li < _ptCount; ++li)
+		{
+			ImGui::PushID(li);
+			ImGui::Separator(); ImGui::TextDisabled("Light %d", li);
+			if (_ptPosArr[li].w < 0.01f) { _ptPosArr[li] = { (float)li * 1.5f, 2.0f, -1.0f, 7.0f }; _ptColArr[li] = { 2.0f, 1.0f, 0.6f, 1.0f }; }
+			ImGui::DragFloat3("Position", &_ptPosArr[li].x, 0.05f);
+			ImGui::SliderFloat("Radius", &_ptPosArr[li].w, 0.5f, 20.0f);
+			ImGui::ColorEdit3("Color x Int", &_ptColArr[li].x, ImGuiColorEditFlags_HDR | ImGuiColorEditFlags_Float);
+			_ptColArr[li].w = 1.0f;
+			ImGui::PopID();
+		}
 		break;
+	}
+
+	case SelEntity::Spot:                                               // T13
+		ImGui::SeparatorText("Spot Light");
+		ImGui::Checkbox("Enabled", &_spotOn);
+		ImGui::DragFloat3("Position", &_spotPos.x, 0.05f);
+		ImGui::DragFloat3("Direction", &_spotDir.x, 0.02f);
+		ImGui::ColorEdit3("Color", &_spotColor.x);
+		ImGui::SliderFloat("Intensity", &_spotIntensity, 0.0f, 16.0f);
+		ImGui::SliderFloat("Radius", &_spotRadius, 0.5f, 25.0f);
+		ImGui::SliderFloat("Cone (deg)", &_spotConeDeg, 5.0f, 60.0f);
+		break;
+
+	case SelEntity::Post:                                               // T6/T7/T8/T9/T10/T12/T16
+		ImGui::SeparatorText("Tonemap / Exposure");
+		ImGui::Combo("Operator", &_tonemapOp, "ACES\0Reinhard\0Filmic\0");
+		ImGui::SliderFloat("Exposure", &_exposure, 0.1f, 4.0f);
+		ImGui::SeparatorText("Bloom");
+		ImGui::Checkbox("Bloom", &_bloomOn);
+		ImGui::SliderFloat("Threshold", &_bloomThreshold, 0.2f, 3.0f);
+		ImGui::SliderFloat("Bloom Intensity", &_bloomIntensity, 0.0f, 2.0f);
+		ImGui::SeparatorText("Color Grading");
+		ImGui::SliderFloat("Contrast", &_contrast, 0.5f, 2.0f);
+		ImGui::SliderFloat("Saturation", &_saturation, 0.0f, 2.0f);
+		ImGui::SliderFloat("Temperature", &_temperature, -1.0f, 1.0f);
+		ImGui::SliderFloat("Vignette", &_vignette, 0.0f, 1.0f);
+		ImGui::SeparatorText("Fog / AA / Reflection");
+		ImGui::ColorEdit3("Fog Color", &_fogColor.x);
+		ImGui::SliderFloat("Fog Density", &_fogDensity, 0.0f, 0.08f);
+		ImGui::Checkbox("FXAA", &_fxaaOn);
+		ImGui::Checkbox("RT Reflection", &_reflectOn);
+		ImGui::SliderFloat("Reflect Strength", &_reflectStrength, 0.0f, 1.0f);
+		ImGui::SeparatorText("Debug View");
+		ImGui::Combo("View", &_debugView, "Lit\0Albedo\0Normal\0Depth\0GI\0");
+		ImGui::Checkbox("Wireframe", &_wireframe);
+		break;
+
+	case SelEntity::Model:
+	{
+		ImGui::SeparatorText(("Model: " + WToUtf8(_modelLabel)).c_str());
+		ImGui::TextDisabled("Gizmo:");                                  // T2
+		ImGui::SameLine(); if (ImGui::RadioButton("Move", _gizmoOp == 7)) _gizmoOp = 7;
+		ImGui::SameLine(); if (ImGui::RadioButton("Rotate", _gizmoOp == 120)) _gizmoOp = 120;
+		ImGui::SameLine(); if (ImGui::RadioButton("Scale", _gizmoOp == 896)) _gizmoOp = 896;
+		ImGui::Checkbox("Local", &_gizmoLocal); ImGui::SameLine(); ImGui::Checkbox("Snap", &_snapOn);
+		if (ImGui::Button("Reset Transform")) { DirectX::XMStoreFloat4x4(&_modelMatrix, DirectX::XMMatrixIdentity()); }
+		// 트랜스폼 수치 입력 (T3)
+		{
+			float t[3], r[3], sc[3];
+			ImGuizmo::DecomposeMatrixToComponents((float*)&_modelMatrix, t, r, sc);
+			bool ch = false;
+			ch |= ImGui::DragFloat3("Position", t, 0.02f);
+			ch |= ImGui::DragFloat3("Rotation", r, 0.5f);
+			ch |= ImGui::DragFloat3("Scale", sc, 0.01f);
+			if (ch) ImGuizmo::RecomposeMatrixFromComponents(t, r, sc, (float*)&_modelMatrix);
+		}
+		ImGui::SeparatorText("Material (PBR)");                         // T4/T5
+		if (ImGui::Button("Default")) { _matMetallic = 0; _matRoughness = 0.5f; _matEmissive = 0; _matTint = 1; _diffuseTint = { 1,1,1 }; }
+		ImGui::SameLine(); if (ImGui::Button("Gold")) { _matMetallic = 1; _matRoughness = 0.25f; _diffuseTint = { 1.0f, 0.78f, 0.34f }; }
+		ImGui::SameLine(); if (ImGui::Button("Chrome")) { _matMetallic = 1; _matRoughness = 0.08f; _diffuseTint = { 1,1,1 }; }
+		ImGui::SameLine(); if (ImGui::Button("Plastic")) { _matMetallic = 0; _matRoughness = 0.35f; _diffuseTint = { 1,1,1 }; }
+		ImGui::ColorEdit3("Diffuse Tint", &_diffuseTint.x);
+		ImGui::SliderFloat("Metallic", &_matMetallic, 0.0f, 1.0f);
+		ImGui::SliderFloat("Roughness", &_matRoughness, 0.02f, 1.0f);
+		ImGui::SliderFloat("Emissive", &_matEmissive, 0.0f, 5.0f);
+		ImGui::SliderFloat("Brightness", &_matTint, 0.0f, 2.0f);
+		// 애니메이션 (T17/T18)
+		if (!_clips.empty())
+		{
+			ImGui::SeparatorText("Animation");
+			ImGui::Checkbox("Pause", &_animPaused);
+			ImGui::SliderFloat("Speed", &_animSpeed, 0.0f, 3.0f);
+			std::string clipNames; for (auto& c : _clips) { clipNames += WToUtf8(fs::path(c).stem().wstring()); clipNames.push_back('\0'); }
+			if (ImGui::Combo("Clip", &_curClip, clipNames.c_str()))
+			{ LoadClip(_clips[_curClip], _clip); _animated = _clip.frameCount > 0; _animTimeAcc = 0.0f; }
+		}
+		ImGui::SeparatorText("Info");
+		ImGui::Text("Verts %u  Tris %u  Bones %u", _vertexCount, _indexCount / 3, (unsigned)_bonesData.size());
+		ImGui::Text("Submeshes %u  Materials %u", (unsigned)_submeshes.size(), _matCount);
+		break;
+	}
 
 	case SelEntity::Floor:
 		ImGui::SeparatorText("Floor");
 		ImGui::TextDisabled("Static quad (vertex color, red)");
-		ImGui::Text("Bounces red indirect light via DDGI");
+		ImGui::Text("Bounces indirect light via DDGI");
 		break;
 	}
 

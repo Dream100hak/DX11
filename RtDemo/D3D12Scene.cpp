@@ -17,6 +17,16 @@ static std::wstring FindClip(const std::wstring& dir, const std::wstring& stem)
 	return L"";
 }
 
+// 모델 폴더의 .clip 목록 스캔 (클립 전환 UI 용)
+void D3D12Device::ScanClips()
+{
+	namespace fs = std::filesystem;
+	_clips.clear(); _curClip = 0;
+	std::error_code ec;
+	for (auto& e : fs::directory_iterator(_modelDir, ec))
+		if (e.path().extension() == L".clip") _clips.push_back(e.path().wstring());
+}
+
 // 런타임 모델 교체 — 상태 리셋 후 메시/텍스처/AS 재구성 (전체 플러시로 GPU 유휴 가정)
 void D3D12Device::LoadModelFromFile(const std::wstring& meshPath)
 {
@@ -36,6 +46,7 @@ void D3D12Device::LoadModelFromFile(const std::wstring& meshPath)
 	_modelMatrixInit = true;
 
 	CreateCubeGeometry();      // 메시(_modelDir/_modelStem) + 바닥 + VB/IB
+	ScanClips();               // 클립 목록(전환 UI)
 	CreateTextureResources();  // .mmat/.mat → 머티리얼 텍스처
 	CreateASBuffers();         // BLAS/TLAS (정점/인덱스 수에 맞춰 재생성)
 }
@@ -138,7 +149,7 @@ void D3D12Device::UpdateAnimation()
 	std::vector<XMMATRIX> skin;
 	if (anim)
 	{
-		uint32 frame = (uint32)(_time * _clip.frameRate) % _clip.frameCount;
+		uint32 frame = (uint32)(_animTimeAcc * _clip.frameRate) % _clip.frameCount;
 		std::vector<XMMATRIX> global(nb); skin.resize(nb);
 		for (size_t b = 0; b < nb; ++b)
 		{

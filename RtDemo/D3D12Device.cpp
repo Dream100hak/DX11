@@ -26,6 +26,18 @@ cbuffer SceneCB : register(b0)
     float4 gPointPos;   // xyz 점광원 위치, w 반경
     float4 gPointColor; // rgb 색, w 세기
     float4 gMatParams;  // x metallic, y roughness, z emissive, w albedoTint
+    float4 gSunColor;   // rgb 태양색 (세기는 gLightDir.w)
+    float4 gFog;        // rgb 안개색, w 밀도
+    float4 gGrade;      // x 대비, y 채도, z 색온도, w 비네트
+    float4 gSkyZenith;  // rgb 천정색, w 소프트섀도 반경
+    float4 gSkyHorizon; // rgb 지평선색, w 태양 크기(지수)
+    float4 gDebug;      // x 디버그뷰, y 프로브뷰, z 톤맵op, w 환경강도
+    float4 gSpotPos;    // xyz 스팟 위치, w 반경
+    float4 gSpotDir;    // xyz 스팟 방향, w cos(콘각)
+    float4 gSpotColor;  // rgb 색×세기, w on
+    float4 gTint;       // rgb 디퓨즈 틴트
+    float4 gPtPos[4];   // 다중 점광원 위치+반경
+    float4 gPtCol[4];   // 다중 점광원 색×세기 (w on)
 };
 )";
 
@@ -156,76 +168,117 @@ float4 PSMain(VSOut i) : SV_TARGET
 
     float3 L = normalize(-gLightDir.xyz);
     float  ndl = saturate(dot(N, L));
+    float3 V = normalize(gCamPos.xyz - i.wpos);
 
-    // ── RT 그림자 (RayQuery) — 지오메트릭 노멀로 바이어스 ──
-    float shadow = 1.0;
-    if (ndl > 0.0)
-    {
-        RayDesc ray;
-        ray.Origin = i.wpos + Ngeo * 0.02;
-        ray.Direction = L;
-        ray.TMin = 0.001;
-        ray.TMax = 100.0;
-        RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_CULL_NON_OPAQUE> q;
-        q.TraceRayInline(gScene, RAY_FLAG_NONE, 0xFF, ray);
-        q.Proceed();
-        if (q.CommittedStatus() != COMMITTED_NOTHING) shadow = 0.0;
-    }
-
-    // 머티리얼 파라미터는 모델(텍스처)에만 적용, 바닥은 고정값
+    // 머티리얼
     float metallic  = (gUseTex != 0) ? gMatParams.x : 0.0;
     float roughness = (gUseTex != 0) ? gMatParams.y : 0.6;
     float emissive  = (gUseTex != 0) ? gMatParams.z : 0.0;
-    float tint      = (gUseTex != 0) ? gMatParams.w : 1.0;
-    float3 albedo   = ((gUseTex != 0) ? gDiffuse.Sample(gSamp, i.uv).rgb : i.col) * tint; // 텍스처 or 정점색 × 틴트
-    // 금속은 디퓨즈 감소 (에너지 보존 근사)
-    float3 direct   = albedo * (ndl * shadow) * gLightDir.w * (1.0 - metallic * 0.75);
+    float3 albedo   = (gUseTex != 0) ? gDiffuse.Sample(gSamp, i.uv).rgb * gTint.rgb : i.col;
+    float power = lerp(8.0, 256.0, 1.0 - roughness);
+    float3 specColor = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
+    float specMask = (gUseTex != 0) ? gSpecMap.Sample(gSamp, i.uv).r : 1.0;
 
-    // ── 스펙큘러 (Blinn-Phong, 거칠기→지수, 금속→albedo 색) ──
-    float3 spec = 0;
+    // ── 디버그 뷰 (1 albedo / 2 normal / 3 depth) ──
+    int dv = (int)gDebug.x;
+    if (dv == 1) return float4(albedo, 1);
+    if (dv == 2) return float4(N * 0.5 + 0.5, 1);
+    if (dv == 3) { float dd = saturate(distance(gCamPos.xyz, i.wpos) / 40.0); return float4(dd, dd, dd, 1); }
+
+    // ── 방향광 RT 그림자 (소프트: gSkyZenith.w) ──
+    float shadow = 1.0;
     if (ndl > 0.0)
     {
-        float3 V = normalize(gCamPos.xyz - i.wpos);
-        float3 H = normalize(L + V);
-        float  m = (gUseTex != 0) ? gSpecMap.Sample(gSamp, i.uv).r : 1.0;
-        float  power = lerp(8.0, 256.0, 1.0 - roughness);
-        float3 specColor = lerp(float3(0.04, 0.04, 0.04), albedo, metallic); // 비금속 F0≈0.04
-        spec = pow(saturate(dot(N, H)), power) * m * shadow * gLightDir.w * specColor * (1.0 - roughness * 0.5);
+        float soft = gSkyZenith.w;
+        int K = (soft > 0.001) ? 4 : 1;
+        float occ = 0.0;
+        [unroll] for (int s = 0; s < 4; ++s)
+        {
+            if (s >= K) break;
+            float3 Ls = L;
+            if (K > 1) { float a = float(s) * 1.7 + i.wpos.x * 11.3 + i.wpos.z * 7.1; Ls = normalize(L + float3(cos(a), sin(a * 1.3), sin(a)) * soft); }
+            RayDesc ray; ray.Origin = i.wpos + Ngeo * 0.02; ray.Direction = Ls; ray.TMin = 0.001; ray.TMax = 100.0;
+            RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_CULL_NON_OPAQUE> q;
+            q.TraceRayInline(gScene, RAY_FLAG_NONE, 0xFF, ray); q.Proceed();
+            if (q.CommittedStatus() != COMMITTED_NOTHING) occ += 1.0;
+        }
+        shadow = 1.0 - occ / float(K);
     }
 
-    // ── 점 조명 (감쇠 + RT 그림자 + 스펙) ──
-    if (gPointColor.w > 0.5)
+    float3 sunCol = gSunColor.rgb * gLightDir.w;
+    float3 direct = albedo * (ndl * shadow) * sunCol * (1.0 - metallic * 0.75);
+    float3 spec = 0;
+    if (ndl > 0.0) { float3 H = normalize(L + V); spec += pow(saturate(dot(N, H)), power) * specMask * shadow * sunCol * specColor * (1.0 - roughness * 0.5); }
+
+    // ── 다중 점광원 ──
+    [unroll] for (int p = 0; p < 4; ++p)
     {
-        float3 toL = gPointPos.xyz - i.wpos;
-        float d = length(toL);
-        if (d < gPointPos.w && d > 1e-4)
+        if (gPtCol[p].w < 0.5) continue;
+        float3 toL = gPtPos[p].xyz - i.wpos; float d = length(toL);
+        if (d >= gPtPos[p].w || d <= 1e-4) continue;
+        float3 Lp = toL / d; float att = saturate(1.0 - d / gPtPos[p].w); att *= att;
+        float ndlp = saturate(dot(N, Lp));
+        float psh = 1.0;
+        if (ndlp > 0.0) { RayDesc r; r.Origin = i.wpos + Ngeo * 0.02; r.Direction = Lp; r.TMin = 0.001; r.TMax = d - 0.05;
+            RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_CULL_NON_OPAQUE> q; q.TraceRayInline(gScene, RAY_FLAG_NONE, 0xFF, r); q.Proceed();
+            if (q.CommittedStatus() != COMMITTED_NOTHING) psh = 0.0; }
+        float3 pc = gPtCol[p].rgb * (att * psh);
+        direct += albedo * ndlp * pc * (1.0 - metallic * 0.75);
+        float3 Hp = normalize(Lp + V); spec += pow(saturate(dot(N, Hp)), power) * ndlp * pc * specColor;
+    }
+
+    // ── 스팟 라이트 (콘 + 가장자리 페이드 + RT 그림자) ──
+    if (gSpotColor.w > 0.5)
+    {
+        float3 toL = gSpotPos.xyz - i.wpos; float d = length(toL);
+        if (d < gSpotPos.w && d > 1e-4)
         {
             float3 Lp = toL / d;
-            float att = saturate(1.0 - d / gPointPos.w); att *= att;
-            float ndlp = saturate(dot(N, Lp));
-            float psh = 1.0;
-            if (ndlp > 0.0)
+            float cone = dot(-Lp, gSpotDir.xyz);
+            if (cone > gSpotDir.w)
             {
-                RayDesc ray; ray.Origin = i.wpos + Ngeo * 0.02; ray.Direction = Lp;
-                ray.TMin = 0.001; ray.TMax = d - 0.05;
-                RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_CULL_NON_OPAQUE> q;
-                q.TraceRayInline(gScene, RAY_FLAG_NONE, 0xFF, ray); q.Proceed();
-                if (q.CommittedStatus() != COMMITTED_NOTHING) psh = 0.0;
+                float att = saturate(1.0 - d / gSpotPos.w); att *= att;
+                float edge = saturate((cone - gSpotDir.w) / (1.0 - gSpotDir.w));
+                float ndlp = saturate(dot(N, Lp));
+                float psh = 1.0;
+                if (ndlp > 0.0) { RayDesc r; r.Origin = i.wpos + Ngeo * 0.02; r.Direction = Lp; r.TMin = 0.001; r.TMax = d - 0.05;
+                    RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_CULL_NON_OPAQUE> q; q.TraceRayInline(gScene, RAY_FLAG_NONE, 0xFF, r); q.Proceed();
+                    if (q.CommittedStatus() != COMMITTED_NOTHING) psh = 0.0; }
+                float3 pc = gSpotColor.rgb * (att * edge * psh);
+                direct += albedo * ndlp * pc * (1.0 - metallic * 0.75);
+                float3 Hp = normalize(Lp + V); spec += pow(saturate(dot(N, Hp)), power) * ndlp * pc * specColor;
             }
-            float3 pc = gPointColor.rgb * (att * psh);
-            direct += albedo * ndlp * pc * (1.0 - metallic * 0.75);
-            float3 Vp = normalize(gCamPos.xyz - i.wpos);
-            float3 Hp = normalize(Lp + Vp);
-            float power = lerp(8.0, 256.0, 1.0 - roughness);
-            float3 specColor = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
-            spec += pow(saturate(dot(N, Hp)), power) * ndlp * pc * specColor;
         }
     }
 
-    ProbeSH sh      = SampleProbes(i.wpos, N);
-    float3 indirect = albedo * EvalIrradiance(sh, N) * gGI.x;       // DDGI 간접광 (가시성 가중)
-    float3 col = albedo * gGI.z + direct + indirect + spec;        // 앰비언트 + 직접 + 간접 + 스펙
-    col += albedo * emissive;                                       // 이미시브 (HDR → 블룸)
+    ProbeSH shp     = SampleProbes(i.wpos, N);
+    float3 indirect = albedo * EvalIrradiance(shp, N) * gGI.x * gSunColor.w; // 환경강도(gSunColor.w)
+    if (dv == 4) return float4(indirect, 1);
+
+    float3 col = albedo * gGI.z * gSunColor.w + direct + indirect + spec;
+    col += albedo * emissive;
+
+    // ── RT 반사 (글로시 비금속/바닥, gDebug.w = strength) ──
+    float reflStr = gDebug.w;
+    if (reflStr > 0.001)
+    {
+        float3 R = reflect(-V, N);
+        RayDesc r; r.Origin = i.wpos + Ngeo * 0.02; r.Direction = R; r.TMin = 0.02; r.TMax = 60.0;
+        RayQuery<RAY_FLAG_CULL_NON_OPAQUE> q; q.TraceRayInline(gScene, RAY_FLAG_NONE, 0xFF, r); q.Proceed();
+        float3 refl;
+        if (q.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
+        { float3 hp = r.Origin + R * q.CommittedRayT(); ProbeSH hs = SampleProbes(hp, R); refl = EvalIrradiance(hs, R); }
+        else { float t = saturate(R.y); refl = lerp(gSkyHorizon.rgb, gSkyZenith.rgb, pow(t, 0.55)); }
+        float fres = pow(1.0 - saturate(dot(N, V)), 4.0);
+        col = lerp(col, refl, saturate(reflStr * (0.15 + 0.85 * fres)));
+    }
+
+    // ── 거리 안개 ──
+    if (gFog.w > 1e-5)
+    {
+        float fogF = 1.0 - exp(-distance(gCamPos.xyz, i.wpos) * gFog.w);
+        col = lerp(col, gFog.rgb, saturate(fogF));
+    }
     return float4(col, 1.0);
 }
 )";
@@ -393,15 +446,16 @@ float4 PSMain(VOut i) : SV_TARGET
     float4 wf = mul(float4(i.clip, 1.0, 1.0), gInvVP); wf /= wf.w;
     float3 dir = normalize(wf.xyz - wn.xyz);
 
-    float3 horizon = float3(0.52, 0.60, 0.72);
-    float3 zenith  = float3(0.13, 0.22, 0.44);
-    float3 ground  = float3(0.10, 0.09, 0.08);
+    float3 horizon = gSkyHorizon.rgb;
+    float3 zenith  = gSkyZenith.rgb;
+    float3 ground  = horizon * 0.25;
     float3 sky = (dir.y >= 0.0) ? lerp(horizon, zenith, pow(saturate(dir.y), 0.55))
                                 : lerp(horizon, ground, saturate(-dir.y * 3.0));
     float3 L = normalize(-gLightDir.xyz);
     float s = saturate(dot(dir, L));
-    sky += pow(s, 900.0) * 4.0;                          // 태양 디스크
-    sky += pow(s, 8.0) * 0.25 * float3(1.0, 0.85, 0.6);  // 글로우
+    float sunSize = max(gSkyHorizon.w, 1.0);
+    sky += pow(s, sunSize) * 4.0 * gSunColor.rgb;        // 태양 디스크 (색/크기)
+    sky += pow(s, 8.0) * 0.25 * gSunColor.rgb;           // 글로우
     return float4(sky, 1.0);
 }
 )";
@@ -475,29 +529,42 @@ static const std::string kTonemapShader = std::string(kPostCommon) + R"(
 Texture2D gHDR : register(t0);
 Texture2D gBloom : register(t1);
 SamplerState gS : register(s0);
-cbuffer PostCB : register(b0) { float gExposure; float gBloomI; float gBloomOn; float _pad; };
+cbuffer PostCB : register(b0) { float gExposure; float gBloomI; float gBloomOn; float gTonemapOp;
+                                float gContrast; float gSaturation; float gTemperature; float gVignette; };
 float3 ACES(float3 x){ float a=2.51,b=0.03,c=2.43,d=0.59,e=0.14; return saturate((x*(a*x+b))/(x*(c*x+d)+e)); }
+float3 Filmic(float3 x){ x=max(0,x-0.004); return (x*(6.2*x+0.5))/(x*(6.2*x+1.7)+0.06); } // 감마 내장
 float4 PSTonemap(VOut i) : SV_TARGET
 {
     float3 hdr = gHDR.Sample(gS, i.uv).rgb;
     if (gBloomOn > 0.5) hdr += gBloom.Sample(gS, i.uv).rgb * gBloomI;
-    float3 c = ACES(hdr * gExposure);
-    c = pow(c, 1.0 / 2.2);
+    hdr *= gExposure;
+    float3 c;
+    if (gTonemapOp < 0.5)      { c = pow(ACES(hdr), 1.0/2.2); }
+    else if (gTonemapOp < 1.5) { c = pow(hdr / (1.0 + hdr), 1.0/2.2); } // Reinhard
+    else                       { c = Filmic(hdr); }                     // Filmic(감마 포함)
+    // 컬러 그레이딩
+    c.r *= 1.0 + gTemperature * 0.12; c.b *= 1.0 - gTemperature * 0.12;  // 색온도
+    c = saturate((c - 0.5) * gContrast + 0.5);                          // 대비
+    float luma = dot(c, float3(0.2126, 0.7152, 0.0722));
+    c = lerp(float3(luma, luma, luma), c, gSaturation);                 // 채도
+    // 비네트
+    float2 dd = i.uv - 0.5;
+    c *= saturate(1.0 - dot(dd, dd) * gVignette * 2.8);
     return float4(c, 1.0);
 }
-// 브라이트패스 — 휘도 1.0 초과분 추출
+// 브라이트패스 — 휘도 임계값(gExposure 재사용) 초과분 추출
 float4 PSBright(VOut i) : SV_TARGET
 {
     float3 c = gHDR.Sample(gS, i.uv).rgb;
     float l = dot(c, float3(0.2126, 0.7152, 0.0722));
-    float contrib = max(l - 1.0, 0.0);
+    float contrib = max(l - gExposure, 0.0);
     return float4(c * (contrib / (l + 1e-4)), 1.0);
 }
-// 분리형 가우시안 (cbuffer 4float 재해석: x,y=texel / z,w=방향)
+// 분리형 가우시안 (cbuffer 재해석: gExposure,gBloomI=texel / gBloomOn,gTonemapOp=방향)
 float4 PSBlur(VOut i) : SV_TARGET
 {
     float2 texel = float2(gExposure, gBloomI);
-    float2 dir   = float2(gBloomOn, _pad);
+    float2 dir   = float2(gBloomOn, gTonemapOp);
     float w[5] = { 0.227027, 0.194594, 0.121622, 0.054054, 0.016216 };
     float3 sum = gHDR.Sample(gS, i.uv).rgb * w[0];
     [unroll] for (int k = 1; k < 5; ++k)
@@ -528,7 +595,7 @@ void D3D12Device::CreatePostFX()
 	p[0].DescriptorTable.NumDescriptorRanges = 1; p[0].DescriptorTable.pDescriptorRanges = &range;
 	p[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 	p[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-	p[1].Constants.ShaderRegister = 0; p[1].Constants.Num32BitValues = 4;
+	p[1].Constants.ShaderRegister = 0; p[1].Constants.Num32BitValues = 8;
 	p[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 	D3D12_STATIC_SAMPLER_DESC s{}; s.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
 	s.AddressU = s.AddressV = s.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP; s.ShaderRegister = 0;

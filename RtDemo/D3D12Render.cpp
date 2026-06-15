@@ -104,6 +104,10 @@ void D3D12Device::Render()
 	cb.gridMax  = XMFLOAT4( 6.5f, 4.0f,  6.5f, 0.f);
 	cb.gridDim  = XMFLOAT4(float(PROBE_X), float(PROBE_Y), float(PROBE_Z), 128.f); // 128 rays/probe
 	cb.giParams = XMFLOAT4(_giStrength, _time * 60.f, _ambient, 0.f); // GI세기 / frame / 앰비언트
+	XMStoreFloat4x4(&cb.invVP, XMMatrixInverse(nullptr, view * proj)); // 스카이 레이 복원
+	cb.pointPos   = XMFLOAT4(_pointPos.x, _pointPos.y, _pointPos.z, _pointRadius);
+	cb.pointColor = XMFLOAT4(_pointColor.x * _pointIntensity, _pointColor.y * _pointIntensity, _pointColor.z * _pointIntensity, _pointOn ? 1.f : 0.f);
+	cb.matParams  = XMFLOAT4(_matMetallic, _matRoughness, _matEmissive, _matTint);
 	memcpy(_cbMapped[_frameIndex], &cb, sizeof(cb));
 
 	// ── 모델 갱신: 스키닝(or 바인드) + 기즈모 트랜스폼 적용 → VB (GPU 유휴, 전체 플러시) ──
@@ -134,6 +138,16 @@ void D3D12Device::Render()
 	D3D12_RECT sc{ 0, 0, LONG(_sceneW), LONG(_sceneH) };
 	_cmdList->RSSetViewports(1, &vp);
 	_cmdList->RSSetScissorRects(1, &sc);
+
+	// ── 스카이박스 (배경, 깊이 없음) ──
+	if (_showSky)
+	{
+		_cmdList->SetPipelineState(_skyPSO.Get());
+		_cmdList->SetGraphicsRootSignature(_rootSig.Get());
+		_cmdList->SetGraphicsRootConstantBufferView(0, _cb[_frameIndex]->GetGPUVirtualAddress());
+		_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		_cmdList->DrawInstanced(3, 1, 0, 0);
+	}
 
 	_cmdList->SetPipelineState(_pso.Get()); // 그래픽스 PSO (컴퓨트 후 복귀)
 	_cmdList->SetGraphicsRootSignature(_rootSig.Get());

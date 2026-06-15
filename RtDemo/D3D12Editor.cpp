@@ -53,7 +53,7 @@ void D3D12Device::CreateSceneRT(UINT w, UINT h)
 	D3D12_RESOURCE_DESC rd{};
 	rd.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 	rd.Width = w; rd.Height = h; rd.DepthOrArraySize = 1; rd.MipLevels = 1;
-	rd.Format = DXGI_FORMAT_R8G8B8A8_UNORM; rd.SampleDesc.Count = 1;
+	rd.Format = _sceneFmt; rd.SampleDesc.Count = 1;
 	rd.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 	D3D12_CLEAR_VALUE cvc{}; cvc.Format = rd.Format;
 	cvc.Color[0] = 0.06f; cvc.Color[1] = 0.07f; cvc.Color[2] = 0.10f; cvc.Color[3] = 1.0f;

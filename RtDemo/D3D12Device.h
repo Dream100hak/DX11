@@ -25,6 +25,10 @@ struct SceneCB
 	DirectX::XMFLOAT4   gridMax;
 	DirectX::XMFLOAT4   gridDim;   // x,y,z=격자수, w=레이수
 	DirectX::XMFLOAT4   giParams;  // x=GI세기, y=frame, z=ambient
+	DirectX::XMFLOAT4X4 invVP;     // 역 뷰프로젝션 (스카이)
+	DirectX::XMFLOAT4   pointPos;  // xyz 점광원 위치, w 반경
+	DirectX::XMFLOAT4   pointColor;// rgb 색, w 세기
+	DirectX::XMFLOAT4   matParams; // x metallic, y roughness, z emissive, w albedoTint
 };
 
 // ───────────────────────────────────────────────────────────
@@ -105,6 +109,8 @@ private:
 	ComPtr<ID3D12Resource>            _depth;
 	ComPtr<ID3D12RootSignature>       _rootSig;
 	ComPtr<ID3D12PipelineState>       _pso;
+	ComPtr<ID3D12PipelineState>       _skyPSO;     // 절차적 스카이박스
+	DXGI_FORMAT                       _sceneFmt = DXGI_FORMAT_R8G8B8A8_UNORM; // 씬 RT 포맷 (S3에서 HDR로)
 	ComPtr<ID3D12Resource>            _vb;
 	D3D12_VERTEX_BUFFER_VIEW          _vbv{};
 	ComPtr<ID3D12Resource>            _ib;
@@ -208,6 +214,16 @@ private:
 	float                             _lightAngle = 0.f;
 	float                             _giStrength = 0.45f;
 	float                             _ambient = 0.03f;
+	// 점 조명 (S6)
+	bool                              _pointOn = false;
+	DirectX::XMFLOAT3                 _pointPos{ 1.5f, 2.2f, 0.0f };
+	DirectX::XMFLOAT3                 _pointColor{ 1.0f, 0.6f, 0.3f };
+	float                             _pointIntensity = 4.0f;
+	float                             _pointRadius = 7.0f;
+	// 편집 머티리얼 (S5)
+	float                             _matMetallic = 0.0f, _matRoughness = 0.5f, _matEmissive = 0.0f, _matTint = 1.0f;
+	// 뷰포트 토글 (S10)
+	bool                              _showGrid = true, _showSky = true, _bloomOn = true, _wireframe = false;
 	// FolderContents 상태
 	std::wstring                      _assetRoot;          // Resources/Assets 절대경로
 	std::wstring                      _curDir;             // 현재 탐색 폴더

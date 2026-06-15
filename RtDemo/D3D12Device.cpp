@@ -22,6 +22,10 @@ cbuffer SceneCB : register(b0)
     float4 gGridMax;
     float4 gGridDim;    // x,y,z probe counts, w rays/probe
     float4 gGI;         // x giStrength, y frame, z ambient
+    row_major float4x4 gInvVP; // 역 뷰프로젝션 (스카이 레이 복원)
+    float4 gPointPos;   // xyz 점광원 위치, w 반경
+    float4 gPointColor; // rgb 색, w 세기
+    float4 gMatParams;  // x metallic, y roughness, z emissive, w albedoTint
 };
 )";
 
@@ -334,6 +338,36 @@ void CSMain(uint3 tid : SV_DispatchThreadID)
 }
 )";
 
+// 절차적 스카이박스 — 풀스크린 삼각형, invVP 로 월드 레이 복원 → 그라데이션 + 태양
+static const std::string kSkyShader = std::string(kSceneCB) + R"(
+struct VOut { float4 pos:SV_POSITION; float2 clip:TEXCOORD0; };
+VOut VSMain(uint id : SV_VertexID)
+{
+    VOut o;
+    float2 p = float2((id << 1) & 2, id & 2); // (0,0)(2,0)(0,2)
+    o.pos = float4(p * 2.0 - 1.0, 0.0, 1.0);
+    o.clip = o.pos.xy;
+    return o;
+}
+float4 PSMain(VOut i) : SV_TARGET
+{
+    float4 wn = mul(float4(i.clip, 0.0, 1.0), gInvVP); wn /= wn.w;
+    float4 wf = mul(float4(i.clip, 1.0, 1.0), gInvVP); wf /= wf.w;
+    float3 dir = normalize(wf.xyz - wn.xyz);
+
+    float3 horizon = float3(0.52, 0.60, 0.72);
+    float3 zenith  = float3(0.13, 0.22, 0.44);
+    float3 ground  = float3(0.10, 0.09, 0.08);
+    float3 sky = (dir.y >= 0.0) ? lerp(horizon, zenith, pow(saturate(dir.y), 0.55))
+                                : lerp(horizon, ground, saturate(-dir.y * 3.0));
+    float3 L = normalize(-gLightDir.xyz);
+    float s = saturate(dot(dir, L));
+    sky += pow(s, 900.0) * 4.0;                          // 태양 디스크
+    sky += pow(s, 8.0) * 0.25 * float3(1.0, 0.85, 0.6);  // 글로우
+    return float4(sky, 1.0);
+}
+)";
+
 // ───────────────────────────────────────────────────────────
 void D3D12Device::Init(HWND hwnd, UINT width, UINT height)
 {
@@ -627,11 +661,29 @@ void D3D12Device::CreatePipeline()
 	pso.SampleMask = UINT_MAX;
 	pso.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 	pso.NumRenderTargets = 1;
-	pso.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	pso.RTVFormats[0] = _sceneFmt;
 	pso.DSVFormat = DXGI_FORMAT_D32_FLOAT;
 	pso.SampleDesc.Count = 1;
 
 	ThrowIfFailed(_device->CreateGraphicsPipelineState(&pso, IID_PPV_ARGS(&_pso)), "CreatePSO");
+
+	// ── 스카이박스 PSO (풀스크린 삼각형, 깊이/입력레이아웃 없음, b0 만 사용) ──
+	ComPtr<IDxcBlob> svs = CompileDxc(kSkyShader.c_str(), L"VSMain", L"vs_6_5");
+	ComPtr<IDxcBlob> sps = CompileDxc(kSkyShader.c_str(), L"PSMain", L"ps_6_5");
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC spso{};
+	spso.pRootSignature = _rootSig.Get();
+	spso.VS = { svs->GetBufferPointer(), svs->GetBufferSize() };
+	spso.PS = { sps->GetBufferPointer(), sps->GetBufferSize() };
+	spso.RasterizerState = rast;
+	spso.BlendState = blend;
+	spso.DepthStencilState.DepthEnable = FALSE;   // 배경 — 깊이 테스트/쓰기 없음
+	spso.SampleMask = UINT_MAX;
+	spso.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	spso.NumRenderTargets = 1;
+	spso.RTVFormats[0] = _sceneFmt;
+	spso.DSVFormat = DXGI_FORMAT_UNKNOWN;
+	spso.SampleDesc.Count = 1;
+	ThrowIfFailed(_device->CreateGraphicsPipelineState(&spso, IID_PPV_ARGS(&_skyPSO)), "CreateSkyPSO");
 }
 
 ComPtr<ID3D12Resource> D3D12Device::CreateUploadBuffer(const void* data, size_t size)

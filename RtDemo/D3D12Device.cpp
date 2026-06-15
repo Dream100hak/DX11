@@ -18,13 +18,6 @@ struct SceneCB
 	XMFLOAT4   giParams;  // x=GI 세기, y=frame, z=ambient
 };
 
-struct Vtx
-{
-	XMFLOAT3 pos;
-	XMFLOAT3 nrm;
-	XMFLOAT3 col;  // 알베도(정점색) — 바닥=빨강, 큐브=흰색
-};
-
 // 래스터 셰이더 (SM5.1, FXC). row_major 로 DirectXMath(행우선)와 일치 → 전치 불필요.
 // 공용 SceneCB 정의 (그래픽스/컴퓨트 동일 레이아웃)
 static const char* kSceneCB = R"(
@@ -279,8 +272,8 @@ void D3D12Device::Init(HWND hwnd, UINT width, UINT height)
 	CreateCubeGeometry();
 	CreateConstantBuffers();
 
-	// Phase 2 — 정적 지오메트리 가속구조
-	BuildAccelerationStructures();
+	// Phase 2 — 가속구조 버퍼 + 초기 빌드
+	CreateASBuffers();
 
 	// Phase 3 — DDGI 프로브 볼륨
 	CreateGI();
@@ -549,78 +542,62 @@ ComPtr<ID3D12Resource> D3D12Device::CreateUploadBuffer(const void* data, size_t 
 
 void D3D12Device::CreateCubeGeometry()
 {
-	// 정적 월드공간 지오메트리 (model=항등) — 바닥 위에 큐브.
-	// RT 가 같은 버퍼로 BLAS 를 만들어 동일 지오메트리에 그림자 레이를 쏜다.
-	std::vector<Vtx> verts;
-	std::vector<uint32_t> indices; // RayQuery/StructuredBuffer 접근 위해 32비트
-
-	auto addQuad = [&](XMFLOAT3 a, XMFLOAT3 b, XMFLOAT3 c, XMFLOAT3 d, XMFLOAT3 n, XMFLOAT3 col)
-	{
-		uint32_t base = (uint32_t)verts.size();
-		verts.push_back({ a, n, col }); verts.push_back({ b, n, col });
-		verts.push_back({ c, n, col }); verts.push_back({ d, n, col });
-		indices.push_back(base); indices.push_back(base + 1); indices.push_back(base + 2);
-		indices.push_back(base); indices.push_back(base + 2); indices.push_back(base + 3);
-	};
-
-	// ── 실제 .mesh 모델 로드 (DX11 자산) — 실패하면 큐브 폴백 ──
+	std::vector<uint32_t> indices;
 	const XMFLOAT3 modelC(0.82f, 0.78f, 0.72f);
-	bool modelLoaded = false;
+
+	// ── 스키닝 .mesh 모델 로드 (본+블렌드) + .clip 애니메이션 ──
 	{
 		wchar_t exe[MAX_PATH]{};
 		GetModuleFileNameW(nullptr, exe, MAX_PATH);
 		std::wstring dir(exe);
 		dir = dir.substr(0, dir.find_last_of(L"\\/"));
-		std::wstring meshPath = dir + L"\\..\\Resources\\Assets\\Models\\Kachujin\\Kachujin.mesh";
+		std::wstring base = dir + L"\\..\\Resources\\Assets\\Models\\Kachujin\\";
 
-		std::vector<MeshPN> mv;
-		std::vector<uint32> mi;
-		if (LoadMeshPN(meshPath, mv, mi))
+		if (LoadMeshSkinned(base + L"Kachujin.mesh", _bonesData, _skinSrc, indices))
 		{
-			// AABB → 높이 2.2 로 정규화, x/z 중앙 정렬, 바닥(min.y)을 y=0 에 안착
+			// 바인드 AABB → 높이 2.2 정규화, x/z 중앙, 바닥 안착 (스키닝 후에도 동일 적용)
 			XMFLOAT3 mn(1e9f, 1e9f, 1e9f), mx(-1e9f, -1e9f, -1e9f);
-			for (auto& v : mv)
+			for (auto& v : _skinSrc)
 			{
 				mn.x = min(mn.x, v.pos.x); mn.y = min(mn.y, v.pos.y); mn.z = min(mn.z, v.pos.z);
 				mx.x = max(mx.x, v.pos.x); mx.y = max(mx.y, v.pos.y); mx.z = max(mx.z, v.pos.z);
 			}
-			float s = 2.2f / max(mx.y - mn.y, 0.001f);
-			float cx = (mn.x + mx.x) * 0.5f, cz = (mn.z + mx.z) * 0.5f;
+			_modelScale = 2.2f / max(mx.y - mn.y, 0.001f);
+			_modelOffset = XMFLOAT3((mn.x + mx.x) * 0.5f, mn.y, (mn.z + mx.z) * 0.5f);
+			_modelVtxCount = (uint32)_skinSrc.size();
 
-			uint32 base = (uint32)verts.size();
-			for (auto& v : mv)
-				verts.push_back({ XMFLOAT3((v.pos.x - cx) * s, (v.pos.y - mn.y) * s, (v.pos.z - cz) * s), v.nrm, modelC });
-			for (uint32 k : mi)
-				indices.push_back(base + k);
-			modelLoaded = true;
+			for (auto& v : _skinSrc)
+				_cpuVerts.push_back({ XMFLOAT3((v.pos.x - _modelOffset.x) * _modelScale,
+				                                (v.pos.y - _modelOffset.y) * _modelScale,
+				                                (v.pos.z - _modelOffset.z) * _modelScale), v.nrm, modelC });
+
+			_animated = LoadClip(base + L"Idle.clip", _clip);
 		}
 	}
 
-	if (!modelLoaded)
+	// ── 바닥 평면 (빨강) — 모델 정점 뒤에 추가 ──
 	{
-		// 폴백: 큐브 (중심 y=0.9, 반치수 0.8)
-		const float h = 0.8f, cy = 0.9f;
-		auto P = [&](float x, float y, float z) { return XMFLOAT3(x, y + cy, z); };
-		addQuad(P(-h, h,-h), P(-h, h, h), P( h, h, h), P( h, h,-h), { 0, 1, 0}, modelC);
-		addQuad(P(-h,-h, h), P(-h,-h,-h), P( h,-h,-h), P( h,-h, h), { 0,-1, 0}, modelC);
-		addQuad(P( h, h,-h), P( h, h, h), P( h,-h, h), P( h,-h,-h), { 1, 0, 0}, modelC);
-		addQuad(P(-h, h, h), P(-h, h,-h), P(-h,-h,-h), P(-h,-h, h), {-1, 0, 0}, modelC);
-		addQuad(P( h, h, h), P(-h, h, h), P(-h,-h, h), P( h,-h, h), { 0, 0, 1}, modelC);
-		addQuad(P(-h, h,-h), P( h, h,-h), P( h,-h,-h), P(-h,-h,-h), { 0, 0,-1}, modelC);
+		const float g = 6.f;
+		const XMFLOAT3 fc(0.90f, 0.12f, 0.10f), n(0, 1, 0);
+		uint32 b = (uint32)_cpuVerts.size();
+		_cpuVerts.push_back({ XMFLOAT3(-g,0, g), n, fc }); _cpuVerts.push_back({ XMFLOAT3(g,0, g), n, fc });
+		_cpuVerts.push_back({ XMFLOAT3( g,0,-g), n, fc }); _cpuVerts.push_back({ XMFLOAT3(-g,0,-g), n, fc });
+		indices.push_back(b); indices.push_back(b + 1); indices.push_back(b + 2);
+		indices.push_back(b); indices.push_back(b + 2); indices.push_back(b + 3);
 	}
 
-	// 바닥 평면 (y=0, ±6) — 빨강 (간접광 색 바운스 확인용)
-	const float g = 6.f;
-	const XMFLOAT3 floorC(0.90f, 0.12f, 0.10f);
-	addQuad(XMFLOAT3(-g, 0, g), XMFLOAT3(g, 0, g), XMFLOAT3(g, 0,-g), XMFLOAT3(-g, 0,-g), { 0, 1, 0 }, floorC);
-
-	_vertexCount = (UINT)verts.size();
+	_vertexCount = (UINT)_cpuVerts.size();
 	_indexCount = (UINT)indices.size();
-
-	const size_t vbSize = verts.size() * sizeof(Vtx);
+	const size_t vbSize = _cpuVerts.size() * sizeof(Vtx);
 	const size_t ibSize = indices.size() * sizeof(uint32_t);
 
-	_vb = CreateUploadBuffer(verts.data(), vbSize);
+	// VB = 업로드힙 + 영속 매핑 (스키닝으로 매 프레임 갱신). 초기엔 바인드 포즈.
+	_vb = CreateUploadBuffer(nullptr, vbSize);
+	{
+		D3D12_RANGE noRead{ 0, 0 };
+		ThrowIfFailed(_vb->Map(0, &noRead, &_vbMapped), "Map VB");
+		memcpy(_vbMapped, _cpuVerts.data(), vbSize);
+	}
 	_vbv.BufferLocation = _vb->GetGPUVirtualAddress();
 	_vbv.StrideInBytes = sizeof(Vtx);
 	_vbv.SizeInBytes = (UINT)vbSize;
@@ -629,6 +606,59 @@ void D3D12Device::CreateCubeGeometry()
 	_ibv.BufferLocation = _ib->GetGPUVirtualAddress();
 	_ibv.Format = DXGI_FORMAT_R32_UINT;
 	_ibv.SizeInBytes = (UINT)ibSize;
+}
+
+// 매 프레임 CPU 스키닝 — 본 행렬 계산 → 정점 변형 → VB(영속 매핑) 갱신
+void D3D12Device::UpdateAnimation()
+{
+	if (!_animated || _clip.frameCount == 0) return;
+
+	uint32 frame = (uint32)(_time * _clip.frameRate) % _clip.frameCount;
+	size_t nb = _bonesData.size();
+
+	std::vector<XMMATRIX> global(nb), skin(nb);
+	for (size_t b = 0; b < nb; ++b)
+	{
+		const LoadedBone& bone = _bonesData[b];
+		XMMATRIX matAnim = XMMatrixIdentity();
+		auto it = _clip.bones.find(bone.name);
+		if (it != _clip.bones.end() && frame < it->second.size())
+		{
+			const ClipFrameT& k = it->second[frame];
+			XMMATRIX S = XMMatrixScaling(k.s.x, k.s.y, k.s.z);
+			XMMATRIX R = XMMatrixRotationQuaternion(XMLoadFloat4(&k.r));
+			XMMATRIX T = XMMatrixTranslation(k.t.x, k.t.y, k.t.z);
+			matAnim = S * R * T;
+		}
+		XMMATRIX parent = (bone.parent >= 0 && bone.parent < (int32_t)nb) ? global[bone.parent] : XMMatrixIdentity();
+		global[b] = matAnim * parent;
+		XMMATRIX bind = XMLoadFloat4x4(&bone.bind);
+		skin[b] = XMMatrixInverse(nullptr, bind) * global[b];
+	}
+
+	XMVECTOR off = XMVectorSet(_modelOffset.x, _modelOffset.y, _modelOffset.z, 0.f);
+	for (uint32 i = 0; i < _modelVtxCount; ++i)
+	{
+		const SkinVtx& sv = _skinSrc[i];
+		XMVECTOR bp = XMLoadFloat3(&sv.pos), bn = XMLoadFloat3(&sv.nrm);
+		XMVECTOR p = XMVectorZero(), n = XMVectorZero();
+		float wsum = 0.f;
+		for (int j = 0; j < 4; ++j)
+		{
+			float w = sv.wgt[j];
+			uint32 bi = sv.idx[j];
+			if (w <= 0.f || bi >= nb) continue;
+			p = XMVectorAdd(p, XMVectorScale(XMVector3Transform(bp, skin[bi]), w));
+			n = XMVectorAdd(n, XMVectorScale(XMVector3TransformNormal(bn, skin[bi]), w));
+			wsum += w;
+		}
+		if (wsum < 1e-4f) { p = bp; n = bn; } // 미리깅 정점 폴백
+
+		XMVECTOR wp = XMVectorScale(XMVectorSubtract(p, off), _modelScale);
+		XMStoreFloat3(&_cpuVerts[i].pos, wp);
+		XMStoreFloat3(&_cpuVerts[i].nrm, XMVector3Normalize(n));
+	}
+	memcpy(_vbMapped, _cpuVerts.data(), _cpuVerts.size() * sizeof(Vtx));
 }
 
 ComPtr<ID3D12Resource> D3D12Device::CreateDefaultBuffer(UINT64 size, D3D12_RESOURCE_STATES state, bool allowUAV)
@@ -650,34 +680,38 @@ ComPtr<ID3D12Resource> D3D12Device::CreateDefaultBuffer(UINT64 size, D3D12_RESOU
 	return buf;
 }
 
-void D3D12Device::BuildAccelerationStructures()
+// BLAS 입력(삼각형 지오메트리) 구성 — 매번 동일(정점 데이터만 GPU 실행 시 갱신)
+static void FillBlasGeom(ID3D12Resource* vb, ID3D12Resource* ib, UINT vcount, UINT icount,
+                         D3D12_RAYTRACING_GEOMETRY_DESC& geom)
 {
-	// ── BLAS 입력 (삼각형 지오메트리) ──
-	D3D12_RAYTRACING_GEOMETRY_DESC geom{};
+	geom = {};
 	geom.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
 	geom.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
-	geom.Triangles.VertexBuffer.StartAddress = _vb->GetGPUVirtualAddress();
+	geom.Triangles.VertexBuffer.StartAddress = vb->GetGPUVirtualAddress();
 	geom.Triangles.VertexBuffer.StrideInBytes = sizeof(Vtx);
-	geom.Triangles.VertexCount = _vertexCount;
+	geom.Triangles.VertexCount = vcount;
 	geom.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
-	geom.Triangles.IndexBuffer = _ib->GetGPUVirtualAddress();
-	geom.Triangles.IndexCount = _indexCount;
+	geom.Triangles.IndexBuffer = ib->GetGPUVirtualAddress();
+	geom.Triangles.IndexCount = icount;
 	geom.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;
+}
+
+void D3D12Device::CreateASBuffers()
+{
+	D3D12_RAYTRACING_GEOMETRY_DESC geom{};
+	FillBlasGeom(_vb.Get(), _ib.Get(), _vertexCount, _indexCount, geom);
 
 	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS blasIn{};
 	blasIn.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
 	blasIn.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-	blasIn.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
+	blasIn.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
 	blasIn.NumDescs = 1;
 	blasIn.pGeometryDescs = &geom;
-
 	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO blasInfo{};
 	_device->GetRaytracingAccelerationStructurePrebuildInfo(&blasIn, &blasInfo);
-
 	_blas        = CreateDefaultBuffer(blasInfo.ResultDataMaxSizeInBytes, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, true);
 	_blasScratch = CreateDefaultBuffer(blasInfo.ScratchDataSizeInBytes, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, true);
 
-	// ── TLAS 인스턴스 (항등 변환, 1개) ──
 	D3D12_RAYTRACING_INSTANCE_DESC inst{};
 	inst.Transform[0][0] = 1.f; inst.Transform[1][1] = 1.f; inst.Transform[2][2] = 1.f;
 	inst.InstanceMask = 0xFF;
@@ -687,19 +721,35 @@ void D3D12Device::BuildAccelerationStructures()
 	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS tlasIn{};
 	tlasIn.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
 	tlasIn.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-	tlasIn.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
+	tlasIn.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
 	tlasIn.NumDescs = 1;
 	tlasIn.InstanceDescs = _instanceBuffer->GetGPUVirtualAddress();
-
 	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO tlasInfo{};
 	_device->GetRaytracingAccelerationStructurePrebuildInfo(&tlasIn, &tlasInfo);
-
 	_tlas        = CreateDefaultBuffer(tlasInfo.ResultDataMaxSizeInBytes, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, true);
 	_tlasScratch = CreateDefaultBuffer(tlasInfo.ScratchDataSizeInBytes, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, true);
 
-	// ── 빌드 명령 기록/실행 (1회, 완료까지 대기) ──
+	// 초기 빌드 (1회) — 정적이면 이것만으로 충분, 스키닝이면 매 프레임 RecordBuildAS 재빌드
 	ThrowIfFailed(_allocators[_frameIndex]->Reset(), "AS alloc reset");
 	ThrowIfFailed(_cmdList->Reset(_allocators[_frameIndex].Get(), nullptr), "AS cmd reset");
+	RecordBuildAS();
+	ThrowIfFailed(_cmdList->Close(), "AS cmd close");
+	ID3D12CommandList* lists[] = { _cmdList.Get() };
+	_queue->ExecuteCommandLists(1, lists);
+	WaitForGpu();
+}
+
+void D3D12Device::RecordBuildAS()
+{
+	D3D12_RAYTRACING_GEOMETRY_DESC geom{};
+	FillBlasGeom(_vb.Get(), _ib.Get(), _vertexCount, _indexCount, geom);
+
+	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS blasIn{};
+	blasIn.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
+	blasIn.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+	blasIn.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
+	blasIn.NumDescs = 1;
+	blasIn.pGeometryDescs = &geom;
 
 	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC blasBuild{};
 	blasBuild.Inputs = blasIn;
@@ -707,10 +757,17 @@ void D3D12Device::BuildAccelerationStructures()
 	blasBuild.ScratchAccelerationStructureData = _blasScratch->GetGPUVirtualAddress();
 	_cmdList->BuildRaytracingAccelerationStructure(&blasBuild, 0, nullptr);
 
-	D3D12_RESOURCE_BARRIER uav{};
-	uav.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-	uav.UAV.pResource = _blas.Get();
-	_cmdList->ResourceBarrier(1, &uav); // BLAS 완료 후 TLAS 가 읽도록
+	D3D12_RESOURCE_BARRIER ub{};
+	ub.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+	ub.UAV.pResource = _blas.Get();
+	_cmdList->ResourceBarrier(1, &ub);
+
+	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS tlasIn{};
+	tlasIn.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
+	tlasIn.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+	tlasIn.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
+	tlasIn.NumDescs = 1;
+	tlasIn.InstanceDescs = _instanceBuffer->GetGPUVirtualAddress();
 
 	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC tlasBuild{};
 	tlasBuild.Inputs = tlasIn;
@@ -718,10 +775,8 @@ void D3D12Device::BuildAccelerationStructures()
 	tlasBuild.ScratchAccelerationStructureData = _tlasScratch->GetGPUVirtualAddress();
 	_cmdList->BuildRaytracingAccelerationStructure(&tlasBuild, 0, nullptr);
 
-	ThrowIfFailed(_cmdList->Close(), "AS cmd close");
-	ID3D12CommandList* lists[] = { _cmdList.Get() };
-	_queue->ExecuteCommandLists(1, lists);
-	WaitForGpu();
+	ub.UAV.pResource = _tlas.Get();
+	_cmdList->ResourceBarrier(1, &ub);
 }
 
 void D3D12Device::Transition(ID3D12Resource* res, D3D12_RESOURCE_STATES& cur, D3D12_RESOURCE_STATES to)
@@ -829,9 +884,17 @@ void D3D12Device::Render()
 	cb.giParams = XMFLOAT4(0.45f, _time * 60.f, 0.03f, 0.f); // GI세기(≈1/π 부근) / frame / 미세 앰비언트
 	memcpy(_cbMapped[_frameIndex], &cb, sizeof(cb));
 
+	// ── 스키닝: CPU 본 변형 → VB 갱신 (GPU 유휴 시점, 전체 플러시 동기화) ──
+	if (_animated)
+		UpdateAnimation();
+
 	auto alloc = _allocators[_frameIndex];
 	ThrowIfFailed(alloc->Reset(), "Allocator Reset");
 	ThrowIfFailed(_cmdList->Reset(alloc.Get(), nullptr), "CmdList Reset");
+
+	// 스키닝 시 갱신된 정점으로 BLAS/TLAS 매 프레임 재빌드
+	if (_animated)
+		RecordBuildAS();
 
 	// ── DDGI: 프로브 irradiance 갱신 (컴퓨트 RT) — 라스터 전에 ──
 	DispatchGI();
@@ -881,28 +944,23 @@ void D3D12Device::Render()
 	MoveToNextFrame();
 }
 
+// 전체 플러시 — GPU 완료까지 대기 (스키닝이 VB 를 매 프레임 CPU 갱신하므로
+// CPU/GPU 가 VB 를 동시에 만지지 않도록 프레임마다 직렬화. 단순/안전, 데모용)
 void D3D12Device::WaitForGpu()
 {
-	const UINT64 v = _fenceValues[_frameIndex];
+	const UINT64 v = ++_flushValue;
 	ThrowIfFailed(_queue->Signal(_fence.Get(), v), "Queue Signal");
-	ThrowIfFailed(_fence->SetEventOnCompletion(v, _fenceEvent), "SetEventOnCompletion");
-	WaitForSingleObject(_fenceEvent, INFINITE);
-	_fenceValues[_frameIndex]++;
+	if (_fence->GetCompletedValue() < v)
+	{
+		ThrowIfFailed(_fence->SetEventOnCompletion(v, _fenceEvent), "SetEventOnCompletion");
+		WaitForSingleObject(_fenceEvent, INFINITE);
+	}
 }
 
 void D3D12Device::MoveToNextFrame()
 {
-	const UINT64 current = _fenceValues[_frameIndex];
-	ThrowIfFailed(_queue->Signal(_fence.Get(), current), "Queue Signal");
-
+	WaitForGpu();
 	_frameIndex = _swapChain->GetCurrentBackBufferIndex();
-
-	if (_fence->GetCompletedValue() < _fenceValues[_frameIndex])
-	{
-		ThrowIfFailed(_fence->SetEventOnCompletion(_fenceValues[_frameIndex], _fenceEvent), "SetEventOnCompletion");
-		WaitForSingleObject(_fenceEvent, INFINITE);
-	}
-	_fenceValues[_frameIndex] = current + 1;
 }
 
 void D3D12Device::Destroy()

@@ -1,10 +1,18 @@
 #pragma once
 #include "Common.h"
+#include "MeshLoader.h"
+
+// 정점 (래스터 입력 + RT BLAS 소스 + GI gather 소스 공용)
+struct Vtx
+{
+	DirectX::XMFLOAT3 pos;
+	DirectX::XMFLOAT3 nrm;
+	DirectX::XMFLOAT3 col;
+};
 
 // ───────────────────────────────────────────────────────────
 // D3D12Device — DX11 엔진의 Graphics 에 대응하는 DX12 디바이스/스왑체인 래퍼.
-// Phase 0: 디바이스/큐/스왑체인/RTV힙/프레임 동기화/화면 클리어.
-// Phase 1: 깊이버퍼 + 루트시그니처 + PSO + 정점/인덱스/상수 버퍼 → 조명 큐브 래스터.
+// Phase 0~3 + DDGI(SH/가시성/다중바운스) + .mesh 모델 + 스키닝 애니메이션.
 // ───────────────────────────────────────────────────────────
 class D3D12Device
 {
@@ -38,8 +46,12 @@ private:
 	ComPtr<ID3D12Resource> CreateUploadBuffer(const void* data, size_t size); // 단순 업로드힙 버퍼
 
 	// Phase 2 (DXR)
-	void BuildAccelerationStructures(); // 정적 지오메트리 → BLAS + TLAS (1회)
+	void CreateASBuffers();   // BLAS/TLAS/스크래치/인스턴스 버퍼 생성 + 초기 빌드 (1회)
+	void RecordBuildAS();     // BLAS+TLAS 빌드를 현재 커맨드리스트에 기록 (정적=1회, 스키닝=매프레임)
 	ComPtr<ID3D12Resource> CreateDefaultBuffer(UINT64 size, D3D12_RESOURCE_STATES state, bool allowUAV);
+
+	// 스키닝 애니메이션 (CPU) — 매 프레임 본 행렬 계산 → 정점 스키닝 → VB 갱신
+	void UpdateAnimation();
 
 	// Phase 3 (DDGI)
 	void CreateGI();    // 프로브 버퍼 + 컴퓨트 루트시그/PSO
@@ -87,6 +99,18 @@ private:
 	ComPtr<ID3D12Resource>            _tlasScratch;
 	ComPtr<ID3D12Resource>            _instanceBuffer;
 	UINT                              _vertexCount = 0;
+
+	// 스키닝 애니메이션
+	std::vector<LoadedBone>           _bonesData;
+	std::vector<SkinVtx>              _skinSrc;       // 모델 원본 정점(바인드, 블렌드 포함)
+	AnimClip                          _clip;
+	bool                              _animated = false;
+	std::vector<Vtx>                  _cpuVerts;      // 합본(모델+바닥) CPU 미러 — 매프레임 모델부 갱신
+	uint32                            _modelVtxCount = 0;
+	float                             _modelScale = 1.f;
+	DirectX::XMFLOAT3                 _modelOffset{ 0, 0, 0 };
+	void*                             _vbMapped = nullptr; // VB 영속 매핑
+	UINT64                            _flushValue = 0;
 
 	// Phase 3 — DDGI 프로브 볼륨 (DC irradiance, 컴퓨트 RT 수집)
 	static const UINT PROBE_X = 10;

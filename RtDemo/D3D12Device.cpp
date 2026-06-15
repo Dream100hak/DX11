@@ -1,4 +1,5 @@
 #include "D3D12Device.h"
+#include "MeshLoader.h"
 #include <dxcapi.h>
 #pragma comment(lib, "dxcompiler.lib")
 
@@ -505,16 +506,51 @@ void D3D12Device::CreateCubeGeometry()
 		indices.push_back(base); indices.push_back(base + 2); indices.push_back(base + 3);
 	};
 
-	// 큐브 (중심 y=0.9, 반치수 0.8) — 밝은 흰색 (바닥의 빨간 바운스가 잘 보이게)
-	const float h = 0.8f, cy = 0.9f;
-	const XMFLOAT3 cubeC(0.85f, 0.82f, 0.80f);
-	auto P = [&](float x, float y, float z) { return XMFLOAT3(x, y + cy, z); };
-	addQuad(P(-h, h,-h), P(-h, h, h), P( h, h, h), P( h, h,-h), { 0, 1, 0}, cubeC); // top
-	addQuad(P(-h,-h, h), P(-h,-h,-h), P( h,-h,-h), P( h,-h, h), { 0,-1, 0}, cubeC); // bottom
-	addQuad(P( h, h,-h), P( h, h, h), P( h,-h, h), P( h,-h,-h), { 1, 0, 0}, cubeC); // +X
-	addQuad(P(-h, h, h), P(-h, h,-h), P(-h,-h,-h), P(-h,-h, h), {-1, 0, 0}, cubeC); // -X
-	addQuad(P( h, h, h), P(-h, h, h), P(-h,-h, h), P( h,-h, h), { 0, 0, 1}, cubeC); // +Z
-	addQuad(P(-h, h,-h), P( h, h,-h), P( h,-h,-h), P(-h,-h,-h), { 0, 0,-1}, cubeC); // -Z
+	// ── 실제 .mesh 모델 로드 (DX11 자산) — 실패하면 큐브 폴백 ──
+	const XMFLOAT3 modelC(0.82f, 0.78f, 0.72f);
+	bool modelLoaded = false;
+	{
+		wchar_t exe[MAX_PATH]{};
+		GetModuleFileNameW(nullptr, exe, MAX_PATH);
+		std::wstring dir(exe);
+		dir = dir.substr(0, dir.find_last_of(L"\\/"));
+		std::wstring meshPath = dir + L"\\..\\Resources\\Assets\\Models\\Kachujin\\Kachujin.mesh";
+
+		std::vector<MeshPN> mv;
+		std::vector<uint32> mi;
+		if (LoadMeshPN(meshPath, mv, mi))
+		{
+			// AABB → 높이 2.2 로 정규화, x/z 중앙 정렬, 바닥(min.y)을 y=0 에 안착
+			XMFLOAT3 mn(1e9f, 1e9f, 1e9f), mx(-1e9f, -1e9f, -1e9f);
+			for (auto& v : mv)
+			{
+				mn.x = min(mn.x, v.pos.x); mn.y = min(mn.y, v.pos.y); mn.z = min(mn.z, v.pos.z);
+				mx.x = max(mx.x, v.pos.x); mx.y = max(mx.y, v.pos.y); mx.z = max(mx.z, v.pos.z);
+			}
+			float s = 2.2f / max(mx.y - mn.y, 0.001f);
+			float cx = (mn.x + mx.x) * 0.5f, cz = (mn.z + mx.z) * 0.5f;
+
+			uint32 base = (uint32)verts.size();
+			for (auto& v : mv)
+				verts.push_back({ XMFLOAT3((v.pos.x - cx) * s, (v.pos.y - mn.y) * s, (v.pos.z - cz) * s), v.nrm, modelC });
+			for (uint32 k : mi)
+				indices.push_back(base + k);
+			modelLoaded = true;
+		}
+	}
+
+	if (!modelLoaded)
+	{
+		// 폴백: 큐브 (중심 y=0.9, 반치수 0.8)
+		const float h = 0.8f, cy = 0.9f;
+		auto P = [&](float x, float y, float z) { return XMFLOAT3(x, y + cy, z); };
+		addQuad(P(-h, h,-h), P(-h, h, h), P( h, h, h), P( h, h,-h), { 0, 1, 0}, modelC);
+		addQuad(P(-h,-h, h), P(-h,-h,-h), P( h,-h,-h), P( h,-h, h), { 0,-1, 0}, modelC);
+		addQuad(P( h, h,-h), P( h, h, h), P( h,-h, h), P( h,-h,-h), { 1, 0, 0}, modelC);
+		addQuad(P(-h, h, h), P(-h, h,-h), P(-h,-h,-h), P(-h,-h, h), {-1, 0, 0}, modelC);
+		addQuad(P( h, h, h), P(-h, h, h), P(-h,-h, h), P( h,-h, h), { 0, 0, 1}, modelC);
+		addQuad(P(-h, h,-h), P( h, h,-h), P( h,-h,-h), P(-h,-h,-h), { 0, 0,-1}, modelC);
+	}
 
 	// 바닥 평면 (y=0, ±6) — 빨강 (간접광 색 바운스 확인용)
 	const float g = 6.f;
@@ -715,8 +751,8 @@ void D3D12Device::Render()
 
 	// ── 상수버퍼 갱신 (정적 지오메트리=항등, 빛 방향 애니메이션 → RT 그림자 이동) ──
 	XMMATRIX model = XMMatrixIdentity();
-	XMVECTOR eye = XMVectorSet(4.5f, 3.5f, -6.0f, 1.f);
-	XMVECTOR at  = XMVectorSet(0.f, 0.7f, 0.f, 1.f);
+	XMVECTOR eye = XMVectorSet(3.4f, 2.4f, -4.6f, 1.f);
+	XMVECTOR at  = XMVectorSet(0.f, 1.05f, 0.f, 1.f);
 	XMVECTOR up  = XMVectorSet(0.f, 1.f, 0.f, 0.f);
 	XMMATRIX view = XMMatrixLookAtLH(eye, at, up);
 	float aspect = float(_width) / float(_height);

@@ -197,8 +197,50 @@ void D3D12Device::Render()
 		_cmdList->DrawInstanced(3, 1, 0, 0);
 	}
 
-	// ── 톤맵 (HDR 씬 RT → LDR RT, ACES + 노출 + 감마 + S4 블룸) ──
+	// ── 블룸 (브라이트패스 → BlurH → BlurV, 반해상도) ──
 	Transition(_sceneRT.Get(), _sceneRTState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	if (_bloomOn && _bloomReady)
+	{
+		UINT rInc = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+		D3D12_CPU_DESCRIPTOR_HANDLE bA = _bloomRtvHeap->GetCPUDescriptorHandleForHeapStart();
+		D3D12_CPU_DESCRIPTOR_HANDLE bB = bA; bB.ptr += rInc;
+		D3D12_GPU_DESCRIPTOR_HANDLE post = _postSrvHeap->GetGPUDescriptorHandleForHeapStart();
+		ID3D12DescriptorHeap* ph[] = { _postSrvHeap.Get() };
+		D3D12_VIEWPORT bvp{ 0,0,float(_bloomW),float(_bloomH),0,1 };
+		D3D12_RECT bsc{ 0,0,LONG(_bloomW),LONG(_bloomH) };
+		float tx = 1.0f / float(_bloomW), ty = 1.0f / float(_bloomH);
+
+		auto pass = [&](ID3D12PipelineState* pso, D3D12_CPU_DESCRIPTOR_HANDLE rtv, UINT srcSlot, const float c[4])
+		{
+			_cmdList->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
+			_cmdList->RSSetViewports(1, &bvp); _cmdList->RSSetScissorRects(1, &bsc);
+			_cmdList->SetPipelineState(pso);
+			_cmdList->SetGraphicsRootSignature(_postRootSig.Get());
+			_cmdList->SetDescriptorHeaps(1, ph);
+			D3D12_GPU_DESCRIPTOR_HANDLE t = post; t.ptr += UINT64(srcSlot) * _postSrvInc;
+			_cmdList->SetGraphicsRootDescriptorTable(0, t);
+			_cmdList->SetGraphicsRoot32BitConstants(1, 4, c, 0);
+			_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			_cmdList->DrawInstanced(3, 1, 0, 0);
+		};
+		float none[4] = { 0,0,0,0 };
+		float blurH[4] = { tx, ty, 1.0f, 0.0f };
+		float blurV[4] = { tx, ty, 0.0f, 1.0f };
+		// 브라이트패스: 씬(slot0) → bloomA
+		Transition(_bloomA.Get(), _bloomAState, D3D12_RESOURCE_STATE_RENDER_TARGET);
+		pass(_brightPSO.Get(), bA, 0, none);
+		Transition(_bloomA.Get(), _bloomAState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+		// BlurH: bloomA(slot1) → bloomB
+		Transition(_bloomB.Get(), _bloomBState, D3D12_RESOURCE_STATE_RENDER_TARGET);
+		pass(_blurPSO.Get(), bB, 1, blurH);
+		Transition(_bloomB.Get(), _bloomBState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+		// BlurV: bloomB(slot2) → bloomA (최종)
+		Transition(_bloomA.Get(), _bloomAState, D3D12_RESOURCE_STATE_RENDER_TARGET);
+		pass(_blurPSO.Get(), bA, 2, blurV);
+		Transition(_bloomA.Get(), _bloomAState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	}
+
+	// ── 톤맵 (HDR 씬 RT → LDR RT, ACES + 노출 + 감마 + 블룸) ──
 	Transition(_sceneLDR.Get(), _sceneLDRState, D3D12_RESOURCE_STATE_RENDER_TARGET);
 	{
 		UINT rtvInc = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);

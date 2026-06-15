@@ -433,6 +433,29 @@ float4 PSTonemap(VOut i) : SV_TARGET
     c = pow(c, 1.0 / 2.2);
     return float4(c, 1.0);
 }
+// 브라이트패스 — 휘도 1.0 초과분 추출
+float4 PSBright(VOut i) : SV_TARGET
+{
+    float3 c = gHDR.Sample(gS, i.uv).rgb;
+    float l = dot(c, float3(0.2126, 0.7152, 0.0722));
+    float contrib = max(l - 1.0, 0.0);
+    return float4(c * (contrib / (l + 1e-4)), 1.0);
+}
+// 분리형 가우시안 (cbuffer 4float 재해석: x,y=texel / z,w=방향)
+float4 PSBlur(VOut i) : SV_TARGET
+{
+    float2 texel = float2(gExposure, gBloomI);
+    float2 dir   = float2(gBloomOn, _pad);
+    float w[5] = { 0.227027, 0.194594, 0.121622, 0.054054, 0.016216 };
+    float3 sum = gHDR.Sample(gS, i.uv).rgb * w[0];
+    [unroll] for (int k = 1; k < 5; ++k)
+    {
+        float2 o = dir * texel * (float)k;
+        sum += gHDR.Sample(gS, i.uv + o).rgb * w[k];
+        sum += gHDR.Sample(gS, i.uv - o).rgb * w[k];
+    }
+    return float4(sum, 1.0);
+}
 )";
 
 ComPtr<IDxcBlob> CompileDxc(const char* src, const wchar_t* entry, const wchar_t* target); // 전방 선언
@@ -480,6 +503,8 @@ void D3D12Device::CreatePostFX()
 		ThrowIfFailed(_device->CreateGraphicsPipelineState(&d, IID_PPV_ARGS(&out)), "post pso");
 	};
 	makePSO(kTonemapShader, L"PSTonemap", DXGI_FORMAT_R8G8B8A8_UNORM, _tonemapPSO);
+	makePSO(kTonemapShader, L"PSBright", DXGI_FORMAT_R16G16B16A16_FLOAT, _brightPSO);
+	makePSO(kTonemapShader, L"PSBlur",   DXGI_FORMAT_R16G16B16A16_FLOAT, _blurPSO);
 }
 
 // ───────────────────────────────────────────────────────────

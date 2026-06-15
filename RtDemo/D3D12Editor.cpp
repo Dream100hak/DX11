@@ -81,14 +81,31 @@ void D3D12Device::CreateSceneRT(UINT w, UINT h)
 	D3D12_CPU_DESCRIPTOR_HANDLE rtv1 = rtv0; rtv1.ptr += rtvInc;
 	_device->CreateRenderTargetView(_sceneLDR.Get(), nullptr, rtv1);
 
-	// HDR 씬 SRV → 포스트 힙 slot0,1 (톤맵/블룸 입력)
+	// 블룸 RT (반해상도 ping-pong) + RTV
+	_bloomW = max(1u, w / 2); _bloomH = max(1u, h / 2);
+	D3D12_RESOURCE_DESC bd = rd; bd.Width = _bloomW; bd.Height = _bloomH; bd.Format = _sceneFmt;
+	D3D12_CLEAR_VALUE cvb{}; cvb.Format = _sceneFmt;
+	_bloomA.Reset(); _bloomB.Reset();
+	ThrowIfFailed(_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &bd, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, &cvb, IID_PPV_ARGS(&_bloomA)), "bloomA");
+	ThrowIfFailed(_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &bd, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, &cvb, IID_PPV_ARGS(&_bloomB)), "bloomB");
+	_bloomAState = _bloomBState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	if (!_bloomRtvHeap)
+	{
+		D3D12_DESCRIPTOR_HEAP_DESC bh{}; bh.NumDescriptors = 2; bh.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+		ThrowIfFailed(_device->CreateDescriptorHeap(&bh, IID_PPV_ARGS(&_bloomRtvHeap)), "bloom RTV heap");
+	}
+	D3D12_CPU_DESCRIPTOR_HANDLE brtv = _bloomRtvHeap->GetCPUDescriptorHandleForHeapStart();
+	_device->CreateRenderTargetView(_bloomA.Get(), nullptr, brtv); brtv.ptr += rtvInc;
+	_device->CreateRenderTargetView(_bloomB.Get(), nullptr, brtv);
+
+	// 포스트 힙 SRV: 0=HDR씬 / 1=bloomA(최종·톤맵 t1) / 2=bloomB / 3=bloomB(더미)
 	D3D12_SHADER_RESOURCE_VIEW_DESC hsd{};
 	hsd.Format = _sceneFmt; hsd.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	hsd.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING; hsd.Texture2D.MipLevels = 1;
+	ID3D12Resource* srvSrc[4] = { _sceneRT.Get(), _bloomA.Get(), _bloomB.Get(), _bloomB.Get() };
 	D3D12_CPU_DESCRIPTOR_HANDLE ph = _postSrvHeap->GetCPUDescriptorHandleForHeapStart();
-	_device->CreateShaderResourceView(_sceneRT.Get(), &hsd, ph);          // slot0 HDR
-	ph.ptr += _postSrvInc;
-	_device->CreateShaderResourceView(_sceneRT.Get(), &hsd, ph);          // slot1 (블룸 대체, S4에서 교체)
+	for (int k = 0; k < 4; ++k) { _device->CreateShaderResourceView(srvSrc[k], &hsd, ph); ph.ptr += _postSrvInc; }
+	_bloomReady = true;
 
 	// 깊이
 	D3D12_RESOURCE_DESC dd{};

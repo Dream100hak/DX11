@@ -122,6 +122,13 @@ private:
 	ComPtr<ID3D12Resource>            _sceneLDR;    // 톤맵 결과 (ImGui 표시)
 	D3D12_RESOURCE_STATES             _sceneLDRState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 	float                             _exposure = 1.0f;
+	// 블룸 (S4) — 반해상도 ping-pong
+	ComPtr<ID3D12PipelineState>       _brightPSO, _blurPSO;
+	ComPtr<ID3D12Resource>            _bloomA, _bloomB;
+	ComPtr<ID3D12DescriptorHeap>      _bloomRtvHeap;
+	D3D12_RESOURCE_STATES             _bloomAState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	D3D12_RESOURCE_STATES             _bloomBState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	UINT                              _bloomW = 0, _bloomH = 0;
 	bool                              _bloomReady = false; // S4 에서 true
 	float                             _bloomIntensity = 0.6f;
 	ComPtr<ID3D12Resource>            _vb;

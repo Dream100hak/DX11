@@ -217,6 +217,14 @@ void D3D12Device::DrawSceneView()
 	_sceneHovered = ImGui::IsWindowHovered();
 	_sceneFocused = ImGui::IsWindowFocused();
 
+	// ── 클릭 픽킹 (좌클릭, 기즈모 위 아닐 때) ──
+	if (_sceneHovered && ImGui::IsMouseClicked(0) && !ImGuizmo::IsOver() && !ImGuizmo::IsUsing())
+	{
+		ImVec2 mp = ImGui::GetMousePos();
+		float u = (mp.x - imgPos.x) / avail.x, v = (mp.y - imgPos.y) / avail.y;
+		if (u >= 0 && u <= 1 && v >= 0 && v <= 1) PickAt(u, v);
+	}
+
 	// ── ImGuizmo: 모델/점광원 트랜스폼 조작 (이미지 영역에 오버레이) ──
 	if ((_sel == SelEntity::Model && _modelMatrixInit) || _sel == SelEntity::Point)
 	{
@@ -238,6 +246,47 @@ void D3D12Device::DrawSceneView()
 	}
 	ImGui::End();
 	ImGui::PopStyleVar();
+}
+
+// 씬뷰 클릭 레이 → 모델 AABB / 바닥 평면 픽킹 → 하이어라키 선택
+void D3D12Device::PickAt(float u, float v)
+{
+	using namespace DirectX;
+	float nx = u * 2.0f - 1.0f, ny = (1.0f - v) * 2.0f - 1.0f;
+	XMMATRIX invVP = XMMatrixInverse(nullptr, XMLoadFloat4x4(&_viewM) * XMLoadFloat4x4(&_projM));
+	XMVECTOR n = XMVector4Transform(XMVectorSet(nx, ny, 0, 1), invVP);
+	XMVECTOR f = XMVector4Transform(XMVectorSet(nx, ny, 1, 1), invVP);
+	n = XMVectorScale(n, 1.0f / XMVectorGetW(n));
+	f = XMVectorScale(f, 1.0f / XMVectorGetW(f));
+	XMFLOAT3 ro; XMStoreFloat3(&ro, n);
+	XMFLOAT3 rdv; XMStoreFloat3(&rdv, XMVector3Normalize(XMVectorSubtract(f, n)));
+
+	// 모델 AABB 슬랩 테스트
+	float tModel = 1e9f; bool hitM = false;
+	{
+		float tmin = 0.0f, tmax = 1e9f; bool ok = true;
+		const float* ros = &ro.x; const float* rds = &rdv.x;
+		const float* bmn = &_modelMin.x; const float* bmx = &_modelMax.x;
+		for (int a = 0; a < 3; ++a)
+		{
+			if (fabsf(rds[a]) < 1e-7f) { if (ros[a] < bmn[a] || ros[a] > bmx[a]) { ok = false; break; } }
+			else { float inv = 1.0f / rds[a]; float t1 = (bmn[a] - ros[a]) * inv, t2 = (bmx[a] - ros[a]) * inv;
+				if (t1 > t2) { float tmp = t1; t1 = t2; t2 = tmp; }
+				tmin = max(tmin, t1); tmax = min(tmax, t2); if (tmin > tmax) { ok = false; break; } }
+		}
+		if (ok && tmax > 0) { hitM = true; tModel = max(tmin, 0.0f); }
+	}
+	// 바닥 평면 y=0 (±6)
+	float tFloor = 1e9f; bool hitF = false;
+	if (fabsf(rdv.y) > 1e-6f)
+	{
+		float t = -ro.y / rdv.y;
+		if (t > 0) { float hx = ro.x + rdv.x * t, hz = ro.z + rdv.z * t;
+			if (fabsf(hx) <= 6.0f && fabsf(hz) <= 6.0f) { hitF = true; tFloor = t; } }
+	}
+
+	if (hitM && (!hitF || tModel <= tFloor)) _sel = SelEntity::Model;
+	else if (hitF) _sel = SelEntity::Floor;
 }
 
 void D3D12Device::DrawInspector()

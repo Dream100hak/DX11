@@ -228,6 +228,8 @@ private:
 	bool                              _sceneHovered = false, _sceneFocused = false;
 	DirectX::XMFLOAT4X4               _viewM, _projM;      // ImGuizmo 용 (Render 에서 갱신)
 	int                               _gizmoOp = 7;        // ImGuizmo::TRANSLATE (헤더에 ImGuizmo 미포함 → int)
+	DirectX::XMFLOAT3                 _modelMin{}, _modelMax{}; // 모델 월드 AABB (클릭 픽킹)
+	void                              PickAt(float u, float v); // 씬뷰 클릭 → 레이 픽킹
 	// 인스펙터에서 편집하는 라이팅/GI 파라미터 (Render 가 매 프레임 SceneCB 에 반영)
 	float                             _lightIntensity = 1.2f;
 	bool                              _lightAnimate = true;

@@ -160,6 +160,7 @@ void D3D12Device::UpdateAnimation()
 
 	XMVECTOR off = XMVectorSet(_modelOffset.x, _modelOffset.y, _modelOffset.z, 0.f);
 	XMMATRIX M = XMLoadFloat4x4(&_modelMatrix); // 기즈모 트랜스폼
+	XMFLOAT3 mn(1e9f, 1e9f, 1e9f), mx(-1e9f, -1e9f, -1e9f); // 모델 월드 AABB (픽킹용)
 
 	for (uint32 i = 0; i < _modelVtxCount; ++i)
 	{
@@ -191,7 +192,11 @@ void D3D12Device::UpdateAnimation()
 		XMStoreFloat3(&_cpuVerts[i].pos, wp);
 		XMStoreFloat3(&_cpuVerts[i].nrm, XMVector3Normalize(n));
 		XMStoreFloat3(&_cpuVerts[i].tan, XMVector3Normalize(t));
+		XMFLOAT3 P = _cpuVerts[i].pos;
+		mn.x = min(mn.x, P.x); mn.y = min(mn.y, P.y); mn.z = min(mn.z, P.z);
+		mx.x = max(mx.x, P.x); mx.y = max(mx.y, P.y); mx.z = max(mx.z, P.z);
 	}
+	_modelMin = mn; _modelMax = mx;
 	memcpy(_vbMapped, _cpuVerts.data(), _cpuVerts.size() * sizeof(Vtx));
 }
 

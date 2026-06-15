@@ -187,6 +187,16 @@ void D3D12Device::Render()
 	_cmdList->SetGraphicsRoot32BitConstant(4, 0u, 0);
 	_cmdList->DrawIndexedInstanced(_indexCount - _modelIndexCount, 1, _modelIndexCount, 0, 0);
 
+	// ── 씬 그리드 (지오메트리 위, 깊이 테스트) ──
+	if (_showGrid)
+	{
+		_cmdList->SetPipelineState(_gridPSO.Get());
+		_cmdList->SetGraphicsRootSignature(_rootSig.Get());
+		_cmdList->SetGraphicsRootConstantBufferView(0, _cb[_frameIndex]->GetGPUVirtualAddress());
+		_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		_cmdList->DrawInstanced(3, 1, 0, 0);
+	}
+
 	// 씬 RT → 픽셀 셰이더 리소스 (ImGui::Image 샘플용)
 	Transition(_sceneRT.Get(), _sceneRTState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 

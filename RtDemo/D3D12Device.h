@@ -110,6 +110,7 @@ private:
 	ComPtr<ID3D12RootSignature>       _rootSig;
 	ComPtr<ID3D12PipelineState>       _pso;
 	ComPtr<ID3D12PipelineState>       _skyPSO;     // 절차적 스카이박스
+	ComPtr<ID3D12PipelineState>       _gridPSO;    // 무한 씬 그리드
 	DXGI_FORMAT                       _sceneFmt = DXGI_FORMAT_R8G8B8A8_UNORM; // 씬 RT 포맷 (S3에서 HDR로)
 	ComPtr<ID3D12Resource>            _vb;
 	D3D12_VERTEX_BUFFER_VIEW          _vbv{};

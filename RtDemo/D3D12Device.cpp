@@ -368,6 +368,47 @@ float4 PSMain(VOut i) : SV_TARGET
 }
 )";
 
+// 무한 씬 그리드 — 풀스크린 레이를 y=0 평면과 교차, 월드 그리드 라인(1m/10m) + 축 색 + 거리 페이드.
+// SV_Depth 로 지오메트리에 가려지게(깊이 테스트), 알파 블렌드.
+static const std::string kGridShader = std::string(kSceneCB) + R"(
+struct VOut { float4 pos:SV_POSITION; float2 clip:TEXCOORD0; };
+VOut VSMain(uint id : SV_VertexID)
+{
+    VOut o; float2 p = float2((id << 1) & 2, id & 2);
+    o.pos = float4(p * 2.0 - 1.0, 0.0, 1.0); o.clip = o.pos.xy; return o;
+}
+struct POut { float4 col : SV_TARGET; float depth : SV_DEPTH; };
+float GridA(float2 c, float scale)
+{
+    float2 coord = c / scale;
+    float2 g = abs(frac(coord - 0.5) - 0.5) / fwidth(coord);
+    return 1.0 - min(min(g.x, g.y), 1.0);
+}
+POut PSMain(VOut i)
+{
+    POut o;
+    float4 wn = mul(float4(i.clip, 0.0, 1.0), gInvVP); wn /= wn.w;
+    float4 wf = mul(float4(i.clip, 1.0, 1.0), gInvVP); wf /= wf.w;
+    float3 ro = gCamPos.xyz, rd = normalize(wf.xyz - wn.xyz);
+    if (abs(rd.y) < 1e-5) discard;
+    float t = -ro.y / rd.y;
+    if (t <= 0.0) discard;
+    float3 wp = ro + rd * t;
+    float4 cp = mul(float4(wp, 1.0), gMVP); o.depth = cp.z / cp.w;
+
+    float a = max(GridA(wp.xz, 1.0) * 0.30, GridA(wp.xz, 10.0) * 0.65);
+    float3 col = float3(0.55, 0.55, 0.62);
+    float ax = 1.0 - min(abs(wp.z) / fwidth(wp.z), 1.0); // z≈0 → X축(빨강)
+    float az = 1.0 - min(abs(wp.x) / fwidth(wp.x), 1.0); // x≈0 → Z축(파랑)
+    if (ax > 0.1) { col = float3(0.9, 0.25, 0.25); a = max(a, ax); }
+    if (az > 0.1) { col = float3(0.25, 0.45, 0.95); a = max(a, az); }
+    a *= saturate(1.0 - length(wp.xz - ro.xz) / 60.0);
+    if (a <= 0.001) discard;
+    o.col = float4(col, a);
+    return o;
+}
+)";
+
 // ───────────────────────────────────────────────────────────
 void D3D12Device::Init(HWND hwnd, UINT width, UINT height)
 {
@@ -684,6 +725,26 @@ void D3D12Device::CreatePipeline()
 	spso.DSVFormat = DXGI_FORMAT_UNKNOWN;
 	spso.SampleDesc.Count = 1;
 	ThrowIfFailed(_device->CreateGraphicsPipelineState(&spso, IID_PPV_ARGS(&_skyPSO)), "CreateSkyPSO");
+
+	// ── 그리드 PSO (깊이 테스트 LESS_EQUAL/쓰기 없음, 알파 블렌드, SV_Depth 출력) ──
+	ComPtr<IDxcBlob> gvs = CompileDxc(kGridShader.c_str(), L"VSMain", L"vs_6_5");
+	ComPtr<IDxcBlob> gps = CompileDxc(kGridShader.c_str(), L"PSMain", L"ps_6_5");
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpso = spso;
+	gpso.VS = { gvs->GetBufferPointer(), gvs->GetBufferSize() };
+	gpso.PS = { gps->GetBufferPointer(), gps->GetBufferSize() };
+	gpso.DepthStencilState.DepthEnable = TRUE;
+	gpso.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+	gpso.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+	gpso.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+	gpso.BlendState.RenderTarget[0].BlendEnable = TRUE;
+	gpso.BlendState.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+	gpso.BlendState.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+	gpso.BlendState.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+	gpso.BlendState.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE;
+	gpso.BlendState.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_INV_SRC_ALPHA;
+	gpso.BlendState.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
+	gpso.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+	ThrowIfFailed(_device->CreateGraphicsPipelineState(&gpso, IID_PPV_ARGS(&_gridPSO)), "CreateGridPSO");
 }
 
 ComPtr<ID3D12Resource> D3D12Device::CreateUploadBuffer(const void* data, size_t size)

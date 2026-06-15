@@ -1,8 +1,44 @@
 #include "D3D12Device.h"
 #include "MeshLoader.h"
 #include "TextureLoader.h"
+#include <filesystem>
 
 using namespace DirectX;
+
+// 모델 폴더에서 적당한 .clip 선택 (<stem>.clip → Idle/Sprint → 첫 .clip)
+static std::wstring FindClip(const std::wstring& dir, const std::wstring& stem)
+{
+	namespace fs = std::filesystem;
+	std::error_code ec;
+	for (const std::wstring& cand : { stem + L".clip", std::wstring(L"Idle.clip"), std::wstring(L"Sprint.clip") })
+		if (fs::exists(dir + cand, ec)) return dir + cand;
+	for (auto& e : fs::directory_iterator(dir, ec))
+		if (e.path().extension() == L".clip") return e.path().wstring();
+	return L"";
+}
+
+// 런타임 모델 교체 — 상태 리셋 후 메시/텍스처/AS 재구성 (전체 플러시로 GPU 유휴 가정)
+void D3D12Device::LoadModelFromFile(const std::wstring& meshPath)
+{
+	if (_device) WaitForGpu();
+
+	namespace fs = std::filesystem;
+	fs::path mp(meshPath);
+	_modelDir = mp.parent_path().wstring() + L"\\";
+	_modelStem = mp.stem().wstring();
+	_modelLabel = _modelStem;
+
+	// 모델 상태 리셋
+	_skinSrc.clear(); _submeshes.clear(); _cpuVerts.clear(); _bonesData.clear();
+	_subMatSlot.clear(); _matResources.clear();
+	_clip = AnimClip{}; _animated = false; _matCount = 0; _hasTexture = false;
+	XMStoreFloat4x4(&_modelMatrix, XMMatrixIdentity());
+	_modelMatrixInit = true;
+
+	CreateCubeGeometry();      // 메시(_modelDir/_modelStem) + 바닥 + VB/IB
+	CreateTextureResources();  // .mmat/.mat → 머티리얼 텍스처
+	CreateASBuffers();         // BLAS/TLAS (정점/인덱스 수에 맞춰 재생성)
+}
 
 // ───────────────────────────────────────────────────────────
 // 씬 리소스 — 모델/바닥 지오메트리, CPU 스키닝, 디퓨즈 텍스처
@@ -16,13 +52,19 @@ void D3D12Device::CreateCubeGeometry()
 
 	// ── 스키닝 .mesh 모델 로드 (본+블렌드+서브메시) + .clip 애니메이션 ──
 	{
-		wchar_t exe[MAX_PATH]{};
-		GetModuleFileNameW(nullptr, exe, MAX_PATH);
-		std::wstring dir(exe);
-		dir = dir.substr(0, dir.find_last_of(L"\\/"));
-		std::wstring base = dir + L"\\..\\Resources\\Assets\\Models\\Archer\\"; // 다중 머티리얼 모델
+		// 기본값(직접 호출 시) — Archer
+		if (_modelStem.empty())
+		{
+			wchar_t exe[MAX_PATH]{};
+			GetModuleFileNameW(nullptr, exe, MAX_PATH);
+			std::wstring dir(exe);
+			dir = dir.substr(0, dir.find_last_of(L"\\/"));
+			_modelDir = dir + L"\\..\\Resources\\Assets\\Models\\Archer\\";
+			_modelStem = L"Archer";
+		}
+		std::wstring meshPath = _modelDir + _modelStem + L".mesh";
 
-		if (LoadMeshSkinned(base + L"Archer.mesh", _bonesData, _skinSrc, indices, &_submeshes))
+		if (LoadMeshSkinned(meshPath, _bonesData, _skinSrc, indices, &_submeshes))
 		{
 			// 탄젠트가 0(구 변환)이면 UV로 재생성 → 노멀맵 실효
 			GenerateTangents(_skinSrc, indices);
@@ -43,7 +85,8 @@ void D3D12Device::CreateCubeGeometry()
 				                                (v.pos.y - _modelOffset.y) * _modelScale,
 				                                (v.pos.z - _modelOffset.z) * _modelScale), v.nrm, modelC, v.uv, v.tan });
 
-			_animated = LoadClip(base + L"Sprint.clip", _clip);
+			std::wstring clipPath = FindClip(_modelDir, _modelStem);
+			if (!clipPath.empty()) _animated = LoadClip(clipPath, _clip);
 		}
 	}
 
@@ -83,54 +126,68 @@ void D3D12Device::CreateCubeGeometry()
 	_ibv.SizeInBytes = (UINT)ibSize;
 }
 
-// 매 프레임 CPU 스키닝 — 본 행렬 계산 → 정점 변형 → VB(영속 매핑) 갱신
+// 매 프레임 CPU 갱신 — (스키닝 or 바인드) 베이스 월드 → 기즈모 _modelMatrix 적용 → VB 갱신.
+// _modelMatrix 를 정점에 직접 적용하므로 BLAS(매프레임 재빌드)·래스터·DDGI 가 모두 일치 (RT 그림자 따라옴).
 void D3D12Device::UpdateAnimation()
 {
-	if (!_animated || _clip.frameCount == 0) return;
+	if (_modelVtxCount == 0) return;
 
-	uint32 frame = (uint32)(_time * _clip.frameRate) % _clip.frameCount;
 	size_t nb = _bonesData.size();
+	bool anim = _animated && _clip.frameCount > 0 && nb > 0;
 
-	std::vector<XMMATRIX> global(nb), skin(nb);
-	for (size_t b = 0; b < nb; ++b)
+	std::vector<XMMATRIX> skin;
+	if (anim)
 	{
-		const LoadedBone& bone = _bonesData[b];
-		XMMATRIX matAnim = XMMatrixIdentity();
-		auto it = _clip.bones.find(bone.name);
-		if (it != _clip.bones.end() && frame < it->second.size())
+		uint32 frame = (uint32)(_time * _clip.frameRate) % _clip.frameCount;
+		std::vector<XMMATRIX> global(nb); skin.resize(nb);
+		for (size_t b = 0; b < nb; ++b)
 		{
-			const ClipFrameT& k = it->second[frame];
-			XMMATRIX S = XMMatrixScaling(k.s.x, k.s.y, k.s.z);
-			XMMATRIX R = XMMatrixRotationQuaternion(XMLoadFloat4(&k.r));
-			XMMATRIX T = XMMatrixTranslation(k.t.x, k.t.y, k.t.z);
-			matAnim = S * R * T;
+			const LoadedBone& bone = _bonesData[b];
+			XMMATRIX matAnim = XMMatrixIdentity();
+			auto it = _clip.bones.find(bone.name);
+			if (it != _clip.bones.end() && frame < it->second.size())
+			{
+				const ClipFrameT& k = it->second[frame];
+				matAnim = XMMatrixScaling(k.s.x, k.s.y, k.s.z) *
+				          XMMatrixRotationQuaternion(XMLoadFloat4(&k.r)) *
+				          XMMatrixTranslation(k.t.x, k.t.y, k.t.z);
+			}
+			XMMATRIX parent = (bone.parent >= 0 && bone.parent < (int32_t)nb) ? global[bone.parent] : XMMatrixIdentity();
+			global[b] = matAnim * parent;
+			skin[b] = XMMatrixInverse(nullptr, XMLoadFloat4x4(&bone.bind)) * global[b];
 		}
-		XMMATRIX parent = (bone.parent >= 0 && bone.parent < (int32_t)nb) ? global[bone.parent] : XMMatrixIdentity();
-		global[b] = matAnim * parent;
-		XMMATRIX bind = XMLoadFloat4x4(&bone.bind);
-		skin[b] = XMMatrixInverse(nullptr, bind) * global[b];
 	}
 
 	XMVECTOR off = XMVectorSet(_modelOffset.x, _modelOffset.y, _modelOffset.z, 0.f);
+	XMMATRIX M = XMLoadFloat4x4(&_modelMatrix); // 기즈모 트랜스폼
+
 	for (uint32 i = 0; i < _modelVtxCount; ++i)
 	{
 		const SkinVtx& sv = _skinSrc[i];
 		XMVECTOR bp = XMLoadFloat3(&sv.pos), bn = XMLoadFloat3(&sv.nrm), bt = XMLoadFloat3(&sv.tan);
-		XMVECTOR p = XMVectorZero(), n = XMVectorZero(), t = XMVectorZero();
-		float wsum = 0.f;
-		for (int j = 0; j < 4; ++j)
+		XMVECTOR p, n, t;
+		if (anim)
 		{
-			float w = sv.wgt[j];
-			uint32 bi = sv.idx[j];
-			if (w <= 0.f || bi >= nb) continue;
-			p = XMVectorAdd(p, XMVectorScale(XMVector3Transform(bp, skin[bi]), w));
-			n = XMVectorAdd(n, XMVectorScale(XMVector3TransformNormal(bn, skin[bi]), w));
-			t = XMVectorAdd(t, XMVectorScale(XMVector3TransformNormal(bt, skin[bi]), w));
-			wsum += w;
+			p = XMVectorZero(); n = XMVectorZero(); t = XMVectorZero();
+			float wsum = 0.f;
+			for (int j = 0; j < 4; ++j)
+			{
+				float w = sv.wgt[j]; uint32 bi = sv.idx[j];
+				if (w <= 0.f || bi >= nb) continue;
+				p = XMVectorAdd(p, XMVectorScale(XMVector3Transform(bp, skin[bi]), w));
+				n = XMVectorAdd(n, XMVectorScale(XMVector3TransformNormal(bn, skin[bi]), w));
+				t = XMVectorAdd(t, XMVectorScale(XMVector3TransformNormal(bt, skin[bi]), w));
+				wsum += w;
+			}
+			if (wsum < 1e-4f) { p = bp; n = bn; t = bt; }
 		}
-		if (wsum < 1e-4f) { p = bp; n = bn; t = bt; } // 미리깅 정점 폴백
+		else { p = bp; n = bn; t = bt; } // 정적: 바인드 포즈
 
+		// 베이스 월드(정규화) → 기즈모 M 적용
 		XMVECTOR wp = XMVectorScale(XMVectorSubtract(p, off), _modelScale);
+		wp = XMVector3Transform(wp, M);
+		n = XMVector3TransformNormal(n, M);
+		t = XMVector3TransformNormal(t, M);
 		XMStoreFloat3(&_cpuVerts[i].pos, wp);
 		XMStoreFloat3(&_cpuVerts[i].nrm, XMVector3Normalize(n));
 		XMStoreFloat3(&_cpuVerts[i].tan, XMVector3Normalize(t));
@@ -140,14 +197,10 @@ void D3D12Device::UpdateAnimation()
 
 void D3D12Device::CreateTextureResources()
 {
-	wchar_t exe[MAX_PATH]{};
-	GetModuleFileNameW(nullptr, exe, MAX_PATH);
-	std::wstring dir(exe);
-	dir = dir.substr(0, dir.find_last_of(L"\\/"));
-	std::wstring base = dir + L"\\..\\Resources\\Assets\\Models\\Archer\\";
+	std::wstring base = _modelDir;
 
 	// ── 머티리얼 슬롯 배정: 서브메시 머티리얼명 → 고유 슬롯 ──
-	std::unordered_map<std::string, MatTex> matMap = LoadMaterials(base + L"Archer.mmat", base);
+	std::unordered_map<std::string, MatTex> matMap = LoadMaterials(base + _modelStem + L".mmat", base);
 	std::unordered_map<std::string, uint32> stemSlot;
 	std::vector<std::string> slotStems;
 	_subMatSlot.resize(_submeshes.size());

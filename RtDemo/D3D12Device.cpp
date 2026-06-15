@@ -353,12 +353,14 @@ void D3D12Device::Init(HWND hwnd, UINT width, UINT height)
 	CreateDepthBuffer();
 	CreateRootSignature();
 	CreatePipeline();
-	CreateCubeGeometry();
 	CreateConstantBuffers();
-	CreateTextureResources();
 
-	// Phase 2 — 가속구조 버퍼 + 초기 빌드
-	CreateASBuffers();
+	// 모델(기본 Archer) 로드 — 메시 + 바닥 + 텍스처 + BLAS/TLAS (런타임 교체 가능)
+	{
+		wchar_t exe[MAX_PATH]{}; GetModuleFileNameW(nullptr, exe, MAX_PATH);
+		std::wstring dir(exe); dir = dir.substr(0, dir.find_last_of(L"\\/"));
+		LoadModelFromFile(dir + L"\\..\\Resources\\Assets\\Models\\Archer\\Archer.mesh");
+	}
 
 	// Phase 3 — DDGI 프로브 볼륨
 	CreateGI();

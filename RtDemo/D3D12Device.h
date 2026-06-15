@@ -59,6 +59,7 @@ private:
 	void CreateRootSignature();
 	void CreatePipeline();
 	void CreateCubeGeometry();
+	void LoadModelFromFile(const std::wstring& meshPath); // 런타임 모델 교체 (에셋 더블클릭)
 	void CreateConstantBuffers();
 	ComPtr<ID3D12Resource> CreateUploadBuffer(const void* data, size_t size); // 단순 업로드힙 버퍼
 
@@ -132,6 +133,12 @@ private:
 	void*                             _vbMapped = nullptr; // VB 영속 매핑
 	UINT64                            _flushValue = 0;
 	uint32                            _modelIndexCount = 0; // 모델 인덱스 수(바닥 제외) — 텍스처 드로우 분리용
+	std::wstring                      _modelDir;       // 현재 모델 폴더(.mmat/.mat/텍스처 기준)
+	std::wstring                      _modelStem;      // 현재 모델 스템(예: Archer)
+	std::wstring                      _modelLabel = L"Archer"; // 하이어라키/인스펙터 표시명
+	std::wstring                      _pendingModel;   // 더블클릭 로드 대기 경로 (다음 프레임 처리)
+	DirectX::XMFLOAT4X4               _modelMatrix;    // 기즈모 트랜스폼 (정점에 매프레임 적용 → RT 일치)
+	bool                              _modelMatrixInit = false;
 
 	// PBR 텍스처 — 다중 머티리얼: 머티리얼 슬롯당 3개(디퓨즈/노멀/스펙) 연속 SRV 힙.
 	// 드로우 시 서브메시의 matSlot 으로 테이블 핸들을 slot*3 만큼 오프셋.
@@ -170,13 +177,31 @@ private:
 	bool                              _rmbDown = false;
 	POINT                             _lastCursor{ 0, 0 };
 
-	// ── 에디터 UI (ImGui) — 도킹 + Inspector / FolderContents / Scene(중앙 패스스루) ──
+	// ── 에디터 UI (ImGui) — 도킹 + Inspector / FolderContents / Scene(RT 이미지) ──
 	void                              InitEditor();
 	void                              BuildUI();           // ImGui::NewFrame ~ Render 사이 패널 구성
+	void                              DrawHierarchy();
 	void                              DrawInspector();
 	void                              DrawFolderContents();
+	void                              DrawSceneView();
+	enum class SelEntity { Model, Floor, Sun, DDGI, Camera };
+	SelEntity                         _sel = SelEntity::Model; // 하이어라키 선택 → 인스펙터 표시 대상
+	void                              CreateSceneRT(UINT w, UINT h); // 씬 오프스크린 RT/깊이 (재)생성
 	ImGuiDx12                         _imgui;
 	bool                              _editorReady = false;
+
+	// 씬 오프스크린 RT (ImGui::Image 로 "Scene" 도킹 탭에 표시)
+	ComPtr<ID3D12Resource>            _sceneRT;
+	ComPtr<ID3D12Resource>            _sceneDepth;
+	ComPtr<ID3D12DescriptorHeap>      _sceneRtvHeap;
+	ComPtr<ID3D12DescriptorHeap>      _sceneDsvHeap;
+	D3D12_RESOURCE_STATES             _sceneRTState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	UINT                              _sceneW = 1280, _sceneH = 720;       // 현재 RT 크기
+	UINT                              _pendingSceneW = 0, _pendingSceneH = 0; // Scene 창 컨텐츠 크기
+	uint64                            _sceneTexId = 0;     // ImGui::Image 핸들
+	bool                              _sceneHovered = false, _sceneFocused = false;
+	DirectX::XMFLOAT4X4               _viewM, _projM;      // ImGuizmo 용 (Render 에서 갱신)
+	int                               _gizmoOp = 7;        // ImGuizmo::TRANSLATE (헤더에 ImGuizmo 미포함 → int)
 	// 인스펙터에서 편집하는 라이팅/GI 파라미터 (Render 가 매 프레임 SceneCB 에 반영)
 	float                             _lightIntensity = 1.2f;
 	bool                              _lightAnimate = true;

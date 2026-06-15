@@ -2,6 +2,7 @@
 #include "imgui.h"
 #include "imgui_internal.h"   // DockBuilder
 #include "imgui_impl_win32.h"
+#include "ImGuizmo.h"
 #include <filesystem>
 
 namespace fs = std::filesystem;
@@ -28,12 +29,65 @@ void D3D12Device::InitEditor()
 	ImGui_ImplWin32_Init(_hwnd);
 	_imgui.Init(_device.Get(), _queue.Get(), DXGI_FORMAT_R8G8B8A8_UNORM, FRAME_COUNT);
 
+	DirectX::XMStoreFloat4x4(&_viewM, DirectX::XMMatrixIdentity()); // 첫 프레임 ImGuizmo NaN 방지
+	DirectX::XMStoreFloat4x4(&_projM, DirectX::XMMatrixIdentity());
+
 	// 에셋 루트 = exe\..\Resources\Assets
 	wchar_t exe[MAX_PATH]{}; GetModuleFileNameW(nullptr, exe, MAX_PATH);
 	std::wstring dir(exe); dir = dir.substr(0, dir.find_last_of(L"\\/"));
 	_assetRoot = fs::weakly_canonical(fs::path(dir) / L".." / L"Resources" / L"Assets").wstring();
 	_curDir = _assetRoot;
+
+	CreateSceneRT(_width, _height); // 씬 오프스크린 RT 초기 생성
 	_editorReady = true;
+}
+
+// 씬 오프스크린 RT + 깊이 (재)생성 — Scene 창 리사이즈 시 호출 (전체 플러시로 GPU 유휴 보장)
+void D3D12Device::CreateSceneRT(UINT w, UINT h)
+{
+	_sceneW = w; _sceneH = h;
+
+	D3D12_HEAP_PROPERTIES hp{}; hp.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+	// 컬러 RT
+	D3D12_RESOURCE_DESC rd{};
+	rd.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	rd.Width = w; rd.Height = h; rd.DepthOrArraySize = 1; rd.MipLevels = 1;
+	rd.Format = DXGI_FORMAT_R8G8B8A8_UNORM; rd.SampleDesc.Count = 1;
+	rd.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+	D3D12_CLEAR_VALUE cvc{}; cvc.Format = rd.Format;
+	cvc.Color[0] = 0.06f; cvc.Color[1] = 0.07f; cvc.Color[2] = 0.10f; cvc.Color[3] = 1.0f;
+	_sceneRT.Reset();
+	ThrowIfFailed(_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &rd,
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, &cvc, IID_PPV_ARGS(&_sceneRT)), "scene RT");
+	_sceneRTState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+
+	if (!_sceneRtvHeap)
+	{
+		D3D12_DESCRIPTOR_HEAP_DESC hd{}; hd.NumDescriptors = 1; hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+		ThrowIfFailed(_device->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&_sceneRtvHeap)), "scene RTV heap");
+	}
+	_device->CreateRenderTargetView(_sceneRT.Get(), nullptr, _sceneRtvHeap->GetCPUDescriptorHandleForHeapStart());
+
+	// 깊이
+	D3D12_RESOURCE_DESC dd{};
+	dd.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	dd.Width = w; dd.Height = h; dd.DepthOrArraySize = 1; dd.MipLevels = 1;
+	dd.Format = DXGI_FORMAT_D32_FLOAT; dd.SampleDesc.Count = 1;
+	dd.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+	D3D12_CLEAR_VALUE cvd{}; cvd.Format = DXGI_FORMAT_D32_FLOAT; cvd.DepthStencil.Depth = 1.0f;
+	_sceneDepth.Reset();
+	ThrowIfFailed(_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &dd,
+		D3D12_RESOURCE_STATE_DEPTH_WRITE, &cvd, IID_PPV_ARGS(&_sceneDepth)), "scene depth");
+	if (!_sceneDsvHeap)
+	{
+		D3D12_DESCRIPTOR_HEAP_DESC hd{}; hd.NumDescriptors = 1; hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+		ThrowIfFailed(_device->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&_sceneDsvHeap)), "scene DSV heap");
+	}
+	D3D12_DEPTH_STENCIL_VIEW_DESC dsv{}; dsv.Format = DXGI_FORMAT_D32_FLOAT; dsv.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+	_device->CreateDepthStencilView(_sceneDepth.Get(), &dsv, _sceneDsvHeap->GetCPUDescriptorHandleForHeapStart());
+
+	_sceneTexId = _imgui.SetSceneTexture(_sceneRT.Get());
 }
 
 // ImGui::NewFrame ~ ImGui::Render — 도킹 + 패널 구성 (Render() 초반 CPU 단계에서 호출)
@@ -41,6 +95,7 @@ void D3D12Device::BuildUI()
 {
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
+	ImGuizmo::BeginFrame();
 
 	// 전체화면 도킹 호스트 (배경 없음 → 중앙 패스스루로 뒤의 3D 씬뷰 노출)
 	ImGuiViewport* vp = ImGui::GetMainViewport();
@@ -67,55 +122,124 @@ void D3D12Device::BuildUI()
 		ImGui::DockBuilderAddNode(dockId, ImGuiDockNodeFlags_DockSpace | ImGuiDockNodeFlags_PassthruCentralNode);
 		ImGui::DockBuilderSetNodeSize(dockId, vp->WorkSize);
 		ImGuiID center = dockId;
-		ImGuiID right = ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, 0.26f, nullptr, &center);
+		ImGuiID left = ImGui::DockBuilderSplitNode(center, ImGuiDir_Left, 0.17f, nullptr, &center);
+		ImGuiID right = ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, 0.30f, nullptr, &center);
 		ImGuiID bottom = ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, 0.30f, nullptr, &center);
+		ImGui::DockBuilderDockWindow("Hierarchy", left);
 		ImGui::DockBuilderDockWindow("Inspector", right);
 		ImGui::DockBuilderDockWindow("FolderContents", bottom);
+		ImGui::DockBuilderDockWindow("Scene", center);
 		ImGui::DockBuilderFinish(dockId);
 	}
-	ImGui::DockSpace(dockId, ImVec2(0, 0), ImGuiDockNodeFlags_PassthruCentralNode);
+	ImGui::DockSpace(dockId, ImVec2(0, 0));
 	ImGui::End();
 
+	DrawSceneView();
+	DrawHierarchy();
 	DrawInspector();
 	DrawFolderContents();
 
 	ImGui::Render();
 }
 
+void D3D12Device::DrawHierarchy()
+{
+	ImGui::Begin("Hierarchy");
+	ImGui::TextDisabled("Scene");
+	ImGui::Separator();
+
+	std::string modelItem = "[Mdl] " + WToUtf8(_modelLabel);
+	struct Entry { std::string label; SelEntity e; };
+	const Entry items[] = {
+		{ "[Cam] Editor Camera", SelEntity::Camera },
+		{ "[Sun] Directional Light", SelEntity::Sun },
+		{ "[GI]  DDGI Volume", SelEntity::DDGI },
+		{ modelItem, SelEntity::Model },
+		{ "[Geo] Floor", SelEntity::Floor },
+	};
+	for (const Entry& it : items)
+	{
+		if (ImGui::Selectable(it.label.c_str(), _sel == it.e))
+			_sel = it.e;
+	}
+	ImGui::End();
+}
+
+void D3D12Device::DrawSceneView()
+{
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+	ImGui::Begin("Scene");
+	ImVec2 avail = ImGui::GetContentRegionAvail();
+	_pendingSceneW = (UINT)max(8.0f, avail.x);
+	_pendingSceneH = (UINT)max(8.0f, avail.y);
+	ImVec2 imgPos = ImGui::GetCursorScreenPos();
+	if (_sceneTexId)
+		ImGui::Image((ImTextureID)_sceneTexId, avail);
+	_sceneHovered = ImGui::IsWindowHovered();
+	_sceneFocused = ImGui::IsWindowFocused();
+
+	// ── ImGuizmo: 선택된 모델 트랜스폼 조작 (이미지 영역에 오버레이) ──
+	if (_sel == SelEntity::Model && _modelMatrixInit)
+	{
+		ImGuizmo::SetOrthographic(false);
+		ImGuizmo::SetDrawlist();
+		ImGuizmo::SetRect(imgPos.x, imgPos.y, avail.x, avail.y);
+		ImGuizmo::Manipulate((const float*)&_viewM, (const float*)&_projM,
+			(ImGuizmo::OPERATION)_gizmoOp, ImGuizmo::WORLD, (float*)&_modelMatrix);
+	}
+	ImGui::End();
+	ImGui::PopStyleVar();
+}
+
 void D3D12Device::DrawInspector()
 {
 	ImGui::Begin("Inspector");
 
-	if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
+	// 하이어라키 선택 대상별 프로퍼티
+	switch (_sel)
 	{
+	case SelEntity::Camera:
+		ImGui::SeparatorText("Editor Camera");
 		ImGui::Text("Pos   %.2f  %.2f  %.2f", _camPos.x, _camPos.y, _camPos.z);
 		ImGui::Text("Yaw %.2f   Pitch %.2f", _camYaw, _camPitch);
+		ImGui::Spacing();
 		ImGui::TextDisabled("RMB drag = look,  WASD = move");
 		ImGui::TextDisabled("Q/E = up/down,  Shift = fast");
-	}
+		break;
 
-	if (ImGui::CollapsingHeader("Lighting", ImGuiTreeNodeFlags_DefaultOpen))
-	{
+	case SelEntity::Sun:
+		ImGui::SeparatorText("Directional Light");
 		ImGui::SliderFloat("Intensity", &_lightIntensity, 0.0f, 4.0f);
 		ImGui::Checkbox("Animate Sun", &_lightAnimate);
 		if (!_lightAnimate)
 			ImGui::SliderFloat("Sun Angle", &_lightAngle, -3.14159f, 3.14159f);
-	}
+		ImGui::TextDisabled("RT shadow + DDGI react in real time");
+		break;
 
-	if (ImGui::CollapsingHeader("Global Illumination (DDGI)", ImGuiTreeNodeFlags_DefaultOpen))
-	{
+	case SelEntity::DDGI:
+		ImGui::SeparatorText("DDGI Volume");
 		ImGui::SliderFloat("GI Strength", &_giStrength, 0.0f, 1.5f);
 		ImGui::SliderFloat("Ambient", &_ambient, 0.0f, 0.2f);
-		ImGui::TextDisabled("Probes %u  (%dx%dx%d)", PROBE_COUNT, PROBE_X, PROBE_Y, PROBE_Z);
-	}
+		ImGui::Spacing();
+		ImGui::Text("Probes : %u  (%dx%dx%d)", PROBE_COUNT, PROBE_X, PROBE_Y, PROBE_Z);
+		ImGui::Text("Oct depth: %dx%d / probe", PROBE_OCT, PROBE_OCT);
+		ImGui::TextDisabled("SH-L1 irradiance + Chebyshev visibility");
+		break;
 
-	if (ImGui::CollapsingHeader("Model: Archer", ImGuiTreeNodeFlags_DefaultOpen))
-	{
+	case SelEntity::Model:
+		ImGui::SeparatorText(("Model: " + WToUtf8(_modelLabel)).c_str());
+		// 기즈모 조작 모드 (ImGuizmo: TRANSLATE=7 / ROTATE=120 / SCALE=896)
+		ImGui::TextDisabled("Gizmo:");
+		ImGui::SameLine(); if (ImGui::RadioButton("Move", _gizmoOp == 7)) _gizmoOp = 7;
+		ImGui::SameLine(); if (ImGui::RadioButton("Rotate", _gizmoOp == 120)) _gizmoOp = 120;
+		ImGui::SameLine(); if (ImGui::RadioButton("Scale", _gizmoOp == 896)) _gizmoOp = 896;
+		if (ImGui::Button("Reset Transform")) { DirectX::XMStoreFloat4x4(&_modelMatrix, DirectX::XMMatrixIdentity()); }
+		ImGui::Spacing();
 		ImGui::Text("Vertices : %u", _vertexCount);
 		ImGui::Text("Triangles: %u", _indexCount / 3);
 		ImGui::Text("Bones    : %u", (unsigned)_bonesData.size());
 		ImGui::Text("Submeshes: %u   Materials: %u", (unsigned)_submeshes.size(), _matCount);
-		if (!_submeshes.empty() && ImGui::TreeNode("Submeshes / Materials"))
+		if (!_submeshes.empty() && ImGui::TreeNodeEx("Submeshes / Materials", ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			for (size_t i = 0; i < _submeshes.size(); ++i)
 				ImGui::BulletText("%s  (%u tris, slot %u)",
@@ -123,19 +247,25 @@ void D3D12Device::DrawInspector()
 					i < _subMatSlot.size() ? _subMatSlot[i] : 0u);
 			ImGui::TreePop();
 		}
+		break;
+
+	case SelEntity::Floor:
+		ImGui::SeparatorText("Floor");
+		ImGui::TextDisabled("Static quad (vertex color, red)");
+		ImGui::Text("Bounces red indirect light via DDGI");
+		break;
 	}
 
+	// 선택된 에셋 정보 (FolderContents 에서 클릭)
 	if (!_selectedAsset.empty())
 	{
 		ImGui::Separator();
-		if (ImGui::CollapsingHeader("Selected Asset", ImGuiTreeNodeFlags_DefaultOpen))
-		{
-			fs::path p(_selectedAsset);
-			ImGui::Text("Name: %s", WToUtf8(p.filename().wstring()).c_str());
-			ImGui::Text("Type: %s", WToUtf8(p.extension().wstring()).c_str());
-			std::error_code ec; auto sz = fs::file_size(p, ec);
-			if (!ec) ImGui::Text("Size: %.1f KB", sz / 1024.0);
-		}
+		ImGui::SeparatorText("Selected Asset");
+		fs::path p(_selectedAsset);
+		ImGui::Text("Name: %s", WToUtf8(p.filename().wstring()).c_str());
+		ImGui::Text("Type: %s", WToUtf8(p.extension().wstring()).c_str());
+		std::error_code ec; auto sz = fs::file_size(p, ec);
+		if (!ec) ImGui::Text("Size: %.1f KB", sz / 1024.0);
 	}
 
 	ImGui::End();
@@ -174,11 +304,21 @@ void D3D12Device::DrawFolderContents()
 	}
 	for (auto& f : files)
 	{
-		std::string label = WToUtf8(f.filename().wstring());
+		bool isMesh = (f.extension() == L".mesh");
+		std::string label = (isMesh ? "[mesh] " : "") + WToUtf8(f.filename().wstring());
 		bool sel = (f.wstring() == _selectedAsset);
-		if (ImGui::Selectable(label.c_str(), sel))
+		if (ImGui::Selectable(label.c_str(), sel, ImGuiSelectableFlags_AllowDoubleClick))
+		{
 			_selectedAsset = f.wstring();
+			// .mesh 더블클릭 → 모델 교체 (다음 프레임 GPU 유휴 시 처리)
+			if (isMesh && ImGui::IsMouseDoubleClicked(0))
+			{
+				_pendingModel = f.wstring();
+				_sel = SelEntity::Model;
+			}
+		}
 	}
+	ImGui::TextDisabled("Double-click a [mesh] to load");
 
 	ImGui::End();
 }

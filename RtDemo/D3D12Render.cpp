@@ -15,14 +15,14 @@ static XMVECTOR CamForward(float yaw, float pitch)
 // ───────────────────────────────────────────────────────────
 void D3D12Device::UpdateCamera(float dt)
 {
-	// ImGui 패널 위에서의 입력은 무시 (드래그 중이면 계속 유지)
-	bool uiMouse = _editorReady && ImGui::GetIO().WantCaptureMouse;
-	bool uiKey   = _editorReady && ImGui::GetIO().WantCaptureKeyboard;
+	// Scene 뷰포트 위에서만 카메라 조작 (다른 패널 위에선 무시, 드래그 중이면 유지)
+	bool sceneInput = !_editorReady || _sceneHovered;
+	bool sceneKey   = !_editorReady || _sceneFocused;
 
 	// 마우스 룩 (우클릭 유지 동안 — 윈도우 중앙 재고정 방식으로 델타 측정)
 	bool rmb = (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
 	bool focused = (GetForegroundWindow() == _hwnd);
-	if (rmb && focused && (!uiMouse || _rmbDown))
+	if (rmb && focused && (sceneInput || _rmbDown))
 	{
 		POINT cur; GetCursorPos(&cur);
 		if (!_rmbDown) { _lastCursor = cur; _rmbDown = true; ShowCursor(FALSE); }
@@ -40,7 +40,8 @@ void D3D12Device::UpdateCamera(float dt)
 	}
 	else if (_rmbDown) { _rmbDown = false; ShowCursor(TRUE); }
 
-	if (!focused || uiKey) return;
+	if (!focused) return;
+	if (!sceneKey && !_rmbDown) return; // Scene 포커스(또는 우클릭 플라이) 시에만 이동
 
 	// 이동 (시선 기준)
 	XMVECTOR fwd = CamForward(_camYaw, _camPitch);
@@ -67,14 +68,28 @@ void D3D12Device::Render()
 	UpdateCamera(1.0f / 60.0f);
 	BuildUI(); // ImGui 패널(CPU) — 카메라/라이팅/GI 파라미터 편집
 
+	// 더블클릭 모델 교체 (GPU 유휴 시점)
+	if (!_pendingModel.empty())
+	{
+		std::wstring path = _pendingModel; _pendingModel.clear();
+		LoadModelFromFile(path);
+	}
+
+	// Scene 창 크기 변경 시 오프스크린 RT 재생성 (전체 플러시로 직전 프레임 GPU 유휴)
+	if (_pendingSceneW && (_pendingSceneW != _sceneW || _pendingSceneH != _sceneH))
+		CreateSceneRT(_pendingSceneW, _pendingSceneH);
+
+
 	// ── 상수버퍼 갱신 (카메라 뷰 + 빛 방향 애니메이션 → RT 그림자 이동) ──
 	XMMATRIX model = XMMatrixIdentity();
 	XMVECTOR eye = XMLoadFloat3(&_camPos);
 	XMVECTOR fwd = CamForward(_camYaw, _camPitch);
 	XMVECTOR up  = XMVectorSet(0.f, 1.f, 0.f, 0.f);
 	XMMATRIX view = XMMatrixLookAtLH(eye, XMVectorAdd(eye, fwd), up);
-	float aspect = float(_width) / float(_height);
+	float aspect = float(_sceneW) / float(_sceneH); // 씬 RT 비율 (왜곡 방지)
 	XMMATRIX proj = XMMatrixPerspectiveFovLH(XMConvertToRadians(55.f), aspect, 0.1f, 100.f);
+	XMStoreFloat4x4(&_viewM, view); // ImGuizmo 용 (다음 프레임 BuildUI 에서 사용)
+	XMStoreFloat4x4(&_projM, proj);
 
 	// 빛 방향 — 애니메이션 또는 인스펙터 수동 각도 (그림자/간접광 같이 변함)
 	if (_lightAnimate) _lightAngle = _time * 0.6f;
@@ -91,40 +106,32 @@ void D3D12Device::Render()
 	cb.giParams = XMFLOAT4(_giStrength, _time * 60.f, _ambient, 0.f); // GI세기 / frame / 앰비언트
 	memcpy(_cbMapped[_frameIndex], &cb, sizeof(cb));
 
-	// ── 스키닝: CPU 본 변형 → VB 갱신 (GPU 유휴 시점, 전체 플러시 동기화) ──
-	if (_animated)
-		UpdateAnimation();
+	// ── 모델 갱신: 스키닝(or 바인드) + 기즈모 트랜스폼 적용 → VB (GPU 유휴, 전체 플러시) ──
+	UpdateAnimation();
 
 	auto alloc = _allocators[_frameIndex];
 	ThrowIfFailed(alloc->Reset(), "Allocator Reset");
 	ThrowIfFailed(_cmdList->Reset(alloc.Get(), nullptr), "CmdList Reset");
 
-	// 스키닝 시 갱신된 정점으로 BLAS/TLAS 매 프레임 재빌드
-	if (_animated)
-		RecordBuildAS();
+	// 갱신된 정점으로 BLAS/TLAS 매 프레임 재빌드 (스키닝/기즈모 반영 → RT 일치)
+	RecordBuildAS();
 
 	// ── DDGI: 프로브 irradiance 갱신 (컴퓨트 RT) — 라스터 전에 ──
 	DispatchGI();
 
-	D3D12_RESOURCE_BARRIER toRT{};
-	toRT.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-	toRT.Transition.pResource = _renderTargets[_frameIndex].Get();
-	toRT.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-	toRT.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-	toRT.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-	_cmdList->ResourceBarrier(1, &toRT);
+	// ── 씬 3D → 오프스크린 RT (Scene 도킹 탭 이미지) ──
+	Transition(_sceneRT.Get(), _sceneRTState, D3D12_RESOURCE_STATE_RENDER_TARGET);
 
-	D3D12_CPU_DESCRIPTOR_HANDLE rtv = _rtvHeap->GetCPUDescriptorHandleForHeapStart();
-	rtv.ptr += SIZE_T(_frameIndex) * _rtvDescSize;
-	D3D12_CPU_DESCRIPTOR_HANDLE dsv = _dsvHeap->GetCPUDescriptorHandleForHeapStart();
+	D3D12_CPU_DESCRIPTOR_HANDLE rtv = _sceneRtvHeap->GetCPUDescriptorHandleForHeapStart();
+	D3D12_CPU_DESCRIPTOR_HANDLE dsv = _sceneDsvHeap->GetCPUDescriptorHandleForHeapStart();
 	_cmdList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
 
 	float clear[4] = { 0.06f, 0.07f, 0.10f, 1.0f };
 	_cmdList->ClearRenderTargetView(rtv, clear, 0, nullptr);
 	_cmdList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
-	D3D12_VIEWPORT vp{ 0.f, 0.f, float(_width), float(_height), 0.f, 1.f };
-	D3D12_RECT sc{ 0, 0, LONG(_width), LONG(_height) };
+	D3D12_VIEWPORT vp{ 0.f, 0.f, float(_sceneW), float(_sceneH), 0.f, 1.f };
+	D3D12_RECT sc{ 0, 0, LONG(_sceneW), LONG(_sceneH) };
 	_cmdList->RSSetViewports(1, &vp);
 	_cmdList->RSSetScissorRects(1, &sc);
 
@@ -166,7 +173,24 @@ void D3D12Device::Render()
 	_cmdList->SetGraphicsRoot32BitConstant(4, 0u, 0);
 	_cmdList->DrawIndexedInstanced(_indexCount - _modelIndexCount, 1, _modelIndexCount, 0, 0);
 
-	// ── 에디터 UI 오버레이 (백버퍼 RTV 에 ImGui 드로우) ──
+	// 씬 RT → 픽셀 셰이더 리소스 (ImGui::Image 샘플용)
+	Transition(_sceneRT.Get(), _sceneRTState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+
+	// ── 백버퍼: 에디터 UI(도킹+씬 이미지) ImGui 드로우 ──
+	D3D12_RESOURCE_BARRIER toRT{};
+	toRT.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	toRT.Transition.pResource = _renderTargets[_frameIndex].Get();
+	toRT.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+	toRT.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	toRT.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+	_cmdList->ResourceBarrier(1, &toRT);
+
+	D3D12_CPU_DESCRIPTOR_HANDLE bbRtv = _rtvHeap->GetCPUDescriptorHandleForHeapStart();
+	bbRtv.ptr += SIZE_T(_frameIndex) * _rtvDescSize;
+	_cmdList->OMSetRenderTargets(1, &bbRtv, FALSE, nullptr);
+	float bbClear[4] = { 0.02f, 0.02f, 0.03f, 1.0f };
+	_cmdList->ClearRenderTargetView(bbRtv, bbClear, 0, nullptr);
+
 	_imgui.Render(_cmdList.Get(), _frameIndex);
 
 	D3D12_RESOURCE_BARRIER toPresent = toRT;

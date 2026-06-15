@@ -30,6 +30,7 @@
     <ClCompile Include="..\Engine\imgui_tables.cpp" />
     <ClCompile Include="..\Engine\imgui_widgets.cpp" />
     <ClCompile Include="..\Engine\imgui_impl_win32.cpp" />
+    <ClCompile Include="..\Engine\ImGuizmo.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

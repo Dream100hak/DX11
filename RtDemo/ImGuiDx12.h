@@ -13,6 +13,9 @@ public:
 	void Render(ID3D12GraphicsCommandList* cmd, UINT frameIndex); // ImGui::Render() 후 호출
 	void Shutdown();
 
+	// 씬 RT 텍스처를 슬롯1 SRV 로 등록(리사이즈 시 재호출) → ImGui::Image 용 ImTextureID 반환
+	uint64 SetSceneTexture(ID3D12Resource* tex);
+
 private:
 	void CreateFontTexture(ID3D12CommandQueue* queue);
 
@@ -21,8 +24,9 @@ private:
 	ComPtr<ID3D12RootSignature>   _rootSig;
 	ComPtr<ID3D12PipelineState>   _pso;
 	ComPtr<ID3D12Resource>        _fontTex;
-	ComPtr<ID3D12DescriptorHeap>  _srvHeap;   // shader-visible, slot0 = 폰트
+	ComPtr<ID3D12DescriptorHeap>  _srvHeap;   // shader-visible, slot0 = 폰트, slot1 = 씬RT
 	D3D12_GPU_DESCRIPTOR_HANDLE   _fontGpu{};
+	UINT                          _srvInc = 0;
 
 	struct FrameBuf
 	{

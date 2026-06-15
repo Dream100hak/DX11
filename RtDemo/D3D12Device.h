@@ -11,6 +11,19 @@ struct Vtx
 	DirectX::XMFLOAT2 uv;
 };
 
+// 상수버퍼 (HLSL SceneCB 와 일치, row_major)
+struct SceneCB
+{
+	DirectX::XMFLOAT4X4 mvp;
+	DirectX::XMFLOAT4X4 model;
+	DirectX::XMFLOAT4   lightDir;  // xyz=방향, w=세기
+	DirectX::XMFLOAT4   camPos;
+	DirectX::XMFLOAT4   gridMin;
+	DirectX::XMFLOAT4   gridMax;
+	DirectX::XMFLOAT4   gridDim;   // x,y,z=격자수, w=레이수
+	DirectX::XMFLOAT4   giParams;  // x=GI세기, y=frame, z=ambient
+};
+
 // ───────────────────────────────────────────────────────────
 // D3D12Device — DX11 엔진의 Graphics 에 대응하는 DX12 디바이스/스왑체인 래퍼.
 // Phase 0~3 + DDGI(SH/가시성/다중바운스) + .mesh 모델 + 스키닝 애니메이션.

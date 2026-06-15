@@ -141,6 +141,27 @@ float3 FibDir(uint i, uint n)
     return float3(cos(phi) * sinT, cosT, sin(phi) * sinT);
 }
 
+// 이전 프레임 프로브 볼륨에서 irradiance 읽기 (다중 바운스용 — gProbesRW 트라이리니어 SH)
+float3 ProbeIrradiancePrev(float3 wpos, float3 N)
+{
+    int PX = (int)gGridDim.x, PY = (int)gGridDim.y, PZ = (int)gGridDim.z;
+    float3 g = saturate((wpos - gGridMin.xyz) / (gGridMax.xyz - gGridMin.xyz));
+    float3 f = g * float3(PX - 1, PY - 1, PZ - 1);
+    int3 b0 = (int3)floor(f); float3 fr = f - (float3)b0;
+    float3 c0 = 0, c1 = 0, c2 = 0, c3 = 0;
+    [unroll] for (int s = 0; s < 8; ++s)
+    {
+        int3 o = int3(s & 1, (s >> 1) & 1, (s >> 2) & 1);
+        int3 c = min(b0 + o, int3(PX - 1, PY - 1, PZ - 1));
+        int idx = c.x + c.y * PX + c.z * PX * PY;
+        float3 w3 = lerp(1.0 - fr, fr, (float3)o); float w = w3.x * w3.y * w3.z;
+        ProbeSH p = gProbesRW[idx];
+        c0 += p.c0 * w; c1 += p.c1 * w; c2 += p.c2 * w; c3 += p.c3 * w;
+    }
+    float3 irr = 0.886227 * c0 + 1.023328 * (c1 * N.x + c2 * N.y + c3 * N.z);
+    return max(irr, 0.0);
+}
+
 [numthreads(64, 1, 1)]
 void CSMain(uint3 tid : SV_DispatchThreadID)
 {
@@ -175,7 +196,10 @@ void CSMain(uint3 tid : SV_DispatchThreadID)
             float w0 = 1.0 - b.x - b.y;
             float3 n = normalize(v0.nrm * w0 + v1.nrm * b.x + v2.nrm * b.y);
             float3 alb = v0.col * w0 + v1.col * b.x + v2.col * b.y;
-            rad = alb * saturate(dot(n, L)) * gLightDir.w; // 1차 직접광 (그림자 생략)
+            float3 hitPos = ppos + dir * q.CommittedRayT();
+            // 직접광 + 이전 프레임 간접광(다중 바운스) — 프레임마다 한 바운스씩 전파
+            float3 lit = saturate(dot(n, L)) * gLightDir.w + ProbeIrradiancePrev(hitPos, n) * gGI.x;
+            rad = alb * lit;
         }
         else
         {

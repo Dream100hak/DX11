@@ -131,11 +131,15 @@ private:
 	UINT64                            _flushValue = 0;
 	uint32                            _modelIndexCount = 0; // 모델 인덱스 수(바닥 제외) — 텍스처 드로우 분리용
 
-	// PBR 텍스처 (디퓨즈 t2 / 노멀 t3 / 스펙큘러 t4) — 연속 SRV 힙
-	ComPtr<ID3D12Resource>            _diffuseTex;
-	ComPtr<ID3D12Resource>            _normalTex;
-	ComPtr<ID3D12Resource>            _specTex;
+	// PBR 텍스처 — 다중 머티리얼: 머티리얼 슬롯당 3개(디퓨즈/노멀/스펙) 연속 SRV 힙.
+	// 드로우 시 서브메시의 matSlot 으로 테이블 핸들을 slot*3 만큼 오프셋.
+	std::vector<ComPtr<ID3D12Resource>> _matResources; // 슬롯×3 (생존 유지)
+	ComPtr<ID3D12Resource>            _whiteTex;        // 폴백(1×1 흰색)
 	ComPtr<ID3D12DescriptorHeap>      _srvHeap;
+	UINT                              _srvInc = 0;       // 디스크립터 증가량
+	UINT                              _matCount = 0;     // 머티리얼 슬롯 수
+	std::vector<SubMesh>              _submeshes;        // 머티리얼별 인덱스 구간 + matSlot(materialName→슬롯)
+	std::vector<uint32>               _subMatSlot;       // _submeshes[i] 의 머티리얼 슬롯 인덱스
 	bool                              _hasTexture = false;
 
 	// Phase 3 — DDGI 프로브 볼륨 (DC irradiance, 컴퓨트 RT 수집)

@@ -79,18 +79,33 @@ void D3D12Device::Render()
 	{
 		ID3D12DescriptorHeap* heaps[] = { _srvHeap.Get() };
 		_cmdList->SetDescriptorHeaps(1, heaps);
-		_cmdList->SetGraphicsRootDescriptorTable(3, _srvHeap->GetGPUDescriptorHandleForHeapStart());
 	}
 	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	_cmdList->IASetVertexBuffers(0, 1, &_vbv);
 	_cmdList->IASetIndexBuffer(&_ibv);
 
-	// 모델(텍스처) + 바닥(정점색) 분리 드로우
-	UINT useTexModel = _hasTexture ? 1u : 0u;
-	_cmdList->SetGraphicsRoot32BitConstant(4, useTexModel, 0);
-	_cmdList->DrawIndexedInstanced(_modelIndexCount, 1, 0, 0, 0);                              // 모델
+	// 모델: 서브메시별 머티리얼 텍스처 테이블 오프셋 후 드로우
+	if (_hasTexture && !_submeshes.empty())
+	{
+		_cmdList->SetGraphicsRoot32BitConstant(4, 1u, 0); // useTex
+		D3D12_GPU_DESCRIPTOR_HANDLE base = _srvHeap->GetGPUDescriptorHandleForHeapStart();
+		for (size_t i = 0; i < _submeshes.size(); ++i)
+		{
+			D3D12_GPU_DESCRIPTOR_HANDLE h = base;
+			h.ptr += SIZE_T(_subMatSlot[i]) * 3 * _srvInc; // 슬롯×3 디스크립터
+			_cmdList->SetGraphicsRootDescriptorTable(3, h);
+			_cmdList->DrawIndexedInstanced(_submeshes[i].indexCount, 1, _submeshes[i].indexStart, 0, 0);
+		}
+	}
+	else
+	{
+		_cmdList->SetGraphicsRoot32BitConstant(4, 0u, 0);
+		_cmdList->DrawIndexedInstanced(_modelIndexCount, 1, 0, 0, 0); // 모델(정점색 폴백)
+	}
+
+	// 바닥(정점색)
 	_cmdList->SetGraphicsRoot32BitConstant(4, 0u, 0);
-	_cmdList->DrawIndexedInstanced(_indexCount - _modelIndexCount, 1, _modelIndexCount, 0, 0); // 바닥
+	_cmdList->DrawIndexedInstanced(_indexCount - _modelIndexCount, 1, _modelIndexCount, 0, 0);
 
 	D3D12_RESOURCE_BARRIER toPresent = toRT;
 	toPresent.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;

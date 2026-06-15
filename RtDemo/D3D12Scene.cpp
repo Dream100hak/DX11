@@ -14,16 +14,19 @@ void D3D12Device::CreateCubeGeometry()
 	std::vector<uint32_t> indices;
 	const XMFLOAT3 modelC(0.82f, 0.78f, 0.72f);
 
-	// ── 스키닝 .mesh 모델 로드 (본+블렌드) + .clip 애니메이션 ──
+	// ── 스키닝 .mesh 모델 로드 (본+블렌드+서브메시) + .clip 애니메이션 ──
 	{
 		wchar_t exe[MAX_PATH]{};
 		GetModuleFileNameW(nullptr, exe, MAX_PATH);
 		std::wstring dir(exe);
 		dir = dir.substr(0, dir.find_last_of(L"\\/"));
-		std::wstring base = dir + L"\\..\\Resources\\Assets\\Models\\Kachujin\\";
+		std::wstring base = dir + L"\\..\\Resources\\Assets\\Models\\Archer\\"; // 다중 머티리얼 모델
 
-		if (LoadMeshSkinned(base + L"Kachujin.mesh", _bonesData, _skinSrc, indices))
+		if (LoadMeshSkinned(base + L"Archer.mesh", _bonesData, _skinSrc, indices, &_submeshes))
 		{
+			// 탄젠트가 0(구 변환)이면 UV로 재생성 → 노멀맵 실효
+			GenerateTangents(_skinSrc, indices);
+
 			// 바인드 AABB → 높이 2.2 정규화, x/z 중앙, 바닥 안착 (스키닝 후에도 동일 적용)
 			XMFLOAT3 mn(1e9f, 1e9f, 1e9f), mx(-1e9f, -1e9f, -1e9f);
 			for (auto& v : _skinSrc)
@@ -40,7 +43,7 @@ void D3D12Device::CreateCubeGeometry()
 				                                (v.pos.y - _modelOffset.y) * _modelScale,
 				                                (v.pos.z - _modelOffset.z) * _modelScale), v.nrm, modelC, v.uv, v.tan });
 
-			_animated = LoadClip(base + L"Idle.clip", _clip);
+			_animated = LoadClip(base + L"Sprint.clip", _clip);
 		}
 	}
 
@@ -141,19 +144,32 @@ void D3D12Device::CreateTextureResources()
 	GetModuleFileNameW(nullptr, exe, MAX_PATH);
 	std::wstring dir(exe);
 	dir = dir.substr(0, dir.find_last_of(L"\\/"));
-	std::wstring base = dir + L"\\..\\Resources\\Assets\\Models\\Kachujin\\";
+	std::wstring base = dir + L"\\..\\Resources\\Assets\\Models\\Archer\\";
+
+	// ── 머티리얼 슬롯 배정: 서브메시 머티리얼명 → 고유 슬롯 ──
+	std::unordered_map<std::string, MatTex> matMap = LoadMaterials(base + L"Archer.mmat", base);
+	std::unordered_map<std::string, uint32> stemSlot;
+	std::vector<std::string> slotStems;
+	_subMatSlot.resize(_submeshes.size());
+	for (size_t i = 0; i < _submeshes.size(); ++i)
+	{
+		const std::string& nm = _submeshes[i].materialName;
+		auto it = stemSlot.find(nm);
+		if (it == stemSlot.end()) { uint32 s = (uint32)slotStems.size(); stemSlot[nm] = s; slotStems.push_back(nm); _subMatSlot[i] = s; }
+		else _subMatSlot[i] = it->second;
+	}
+	_matCount = (uint32)slotStems.size();
+	if (_matCount == 0) { _hasTexture = false; return; }
 
 	std::vector<ComPtr<ID3D12Resource>> uploads; // WaitForGpu 까지 생존 필요
 
 	ThrowIfFailed(_allocators[_frameIndex]->Reset(), "tex alloc reset");
 	ThrowIfFailed(_cmdList->Reset(_allocators[_frameIndex].Get(), nullptr), "tex cmd reset");
 
-	// PNG → DX12 텍스처 생성 + 업로드 복사 기록
-	auto loadTex = [&](const std::wstring& file, ComPtr<ID3D12Resource>& outTex) -> bool
+	// 원시 RGBA8 픽셀 → DX12 텍스처 생성 + 업로드 복사 기록
+	auto makeTex = [&](const std::vector<uint8_t>& px, uint32 tw, uint32 th) -> ComPtr<ID3D12Resource>
 	{
-		std::vector<uint8_t> px; uint32 tw = 0, th = 0;
-		if (!LoadImageRGBA(file, px, tw, th)) return false;
-
+		ComPtr<ID3D12Resource> outTex;
 		D3D12_HEAP_PROPERTIES hp{}; hp.Type = D3D12_HEAP_TYPE_DEFAULT;
 		D3D12_RESOURCE_DESC td{};
 		td.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
@@ -183,41 +199,56 @@ void D3D12Device::CreateTextureResources()
 		bar.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 		bar.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 		_cmdList->ResourceBarrier(1, &bar);
-		return true;
+		return outTex;
 	};
 
-	bool hasD = loadTex(base + L"Kachujin_diffuse.png", _diffuseTex);
-	bool hasN = loadTex(base + L"Kachujin_normal.png", _normalTex);
-	bool hasS = loadTex(base + L"Kachujin_specular.png", _specTex);
+	// 1×1 흰색 폴백 (텍스처 없는 슬롯/채널용)
+	{
+		std::vector<uint8_t> white(4, 255);
+		_whiteTex = makeTex(white, 1, 1);
+	}
+
+	// 파일 로드 → 텍스처(실패 시 흰색)
+	auto loadOr = [&](const std::wstring& file) -> ComPtr<ID3D12Resource>
+	{
+		std::vector<uint8_t> px; uint32 tw = 0, th = 0;
+		if (!file.empty() && LoadImageRGBA(file, px, tw, th)) return makeTex(px, tw, th);
+		return _whiteTex;
+	};
+
+	// 슬롯별 디퓨즈/노멀/스펙 (총 _matCount×3 리소스, 슬롯 순서)
+	_matResources.resize(_matCount * 3);
+	for (uint32 s = 0; s < _matCount; ++s)
+	{
+		MatTex mt; auto it = matMap.find(slotStems[s]); if (it != matMap.end()) mt = it->second;
+		_matResources[s * 3 + 0] = loadOr(mt.diffuse);
+		_matResources[s * 3 + 1] = loadOr(mt.normal);
+		_matResources[s * 3 + 2] = loadOr(mt.spec);
+	}
 
 	ThrowIfFailed(_cmdList->Close(), "tex cmd close");
 	ID3D12CommandList* lists[] = { _cmdList.Get() };
 	_queue->ExecuteCommandLists(1, lists);
 	WaitForGpu();
 
-	if (!hasD) { _hasTexture = false; return; }
-	if (!hasN) _normalTex = _diffuseTex; // 폴백 (없으면 디퓨즈로 — 평탄 노멀 대용)
-	if (!hasS) _specTex = _diffuseTex;
-
-	// 연속 SRV 힙 3개 (t2 디퓨즈 / t3 노멀 / t4 스펙)
+	// 연속 SRV 힙 (_matCount×3, 슬롯당 디퓨즈 t2 / 노멀 t3 / 스펙 t4)
 	D3D12_DESCRIPTOR_HEAP_DESC hd{};
-	hd.NumDescriptors = 3;
+	hd.NumDescriptors = _matCount * 3;
 	hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	hd.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	ThrowIfFailed(_device->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&_srvHeap)), "srv heap");
 
-	UINT inc = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	_srvInc = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	D3D12_CPU_DESCRIPTOR_HANDLE h = _srvHeap->GetCPUDescriptorHandleForHeapStart();
-	ID3D12Resource* texs[3] = { _diffuseTex.Get(), _normalTex.Get(), _specTex.Get() };
-	for (int t = 0; t < 3; ++t)
+	for (uint32 i = 0; i < _matCount * 3; ++i)
 	{
 		D3D12_SHADER_RESOURCE_VIEW_DESC sd{};
 		sd.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 		sd.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 		sd.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 		sd.Texture2D.MipLevels = 1;
-		_device->CreateShaderResourceView(texs[t], &sd, h);
-		h.ptr += inc;
+		_device->CreateShaderResourceView(_matResources[i].Get(), &sd, h);
+		h.ptr += _srvInc;
 	}
 	_hasTexture = true;
 }

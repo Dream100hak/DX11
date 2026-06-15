@@ -85,6 +85,16 @@ inline bool LoadMeshPN(const std::wstring& path, std::vector<MeshPN>& outV, std:
 struct LoadedBone { int32_t parent; std::string name; DirectX::XMFLOAT4X4 bind; };
 struct SkinVtx { DirectX::XMFLOAT3 pos; DirectX::XMFLOAT3 nrm; DirectX::XMFLOAT3 tan; DirectX::XMFLOAT2 uv; uint32 idx[4]; float wgt[4]; };
 
+// 서브메시(머티리얼 단위 인덱스 구간) — 다중 머티리얼 드로우용
+struct SubMesh { std::string materialName; uint32 indexStart; uint32 indexCount; };
+
+// 경로/이름에서 스템(마지막 \ 또는 / 뒤) 추출 — .mmat 경로 ↔ .mesh 머티리얼명 매칭용
+inline std::string PathStem(const std::string& s)
+{
+	size_t p = s.find_last_of("\\/");
+	return (p == std::string::npos) ? s : s.substr(p + 1);
+}
+
 struct ClipFrameT { DirectX::XMFLOAT3 s; DirectX::XMFLOAT4 r; DirectX::XMFLOAT3 t; };
 struct AnimClip
 {
@@ -94,7 +104,8 @@ struct AnimClip
 };
 
 inline bool LoadMeshSkinned(const std::wstring& path, std::vector<LoadedBone>& outBones,
-                            std::vector<SkinVtx>& outV, std::vector<uint32>& outI)
+                            std::vector<SkinVtx>& outV, std::vector<uint32>& outI,
+                            std::vector<SubMesh>* outSub = nullptr)
 {
 	std::ifstream f(path, std::ios::binary | std::ios::ate);
 	if (!f) return false;
@@ -120,9 +131,10 @@ inline bool LoadMeshSkinned(const std::wstring& path, std::vector<LoadedBone>& o
 	uint32 meshCount = r.Read<uint32>();
 	for (uint32 m = 0; m < meshCount; ++m)
 	{
-		r.SkipStr();          // name
-		r.Read<int32_t>();    // boneIndex
-		r.SkipStr();          // material
+		r.SkipStr();                       // name
+		r.Read<int32_t>();                 // boneIndex
+		uint32 mlen = r.ReadStrLen();      // material 이름(경로일 수 있음)
+		std::string matName((const char*)r.Ptr(), mlen); r.Skip(mlen);
 		uint32 vcount = r.Read<uint32>();
 		uint32 base = (uint32)outV.size();
 		for (uint32 v = 0; v < vcount; ++v)
@@ -139,10 +151,50 @@ inline bool LoadMeshSkinned(const std::wstring& path, std::vector<LoadedBone>& o
 			outV.push_back(sv);
 		}
 		uint32 icount = r.Read<uint32>();
+		uint32 idxStart = (uint32)outI.size();
 		for (uint32 k = 0; k < icount; ++k) outI.push_back(base + r.Read<uint32>());
 		r.Skip(24);           // MeshAabb
+		if (outSub) outSub->push_back({ PathStem(matName), idxStart, icount });
 	}
 	return !outV.empty();
+}
+
+// ───────────────────────────────────────────────────────────
+// 탄젠트 생성 — .mesh 탄젠트가 0(구 변환 경로)이면 UV+위치로 재계산.
+// 바인드 포즈 기준 1회 생성 → 스키닝이 매 프레임 변형(skin 행렬 적용).
+// ───────────────────────────────────────────────────────────
+inline void GenerateTangents(std::vector<SkinVtx>& v, const std::vector<uint32>& idx)
+{
+	using namespace DirectX;
+	// 이미 유효한 탄젠트가 있으면(0 아님) 건너뜀
+	double sumLen = 0.0;
+	for (auto& s : v) sumLen += fabs(s.tan.x) + fabs(s.tan.y) + fabs(s.tan.z);
+	if (sumLen > 1e-3) return;
+
+	std::vector<XMVECTOR> acc(v.size(), XMVectorZero());
+	for (size_t t = 0; t + 2 < idx.size(); t += 3)
+	{
+		uint32 i0 = idx[t], i1 = idx[t + 1], i2 = idx[t + 2];
+		XMVECTOR p0 = XMLoadFloat3(&v[i0].pos), p1 = XMLoadFloat3(&v[i1].pos), p2 = XMLoadFloat3(&v[i2].pos);
+		XMFLOAT2 &u0 = v[i0].uv, &u1 = v[i1].uv, &u2 = v[i2].uv;
+		XMVECTOR e1 = XMVectorSubtract(p1, p0), e2 = XMVectorSubtract(p2, p0);
+		float du1 = u1.x - u0.x, dv1 = u1.y - u0.y, du2 = u2.x - u0.x, dv2 = u2.y - u0.y;
+		float det = du1 * dv2 - du2 * dv1;
+		if (fabsf(det) < 1e-8f) continue;
+		float r = 1.0f / det;
+		// T = (e1*dv2 - e2*dv1) * r
+		XMVECTOR tan = XMVectorScale(XMVectorSubtract(XMVectorScale(e1, dv2), XMVectorScale(e2, dv1)), r);
+		acc[i0] = XMVectorAdd(acc[i0], tan); acc[i1] = XMVectorAdd(acc[i1], tan); acc[i2] = XMVectorAdd(acc[i2], tan);
+	}
+	for (size_t i = 0; i < v.size(); ++i)
+	{
+		XMVECTOR n = XMLoadFloat3(&v[i].nrm);
+		XMVECTOR t = acc[i];
+		// Gram-Schmidt 직교화: t -= n*(n·t)
+		t = XMVectorSubtract(t, XMVectorScale(n, XMVectorGetX(XMVector3Dot(n, t))));
+		if (XMVectorGetX(XMVector3LengthSq(t)) < 1e-10f) t = XMVector3Cross(n, XMVectorSet(0, 0, 1, 0));
+		XMStoreFloat3(&v[i].tan, XMVector3Normalize(t));
+	}
 }
 
 inline bool LoadClip(const std::wstring& path, AnimClip& out)
@@ -176,4 +228,65 @@ inline bool LoadClip(const std::wstring& path, AnimClip& out)
 		}
 	}
 	return out.frameCount > 0;
+}
+
+// ───────────────────────────────────────────────────────────
+// .mmat + .mat 파서 — 머티리얼별 디퓨즈/노멀/스펙 텍스처 절대경로 맵 반환.
+//   .mmat: int32 count + count×string(머티리얼 .mat 경로)
+//   .mat : string shader / string diffuse / string specular / string normal / ...
+//   텍스처 파일명은 모델 폴더 기준 상대 → modelDir 와 결합한 절대경로 반환.
+// 키 = 머티리얼 스템(.mesh 서브메시 materialName 과 매칭).
+// ───────────────────────────────────────────────────────────
+struct MatTex { std::wstring diffuse, normal, spec; };
+
+inline std::wstring Utf8ToW(const std::string& s)
+{
+	if (s.empty()) return L"";
+	int n = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), nullptr, 0);
+	std::wstring w(n, L'\0');
+	MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), w.data(), n);
+	return w;
+}
+
+inline std::unordered_map<std::string, MatTex> LoadMaterials(const std::wstring& mmatPath, const std::wstring& modelDir)
+{
+	std::unordered_map<std::string, MatTex> out;
+	std::ifstream f(mmatPath, std::ios::binary | std::ios::ate);
+	if (!f) return out;
+	std::streamsize sz = f.tellg(); if (sz <= 0) return out;
+	f.seekg(0);
+	std::vector<uint8_t> buf((size_t)sz);
+	f.read(reinterpret_cast<char*>(buf.data()), sz);
+	MeshBlob r(buf.data(), buf.size());
+
+	int32_t count = r.Read<int32_t>();
+	for (int32_t i = 0; i < count; ++i)
+	{
+		uint32 len = r.ReadStrLen();
+		std::string matRef((const char*)r.Ptr(), len); r.Skip(len);
+		std::string stem = PathStem(matRef);
+
+		// <modelDir>\<stem>.mat 열기
+		std::wstring matPath = modelDir + Utf8ToW(stem) + L".mat";
+		std::ifstream mf(matPath, std::ios::binary | std::ios::ate);
+		if (!mf) continue;
+		std::streamsize msz = mf.tellg(); if (msz <= 0) continue;
+		mf.seekg(0);
+		std::vector<uint8_t> mbuf((size_t)msz);
+		mf.read(reinterpret_cast<char*>(mbuf.data()), msz);
+		MeshBlob mr(mbuf.data(), mbuf.size());
+
+		auto readStr = [&mr]() -> std::string { uint32 n = mr.ReadStrLen(); std::string s((const char*)mr.Ptr(), n); mr.Skip(n); return s; };
+		readStr();                       // shader
+		std::string diffuse  = readStr();
+		std::string specular = readStr();
+		std::string normal   = readStr();
+
+		MatTex mt;
+		if (!diffuse.length())  mt.diffuse = L"";  else mt.diffuse = modelDir + Utf8ToW(diffuse);
+		if (!normal.length())   mt.normal  = L"";  else mt.normal  = modelDir + Utf8ToW(normal);
+		if (!specular.length()) mt.spec    = L"";  else mt.spec    = modelDir + Utf8ToW(specular);
+		out[stem] = mt;
+	}
+	return out;
 }

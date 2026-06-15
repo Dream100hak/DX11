@@ -1,5 +1,6 @@
 #include "D3D12Device.h"
 #include "MeshLoader.h"
+#include "TextureLoader.h"
 #include <dxcapi.h>
 #pragma comment(lib, "dxcompiler.lib")
 
@@ -39,9 +40,12 @@ struct ProbeSH { float3 c0; float3 c1; float3 c2; float3 c3; }; // SH-L1: DC + (
 
 RaytracingAccelerationStructure gScene  : register(t0); // TLAS (RayQuery 그림자)
 StructuredBuffer<ProbeSH>       gProbes : register(t1); // DDGI 프로브 (SH-L1 irradiance)
+Texture2D                       gDiffuse : register(t2); // 디퓨즈 텍스처
+SamplerState                    gSamp    : register(s0);
+cbuffer UseTexCB : register(b1) { uint gUseTex; };       // 루트 상수 (1=텍스처)
 
-struct VSIn  { float3 pos : POSITION; float3 nrm : NORMAL; float3 col : COLOR; };
-struct VSOut { float4 pos : SV_POSITION; float3 wnrm : NORMAL; float3 wpos : TEXCOORD0; float3 col : COLOR; };
+struct VSIn  { float3 pos : POSITION; float3 nrm : NORMAL; float3 col : COLOR; float2 uv : TEXCOORD; };
+struct VSOut { float4 pos : SV_POSITION; float3 wnrm : NORMAL; float3 wpos : TEXCOORD0; float3 col : COLOR; float2 uv : TEXCOORD1; };
 
 VSOut VSMain(VSIn i)
 {
@@ -50,6 +54,7 @@ VSOut VSMain(VSIn i)
     o.wnrm = mul(i.nrm, (float3x3)gModel);
     o.wpos = mul(float4(i.pos, 1.0), gModel).xyz;
     o.col  = i.col;
+    o.uv   = i.uv;
     return o;
 }
 
@@ -137,7 +142,7 @@ float4 PSMain(VSOut i) : SV_TARGET
         if (q.CommittedStatus() != COMMITTED_NOTHING) shadow = 0.0;
     }
 
-    float3 albedo   = i.col;
+    float3 albedo   = (gUseTex != 0) ? gDiffuse.Sample(gSamp, i.uv).rgb : i.col; // 텍스처 or 정점색
     float3 direct   = albedo * (ndl * shadow) * gLightDir.w;        // 직접광(흰빛)
     ProbeSH sh      = SampleProbes(i.wpos, N);
     float3 indirect = albedo * EvalIrradiance(sh, N) * gGI.x;       // DDGI 간접광(방향성 색 바운스, 가시성 가중)
@@ -259,6 +264,8 @@ void D3D12Device::Init(HWND hwnd, UINT width, UINT height)
 	_width = width;
 	_height = height;
 
+	CoInitializeEx(nullptr, COINIT_MULTITHREADED); // WIC 텍스처 로딩용
+
 	EnableDebugLayer();
 	CreateDeviceAndQueue();
 	CreateSwapChain(hwnd);
@@ -271,6 +278,7 @@ void D3D12Device::Init(HWND hwnd, UINT width, UINT height)
 	CreatePipeline();
 	CreateCubeGeometry();
 	CreateConstantBuffers();
+	CreateTextureResources();
 
 	// Phase 2 — 가속구조 버퍼 + 초기 빌드
 	CreateASBuffers();
@@ -405,8 +413,15 @@ void D3D12Device::CreateDepthBuffer()
 
 void D3D12Device::CreateRootSignature()
 {
-	// 루트 파라미터: 0 = CBV(b0), 1 = SRV(t0) TLAS, 2 = SRV(t1) 프로브
-	D3D12_ROOT_PARAMETER params[3]{};
+	// 디퓨즈 텍스처(t2) 디스크립터 테이블 범위
+	D3D12_DESCRIPTOR_RANGE texRange{};
+	texRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	texRange.NumDescriptors = 1;
+	texRange.BaseShaderRegister = 2; // t2
+	texRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	// 루트: 0=CBV(b0), 1=SRV(t0)TLAS, 2=SRV(t1)프로브, 3=테이블(t2 텍스처), 4=루트상수(b1 useTex)
+	D3D12_ROOT_PARAMETER params[5]{};
 	params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
 	params[0].Descriptor.ShaderRegister = 0;
 	params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
@@ -415,13 +430,33 @@ void D3D12Device::CreateRootSignature()
 	params[1].Descriptor.ShaderRegister = 0; // t0
 	params[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
-	params[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; // 프로브 irradiance
+	params[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; // 프로브
 	params[2].Descriptor.ShaderRegister = 1; // t1
 	params[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
+	params[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	params[3].DescriptorTable.NumDescriptorRanges = 1;
+	params[3].DescriptorTable.pDescriptorRanges = &texRange;
+	params[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+	params[4].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+	params[4].Constants.ShaderRegister = 1; // b1
+	params[4].Constants.Num32BitValues = 1;
+	params[4].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+	// 정적 샘플러 s0 (선형 WRAP)
+	D3D12_STATIC_SAMPLER_DESC samp{};
+	samp.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+	samp.AddressU = samp.AddressV = samp.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	samp.MaxLOD = D3D12_FLOAT32_MAX;
+	samp.ShaderRegister = 0; // s0
+	samp.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
 	D3D12_ROOT_SIGNATURE_DESC rs{};
-	rs.NumParameters = 3;
+	rs.NumParameters = 5;
 	rs.pParameters = params;
+	rs.NumStaticSamplers = 1;
+	rs.pStaticSamplers = &samp;
 	rs.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
 	ComPtr<ID3DBlob> sig, err;
@@ -477,6 +512,7 @@ void D3D12Device::CreatePipeline()
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "COLOR",    0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 36, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 	};
 
 	D3D12_RASTERIZER_DESC rast{};
@@ -569,19 +605,22 @@ void D3D12Device::CreateCubeGeometry()
 			for (auto& v : _skinSrc)
 				_cpuVerts.push_back({ XMFLOAT3((v.pos.x - _modelOffset.x) * _modelScale,
 				                                (v.pos.y - _modelOffset.y) * _modelScale,
-				                                (v.pos.z - _modelOffset.z) * _modelScale), v.nrm, modelC });
+				                                (v.pos.z - _modelOffset.z) * _modelScale), v.nrm, modelC, v.uv });
 
 			_animated = LoadClip(base + L"Idle.clip", _clip);
 		}
 	}
 
+	_modelIndexCount = (uint32)indices.size(); // 바닥 추가 전 = 모델 인덱스 수
+
 	// ── 바닥 평면 (빨강) — 모델 정점 뒤에 추가 ──
 	{
 		const float g = 6.f;
 		const XMFLOAT3 fc(0.90f, 0.12f, 0.10f), n(0, 1, 0);
+		const XMFLOAT2 z(0, 0);
 		uint32 b = (uint32)_cpuVerts.size();
-		_cpuVerts.push_back({ XMFLOAT3(-g,0, g), n, fc }); _cpuVerts.push_back({ XMFLOAT3(g,0, g), n, fc });
-		_cpuVerts.push_back({ XMFLOAT3( g,0,-g), n, fc }); _cpuVerts.push_back({ XMFLOAT3(-g,0,-g), n, fc });
+		_cpuVerts.push_back({ XMFLOAT3(-g,0, g), n, fc, z }); _cpuVerts.push_back({ XMFLOAT3(g,0, g), n, fc, z });
+		_cpuVerts.push_back({ XMFLOAT3( g,0,-g), n, fc, z }); _cpuVerts.push_back({ XMFLOAT3(-g,0,-g), n, fc, z });
 		indices.push_back(b); indices.push_back(b + 1); indices.push_back(b + 2);
 		indices.push_back(b); indices.push_back(b + 2); indices.push_back(b + 3);
 	}
@@ -659,6 +698,69 @@ void D3D12Device::UpdateAnimation()
 		XMStoreFloat3(&_cpuVerts[i].nrm, XMVector3Normalize(n));
 	}
 	memcpy(_vbMapped, _cpuVerts.data(), _cpuVerts.size() * sizeof(Vtx));
+}
+
+void D3D12Device::CreateTextureResources()
+{
+	wchar_t exe[MAX_PATH]{};
+	GetModuleFileNameW(nullptr, exe, MAX_PATH);
+	std::wstring dir(exe);
+	dir = dir.substr(0, dir.find_last_of(L"\\/"));
+	std::wstring path = dir + L"\\..\\Resources\\Assets\\Models\\Kachujin\\Kachujin_diffuse.png";
+
+	std::vector<uint8_t> px; uint32 tw = 0, th = 0;
+	if (!LoadImageRGBA(path, px, tw, th)) { _hasTexture = false; return; }
+
+	// 디퓨즈 텍스처 (DEFAULT, COPY_DEST)
+	D3D12_HEAP_PROPERTIES hp{}; hp.Type = D3D12_HEAP_TYPE_DEFAULT;
+	D3D12_RESOURCE_DESC td{};
+	td.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	td.Width = tw; td.Height = th; td.DepthOrArraySize = 1; td.MipLevels = 1;
+	td.Format = DXGI_FORMAT_R8G8B8A8_UNORM; td.SampleDesc.Count = 1;
+	ThrowIfFailed(_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &td,
+		D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&_diffuseTex)), "Create Tex");
+
+	// 업로드 버퍼 (행 피치 256 정렬)
+	D3D12_PLACED_SUBRESOURCE_FOOTPRINT fp{}; UINT numRows = 0; UINT64 rowSize = 0, uploadSize = 0;
+	_device->GetCopyableFootprints(&td, 0, 1, 0, &fp, &numRows, &rowSize, &uploadSize);
+	_texUpload = CreateUploadBuffer(nullptr, (size_t)uploadSize);
+	uint8_t* mapped = nullptr; D3D12_RANGE noRead{ 0, 0 };
+	ThrowIfFailed(_texUpload->Map(0, &noRead, (void**)&mapped), "Map texUpload");
+	for (UINT y = 0; y < numRows; ++y)
+		memcpy(mapped + fp.Offset + (size_t)y * fp.Footprint.RowPitch, px.data() + (size_t)y * tw * 4, (size_t)tw * 4);
+	_texUpload->Unmap(0, nullptr);
+
+	// 복사 명령 실행
+	ThrowIfFailed(_allocators[_frameIndex]->Reset(), "tex alloc reset");
+	ThrowIfFailed(_cmdList->Reset(_allocators[_frameIndex].Get(), nullptr), "tex cmd reset");
+	D3D12_TEXTURE_COPY_LOCATION dst{}; dst.pResource = _diffuseTex.Get(); dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX; dst.SubresourceIndex = 0;
+	D3D12_TEXTURE_COPY_LOCATION src{}; src.pResource = _texUpload.Get(); src.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT; src.PlacedFootprint = fp;
+	_cmdList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+	D3D12_RESOURCE_BARRIER b{};
+	b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	b.Transition.pResource = _diffuseTex.Get();
+	b.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+	b.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+	_cmdList->ResourceBarrier(1, &b);
+	ThrowIfFailed(_cmdList->Close(), "tex cmd close");
+	ID3D12CommandList* lists[] = { _cmdList.Get() };
+	_queue->ExecuteCommandLists(1, lists);
+	WaitForGpu();
+
+	// 셰이더 가시 SRV 힙
+	D3D12_DESCRIPTOR_HEAP_DESC hd{};
+	hd.NumDescriptors = 1;
+	hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	hd.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	ThrowIfFailed(_device->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&_srvHeap)), "srv heap");
+	D3D12_SHADER_RESOURCE_VIEW_DESC sd{};
+	sd.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	sd.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	sd.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	sd.Texture2D.MipLevels = 1;
+	_device->CreateShaderResourceView(_diffuseTex.Get(), &sd, _srvHeap->GetCPUDescriptorHandleForHeapStart());
+	_hasTexture = true;
 }
 
 ComPtr<ID3D12Resource> D3D12Device::CreateDefaultBuffer(UINT64 size, D3D12_RESOURCE_STATES state, bool allowUAV)
@@ -926,10 +1028,22 @@ void D3D12Device::Render()
 	_cmdList->SetGraphicsRootConstantBufferView(0, _cb[_frameIndex]->GetGPUVirtualAddress());
 	_cmdList->SetGraphicsRootShaderResourceView(1, _tlas->GetGPUVirtualAddress()); // TLAS (RayQuery)
 	_cmdList->SetGraphicsRootShaderResourceView(2, _probes->GetGPUVirtualAddress()); // DDGI 프로브
+	if (_hasTexture)
+	{
+		ID3D12DescriptorHeap* heaps[] = { _srvHeap.Get() };
+		_cmdList->SetDescriptorHeaps(1, heaps);
+		_cmdList->SetGraphicsRootDescriptorTable(3, _srvHeap->GetGPUDescriptorHandleForHeapStart());
+	}
 	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	_cmdList->IASetVertexBuffers(0, 1, &_vbv);
 	_cmdList->IASetIndexBuffer(&_ibv);
-	_cmdList->DrawIndexedInstanced(_indexCount, 1, 0, 0, 0);
+
+	// 모델(텍스처) + 바닥(정점색) 분리 드로우
+	UINT useTexModel = _hasTexture ? 1u : 0u;
+	_cmdList->SetGraphicsRoot32BitConstant(4, useTexModel, 0);
+	_cmdList->DrawIndexedInstanced(_modelIndexCount, 1, 0, 0, 0);                              // 모델
+	_cmdList->SetGraphicsRoot32BitConstant(4, 0u, 0);
+	_cmdList->DrawIndexedInstanced(_indexCount - _modelIndexCount, 1, _modelIndexCount, 0, 0); // 바닥
 
 	D3D12_RESOURCE_BARRIER toPresent = toRT;
 	toPresent.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;

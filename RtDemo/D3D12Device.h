@@ -8,6 +8,7 @@ struct Vtx
 	DirectX::XMFLOAT3 pos;
 	DirectX::XMFLOAT3 nrm;
 	DirectX::XMFLOAT3 col;
+	DirectX::XMFLOAT2 uv;
 };
 
 // ───────────────────────────────────────────────────────────
@@ -52,6 +53,9 @@ private:
 
 	// 스키닝 애니메이션 (CPU) — 매 프레임 본 행렬 계산 → 정점 스키닝 → VB 갱신
 	void UpdateAnimation();
+
+	// 텍스처 (디퓨즈 PNG → DX12 텍스처 + SRV 힙)
+	void CreateTextureResources();
 
 	// Phase 3 (DDGI)
 	void CreateGI();    // 프로브 버퍼 + 컴퓨트 루트시그/PSO
@@ -111,6 +115,13 @@ private:
 	DirectX::XMFLOAT3                 _modelOffset{ 0, 0, 0 };
 	void*                             _vbMapped = nullptr; // VB 영속 매핑
 	UINT64                            _flushValue = 0;
+	uint32                            _modelIndexCount = 0; // 모델 인덱스 수(바닥 제외) — 텍스처 드로우 분리용
+
+	// 디퓨즈 텍스처
+	ComPtr<ID3D12Resource>            _diffuseTex;
+	ComPtr<ID3D12Resource>            _texUpload;
+	ComPtr<ID3D12DescriptorHeap>      _srvHeap;   // 셰이더 가시 SRV 힙 (텍스처)
+	bool                              _hasTexture = false;
 
 	// Phase 3 — DDGI 프로브 볼륨 (DC irradiance, 컴퓨트 RT 수집)
 	static const UINT PROBE_X = 10;

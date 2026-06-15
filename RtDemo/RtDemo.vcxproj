@@ -14,6 +14,7 @@
     <ClInclude Include="Common.h" />
     <ClInclude Include="D3D12Device.h" />
     <ClInclude Include="MeshLoader.h" />
+    <ClInclude Include="TextureLoader.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="D3D12Device.cpp" />

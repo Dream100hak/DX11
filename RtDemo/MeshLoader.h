@@ -83,7 +83,7 @@ inline bool LoadMeshPN(const std::wstring& path, std::vector<MeshPN>& outV, std:
 // 스키닝용 확장 로더 — 본 계층 + 정점 블렌드(인덱스/가중치) + .clip 애니메이션
 // ───────────────────────────────────────────────────────────
 struct LoadedBone { int32_t parent; std::string name; DirectX::XMFLOAT4X4 bind; };
-struct SkinVtx { DirectX::XMFLOAT3 pos; DirectX::XMFLOAT3 nrm; uint32 idx[4]; float wgt[4]; };
+struct SkinVtx { DirectX::XMFLOAT3 pos; DirectX::XMFLOAT3 nrm; DirectX::XMFLOAT2 uv; uint32 idx[4]; float wgt[4]; };
 
 struct ClipFrameT { DirectX::XMFLOAT3 s; DirectX::XMFLOAT4 r; DirectX::XMFLOAT3 t; };
 struct AnimClip
@@ -129,7 +129,7 @@ inline bool LoadMeshSkinned(const std::wstring& path, std::vector<LoadedBone>& o
 		{
 			SkinVtx sv{};
 			sv.pos = r.Read<DirectX::XMFLOAT3>();
-			r.Skip(8);                                  // uv
+			sv.uv = r.Read<DirectX::XMFLOAT2>();        // uv
 			sv.nrm = r.Read<DirectX::XMFLOAT3>();
 			r.Skip(12);                                 // tangent
 			DirectX::XMFLOAT4 bi = r.Read<DirectX::XMFLOAT4>(); // blendIndices(float4)

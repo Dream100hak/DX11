@@ -447,6 +447,20 @@ POut PSMain(VOut i)
 }
 )";
 
+// 선택 아웃라인 — 인버티드 헐 (법선 방향 팽창, 앞면 컬링 → 가장자리 림)
+static const std::string kOutlineShader = std::string(kSceneCB) + R"(
+struct VIn { float3 pos:POSITION; float3 nrm:NORMAL; float3 col:COLOR; float2 uv:TEXCOORD; float3 tan:TANGENT; };
+float4 VSMain(VIn i) : SV_POSITION
+{
+    float3 wp = i.pos;                 // 정점은 이미 월드(스키닝/기즈모 반영)
+    float3 n = normalize(i.nrm);
+    float d = distance(gCamPos.xyz, wp);
+    wp += n * d * 0.013;               // 화면상 일정 두께
+    return mul(float4(wp, 1.0), gMVP);
+}
+float4 PSMain() : SV_TARGET { return float4(1.7, 0.85, 0.12, 1.0); } // HDR 주황 (톤맵 후에도 선명)
+)";
+
 // 포스트프로세스 공용 — 풀스크린 삼각형 VS
 static const char* kPostCommon = R"(
 struct VOut { float4 pos:SV_POSITION; float2 uv:TEXCOORD0; };
@@ -884,6 +898,23 @@ void D3D12Device::CreatePipeline()
 	gpso.BlendState.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
 	gpso.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
 	ThrowIfFailed(_device->CreateGraphicsPipelineState(&gpso, IID_PPV_ARGS(&_gridPSO)), "CreateGridPSO");
+
+	// ── 아웃라인 PSO (앞면 컬링 = 뒷면 렌더, 깊이 LESS/쓰기, 입력레이아웃 = 메시) ──
+	ComPtr<IDxcBlob> ovs = CompileDxc(kOutlineShader.c_str(), L"VSMain", L"vs_6_5");
+	ComPtr<IDxcBlob> ops = CompileDxc(kOutlineShader.c_str(), L"PSMain", L"ps_6_5");
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC opso{};
+	opso.pRootSignature = _rootSig.Get();
+	opso.VS = { ovs->GetBufferPointer(), ovs->GetBufferSize() };
+	opso.PS = { ops->GetBufferPointer(), ops->GetBufferSize() };
+	opso.InputLayout = { layout, _countof(layout) };
+	opso.RasterizerState = rast; opso.RasterizerState.CullMode = D3D12_CULL_MODE_FRONT;
+	opso.BlendState = blend;
+	opso.DepthStencilState = ds; // LESS, write on
+	opso.SampleMask = UINT_MAX;
+	opso.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	opso.NumRenderTargets = 1; opso.RTVFormats[0] = _sceneFmt;
+	opso.DSVFormat = DXGI_FORMAT_D32_FLOAT; opso.SampleDesc.Count = 1;
+	ThrowIfFailed(_device->CreateGraphicsPipelineState(&opso, IID_PPV_ARGS(&_outlinePSO)), "CreateOutlinePSO");
 }
 
 ComPtr<ID3D12Resource> D3D12Device::CreateUploadBuffer(const void* data, size_t size)

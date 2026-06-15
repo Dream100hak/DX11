@@ -149,6 +149,18 @@ void D3D12Device::Render()
 		_cmdList->DrawInstanced(3, 1, 0, 0);
 	}
 
+	// ── 선택 아웃라인 (모델 선택 시, 인버티드 헐 → 모델이 위에 덮어 림만 남음) ──
+	if (_sel == SelEntity::Model && _modelIndexCount > 0)
+	{
+		_cmdList->SetPipelineState(_outlinePSO.Get());
+		_cmdList->SetGraphicsRootSignature(_rootSig.Get());
+		_cmdList->SetGraphicsRootConstantBufferView(0, _cb[_frameIndex]->GetGPUVirtualAddress());
+		_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		_cmdList->IASetVertexBuffers(0, 1, &_vbv);
+		_cmdList->IASetIndexBuffer(&_ibv);
+		_cmdList->DrawIndexedInstanced(_modelIndexCount, 1, 0, 0, 0);
+	}
+
 	_cmdList->SetPipelineState(_pso.Get()); // 그래픽스 PSO (컴퓨트 후 복귀)
 	_cmdList->SetGraphicsRootSignature(_rootSig.Get());
 	_cmdList->SetGraphicsRootConstantBufferView(0, _cb[_frameIndex]->GetGPUVirtualAddress());

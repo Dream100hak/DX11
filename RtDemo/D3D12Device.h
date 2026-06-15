@@ -111,6 +111,7 @@ private:
 	ComPtr<ID3D12PipelineState>       _pso;
 	ComPtr<ID3D12PipelineState>       _skyPSO;     // 절차적 스카이박스
 	ComPtr<ID3D12PipelineState>       _gridPSO;    // 무한 씬 그리드
+	ComPtr<ID3D12PipelineState>       _outlinePSO; // 선택 아웃라인(인버티드 헐)
 	DXGI_FORMAT                       _sceneFmt = DXGI_FORMAT_R16G16B16A16_FLOAT; // 씬 RT(HDR)
 
 	// 포스트프로세스 (S3 톤맵 / S4 블룸) — 공용 SRV 힙 + 루트시그

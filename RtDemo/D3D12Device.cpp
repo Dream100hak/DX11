@@ -409,6 +409,79 @@ POut PSMain(VOut i)
 }
 )";
 
+// 포스트프로세스 공용 — 풀스크린 삼각형 VS
+static const char* kPostCommon = R"(
+struct VOut { float4 pos:SV_POSITION; float2 uv:TEXCOORD0; };
+VOut VSFull(uint id : SV_VertexID)
+{
+    VOut o; float2 uv = float2((id << 1) & 2, id & 2);
+    o.uv = uv; o.pos = float4(uv * float2(2, -2) + float2(-1, 1), 0, 1); return o;
+}
+)";
+// ACES 톤맵 + 노출 + 감마 (+ S4 블룸 합성)
+static const std::string kTonemapShader = std::string(kPostCommon) + R"(
+Texture2D gHDR : register(t0);
+Texture2D gBloom : register(t1);
+SamplerState gS : register(s0);
+cbuffer PostCB : register(b0) { float gExposure; float gBloomI; float gBloomOn; float _pad; };
+float3 ACES(float3 x){ float a=2.51,b=0.03,c=2.43,d=0.59,e=0.14; return saturate((x*(a*x+b))/(x*(c*x+d)+e)); }
+float4 PSTonemap(VOut i) : SV_TARGET
+{
+    float3 hdr = gHDR.Sample(gS, i.uv).rgb;
+    if (gBloomOn > 0.5) hdr += gBloom.Sample(gS, i.uv).rgb * gBloomI;
+    float3 c = ACES(hdr * gExposure);
+    c = pow(c, 1.0 / 2.2);
+    return float4(c, 1.0);
+}
+)";
+
+ComPtr<IDxcBlob> CompileDxc(const char* src, const wchar_t* entry, const wchar_t* target); // 전방 선언
+
+void D3D12Device::CreatePostFX()
+{
+	// 공용 SRV 힙 (shader-visible)
+	D3D12_DESCRIPTOR_HEAP_DESC hd{}; hd.NumDescriptors = 8;
+	hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV; hd.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	ThrowIfFailed(_device->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&_postSrvHeap)), "post srv heap");
+	_postSrvInc = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	// 루트시그: t0..t1 테이블 + b0 루트상수(4) + s0
+	D3D12_DESCRIPTOR_RANGE range{}; range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	range.NumDescriptors = 2; range.BaseShaderRegister = 0; range.OffsetInDescriptorsFromTableStart = 0;
+	D3D12_ROOT_PARAMETER p[2]{};
+	p[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	p[0].DescriptorTable.NumDescriptorRanges = 1; p[0].DescriptorTable.pDescriptorRanges = &range;
+	p[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	p[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+	p[1].Constants.ShaderRegister = 0; p[1].Constants.Num32BitValues = 4;
+	p[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	D3D12_STATIC_SAMPLER_DESC s{}; s.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+	s.AddressU = s.AddressV = s.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP; s.ShaderRegister = 0;
+	s.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL; s.MaxLOD = D3D12_FLOAT32_MAX;
+	D3D12_ROOT_SIGNATURE_DESC rs{}; rs.NumParameters = 2; rs.pParameters = p; rs.NumStaticSamplers = 1; rs.pStaticSamplers = &s;
+	rs.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+	ComPtr<ID3DBlob> sig, err;
+	ThrowIfFailed(D3D12SerializeRootSignature(&rs, D3D_ROOT_SIGNATURE_VERSION_1, &sig, &err), "post rootsig");
+	ThrowIfFailed(_device->CreateRootSignature(0, sig->GetBufferPointer(), sig->GetBufferSize(), IID_PPV_ARGS(&_postRootSig)), "post rootsig create");
+
+	auto makePSO = [&](const std::string& shader, const wchar_t* psEntry, DXGI_FORMAT fmt, ComPtr<ID3D12PipelineState>& out)
+	{
+		ComPtr<IDxcBlob> vs = CompileDxc(shader.c_str(), L"VSFull", L"vs_6_5");
+		ComPtr<IDxcBlob> ps = CompileDxc(shader.c_str(), psEntry, L"ps_6_5");
+		D3D12_GRAPHICS_PIPELINE_STATE_DESC d{};
+		d.pRootSignature = _postRootSig.Get();
+		d.VS = { vs->GetBufferPointer(), vs->GetBufferSize() };
+		d.PS = { ps->GetBufferPointer(), ps->GetBufferSize() };
+		d.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID; d.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+		d.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+		d.DepthStencilState.DepthEnable = FALSE;
+		d.SampleMask = UINT_MAX; d.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		d.NumRenderTargets = 1; d.RTVFormats[0] = fmt; d.SampleDesc.Count = 1;
+		ThrowIfFailed(_device->CreateGraphicsPipelineState(&d, IID_PPV_ARGS(&out)), "post pso");
+	};
+	makePSO(kTonemapShader, L"PSTonemap", DXGI_FORMAT_R8G8B8A8_UNORM, _tonemapPSO);
+}
+
 // ───────────────────────────────────────────────────────────
 void D3D12Device::Init(HWND hwnd, UINT width, UINT height)
 {
@@ -439,6 +512,9 @@ void D3D12Device::Init(HWND hwnd, UINT width, UINT height)
 
 	// Phase 3 — DDGI 프로브 볼륨
 	CreateGI();
+
+	// 포스트프로세스 (HDR 톤맵 / 블룸) — SceneRT SRV 생성 전에 힙/PSO 준비
+	CreatePostFX();
 
 	// 에디터 UI (ImGui DX12 + 도킹)
 	InitEditor();

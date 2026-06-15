@@ -111,7 +111,19 @@ private:
 	ComPtr<ID3D12PipelineState>       _pso;
 	ComPtr<ID3D12PipelineState>       _skyPSO;     // 절차적 스카이박스
 	ComPtr<ID3D12PipelineState>       _gridPSO;    // 무한 씬 그리드
-	DXGI_FORMAT                       _sceneFmt = DXGI_FORMAT_R8G8B8A8_UNORM; // 씬 RT 포맷 (S3에서 HDR로)
+	DXGI_FORMAT                       _sceneFmt = DXGI_FORMAT_R16G16B16A16_FLOAT; // 씬 RT(HDR)
+
+	// 포스트프로세스 (S3 톤맵 / S4 블룸) — 공용 SRV 힙 + 루트시그
+	void CreatePostFX();
+	ComPtr<ID3D12RootSignature>       _postRootSig;
+	ComPtr<ID3D12PipelineState>       _tonemapPSO;
+	ComPtr<ID3D12DescriptorHeap>      _postSrvHeap; // slot0 HDR씬 / slot1 bloom / 2~ bloom 밉
+	UINT                              _postSrvInc = 0;
+	ComPtr<ID3D12Resource>            _sceneLDR;    // 톤맵 결과 (ImGui 표시)
+	D3D12_RESOURCE_STATES             _sceneLDRState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	float                             _exposure = 1.0f;
+	bool                              _bloomReady = false; // S4 에서 true
+	float                             _bloomIntensity = 0.6f;
 	ComPtr<ID3D12Resource>            _vb;
 	D3D12_VERTEX_BUFFER_VIEW          _vbv{};
 	ComPtr<ID3D12Resource>            _ib;

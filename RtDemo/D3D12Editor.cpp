@@ -64,10 +64,31 @@ void D3D12Device::CreateSceneRT(UINT w, UINT h)
 
 	if (!_sceneRtvHeap)
 	{
-		D3D12_DESCRIPTOR_HEAP_DESC hd{}; hd.NumDescriptors = 1; hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+		D3D12_DESCRIPTOR_HEAP_DESC hd{}; hd.NumDescriptors = 2; hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 		ThrowIfFailed(_device->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&_sceneRtvHeap)), "scene RTV heap");
 	}
-	_device->CreateRenderTargetView(_sceneRT.Get(), nullptr, _sceneRtvHeap->GetCPUDescriptorHandleForHeapStart());
+	UINT rtvInc = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	D3D12_CPU_DESCRIPTOR_HANDLE rtv0 = _sceneRtvHeap->GetCPUDescriptorHandleForHeapStart();
+	_device->CreateRenderTargetView(_sceneRT.Get(), nullptr, rtv0); // slot0 = HDR 씬
+
+	// LDR 해상 RT (톤맵 결과, ImGui 표시) — slot1 RTV
+	D3D12_RESOURCE_DESC ld = rd; ld.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	D3D12_CLEAR_VALUE cvl{}; cvl.Format = ld.Format; cvl.Color[3] = 1.0f;
+	_sceneLDR.Reset();
+	ThrowIfFailed(_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &ld,
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, &cvl, IID_PPV_ARGS(&_sceneLDR)), "scene LDR");
+	_sceneLDRState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	D3D12_CPU_DESCRIPTOR_HANDLE rtv1 = rtv0; rtv1.ptr += rtvInc;
+	_device->CreateRenderTargetView(_sceneLDR.Get(), nullptr, rtv1);
+
+	// HDR 씬 SRV → 포스트 힙 slot0,1 (톤맵/블룸 입력)
+	D3D12_SHADER_RESOURCE_VIEW_DESC hsd{};
+	hsd.Format = _sceneFmt; hsd.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	hsd.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING; hsd.Texture2D.MipLevels = 1;
+	D3D12_CPU_DESCRIPTOR_HANDLE ph = _postSrvHeap->GetCPUDescriptorHandleForHeapStart();
+	_device->CreateShaderResourceView(_sceneRT.Get(), &hsd, ph);          // slot0 HDR
+	ph.ptr += _postSrvInc;
+	_device->CreateShaderResourceView(_sceneRT.Get(), &hsd, ph);          // slot1 (블룸 대체, S4에서 교체)
 
 	// 깊이
 	D3D12_RESOURCE_DESC dd{};
@@ -87,7 +108,7 @@ void D3D12Device::CreateSceneRT(UINT w, UINT h)
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsv{}; dsv.Format = DXGI_FORMAT_D32_FLOAT; dsv.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
 	_device->CreateDepthStencilView(_sceneDepth.Get(), &dsv, _sceneDsvHeap->GetCPUDescriptorHandleForHeapStart());
 
-	_sceneTexId = _imgui.SetSceneTexture(_sceneRT.Get());
+	_sceneTexId = _imgui.SetSceneTexture(_sceneLDR.Get()); // ImGui 는 톤맵된 LDR 표시
 }
 
 // ImGui::NewFrame ~ ImGui::Render — 도킹 + 패널 구성 (Render() 초반 CPU 단계에서 호출)
@@ -202,6 +223,10 @@ void D3D12Device::DrawInspector()
 		ImGui::SeparatorText("Editor Camera");
 		ImGui::Text("Pos   %.2f  %.2f  %.2f", _camPos.x, _camPos.y, _camPos.z);
 		ImGui::Text("Yaw %.2f   Pitch %.2f", _camYaw, _camPitch);
+		ImGui::Spacing();
+		ImGui::SeparatorText("Post-process");
+		ImGui::SliderFloat("Exposure", &_exposure, 0.1f, 4.0f);
+		ImGui::TextDisabled("ACES tonemap + gamma (HDR pipeline)");
 		ImGui::Spacing();
 		ImGui::TextDisabled("RMB drag = look,  WASD = move");
 		ImGui::TextDisabled("Q/E = up/down,  Shift = fast");

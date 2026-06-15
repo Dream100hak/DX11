@@ -197,8 +197,27 @@ void D3D12Device::Render()
 		_cmdList->DrawInstanced(3, 1, 0, 0);
 	}
 
-	// 씬 RT → 픽셀 셰이더 리소스 (ImGui::Image 샘플용)
+	// ── 톤맵 (HDR 씬 RT → LDR RT, ACES + 노출 + 감마 + S4 블룸) ──
 	Transition(_sceneRT.Get(), _sceneRTState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	Transition(_sceneLDR.Get(), _sceneLDRState, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	{
+		UINT rtvInc = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+		D3D12_CPU_DESCRIPTOR_HANDLE ldrRtv = _sceneRtvHeap->GetCPUDescriptorHandleForHeapStart();
+		ldrRtv.ptr += rtvInc; // slot1 = LDR
+		_cmdList->OMSetRenderTargets(1, &ldrRtv, FALSE, nullptr);
+		_cmdList->RSSetViewports(1, &vp);
+		_cmdList->RSSetScissorRects(1, &sc);
+		_cmdList->SetPipelineState(_tonemapPSO.Get());
+		_cmdList->SetGraphicsRootSignature(_postRootSig.Get());
+		ID3D12DescriptorHeap* ph[] = { _postSrvHeap.Get() };
+		_cmdList->SetDescriptorHeaps(1, ph);
+		_cmdList->SetGraphicsRootDescriptorTable(0, _postSrvHeap->GetGPUDescriptorHandleForHeapStart());
+		float pc[4] = { _exposure, _bloomIntensity, (_bloomOn && _bloomReady) ? 1.0f : 0.0f, 0.0f };
+		_cmdList->SetGraphicsRoot32BitConstants(1, 4, pc, 0);
+		_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		_cmdList->DrawInstanced(3, 1, 0, 0);
+	}
+	Transition(_sceneLDR.Get(), _sceneLDRState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
 	// ── 백버퍼: 에디터 UI(도킹+씬 이미지) ImGui 드로우 ──
 	D3D12_RESOURCE_BARRIER toRT{};

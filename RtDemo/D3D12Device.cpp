@@ -28,12 +28,14 @@ struct ProbeSH { float3 c0; float3 c1; float3 c2; float3 c3; }; // SH-L1: DC + (
 
 RaytracingAccelerationStructure gScene  : register(t0); // TLAS (RayQuery 그림자)
 StructuredBuffer<ProbeSH>       gProbes : register(t1); // DDGI 프로브 (SH-L1 irradiance)
-Texture2D                       gDiffuse : register(t2); // 디퓨즈 텍스처
+Texture2D                       gDiffuse   : register(t2); // 디퓨즈
+Texture2D                       gNormalMap : register(t3); // 노멀맵
+Texture2D                       gSpecMap   : register(t4); // 스펙큘러
 SamplerState                    gSamp    : register(s0);
 cbuffer UseTexCB : register(b1) { uint gUseTex; };       // 루트 상수 (1=텍스처)
 
-struct VSIn  { float3 pos : POSITION; float3 nrm : NORMAL; float3 col : COLOR; float2 uv : TEXCOORD; };
-struct VSOut { float4 pos : SV_POSITION; float3 wnrm : NORMAL; float3 wpos : TEXCOORD0; float3 col : COLOR; float2 uv : TEXCOORD1; };
+struct VSIn  { float3 pos : POSITION; float3 nrm : NORMAL; float3 col : COLOR; float2 uv : TEXCOORD; float3 tan : TANGENT; };
+struct VSOut { float4 pos : SV_POSITION; float3 wnrm : NORMAL; float3 wpos : TEXCOORD0; float3 col : COLOR; float2 uv : TEXCOORD1; float3 wtan : TANGENT; };
 
 VSOut VSMain(VSIn i)
 {
@@ -43,6 +45,7 @@ VSOut VSMain(VSIn i)
     o.wpos = mul(float4(i.pos, 1.0), gModel).xyz;
     o.col  = i.col;
     o.uv   = i.uv;
+    o.wtan = mul(i.tan, (float3x3)gModel);
     return o;
 }
 
@@ -111,16 +114,31 @@ float3 EvalIrradiance(ProbeSH p, float3 N)
 
 float4 PSMain(VSOut i) : SV_TARGET
 {
-    float3 N = normalize(i.wnrm);
+    float3 Ngeo = normalize(i.wnrm);
+    float3 N = Ngeo;
+
+    // ── 노멀 매핑 (TBN, 모델만) — 탄젠트가 퇴화(0)면 지오메트릭 노멀 폴백(NaN 방지) ──
+    if (gUseTex != 0)
+    {
+        float3 T = i.wtan - Ngeo * dot(i.wtan, Ngeo); // Gram-Schmidt
+        if (dot(T, T) > 1e-5)
+        {
+            T = normalize(T);
+            float3 B = cross(Ngeo, T);
+            float3 nTS = gNormalMap.Sample(gSamp, i.uv).rgb * 2.0 - 1.0;
+            N = normalize(nTS.x * T + nTS.y * B + nTS.z * Ngeo);
+        }
+    }
+
     float3 L = normalize(-gLightDir.xyz);
     float  ndl = saturate(dot(N, L));
 
-    // ── RT 그림자 (RayQuery) ──
+    // ── RT 그림자 (RayQuery) — 지오메트릭 노멀로 바이어스 ──
     float shadow = 1.0;
     if (ndl > 0.0)
     {
         RayDesc ray;
-        ray.Origin = i.wpos + N * 0.02;
+        ray.Origin = i.wpos + Ngeo * 0.02;
         ray.Direction = L;
         ray.TMin = 0.001;
         ray.TMax = 100.0;
@@ -131,10 +149,21 @@ float4 PSMain(VSOut i) : SV_TARGET
     }
 
     float3 albedo   = (gUseTex != 0) ? gDiffuse.Sample(gSamp, i.uv).rgb : i.col; // 텍스처 or 정점색
-    float3 direct   = albedo * (ndl * shadow) * gLightDir.w;        // 직접광(흰빛)
+    float3 direct   = albedo * (ndl * shadow) * gLightDir.w;        // 직접광
+
+    // ── 스펙큘러 (Blinn-Phong, 스펙맵 마스크) ──
+    float3 spec = 0;
+    if (gUseTex != 0 && ndl > 0.0)
+    {
+        float3 V = normalize(gCamPos.xyz - i.wpos);
+        float3 H = normalize(L + V);
+        float  m = gSpecMap.Sample(gSamp, i.uv).r;
+        spec = pow(saturate(dot(N, H)), 48.0) * m * shadow * gLightDir.w;
+    }
+
     ProbeSH sh      = SampleProbes(i.wpos, N);
-    float3 indirect = albedo * EvalIrradiance(sh, N) * gGI.x;       // DDGI 간접광(방향성 색 바운스, 가시성 가중)
-    float3 col = albedo * gGI.z + direct + indirect;               // 미세 앰비언트 + 직접 + 간접
+    float3 indirect = albedo * EvalIrradiance(sh, N) * gGI.x;       // DDGI 간접광 (가시성 가중)
+    float3 col = albedo * gGI.z + direct + indirect + spec;        // 앰비언트 + 직접 + 간접 + 스펙
     return float4(col, 1.0);
 }
 )";
@@ -142,7 +171,7 @@ float4 PSMain(VSOut i) : SV_TARGET
 // DDGI 프로브 수집 — 컴퓨트에서 프로브마다 RT 레이를 구면 방향으로 쏘아
 // 1차 직접광(히트 표면의 albedo×N·L)을 평균 → DC irradiance 로 저장.
 static const std::string kGatherShader = std::string(kSceneCB) + R"(
-struct Vtx { float3 pos; float3 nrm; float3 col; };
+struct Vtx { float3 pos; float3 nrm; float3 col; float2 uv; float3 tan; }; // C++ Vtx 와 동일 레이아웃
 struct ProbeSH { float3 c0; float3 c1; float3 c2; float3 c3; };
 
 RaytracingAccelerationStructure gScene   : register(t0);
@@ -404,7 +433,7 @@ void D3D12Device::CreateRootSignature()
 	// 디퓨즈 텍스처(t2) 디스크립터 테이블 범위
 	D3D12_DESCRIPTOR_RANGE texRange{};
 	texRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	texRange.NumDescriptors = 1;
+	texRange.NumDescriptors = 3; // t2 디퓨즈, t3 노멀, t4 스펙큘러
 	texRange.BaseShaderRegister = 2; // t2
 	texRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
@@ -501,6 +530,7 @@ void D3D12Device::CreatePipeline()
 		{ "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "COLOR",    0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 36, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "TANGENT",  0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 44, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 	};
 
 	D3D12_RASTERIZER_DESC rast{};

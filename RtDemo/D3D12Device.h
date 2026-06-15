@@ -9,6 +9,7 @@ struct Vtx
 	DirectX::XMFLOAT3 nrm;
 	DirectX::XMFLOAT3 col;
 	DirectX::XMFLOAT2 uv;
+	DirectX::XMFLOAT3 tan;
 };
 
 // 상수버퍼 (HLSL SceneCB 와 일치, row_major)
@@ -130,10 +131,11 @@ private:
 	UINT64                            _flushValue = 0;
 	uint32                            _modelIndexCount = 0; // 모델 인덱스 수(바닥 제외) — 텍스처 드로우 분리용
 
-	// 디퓨즈 텍스처
+	// PBR 텍스처 (디퓨즈 t2 / 노멀 t3 / 스펙큘러 t4) — 연속 SRV 힙
 	ComPtr<ID3D12Resource>            _diffuseTex;
-	ComPtr<ID3D12Resource>            _texUpload;
-	ComPtr<ID3D12DescriptorHeap>      _srvHeap;   // 셰이더 가시 SRV 힙 (텍스처)
+	ComPtr<ID3D12Resource>            _normalTex;
+	ComPtr<ID3D12Resource>            _specTex;
+	ComPtr<ID3D12DescriptorHeap>      _srvHeap;
 	bool                              _hasTexture = false;
 
 	// Phase 3 — DDGI 프로브 볼륨 (DC irradiance, 컴퓨트 RT 수집)

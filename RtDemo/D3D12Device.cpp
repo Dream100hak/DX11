@@ -41,8 +41,10 @@ cbuffer SceneCB : register(b0)
 )";
 
 static const std::string kMeshShader = std::string(kSceneCB) + R"(
+struct ProbeSH { float3 c0; float3 c1; float3 c2; float3 c3; }; // SH-L1: DC + (x,y,z) 방향 계수
+
 RaytracingAccelerationStructure gScene  : register(t0); // TLAS (RayQuery 그림자)
-StructuredBuffer<float3>        gProbes : register(t1); // DDGI 프로브 irradiance
+StructuredBuffer<ProbeSH>       gProbes : register(t1); // DDGI 프로브 (SH-L1 irradiance)
 
 struct VSIn  { float3 pos : POSITION; float3 nrm : NORMAL; float3 col : COLOR; };
 struct VSOut { float4 pos : SV_POSITION; float3 wnrm : NORMAL; float3 wpos : TEXCOORD0; float3 col : COLOR; };
@@ -57,25 +59,34 @@ VSOut VSMain(VSIn i)
     return o;
 }
 
-// 프로브 볼륨 트라이리니어 샘플 (DC irradiance)
-float3 SampleProbes(float3 wpos)
+// 프로브 볼륨 트라이리니어 샘플 (SH-L1 계수별 보간)
+ProbeSH SampleProbes(float3 wpos)
 {
     int PX = (int)gGridDim.x, PY = (int)gGridDim.y, PZ = (int)gGridDim.z;
     float3 g = saturate((wpos - gGridMin.xyz) / (gGridMax.xyz - gGridMin.xyz));
     float3 f = g * float3(PX - 1, PY - 1, PZ - 1);
-    int3 c0 = (int3)floor(f);
-    float3 fr = f - (float3)c0;
+    int3 b0 = (int3)floor(f);
+    float3 fr = f - (float3)b0;
 
-    float3 acc = 0;
+    ProbeSH acc; acc.c0 = 0; acc.c1 = 0; acc.c2 = 0; acc.c3 = 0;
     [unroll] for (int s = 0; s < 8; ++s)
     {
         int3 o = int3(s & 1, (s >> 1) & 1, (s >> 2) & 1);
-        int3 c = min(c0 + o, int3(PX - 1, PY - 1, PZ - 1));
+        int3 c = min(b0 + o, int3(PX - 1, PY - 1, PZ - 1));
         int idx = c.x + c.y * PX + c.z * PX * PY;
         float3 w3 = lerp(1.0 - fr, fr, (float3)o);
-        acc += gProbes[idx] * (w3.x * w3.y * w3.z);
+        float w = w3.x * w3.y * w3.z;
+        ProbeSH p = gProbes[idx];
+        acc.c0 += p.c0 * w; acc.c1 += p.c1 * w; acc.c2 += p.c2 * w; acc.c3 += p.c3 * w;
     }
     return acc;
+}
+
+// SH-L1 → 표면 법선 방향 irradiance (코사인 컨볼루션 상수 적용)
+float3 EvalIrradiance(ProbeSH p, float3 N)
+{
+    float3 irr = 0.886227 * p.c0 + 1.023328 * (p.c1 * N.x + p.c2 * N.y + p.c3 * N.z);
+    return max(irr, 0.0);
 }
 
 float4 PSMain(VSOut i) : SV_TARGET
@@ -100,8 +111,9 @@ float4 PSMain(VSOut i) : SV_TARGET
     }
 
     float3 albedo   = i.col;
-    float3 direct   = albedo * (ndl * shadow) * gLightDir.w;       // 직접광(흰빛)
-    float3 indirect = albedo * SampleProbes(i.wpos) * gGI.x;        // DDGI 간접광(색 바운스)
+    float3 direct   = albedo * (ndl * shadow) * gLightDir.w;        // 직접광(흰빛)
+    ProbeSH sh      = SampleProbes(i.wpos);
+    float3 indirect = albedo * EvalIrradiance(sh, N) * gGI.x;       // DDGI 간접광(방향성 색 바운스)
     float3 col = albedo * gGI.z + direct + indirect;               // 미세 앰비언트 + 직접 + 간접
     return float4(col, 1.0);
 }
@@ -111,11 +123,12 @@ float4 PSMain(VSOut i) : SV_TARGET
 // 1차 직접광(히트 표면의 albedo×N·L)을 평균 → DC irradiance 로 저장.
 static const std::string kGatherShader = std::string(kSceneCB) + R"(
 struct Vtx { float3 pos; float3 nrm; float3 col; };
+struct ProbeSH { float3 c0; float3 c1; float3 c2; float3 c3; };
 
 RaytracingAccelerationStructure gScene   : register(t0);
 StructuredBuffer<Vtx>           gVerts    : register(t1);
 StructuredBuffer<uint>          gIndices  : register(t2);
-RWStructuredBuffer<float3>      gProbesRW : register(u0);
+RWStructuredBuffer<ProbeSH>     gProbesRW : register(u0);
 
 // 구면 균일 분포 (피보나치)
 float3 FibDir(uint i, uint n)
@@ -141,7 +154,8 @@ void CSMain(uint3 tid : SV_DispatchThreadID)
     uint K = (uint)gGridDim.w;
     float3 L = normalize(-gLightDir.xyz);
 
-    float3 sum = 0;
+    // 입사휘도를 SH-L1 로 투영 (구면 균일 샘플)
+    float3 s0 = 0, s1 = 0, s2 = 0, s3 = 0;
     for (uint r = 0; r < K; ++r)
     {
         float3 dir = FibDir(r, K);
@@ -166,9 +180,25 @@ void CSMain(uint3 tid : SV_DispatchThreadID)
         {
             rad = float3(0.10, 0.12, 0.16); // 하늘
         }
-        sum += rad;
+        // SH-L1 기저 (Y00, Y1m1·y, Y10·z, Y11·x)
+        s0 += rad * 0.282095;
+        s1 += rad * 0.488603 * dir.x;
+        s2 += rad * 0.488603 * dir.y;
+        s3 += rad * 0.488603 * dir.z;
     }
-    gProbesRW[pi] = sum * (1.0 / K); // 평균 입사휘도 ≈ DC irradiance
+    float wmc = (4.0 * 3.14159265 / K); // 구면 균일 몬테카를로 가중
+    ProbeSH cur;
+    cur.c0 = s0 * wmc; cur.c1 = s1 * wmc; cur.c2 = s2 * wmc; cur.c3 = s3 * wmc;
+
+    // 시간적 누적 (EMA) — 첫 프레임은 즉시 대입, 이후 부드럽게 블렌드
+    float alpha = (gGI.y < 2.0) ? 1.0 : 0.08;
+    ProbeSH prev = gProbesRW[pi];
+    ProbeSH outp;
+    outp.c0 = lerp(prev.c0, cur.c0, alpha);
+    outp.c1 = lerp(prev.c1, cur.c1, alpha);
+    outp.c2 = lerp(prev.c2, cur.c2, alpha);
+    outp.c3 = lerp(prev.c3, cur.c3, alpha);
+    gProbesRW[pi] = outp;
 }
 )";
 
@@ -616,8 +646,8 @@ void D3D12Device::Transition(ID3D12Resource* res, D3D12_RESOURCE_STATES& cur, D3
 
 void D3D12Device::CreateGI()
 {
-	// 프로브 버퍼 (float3 × PROBE_COUNT) — 컴퓨트 UAV 쓰기 / 픽셀 SRV 읽기
-	_probes = CreateDefaultBuffer(PROBE_COUNT * sizeof(XMFLOAT3), D3D12_RESOURCE_STATE_COMMON, true);
+	// 프로브 버퍼 (ProbeSH = float3 × 4 = SH-L1) × PROBE_COUNT — 컴퓨트 UAV 쓰기 / 픽셀 SRV 읽기
+	_probes = CreateDefaultBuffer(PROBE_COUNT * sizeof(XMFLOAT3) * 4, D3D12_RESOURCE_STATE_COMMON, true);
 	_probeState = D3D12_RESOURCE_STATE_COMMON;
 
 	// 컴퓨트 루트 시그니처: b0 CBV, u0 probes, t0 TLAS, t1 verts, t2 indices (전부 루트 디스크립터)
@@ -703,7 +733,7 @@ void D3D12Device::Render()
 	cb.gridMin  = XMFLOAT4(-6.5f, 0.2f, -6.5f, 0.f);
 	cb.gridMax  = XMFLOAT4( 6.5f, 4.0f,  6.5f, 0.f);
 	cb.gridDim  = XMFLOAT4(float(PROBE_X), float(PROBE_Y), float(PROBE_Z), 128.f); // 128 rays/probe
-	cb.giParams = XMFLOAT4(2.2f, _time * 60.f, 0.03f, 0.f); // GI세기 / frame / 미세 앰비언트
+	cb.giParams = XMFLOAT4(0.45f, _time * 60.f, 0.03f, 0.f); // GI세기(≈1/π 부근) / frame / 미세 앰비언트
 	memcpy(_cbMapped[_frameIndex], &cb, sizeof(cb));
 
 	auto alloc = _allocators[_frameIndex];

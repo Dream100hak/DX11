@@ -1,6 +1,8 @@
 #pragma once
 #include "Common.h"
 #include "MeshLoader.h"
+#include "ImGuiDx12.h"
+#include <string>
 
 // 정점 (래스터 입력 + RT BLAS 소스 + GI gather 소스 공용)
 struct Vtx
@@ -167,4 +169,22 @@ private:
 	float                             _camPitch = -0.232f;
 	bool                              _rmbDown = false;
 	POINT                             _lastCursor{ 0, 0 };
+
+	// ── 에디터 UI (ImGui) — 도킹 + Inspector / FolderContents / Scene(중앙 패스스루) ──
+	void                              InitEditor();
+	void                              BuildUI();           // ImGui::NewFrame ~ Render 사이 패널 구성
+	void                              DrawInspector();
+	void                              DrawFolderContents();
+	ImGuiDx12                         _imgui;
+	bool                              _editorReady = false;
+	// 인스펙터에서 편집하는 라이팅/GI 파라미터 (Render 가 매 프레임 SceneCB 에 반영)
+	float                             _lightIntensity = 1.2f;
+	bool                              _lightAnimate = true;
+	float                             _lightAngle = 0.f;
+	float                             _giStrength = 0.45f;
+	float                             _ambient = 0.03f;
+	// FolderContents 상태
+	std::wstring                      _assetRoot;          // Resources/Assets 절대경로
+	std::wstring                      _curDir;             // 현재 탐색 폴더
+	std::wstring                      _selectedAsset;      // 선택 파일(인스펙터 표시)
 };

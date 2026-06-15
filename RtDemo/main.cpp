@@ -1,5 +1,9 @@
 #include "Common.h"
 #include "D3D12Device.h"
+#include "imgui.h"
+
+// imgui_impl_win32 메시지 핸들러 (백엔드 전역 함수)
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 static D3D12Device g_device;
 static const UINT WIN_W = 1280;
@@ -17,6 +21,9 @@ static std::wstring DxrTierString(D3D12_RAYTRACING_TIER tier)
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
+	if (ImGui::GetCurrentContext() && ImGui_ImplWin32_WndProcHandler(hwnd, msg, wp, lp))
+		return true;
+
 	switch (msg)
 	{
 	case WM_KEYDOWN:

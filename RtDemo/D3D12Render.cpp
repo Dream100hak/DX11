@@ -1,4 +1,5 @@
 #include "D3D12Device.h"
+#include "imgui.h"
 
 using namespace DirectX;
 
@@ -14,10 +15,14 @@ static XMVECTOR CamForward(float yaw, float pitch)
 // ───────────────────────────────────────────────────────────
 void D3D12Device::UpdateCamera(float dt)
 {
+	// ImGui 패널 위에서의 입력은 무시 (드래그 중이면 계속 유지)
+	bool uiMouse = _editorReady && ImGui::GetIO().WantCaptureMouse;
+	bool uiKey   = _editorReady && ImGui::GetIO().WantCaptureKeyboard;
+
 	// 마우스 룩 (우클릭 유지 동안 — 윈도우 중앙 재고정 방식으로 델타 측정)
 	bool rmb = (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
 	bool focused = (GetForegroundWindow() == _hwnd);
-	if (rmb && focused)
+	if (rmb && focused && (!uiMouse || _rmbDown))
 	{
 		POINT cur; GetCursorPos(&cur);
 		if (!_rmbDown) { _lastCursor = cur; _rmbDown = true; ShowCursor(FALSE); }
@@ -35,7 +40,7 @@ void D3D12Device::UpdateCamera(float dt)
 	}
 	else if (_rmbDown) { _rmbDown = false; ShowCursor(TRUE); }
 
-	if (!focused) return;
+	if (!focused || uiKey) return;
 
 	// 이동 (시선 기준)
 	XMVECTOR fwd = CamForward(_camYaw, _camPitch);
@@ -60,6 +65,7 @@ void D3D12Device::Render()
 {
 	_time += 1.0f / 60.0f;
 	UpdateCamera(1.0f / 60.0f);
+	BuildUI(); // ImGui 패널(CPU) — 카메라/라이팅/GI 파라미터 편집
 
 	// ── 상수버퍼 갱신 (카메라 뷰 + 빛 방향 애니메이션 → RT 그림자 이동) ──
 	XMMATRIX model = XMMatrixIdentity();
@@ -70,18 +76,19 @@ void D3D12Device::Render()
 	float aspect = float(_width) / float(_height);
 	XMMATRIX proj = XMMatrixPerspectiveFovLH(XMConvertToRadians(55.f), aspect, 0.1f, 100.f);
 
-	// 빛이 머리 위를 천천히 도는 형태 (그림자/간접광이 같이 변함)
-	float a = _time * 0.6f;
+	// 빛 방향 — 애니메이션 또는 인스펙터 수동 각도 (그림자/간접광 같이 변함)
+	if (_lightAnimate) _lightAngle = _time * 0.6f;
+	float a = _lightAngle;
 
 	SceneCB cb;
 	XMStoreFloat4x4(&cb.mvp, model * view * proj); // row_major HLSL → 전치 불필요
 	XMStoreFloat4x4(&cb.model, model);
-	cb.lightDir = XMFLOAT4(cosf(a) * 0.6f, -1.0f, sinf(a) * 0.6f, 1.2f); // w=세기
+	cb.lightDir = XMFLOAT4(cosf(a) * 0.6f, -1.0f, sinf(a) * 0.6f, _lightIntensity); // w=세기
 	XMStoreFloat4(&cb.camPos, eye);
 	cb.gridMin  = XMFLOAT4(-6.5f, 0.2f, -6.5f, 0.f);
 	cb.gridMax  = XMFLOAT4( 6.5f, 4.0f,  6.5f, 0.f);
 	cb.gridDim  = XMFLOAT4(float(PROBE_X), float(PROBE_Y), float(PROBE_Z), 128.f); // 128 rays/probe
-	cb.giParams = XMFLOAT4(0.45f, _time * 60.f, 0.03f, 0.f); // GI세기(≈1/π 부근) / frame / 미세 앰비언트
+	cb.giParams = XMFLOAT4(_giStrength, _time * 60.f, _ambient, 0.f); // GI세기 / frame / 앰비언트
 	memcpy(_cbMapped[_frameIndex], &cb, sizeof(cb));
 
 	// ── 스키닝: CPU 본 변형 → VB 갱신 (GPU 유휴 시점, 전체 플러시 동기화) ──
@@ -158,6 +165,9 @@ void D3D12Device::Render()
 	// 바닥(정점색)
 	_cmdList->SetGraphicsRoot32BitConstant(4, 0u, 0);
 	_cmdList->DrawIndexedInstanced(_indexCount - _modelIndexCount, 1, _modelIndexCount, 0, 0);
+
+	// ── 에디터 UI 오버레이 (백버퍼 RTV 에 ImGui 드로우) ──
+	_imgui.Render(_cmdList.Get(), _frameIndex);
 
 	D3D12_RESOURCE_BARRIER toPresent = toRT;
 	toPresent.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;

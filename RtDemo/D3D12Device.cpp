@@ -1,6 +1,8 @@
 #include "D3D12Device.h"
 #include "MeshLoader.h"
 #include "TextureLoader.h"
+#include "imgui.h"
+#include "imgui_impl_win32.h"
 #include <dxcapi.h>
 #pragma comment(lib, "dxcompiler.lib")
 
@@ -360,6 +362,9 @@ void D3D12Device::Init(HWND hwnd, UINT width, UINT height)
 
 	// Phase 3 — DDGI 프로브 볼륨
 	CreateGI();
+
+	// 에디터 UI (ImGui DX12 + 도킹)
+	InitEditor();
 }
 
 void D3D12Device::EnableDebugLayer()
@@ -885,6 +890,13 @@ void D3D12Device::Destroy()
 {
 	if (_device)
 		WaitForGpu();
+	if (_editorReady)
+	{
+		_imgui.Shutdown();
+		ImGui_ImplWin32_Shutdown();
+		ImGui::DestroyContext();
+		_editorReady = false;
+	}
 	if (_fenceEvent)
 	{
 		CloseHandle(_fenceEvent);

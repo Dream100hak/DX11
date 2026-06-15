@@ -15,12 +15,21 @@
     <ClInclude Include="D3D12Device.h" />
     <ClInclude Include="MeshLoader.h" />
     <ClInclude Include="TextureLoader.h" />
+    <ClInclude Include="ImGuiDx12.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="D3D12Device.cpp" />
     <ClCompile Include="D3D12Render.cpp" />
     <ClCompile Include="D3D12Scene.cpp" />
+    <ClCompile Include="D3D12Editor.cpp" />
+    <ClCompile Include="ImGuiDx12.cpp" />
     <ClCompile Include="main.cpp" />
+    <!-- ImGui 코어 + Win32 입력 백엔드 (Engine 과 소스 공유, DX12 렌더 백엔드는 ImGuiDx12.cpp) -->
+    <ClCompile Include="..\Engine\imgui.cpp" />
+    <ClCompile Include="..\Engine\imgui_draw.cpp" />
+    <ClCompile Include="..\Engine\imgui_tables.cpp" />
+    <ClCompile Include="..\Engine\imgui_widgets.cpp" />
+    <ClCompile Include="..\Engine\imgui_impl_win32.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
@@ -71,6 +80,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>$(SolutionDir)Engine;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -87,6 +97,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>$(SolutionDir)Engine;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

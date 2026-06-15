@@ -193,6 +193,35 @@ float4 PSMain(VSOut i) : SV_TARGET
         spec = pow(saturate(dot(N, H)), power) * m * shadow * gLightDir.w * specColor * (1.0 - roughness * 0.5);
     }
 
+    // ── 점 조명 (감쇠 + RT 그림자 + 스펙) ──
+    if (gPointColor.w > 0.5)
+    {
+        float3 toL = gPointPos.xyz - i.wpos;
+        float d = length(toL);
+        if (d < gPointPos.w && d > 1e-4)
+        {
+            float3 Lp = toL / d;
+            float att = saturate(1.0 - d / gPointPos.w); att *= att;
+            float ndlp = saturate(dot(N, Lp));
+            float psh = 1.0;
+            if (ndlp > 0.0)
+            {
+                RayDesc ray; ray.Origin = i.wpos + Ngeo * 0.02; ray.Direction = Lp;
+                ray.TMin = 0.001; ray.TMax = d - 0.05;
+                RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_CULL_NON_OPAQUE> q;
+                q.TraceRayInline(gScene, RAY_FLAG_NONE, 0xFF, ray); q.Proceed();
+                if (q.CommittedStatus() != COMMITTED_NOTHING) psh = 0.0;
+            }
+            float3 pc = gPointColor.rgb * (att * psh);
+            direct += albedo * ndlp * pc * (1.0 - metallic * 0.75);
+            float3 Vp = normalize(gCamPos.xyz - i.wpos);
+            float3 Hp = normalize(Lp + Vp);
+            float power = lerp(8.0, 256.0, 1.0 - roughness);
+            float3 specColor = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
+            spec += pow(saturate(dot(N, Hp)), power) * ndlp * pc * specColor;
+        }
+    }
+
     ProbeSH sh      = SampleProbes(i.wpos, N);
     float3 indirect = albedo * EvalIrradiance(sh, N) * gGI.x;       // DDGI 간접광 (가시성 가중)
     float3 col = albedo * gGI.z + direct + indirect + spec;        // 앰비언트 + 직접 + 간접 + 스펙

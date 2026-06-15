@@ -210,7 +210,7 @@ private:
 	void                              DrawInspector();
 	void                              DrawFolderContents();
 	void                              DrawSceneView();
-	enum class SelEntity { Model, Floor, Sun, DDGI, Camera };
+	enum class SelEntity { Model, Floor, Sun, DDGI, Camera, Point };
 	SelEntity                         _sel = SelEntity::Model; // 하이어라키 선택 → 인스펙터 표시 대상
 	void                              CreateSceneRT(UINT w, UINT h); // 씬 오프스크린 RT/깊이 (재)생성
 	ImGuiDx12                         _imgui;
@@ -235,8 +235,8 @@ private:
 	float                             _giStrength = 0.45f;
 	float                             _ambient = 0.03f;
 	// 점 조명 (S6)
-	bool                              _pointOn = false;
-	DirectX::XMFLOAT3                 _pointPos{ 1.5f, 2.2f, 0.0f };
+	bool                              _pointOn = true;
+	DirectX::XMFLOAT3                 _pointPos{ 1.6f, 1.6f, 1.2f };
 	DirectX::XMFLOAT3                 _pointColor{ 1.0f, 0.6f, 0.3f };
 	float                             _pointIntensity = 4.0f;
 	float                             _pointRadius = 7.0f;

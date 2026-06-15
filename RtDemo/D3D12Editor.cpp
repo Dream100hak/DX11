@@ -192,6 +192,7 @@ void D3D12Device::DrawHierarchy()
 		{ "[Cam] Editor Camera", SelEntity::Camera },
 		{ "[Sun] Directional Light", SelEntity::Sun },
 		{ "[GI]  DDGI Volume", SelEntity::DDGI },
+		{ "[Pt]  Point Light", SelEntity::Point },
 		{ modelItem, SelEntity::Model },
 		{ "[Geo] Floor", SelEntity::Floor },
 	};
@@ -216,14 +217,24 @@ void D3D12Device::DrawSceneView()
 	_sceneHovered = ImGui::IsWindowHovered();
 	_sceneFocused = ImGui::IsWindowFocused();
 
-	// ── ImGuizmo: 선택된 모델 트랜스폼 조작 (이미지 영역에 오버레이) ──
-	if (_sel == SelEntity::Model && _modelMatrixInit)
+	// ── ImGuizmo: 모델/점광원 트랜스폼 조작 (이미지 영역에 오버레이) ──
+	if ((_sel == SelEntity::Model && _modelMatrixInit) || _sel == SelEntity::Point)
 	{
 		ImGuizmo::SetOrthographic(false);
 		ImGuizmo::SetDrawlist();
 		ImGuizmo::SetRect(imgPos.x, imgPos.y, avail.x, avail.y);
-		ImGuizmo::Manipulate((const float*)&_viewM, (const float*)&_projM,
-			(ImGuizmo::OPERATION)_gizmoOp, ImGuizmo::WORLD, (float*)&_modelMatrix);
+		if (_sel == SelEntity::Model)
+		{
+			ImGuizmo::Manipulate((const float*)&_viewM, (const float*)&_projM,
+				(ImGuizmo::OPERATION)_gizmoOp, ImGuizmo::WORLD, (float*)&_modelMatrix);
+		}
+		else // Point — 이동만
+		{
+			DirectX::XMFLOAT4X4 m; DirectX::XMStoreFloat4x4(&m, DirectX::XMMatrixTranslation(_pointPos.x, _pointPos.y, _pointPos.z));
+			ImGuizmo::Manipulate((const float*)&_viewM, (const float*)&_projM,
+				ImGuizmo::TRANSLATE, ImGuizmo::WORLD, (float*)&m);
+			_pointPos = { m._41, m._42, m._43 };
+		}
 	}
 	ImGui::End();
 	ImGui::PopStyleVar();
@@ -295,6 +306,16 @@ void D3D12Device::DrawInspector()
 					i < _subMatSlot.size() ? _subMatSlot[i] : 0u);
 			ImGui::TreePop();
 		}
+		break;
+
+	case SelEntity::Point:
+		ImGui::SeparatorText("Point Light");
+		ImGui::Checkbox("Enabled", &_pointOn);
+		ImGui::DragFloat3("Position", &_pointPos.x, 0.05f);
+		ImGui::ColorEdit3("Color", &_pointColor.x);
+		ImGui::SliderFloat("Intensity", &_pointIntensity, 0.0f, 12.0f);
+		ImGui::SliderFloat("Radius", &_pointRadius, 0.5f, 20.0f);
+		ImGui::TextDisabled("RT shadow ray to point; move via gizmo too");
 		break;
 
 	case SelEntity::Floor:

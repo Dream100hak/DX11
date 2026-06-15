@@ -2,20 +2,71 @@
 
 using namespace DirectX;
 
+// 카메라 시선 벡터 (yaw=Y축, pitch=X축, LH: yaw=0 → +Z)
+static XMVECTOR CamForward(float yaw, float pitch)
+{
+	float cp = cosf(pitch);
+	return XMVectorSet(cp * sinf(yaw), sinf(pitch), cp * cosf(yaw), 0.f);
+}
+
 // ───────────────────────────────────────────────────────────
-// 프레임 렌더 루프 — 스키닝 → AS 재빌드 → DDGI 디스패치 → 라스터(모델/바닥) → Present
+// 자유 비행 카메라 — WASD 이동, 우클릭 드래그 마우스 룩, Q/E 상하, Shift 가속
+// ───────────────────────────────────────────────────────────
+void D3D12Device::UpdateCamera(float dt)
+{
+	// 마우스 룩 (우클릭 유지 동안 — 윈도우 중앙 재고정 방식으로 델타 측정)
+	bool rmb = (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
+	bool focused = (GetForegroundWindow() == _hwnd);
+	if (rmb && focused)
+	{
+		POINT cur; GetCursorPos(&cur);
+		if (!_rmbDown) { _lastCursor = cur; _rmbDown = true; ShowCursor(FALSE); }
+		float dx = float(cur.x - _lastCursor.x), dy = float(cur.y - _lastCursor.y);
+		const float sens = 0.0032f;
+		_camYaw   += dx * sens;
+		_camPitch -= dy * sens;
+		_camPitch = max(-1.553f, min(1.553f, _camPitch)); // ±89°
+		// 커서를 윈도우 중앙으로 재고정 (무한 회전)
+		RECT rc; GetClientRect(_hwnd, &rc);
+		POINT c{ (rc.right - rc.left) / 2, (rc.bottom - rc.top) / 2 };
+		ClientToScreen(_hwnd, &c);
+		SetCursorPos(c.x, c.y);
+		_lastCursor = c;
+	}
+	else if (_rmbDown) { _rmbDown = false; ShowCursor(TRUE); }
+
+	if (!focused) return;
+
+	// 이동 (시선 기준)
+	XMVECTOR fwd = CamForward(_camYaw, _camPitch);
+	XMVECTOR up  = XMVectorSet(0, 1, 0, 0);
+	XMVECTOR right = XMVector3Normalize(XMVector3Cross(up, fwd));
+	float speed = ((GetAsyncKeyState(VK_SHIFT) & 0x8000) ? 9.0f : 3.5f) * dt;
+	XMVECTOR pos = XMLoadFloat3(&_camPos);
+	if (GetAsyncKeyState('W') & 0x8000) pos = XMVectorAdd(pos, XMVectorScale(fwd, speed));
+	if (GetAsyncKeyState('S') & 0x8000) pos = XMVectorSubtract(pos, XMVectorScale(fwd, speed));
+	if (GetAsyncKeyState('D') & 0x8000) pos = XMVectorAdd(pos, XMVectorScale(right, speed));
+	if (GetAsyncKeyState('A') & 0x8000) pos = XMVectorSubtract(pos, XMVectorScale(right, speed));
+	if (GetAsyncKeyState('E') & 0x8000) pos = XMVectorAdd(pos, XMVectorScale(up, speed));
+	if (GetAsyncKeyState('Q') & 0x8000) pos = XMVectorSubtract(pos, XMVectorScale(up, speed));
+	XMStoreFloat3(&_camPos, pos);
+}
+
+// ───────────────────────────────────────────────────────────
+// 프레임 렌더 루프 — 입력 → 스키닝 → AS 재빌드 → DDGI 디스패치 → 라스터(모델/바닥) → Present
 // (D3D12Device.cpp 에서 분리)
 // ───────────────────────────────────────────────────────────
 void D3D12Device::Render()
 {
 	_time += 1.0f / 60.0f;
+	UpdateCamera(1.0f / 60.0f);
 
-	// ── 상수버퍼 갱신 (정적 지오메트리=항등, 빛 방향 애니메이션 → RT 그림자 이동) ──
+	// ── 상수버퍼 갱신 (카메라 뷰 + 빛 방향 애니메이션 → RT 그림자 이동) ──
 	XMMATRIX model = XMMatrixIdentity();
-	XMVECTOR eye = XMVectorSet(3.4f, 2.4f, -4.6f, 1.f);
-	XMVECTOR at  = XMVectorSet(0.f, 1.05f, 0.f, 1.f);
+	XMVECTOR eye = XMLoadFloat3(&_camPos);
+	XMVECTOR fwd = CamForward(_camYaw, _camPitch);
 	XMVECTOR up  = XMVectorSet(0.f, 1.f, 0.f, 0.f);
-	XMMATRIX view = XMMatrixLookAtLH(eye, at, up);
+	XMMATRIX view = XMMatrixLookAtLH(eye, XMVectorAdd(eye, fwd), up);
 	float aspect = float(_width) / float(_height);
 	XMMATRIX proj = XMMatrixPerspectiveFovLH(XMConvertToRadians(55.f), aspect, 0.1f, 100.f);
 

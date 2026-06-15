@@ -337,6 +337,7 @@ void D3D12Device::Init(HWND hwnd, UINT width, UINT height)
 {
 	_width = width;
 	_height = height;
+	_hwnd = hwnd;
 
 	CoInitializeEx(nullptr, COINIT_MULTITHREADED); // WIC 텍스처 로딩용
 

@@ -158,4 +158,13 @@ private:
 	D3D12_RAYTRACING_TIER             _dxrTier = D3D12_RAYTRACING_TIER_NOT_SUPPORTED;
 	std::wstring                      _adapterName;
 	float                             _time = 0.f;
+
+	// 자유 비행 카메라 (WASD 이동 / 우클릭 드래그 마우스 룩 / Q·E 상하 / Shift 가속)
+	void                              UpdateCamera(float dt);
+	HWND                              _hwnd = nullptr;
+	DirectX::XMFLOAT3                 _camPos{ 3.4f, 2.4f, -4.6f };
+	float                             _camYaw = -0.637f;   // 초기 시선(원점 부근) 방향
+	float                             _camPitch = -0.232f;
+	bool                              _rmbDown = false;
+	POINT                             _lastCursor{ 0, 0 };
 };

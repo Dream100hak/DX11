@@ -455,7 +455,7 @@ float4 VSMain(VIn i) : SV_POSITION
     float3 wp = i.pos;                 // 정점은 이미 월드(스키닝/기즈모 반영)
     float3 n = normalize(i.nrm);
     float d = distance(gCamPos.xyz, wp);
-    wp += n * d * 0.013;               // 화면상 일정 두께
+    wp += n * d * 0.005;               // 화면상 일정 두께 (얇게)
     return mul(float4(wp, 1.0), gMVP);
 }
 float4 PSMain() : SV_TARGET { return float4(1.7, 0.85, 0.12, 1.0); } // HDR 주황 (톤맵 후에도 선명)

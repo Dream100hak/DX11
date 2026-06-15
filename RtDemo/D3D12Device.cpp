@@ -515,6 +515,25 @@ float4 VSMain(VIn i) : SV_POSITION
 float4 PSMain() : SV_TARGET { return float4(1.7, 0.85, 0.12, 1.0); } // HDR 주황 (톤맵 후에도 선명)
 )";
 
+// DDGI 프로브 시각화 — 프로브 위치마다 점(POINTLIST), 색 = DC irradiance
+static const std::string kProbeViz = std::string(kSceneCB) + R"(
+struct PSH { float3 c0; float3 c1; float3 c2; float3 c3; };
+StructuredBuffer<PSH> gProbes : register(t1);
+struct VOut { float4 pos:SV_POSITION; float3 col:COLOR; };
+VOut VSMain(uint id : SV_VertexID)
+{
+    VOut o;
+    uint PX = (uint)gGridDim.x, PY = (uint)gGridDim.y, PZ = (uint)gGridDim.z;
+    uint px = id % PX, py = (id / PX) % PY, pz = id / (PX * PY);
+    float3 t = float3(px / max(PX - 1.0, 1.0), py / max(PY - 1.0, 1.0), pz / max(PZ - 1.0, 1.0));
+    float3 wp = lerp(gGridMin.xyz, gGridMax.xyz, t);
+    o.pos = mul(float4(wp, 1.0), gMVP);
+    o.col = max(gProbes[id].c0 * 0.886, 0.03);
+    return o;
+}
+float4 PSMain(VOut i) : SV_TARGET { return float4(i.col, 1.0); }
+)";
+
 // 포스트프로세스 공용 — 풀스크린 삼각형 VS
 static const char* kPostCommon = R"(
 struct VOut { float4 pos:SV_POSITION; float2 uv:TEXCOORD0; };
@@ -575,6 +594,30 @@ float4 PSBlur(VOut i) : SV_TARGET
     }
     return float4(sum, 1.0);
 }
+// FXAA (콘솔 컴팩트판) — gExposure,gBloomI = 1/해상도
+float4 PSFxaa(VOut i) : SV_TARGET
+{
+    float2 rcp = float2(gExposure, gBloomI);
+    float3 luma = float3(0.299, 0.587, 0.114);
+    float3 rgbM  = gHDR.Sample(gS, i.uv).rgb;
+    float3 rgbNW = gHDR.Sample(gS, i.uv + float2(-1,-1) * rcp).rgb;
+    float3 rgbNE = gHDR.Sample(gS, i.uv + float2( 1,-1) * rcp).rgb;
+    float3 rgbSW = gHDR.Sample(gS, i.uv + float2(-1, 1) * rcp).rgb;
+    float3 rgbSE = gHDR.Sample(gS, i.uv + float2( 1, 1) * rcp).rgb;
+    float lNW = dot(rgbNW, luma), lNE = dot(rgbNE, luma), lSW = dot(rgbSW, luma), lSE = dot(rgbSE, luma), lM = dot(rgbM, luma);
+    float lMin = min(lM, min(min(lNW, lNE), min(lSW, lSE)));
+    float lMax = max(lM, max(max(lNW, lNE), max(lSW, lSE)));
+    float2 dir;
+    dir.x = -((lNW + lNE) - (lSW + lSE));
+    dir.y =  ((lNW + lSW) - (lNE + lSE));
+    float reduce = max((lNW + lNE + lSW + lSE) * 0.25 * 0.125, 1e-5);
+    float rcpMin = 1.0 / (min(abs(dir.x), abs(dir.y)) + reduce);
+    dir = clamp(dir * rcpMin, -8.0, 8.0) * rcp;
+    float3 rgbA = 0.5 * (gHDR.Sample(gS, i.uv + dir * (1.0/3.0 - 0.5)).rgb + gHDR.Sample(gS, i.uv + dir * (2.0/3.0 - 0.5)).rgb);
+    float3 rgbB = rgbA * 0.5 + 0.25 * (gHDR.Sample(gS, i.uv + dir * -0.5).rgb + gHDR.Sample(gS, i.uv + dir * 0.5).rgb);
+    float lB = dot(rgbB, luma);
+    return float4((lB < lMin || lB > lMax) ? rgbA : rgbB, 1.0);
+}
 )";
 
 ComPtr<IDxcBlob> CompileDxc(const char* src, const wchar_t* entry, const wchar_t* target); // 전방 선언
@@ -624,6 +667,7 @@ void D3D12Device::CreatePostFX()
 	makePSO(kTonemapShader, L"PSTonemap", DXGI_FORMAT_R8G8B8A8_UNORM, _tonemapPSO);
 	makePSO(kTonemapShader, L"PSBright", DXGI_FORMAT_R16G16B16A16_FLOAT, _brightPSO);
 	makePSO(kTonemapShader, L"PSBlur",   DXGI_FORMAT_R16G16B16A16_FLOAT, _blurPSO);
+	makePSO(kTonemapShader, L"PSFxaa",   DXGI_FORMAT_R8G8B8A8_UNORM,     _fxaaPSO);
 }
 
 // ───────────────────────────────────────────────────────────
@@ -809,7 +853,7 @@ void D3D12Device::CreateRootSignature()
 
 	params[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; // 프로브
 	params[2].Descriptor.ShaderRegister = 1; // t1
-	params[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	params[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL; // 프로브 시각화 VS 에서도 읽음
 
 	params[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 	params[3].DescriptorTable.NumDescriptorRanges = 1;
@@ -987,6 +1031,23 @@ void D3D12Device::CreatePipeline()
 	opso.NumRenderTargets = 1; opso.RTVFormats[0] = _sceneFmt;
 	opso.DSVFormat = DXGI_FORMAT_D32_FLOAT; opso.SampleDesc.Count = 1;
 	ThrowIfFailed(_device->CreateGraphicsPipelineState(&opso, IID_PPV_ARGS(&_outlinePSO)), "CreateOutlinePSO");
+
+	// ── 프로브 시각화 PSO (POINTLIST, 깊이 테스트) ──
+	ComPtr<IDxcBlob> pvs = CompileDxc(kProbeViz.c_str(), L"VSMain", L"vs_6_5");
+	ComPtr<IDxcBlob> pps = CompileDxc(kProbeViz.c_str(), L"PSMain", L"ps_6_5");
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC ppso{};
+	ppso.pRootSignature = _rootSig.Get();
+	ppso.VS = { pvs->GetBufferPointer(), pvs->GetBufferSize() };
+	ppso.PS = { pps->GetBufferPointer(), pps->GetBufferSize() };
+	ppso.RasterizerState = rast;
+	ppso.BlendState = blend;
+	ppso.DepthStencilState.DepthEnable = TRUE; ppso.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+	ppso.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+	ppso.SampleMask = UINT_MAX;
+	ppso.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT;
+	ppso.NumRenderTargets = 1; ppso.RTVFormats[0] = _sceneFmt;
+	ppso.DSVFormat = DXGI_FORMAT_D32_FLOAT; ppso.SampleDesc.Count = 1;
+	ThrowIfFailed(_device->CreateGraphicsPipelineState(&ppso, IID_PPV_ARGS(&_probePSO)), "CreateProbePSO");
 }
 
 ComPtr<ID3D12Resource> D3D12Device::CreateUploadBuffer(const void* data, size_t size)

@@ -244,6 +244,17 @@ void D3D12Device::Render()
 		_cmdList->DrawInstanced(3, 1, 0, 0);
 	}
 
+	// ── DDGI 프로브 시각화 (점) ──
+	if (_probeViz)
+	{
+		_cmdList->SetPipelineState(_probePSO.Get());
+		_cmdList->SetGraphicsRootSignature(_rootSig.Get());
+		_cmdList->SetGraphicsRootConstantBufferView(0, _cb[_frameIndex]->GetGPUVirtualAddress());
+		_cmdList->SetGraphicsRootShaderResourceView(2, _probes->GetGPUVirtualAddress());
+		_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
+		_cmdList->DrawInstanced(PROBE_COUNT, 1, 0, 0);
+	}
+
 	// ── 블룸 (브라이트패스 → BlurH → BlurV, 반해상도) ──
 	Transition(_sceneRT.Get(), _sceneRTState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	if (_bloomOn && _bloomReady)
@@ -309,6 +320,30 @@ void D3D12Device::Render()
 	}
 	Transition(_sceneLDR.Get(), _sceneLDRState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
+	// ── FXAA (LDR → LDR2), 표시 텍스처 선택 ──
+	ID3D12Resource* displayRes = _sceneLDR.Get();
+	if (_fxaaOn)
+	{
+		Transition(_sceneLDR2.Get(), _sceneLDR2State, D3D12_RESOURCE_STATE_RENDER_TARGET);
+		UINT rInc = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+		D3D12_CPU_DESCRIPTOR_HANDLE rtv2 = _sceneRtvHeap->GetCPUDescriptorHandleForHeapStart(); rtv2.ptr += SIZE_T(rInc) * 2;
+		_cmdList->OMSetRenderTargets(1, &rtv2, FALSE, nullptr);
+		_cmdList->RSSetViewports(1, &vp); _cmdList->RSSetScissorRects(1, &sc);
+		_cmdList->SetPipelineState(_fxaaPSO.Get());
+		_cmdList->SetGraphicsRootSignature(_postRootSig.Get());
+		ID3D12DescriptorHeap* ph2[] = { _postSrvHeap.Get() };
+		_cmdList->SetDescriptorHeaps(1, ph2);
+		D3D12_GPU_DESCRIPTOR_HANDLE t = _postSrvHeap->GetGPUDescriptorHandleForHeapStart(); t.ptr += UINT64(4) * _postSrvInc; // slot4 = LDR
+		_cmdList->SetGraphicsRootDescriptorTable(0, t);
+		float fc[8] = { 1.0f / float(_sceneW), 1.0f / float(_sceneH), 0,0,0,0,0,0 };
+		_cmdList->SetGraphicsRoot32BitConstants(1, 8, fc, 0);
+		_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		_cmdList->DrawInstanced(3, 1, 0, 0);
+		Transition(_sceneLDR2.Get(), _sceneLDR2State, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+		displayRes = _sceneLDR2.Get();
+	}
+	_sceneTexId = _imgui.SetSceneTexture(displayRes); // FXAA on→LDR2, off→LDR
+
 	// ── 백버퍼: 에디터 UI(도킹+씬 이미지) ImGui 드로우 ──
 	D3D12_RESOURCE_BARRIER toRT{};
 	toRT.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -337,4 +372,6 @@ void D3D12Device::Render()
 
 	ThrowIfFailed(_swapChain->Present(1, 0), "Present");
 	MoveToNextFrame();
+
+	if (_wantShot) { _wantShot = false; SaveScreenshot(); } // GPU 유휴 시점 리드백
 }

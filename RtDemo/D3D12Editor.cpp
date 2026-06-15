@@ -66,7 +66,7 @@ void D3D12Device::CreateSceneRT(UINT w, UINT h)
 
 	if (!_sceneRtvHeap)
 	{
-		D3D12_DESCRIPTOR_HEAP_DESC hd{}; hd.NumDescriptors = 2; hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+		D3D12_DESCRIPTOR_HEAP_DESC hd{}; hd.NumDescriptors = 3; hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 		ThrowIfFailed(_device->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&_sceneRtvHeap)), "scene RTV heap");
 	}
 	UINT rtvInc = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
@@ -82,6 +82,21 @@ void D3D12Device::CreateSceneRT(UINT w, UINT h)
 	_sceneLDRState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 	D3D12_CPU_DESCRIPTOR_HANDLE rtv1 = rtv0; rtv1.ptr += rtvInc;
 	_device->CreateRenderTargetView(_sceneLDR.Get(), nullptr, rtv1);
+
+	// FXAA 결과 RT (slot2 RTV) + LDR/LDR2 SRV (포스트 힙 slot4,5)
+	_sceneLDR2.Reset();
+	ThrowIfFailed(_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &ld,
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, &cvl, IID_PPV_ARGS(&_sceneLDR2)), "scene LDR2");
+	_sceneLDR2State = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	D3D12_CPU_DESCRIPTOR_HANDLE rtv2 = rtv0; rtv2.ptr += rtvInc * 2;
+	_device->CreateRenderTargetView(_sceneLDR2.Get(), nullptr, rtv2);
+	{
+		D3D12_SHADER_RESOURCE_VIEW_DESC lsd{}; lsd.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		lsd.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D; lsd.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING; lsd.Texture2D.MipLevels = 1;
+		D3D12_CPU_DESCRIPTOR_HANDLE lh = _postSrvHeap->GetCPUDescriptorHandleForHeapStart(); lh.ptr += (SIZE_T)4 * _postSrvInc;
+		_device->CreateShaderResourceView(_sceneLDR.Get(), &lsd, lh);  lh.ptr += _postSrvInc;
+		_device->CreateShaderResourceView(_sceneLDR2.Get(), &lsd, lh); // slot5
+	}
 
 	// 블룸 RT (반해상도 ping-pong) + RTV
 	_bloomW = max(1u, w / 2); _bloomH = max(1u, h / 2);
@@ -144,6 +159,8 @@ void D3D12Device::BuildUI()
 		{
 			if (ImGui::MenuItem("Save Scene")) SaveScene();
 			if (ImGui::MenuItem("Load Scene")) LoadScene();
+			ImGui::Separator();
+			if (ImGui::MenuItem("Screenshot (BMP)")) _wantShot = true;
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("View"))
@@ -279,6 +296,62 @@ void D3D12Device::DrawSceneView()
 	}
 	ImGui::End();
 	ImGui::PopStyleVar();
+}
+
+// ── 스크린샷 (T19) — _sceneLDR 리드백 → BMP (exe 폴더) ──
+void D3D12Device::SaveScreenshot()
+{
+	if (!_sceneLDR) return;
+	D3D12_RESOURCE_DESC td = _sceneLDR->GetDesc();
+	D3D12_PLACED_SUBRESOURCE_FOOTPRINT fp{}; UINT rows = 0; UINT64 rowSize = 0, total = 0;
+	_device->GetCopyableFootprints(&td, 0, 1, 0, &fp, &rows, &rowSize, &total);
+
+	D3D12_HEAP_PROPERTIES rb{}; rb.Type = D3D12_HEAP_TYPE_READBACK;
+	D3D12_RESOURCE_DESC bd{}; bd.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER; bd.Width = total; bd.Height = 1;
+	bd.DepthOrArraySize = 1; bd.MipLevels = 1; bd.Format = DXGI_FORMAT_UNKNOWN; bd.SampleDesc.Count = 1; bd.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+	ComPtr<ID3D12Resource> readback;
+	if (FAILED(_device->CreateCommittedResource(&rb, D3D12_HEAP_FLAG_NONE, &bd, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&readback)))) return;
+
+	ComPtr<ID3D12CommandAllocator> al; ComPtr<ID3D12GraphicsCommandList> cl;
+	_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&al));
+	_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, al.Get(), nullptr, IID_PPV_ARGS(&cl));
+	D3D12_RESOURCE_BARRIER b{}; b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION; b.Transition.pResource = _sceneLDR.Get();
+	b.Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE; b.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
+	b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES; cl->ResourceBarrier(1, &b);
+	D3D12_TEXTURE_COPY_LOCATION dst{}; dst.pResource = readback.Get(); dst.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT; dst.PlacedFootprint = fp;
+	D3D12_TEXTURE_COPY_LOCATION src{}; src.pResource = _sceneLDR.Get(); src.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX; src.SubresourceIndex = 0;
+	cl->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+	std::swap(b.Transition.StateBefore, b.Transition.StateAfter); cl->ResourceBarrier(1, &b);
+	cl->Close();
+	ID3D12CommandList* lists[] = { cl.Get() }; _queue->ExecuteCommandLists(1, lists);
+	WaitForGpu();
+
+	uint8_t* data = nullptr; D3D12_RANGE rr{ 0, (SIZE_T)total };
+	if (FAILED(readback->Map(0, &rr, (void**)&data))) return;
+	UINT W = (UINT)td.Width, H = td.Height;
+	std::vector<uint8_t> bgr((size_t)W * H * 3);
+	for (UINT y = 0; y < H; ++y)
+	{
+		const uint8_t* srcRow = data + fp.Offset + (size_t)(H - 1 - y) * fp.Footprint.RowPitch; // BMP 하단우선
+		uint8_t* dstRow = bgr.data() + (size_t)y * W * 3;
+		for (UINT x = 0; x < W; ++x) { dstRow[x*3+0] = srcRow[x*4+2]; dstRow[x*3+1] = srcRow[x*4+1]; dstRow[x*3+2] = srcRow[x*4+0]; }
+	}
+	readback->Unmap(0, nullptr);
+
+	// BMP 작성
+	static int idx = 0;
+	wchar_t exe[MAX_PATH]{}; GetModuleFileNameW(nullptr, exe, MAX_PATH);
+	std::wstring dir(exe); dir = dir.substr(0, dir.find_last_of(L"\\/"));
+	std::wstring path = dir + L"\\screenshot_" + std::to_wstring(idx++) + L".bmp";
+	uint32_t rowBytes = W * 3, pad = (4 - (rowBytes % 4)) % 4, imgSize = (rowBytes + pad) * H, fileSize = 54 + imgSize;
+	std::ofstream o(path, std::ios::binary);
+	uint8_t hdr[54] = {}; hdr[0]='B'; hdr[1]='M';
+	*(uint32_t*)&hdr[2]=fileSize; *(uint32_t*)&hdr[10]=54; *(uint32_t*)&hdr[14]=40;
+	*(int32_t*)&hdr[18]=(int32_t)W; *(int32_t*)&hdr[22]=(int32_t)H; *(uint16_t*)&hdr[26]=1; *(uint16_t*)&hdr[28]=24;
+	*(uint32_t*)&hdr[34]=imgSize;
+	o.write((char*)hdr, 54);
+	uint8_t padb[3] = {0,0,0};
+	for (UINT y = 0; y < H; ++y) { o.write((char*)(bgr.data() + (size_t)y * W * 3), rowBytes); if (pad) o.write((char*)padb, pad); }
 }
 
 // ── 씬 저장/로드 (.rtscene 텍스트) — <Assets>/Scenes/quick.rtscene ──

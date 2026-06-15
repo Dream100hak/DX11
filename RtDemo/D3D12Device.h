@@ -125,6 +125,8 @@ private:
 	ComPtr<ID3D12PipelineState>       _gridPSO;    // 무한 씬 그리드
 	ComPtr<ID3D12PipelineState>       _outlinePSO; // 선택 아웃라인(인버티드 헐)
 	ComPtr<ID3D12PipelineState>       _wirePSO;    // 와이어프레임 토글
+	ComPtr<ID3D12PipelineState>       _probePSO;   // DDGI 프로브 점 시각화
+	ComPtr<ID3D12PipelineState>       _fxaaPSO;    // FXAA
 	DXGI_FORMAT                       _sceneFmt = DXGI_FORMAT_R16G16B16A16_FLOAT; // 씬 RT(HDR)
 
 	// 포스트프로세스 (S3 톤맵 / S4 블룸) — 공용 SRV 힙 + 루트시그
@@ -133,8 +135,10 @@ private:
 	ComPtr<ID3D12PipelineState>       _tonemapPSO;
 	ComPtr<ID3D12DescriptorHeap>      _postSrvHeap; // slot0 HDR씬 / slot1 bloom / 2~ bloom 밉
 	UINT                              _postSrvInc = 0;
-	ComPtr<ID3D12Resource>            _sceneLDR;    // 톤맵 결과 (ImGui 표시)
+	ComPtr<ID3D12Resource>            _sceneLDR;    // 톤맵 결과
+	ComPtr<ID3D12Resource>            _sceneLDR2;   // FXAA 결과 (ImGui 표시 후보)
 	D3D12_RESOURCE_STATES             _sceneLDRState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	D3D12_RESOURCE_STATES             _sceneLDR2State = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 	float                             _exposure = 1.0f;
 	// 블룸 (S4) — 반해상도 ping-pong
 	ComPtr<ID3D12PipelineState>       _brightPSO, _blurPSO;

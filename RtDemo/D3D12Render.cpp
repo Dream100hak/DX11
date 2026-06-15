@@ -75,6 +75,7 @@ void D3D12Device::Render()
 	_cmdList->SetGraphicsRootConstantBufferView(0, _cb[_frameIndex]->GetGPUVirtualAddress());
 	_cmdList->SetGraphicsRootShaderResourceView(1, _tlas->GetGPUVirtualAddress()); // TLAS (RayQuery)
 	_cmdList->SetGraphicsRootShaderResourceView(2, _probes->GetGPUVirtualAddress()); // DDGI 프로브
+	_cmdList->SetGraphicsRootShaderResourceView(5, _probeDepth->GetGPUVirtualAddress()); // 프로브 depth
 	if (_hasTexture)
 	{
 		ID3D12DescriptorHeap* heaps[] = { _srvHeap.Get() };

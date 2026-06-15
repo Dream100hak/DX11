@@ -147,10 +147,13 @@ private:
 	static const UINT PROBE_Y = 5;
 	static const UINT PROBE_Z = 10;
 	static const UINT PROBE_COUNT = PROBE_X * PROBE_Y * PROBE_Z;
+	static const UINT PROBE_OCT = 8; // 프로브당 옥타헤드럴 depth 해상도 (셰이더 OCT 와 일치)
 	ComPtr<ID3D12RootSignature>       _giRootSig;
 	ComPtr<ID3D12PipelineState>       _giPSO;
-	ComPtr<ID3D12Resource>            _probes;       // float3[PROBE_COUNT] (UAV/SRV)
+	ComPtr<ID3D12Resource>            _probes;       // ProbeSH[PROBE_COUNT] (UAV/SRV)
+	ComPtr<ID3D12Resource>            _probeDepth;   // float2[PROBE_COUNT×OCT²] mean/mean² (UAV/SRV)
 	D3D12_RESOURCE_STATES             _probeState = D3D12_RESOURCE_STATE_COMMON;
+	D3D12_RESOURCE_STATES             _probeDepthState = D3D12_RESOURCE_STATE_COMMON;
 
 	D3D12_RAYTRACING_TIER             _dxrTier = D3D12_RAYTRACING_TIER_NOT_SUPPORTED;
 	std::wstring                      _adapterName;

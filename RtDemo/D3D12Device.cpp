@@ -24,6 +24,7 @@ cbuffer SceneCB : register(b0)
 )";
 
 static const std::string kMeshShader = std::string(kSceneCB) + R"(
+#define OCT 8
 struct ProbeSH { float3 c0; float3 c1; float3 c2; float3 c3; }; // SH-L1: DC + (x,y,z) 방향 계수
 
 RaytracingAccelerationStructure gScene  : register(t0); // TLAS (RayQuery 그림자)
@@ -31,8 +32,17 @@ StructuredBuffer<ProbeSH>       gProbes : register(t1); // DDGI 프로브 (SH-L1
 Texture2D                       gDiffuse   : register(t2); // 디퓨즈
 Texture2D                       gNormalMap : register(t3); // 노멀맵
 Texture2D                       gSpecMap   : register(t4); // 스펙큘러
+StructuredBuffer<float2>        gProbeDepth : register(t5); // 옥타헤드럴 depth (mean, mean²)
 SamplerState                    gSamp    : register(s0);
 cbuffer UseTexCB : register(b1) { uint gUseTex; };       // 루트 상수 (1=텍스처)
+
+// 단위벡터 → 옥타헤드럴 [0,1]² (depth 텍셀 인덱싱)
+float2 OctEncode(float3 d)
+{
+    d /= (abs(d.x) + abs(d.y) + abs(d.z));
+    float2 o = (d.z >= 0.0) ? d.xy : (1.0 - abs(d.yx)) * sign(d.xy);
+    return o * 0.5 + 0.5;
+}
 
 struct VSIn  { float3 pos : POSITION; float3 nrm : NORMAL; float3 col : COLOR; float2 uv : TEXCOORD; float3 tan : TANGENT; };
 struct VSOut { float4 pos : SV_POSITION; float3 wnrm : NORMAL; float3 wpos : TEXCOORD0; float3 col : COLOR; float2 uv : TEXCOORD1; float3 wtan : TANGENT; };
@@ -49,20 +59,21 @@ VSOut VSMain(VSIn i)
     return o;
 }
 
-// 프로브 볼륨 트라이리니어 샘플 (SH-L1) + RT 가시성 가중 (누광 방지)
-// 표면→각 코너 프로브로 가시성 레이를 쏴 막힌 프로브는 기여에서 제외. 전부 막히면 트라이리니어 폴백.
+// 프로브 볼륨 트라이리니어 샘플 (SH-L1) + 옥타헤드럴 depth Chebyshev 가시성 (누광 방지).
+// 픽셀당 RT 레이 없이, 프로브의 사전계산 depth 통계로 소프트 가시성 가중 (DDGI 표준).
 ProbeSH SampleProbes(float3 wpos, float3 N)
 {
     int PX = (int)gGridDim.x, PY = (int)gGridDim.y, PZ = (int)gGridDim.z;
     float3 dimM1 = float3(PX - 1, PY - 1, PZ - 1);
-    float3 g = saturate((wpos - gGridMin.xyz) / (gGridMax.xyz - gGridMin.xyz));
+    float3 bias = N * 0.04; // 자기그림자 방지 표면 바이어스
+    float3 g = saturate((wpos + bias - gGridMin.xyz) / (gGridMax.xyz - gGridMin.xyz));
     float3 f = g * dimM1;
     int3 b0 = (int3)floor(f);
     float3 fr = f - (float3)b0;
 
     ProbeSH accV; accV.c0 = 0; accV.c1 = 0; accV.c2 = 0; accV.c3 = 0; // 가시성 가중
     ProbeSH accA; accA.c0 = 0; accA.c1 = 0; accA.c2 = 0; accA.c3 = 0; // 폴백(가중합=1)
-    float wsumV = 0.0;
+    float wsumV = 0.0, wsumA = 0.0;
 
     [unroll] for (int s = 0; s < 8; ++s)
     {
@@ -73,27 +84,32 @@ ProbeSH SampleProbes(float3 wpos, float3 N)
         float w = w3.x * w3.y * w3.z;
         ProbeSH p = gProbes[idx];
 
-        // 가시성: 표면 → 프로브 위치 레이 (도중 막히면 vis=0)
         float3 ppos = lerp(gGridMin.xyz, gGridMax.xyz, (float3)c / dimM1);
-        float3 toP = ppos - wpos;
-        float dist = length(toP);
+        float3 toSurf = wpos - ppos;       // 프로브 → 표면
+        float dist = length(toSurf);
+        float3 dir = (dist > 1e-4) ? toSurf / dist : N;
+
+        // 법선 방향 가중 — 표면이 등진 프로브는 약화 (배면 누광 억제)
+        float wnb = saturate(dot(-dir, N)) * 0.5 + 0.5;
+        float wn = wnb * wnb + 0.05;
+
+        // Chebyshev 가시성: 텍셀의 mean/mean² 로 분산 가시성 추정
+        float2 uv = OctEncode(dir);
+        int2 tc = clamp((int2)(uv * OCT), 0, OCT - 1);
+        float2 md = gProbeDepth[idx * (OCT * OCT) + tc.y * OCT + tc.x];
         float vis = 1.0;
-        if (dist > 1e-3)
+        if (dist > md.x)
         {
-            RayDesc ray;
-            ray.Origin = wpos + N * 0.03;
-            ray.Direction = toP / dist;
-            ray.TMin = 0.02;
-            ray.TMax = max(dist - 0.1, 0.0);
-            RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_CULL_NON_OPAQUE> q;
-            q.TraceRayInline(gScene, RAY_FLAG_NONE, 0xFF, ray);
-            q.Proceed();
-            if (q.CommittedStatus() != COMMITTED_NOTHING) vis = 0.0;
+            float var = max(md.y - md.x * md.x, 1e-3);
+            float d = dist - md.x;
+            vis = var / (var + d * d);
+            vis = vis * vis * vis; // 가장자리 강조 (DDGI 표준)
         }
-        float wv = w * vis;
+
+        float wv = w * wn * saturate(vis);
         accV.c0 += p.c0 * wv; accV.c1 += p.c1 * wv; accV.c2 += p.c2 * wv; accV.c3 += p.c3 * wv;
         accA.c0 += p.c0 * w;  accA.c1 += p.c1 * w;  accA.c2 += p.c2 * w;  accA.c3 += p.c3 * w;
-        wsumV += wv;
+        wsumV += wv; wsumA += w;
     }
 
     if (wsumV > 1e-4)
@@ -102,7 +118,9 @@ ProbeSH SampleProbes(float3 wpos, float3 N)
         ProbeSH r; r.c0 = accV.c0 * inv; r.c1 = accV.c1 * inv; r.c2 = accV.c2 * inv; r.c3 = accV.c3 * inv;
         return r;
     }
-    return accA; // 전부 가림 → 트라이리니어 폴백
+    float inv = 1.0 / max(wsumA, 1e-4);
+    ProbeSH r; r.c0 = accA.c0 * inv; r.c1 = accA.c1 * inv; r.c2 = accA.c2 * inv; r.c3 = accA.c3 * inv;
+    return r; // 전부 가림 → 트라이리니어 폴백
 }
 
 // SH-L1 → 표면 법선 방향 irradiance (코사인 컨볼루션 상수 적용)
@@ -171,6 +189,8 @@ float4 PSMain(VSOut i) : SV_TARGET
 // DDGI 프로브 수집 — 컴퓨트에서 프로브마다 RT 레이를 구면 방향으로 쏘아
 // 1차 직접광(히트 표면의 albedo×N·L)을 평균 → DC irradiance 로 저장.
 static const std::string kGatherShader = std::string(kSceneCB) + R"(
+#define OCT 8        // 프로브당 옥타헤드럴 depth 해상도 (8×8=64 텍셀)
+#define RAY_CAP 128  // hitDist 로컬 배열 상한 (= gGridDim.w)
 struct Vtx { float3 pos; float3 nrm; float3 col; float2 uv; float3 tan; }; // C++ Vtx 와 동일 레이아웃
 struct ProbeSH { float3 c0; float3 c1; float3 c2; float3 c3; };
 
@@ -178,6 +198,7 @@ RaytracingAccelerationStructure gScene   : register(t0);
 StructuredBuffer<Vtx>           gVerts    : register(t1);
 StructuredBuffer<uint>          gIndices  : register(t2);
 RWStructuredBuffer<ProbeSH>     gProbesRW : register(u0);
+RWStructuredBuffer<float2>      gDepthRW  : register(u1); // 옥타헤드럴 depth (mean, mean²)
 
 // 구면 균일 분포 (피보나치)
 float3 FibDir(uint i, uint n)
@@ -187,6 +208,17 @@ float3 FibDir(uint i, uint n)
     float cosT = 1.0 - 2.0 * k / n;
     float sinT = sqrt(saturate(1.0 - cosT * cosT));
     return float3(cos(phi) * sinT, cosT, sin(phi) * sinT);
+}
+
+// 옥타헤드럴 매핑: 단위벡터 ↔ [0,1]² (프로브 depth 의 방향 인덱싱)
+float3 OctDecode(float2 f)
+{
+    f = f * 2.0 - 1.0;
+    float3 n = float3(f.x, f.y, 1.0 - abs(f.x) - abs(f.y));
+    float t = saturate(-n.z);
+    n.x += (n.x >= 0.0) ? -t : t;
+    n.y += (n.y >= 0.0) ? -t : t;
+    return normalize(n);
 }
 
 // 이전 프레임 프로브 볼륨에서 irradiance 읽기 (다중 바운스용 — gProbesRW 트라이리니어 SH)
@@ -221,15 +253,17 @@ void CSMain(uint3 tid : SV_DispatchThreadID)
     float3 t = float3(px / max(PX - 1.0, 1.0), py / max(PY - 1.0, 1.0), pz / max(PZ - 1.0, 1.0));
     float3 ppos = lerp(gGridMin.xyz, gGridMax.xyz, t);
 
-    uint K = (uint)gGridDim.w;
+    uint K = min((uint)gGridDim.w, (uint)RAY_CAP);
     float3 L = normalize(-gLightDir.xyz);
+    const float MAXD = 40.0;
 
-    // 입사휘도를 SH-L1 로 투영 (구면 균일 샘플)
+    // 입사휘도를 SH-L1 로 투영 (구면 균일 샘플) + 히트 거리 저장(옥타헤드럴 depth 용)
     float3 s0 = 0, s1 = 0, s2 = 0, s3 = 0;
+    float hitDist[RAY_CAP];
     for (uint r = 0; r < K; ++r)
     {
         float3 dir = FibDir(r, K);
-        RayDesc ray; ray.Origin = ppos; ray.Direction = dir; ray.TMin = 0.02; ray.TMax = 40.0;
+        RayDesc ray; ray.Origin = ppos; ray.Direction = dir; ray.TMin = 0.02; ray.TMax = MAXD;
         RayQuery<RAY_FLAG_CULL_NON_OPAQUE> q;
         q.TraceRayInline(gScene, RAY_FLAG_NONE, 0xFF, ray);
         q.Proceed();
@@ -244,14 +278,18 @@ void CSMain(uint3 tid : SV_DispatchThreadID)
             float w0 = 1.0 - b.x - b.y;
             float3 n = normalize(v0.nrm * w0 + v1.nrm * b.x + v2.nrm * b.y);
             float3 alb = v0.col * w0 + v1.col * b.x + v2.col * b.y;
-            float3 hitPos = ppos + dir * q.CommittedRayT();
+            float rt = q.CommittedRayT();
+            float3 hitPos = ppos + dir * rt;
             // 직접광 + 이전 프레임 간접광(다중 바운스) — 프레임마다 한 바운스씩 전파
             float3 lit = saturate(dot(n, L)) * gLightDir.w + ProbeIrradiancePrev(hitPos, n) * gGI.x;
             rad = alb * lit;
+            // 뒷면(프로브가 벽 안쪽) 히트는 음수 거리로 기록 → depth 가 가까이 잡혀 누광 차단
+            hitDist[r] = (dot(n, dir) > 0.0) ? -rt * 0.2 : rt;
         }
         else
         {
             rad = float3(0.10, 0.12, 0.16); // 하늘
+            hitDist[r] = MAXD;
         }
         // SH-L1 기저 (Y00, Y1m1·y, Y10·z, Y11·x)
         s0 += rad * 0.282095;
@@ -272,6 +310,25 @@ void CSMain(uint3 tid : SV_DispatchThreadID)
     outp.c2 = lerp(prev.c2, cur.c2, alpha);
     outp.c3 = lerp(prev.c3, cur.c3, alpha);
     gProbesRW[pi] = outp;
+
+    // ── 옥타헤드럴 depth: 텍셀 방향에 가까운 레이 거리를 가중 평균(mean, mean²) ──
+    // Chebyshev(분산) 가시성을 위해 mean/mean² 저장. 텍셀당 모든 레이를 sharp 가중 합산.
+    const float sharp = 12.0;
+    for (uint tj = 0; tj < OCT * OCT; ++tj)
+    {
+        float2 tuv = (float2(tj % OCT, tj / OCT) + 0.5) / OCT;
+        float3 tdir = OctDecode(tuv);
+        float sw = 0.0, sd = 0.0, sd2 = 0.0;
+        for (uint r = 0; r < K; ++r)
+        {
+            float wgt = pow(max(0.0, dot(tdir, FibDir(r, K))), sharp);
+            float d = hitDist[r];
+            sw += wgt; sd += wgt * d; sd2 += wgt * d * d;
+        }
+        float2 md = (sw > 1e-6) ? float2(sd / sw, sd2 / sw) : float2(MAXD, MAXD * MAXD);
+        uint di = pi * (OCT * OCT) + tj;
+        gDepthRW[di] = lerp(gDepthRW[di], md, alpha);
+    }
 }
 )";
 
@@ -437,8 +494,8 @@ void D3D12Device::CreateRootSignature()
 	texRange.BaseShaderRegister = 2; // t2
 	texRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-	// 루트: 0=CBV(b0), 1=SRV(t0)TLAS, 2=SRV(t1)프로브, 3=테이블(t2 텍스처), 4=루트상수(b1 useTex)
-	D3D12_ROOT_PARAMETER params[5]{};
+	// 루트: 0=CBV(b0), 1=SRV(t0)TLAS, 2=SRV(t1)프로브, 3=테이블(t2 텍스처), 4=루트상수(b1 useTex), 5=SRV(t5)프로브 depth
+	D3D12_ROOT_PARAMETER params[6]{};
 	params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
 	params[0].Descriptor.ShaderRegister = 0;
 	params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
@@ -461,6 +518,10 @@ void D3D12Device::CreateRootSignature()
 	params[4].Constants.Num32BitValues = 1;
 	params[4].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
+	params[5].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; // 프로브 depth
+	params[5].Descriptor.ShaderRegister = 5; // t5
+	params[5].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
 	// 정적 샘플러 s0 (선형 WRAP)
 	D3D12_STATIC_SAMPLER_DESC samp{};
 	samp.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
@@ -470,7 +531,7 @@ void D3D12Device::CreateRootSignature()
 	samp.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
 	D3D12_ROOT_SIGNATURE_DESC rs{};
-	rs.NumParameters = 5;
+	rs.NumParameters = 6;
 	rs.pParameters = params;
 	rs.NumStaticSamplers = 1;
 	rs.pStaticSamplers = &samp;
@@ -732,17 +793,22 @@ void D3D12Device::CreateGI()
 	_probes = CreateDefaultBuffer(PROBE_COUNT * sizeof(XMFLOAT3) * 4, D3D12_RESOURCE_STATE_COMMON, true);
 	_probeState = D3D12_RESOURCE_STATE_COMMON;
 
-	// 컴퓨트 루트 시그니처: b0 CBV, u0 probes, t0 TLAS, t1 verts, t2 indices (전부 루트 디스크립터)
-	D3D12_ROOT_PARAMETER p[5]{};
+	// 옥타헤드럴 depth 버퍼 (float2 mean/mean²) × PROBE_COUNT × OCT²
+	_probeDepth = CreateDefaultBuffer(PROBE_COUNT * PROBE_OCT * PROBE_OCT * sizeof(XMFLOAT2), D3D12_RESOURCE_STATE_COMMON, true);
+	_probeDepthState = D3D12_RESOURCE_STATE_COMMON;
+
+	// 컴퓨트 루트 시그니처: b0 CBV, u0 probes, u1 depth, t0 TLAS, t1 verts, t2 indices (전부 루트 디스크립터)
+	D3D12_ROOT_PARAMETER p[6]{};
 	p[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; p[0].Descriptor.ShaderRegister = 0;
 	p[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV; p[1].Descriptor.ShaderRegister = 0;
-	p[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; p[2].Descriptor.ShaderRegister = 0;
-	p[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; p[3].Descriptor.ShaderRegister = 1;
-	p[4].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; p[4].Descriptor.ShaderRegister = 2;
+	p[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV; p[2].Descriptor.ShaderRegister = 1; // depth
+	p[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; p[3].Descriptor.ShaderRegister = 0;
+	p[4].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; p[4].Descriptor.ShaderRegister = 1;
+	p[5].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; p[5].Descriptor.ShaderRegister = 2;
 	for (auto& rp : p) rp.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
 	D3D12_ROOT_SIGNATURE_DESC rs{};
-	rs.NumParameters = 5;
+	rs.NumParameters = 6;
 	rs.pParameters = p;
 	rs.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
 
@@ -760,24 +826,27 @@ void D3D12Device::CreateGI()
 
 void D3D12Device::DispatchGI()
 {
-	// 프로브를 UAV 상태로 → RT 레이 수집 → 픽셀 읽기용 SRV 로 전환
+	// 프로브/depth 를 UAV 상태로 → RT 레이 수집 → 픽셀 읽기용 SRV 로 전환
 	Transition(_probes.Get(), _probeState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	Transition(_probeDepth.Get(), _probeDepthState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
 	_cmdList->SetPipelineState(_giPSO.Get());
 	_cmdList->SetComputeRootSignature(_giRootSig.Get());
 	_cmdList->SetComputeRootConstantBufferView(0, _cb[_frameIndex]->GetGPUVirtualAddress());
 	_cmdList->SetComputeRootUnorderedAccessView(1, _probes->GetGPUVirtualAddress());
-	_cmdList->SetComputeRootShaderResourceView(2, _tlas->GetGPUVirtualAddress());
-	_cmdList->SetComputeRootShaderResourceView(3, _vb->GetGPUVirtualAddress());
-	_cmdList->SetComputeRootShaderResourceView(4, _ib->GetGPUVirtualAddress());
+	_cmdList->SetComputeRootUnorderedAccessView(2, _probeDepth->GetGPUVirtualAddress());
+	_cmdList->SetComputeRootShaderResourceView(3, _tlas->GetGPUVirtualAddress());
+	_cmdList->SetComputeRootShaderResourceView(4, _vb->GetGPUVirtualAddress());
+	_cmdList->SetComputeRootShaderResourceView(5, _ib->GetGPUVirtualAddress());
 	_cmdList->Dispatch((PROBE_COUNT + 63) / 64, 1, 1);
 
-	D3D12_RESOURCE_BARRIER uav{};
-	uav.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-	uav.UAV.pResource = _probes.Get();
-	_cmdList->ResourceBarrier(1, &uav);
+	D3D12_RESOURCE_BARRIER uav[2]{};
+	uav[0].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV; uav[0].UAV.pResource = _probes.Get();
+	uav[1].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV; uav[1].UAV.pResource = _probeDepth.Get();
+	_cmdList->ResourceBarrier(2, uav);
 
 	Transition(_probes.Get(), _probeState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	Transition(_probeDepth.Get(), _probeDepthState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 }
 
 void D3D12Device::CreateConstantBuffers()

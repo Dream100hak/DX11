@@ -60,16 +60,21 @@ VSOut VSMain(VSIn i)
     return o;
 }
 
-// 프로브 볼륨 트라이리니어 샘플 (SH-L1 계수별 보간)
-ProbeSH SampleProbes(float3 wpos)
+// 프로브 볼륨 트라이리니어 샘플 (SH-L1) + RT 가시성 가중 (누광 방지)
+// 표면→각 코너 프로브로 가시성 레이를 쏴 막힌 프로브는 기여에서 제외. 전부 막히면 트라이리니어 폴백.
+ProbeSH SampleProbes(float3 wpos, float3 N)
 {
     int PX = (int)gGridDim.x, PY = (int)gGridDim.y, PZ = (int)gGridDim.z;
+    float3 dimM1 = float3(PX - 1, PY - 1, PZ - 1);
     float3 g = saturate((wpos - gGridMin.xyz) / (gGridMax.xyz - gGridMin.xyz));
-    float3 f = g * float3(PX - 1, PY - 1, PZ - 1);
+    float3 f = g * dimM1;
     int3 b0 = (int3)floor(f);
     float3 fr = f - (float3)b0;
 
-    ProbeSH acc; acc.c0 = 0; acc.c1 = 0; acc.c2 = 0; acc.c3 = 0;
+    ProbeSH accV; accV.c0 = 0; accV.c1 = 0; accV.c2 = 0; accV.c3 = 0; // 가시성 가중
+    ProbeSH accA; accA.c0 = 0; accA.c1 = 0; accA.c2 = 0; accA.c3 = 0; // 폴백(가중합=1)
+    float wsumV = 0.0;
+
     [unroll] for (int s = 0; s < 8; ++s)
     {
         int3 o = int3(s & 1, (s >> 1) & 1, (s >> 2) & 1);
@@ -78,9 +83,37 @@ ProbeSH SampleProbes(float3 wpos)
         float3 w3 = lerp(1.0 - fr, fr, (float3)o);
         float w = w3.x * w3.y * w3.z;
         ProbeSH p = gProbes[idx];
-        acc.c0 += p.c0 * w; acc.c1 += p.c1 * w; acc.c2 += p.c2 * w; acc.c3 += p.c3 * w;
+
+        // 가시성: 표면 → 프로브 위치 레이 (도중 막히면 vis=0)
+        float3 ppos = lerp(gGridMin.xyz, gGridMax.xyz, (float3)c / dimM1);
+        float3 toP = ppos - wpos;
+        float dist = length(toP);
+        float vis = 1.0;
+        if (dist > 1e-3)
+        {
+            RayDesc ray;
+            ray.Origin = wpos + N * 0.03;
+            ray.Direction = toP / dist;
+            ray.TMin = 0.02;
+            ray.TMax = max(dist - 0.1, 0.0);
+            RayQuery<RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_CULL_NON_OPAQUE> q;
+            q.TraceRayInline(gScene, RAY_FLAG_NONE, 0xFF, ray);
+            q.Proceed();
+            if (q.CommittedStatus() != COMMITTED_NOTHING) vis = 0.0;
+        }
+        float wv = w * vis;
+        accV.c0 += p.c0 * wv; accV.c1 += p.c1 * wv; accV.c2 += p.c2 * wv; accV.c3 += p.c3 * wv;
+        accA.c0 += p.c0 * w;  accA.c1 += p.c1 * w;  accA.c2 += p.c2 * w;  accA.c3 += p.c3 * w;
+        wsumV += wv;
     }
-    return acc;
+
+    if (wsumV > 1e-4)
+    {
+        float inv = 1.0 / wsumV;
+        ProbeSH r; r.c0 = accV.c0 * inv; r.c1 = accV.c1 * inv; r.c2 = accV.c2 * inv; r.c3 = accV.c3 * inv;
+        return r;
+    }
+    return accA; // 전부 가림 → 트라이리니어 폴백
 }
 
 // SH-L1 → 표면 법선 방향 irradiance (코사인 컨볼루션 상수 적용)
@@ -113,8 +146,8 @@ float4 PSMain(VSOut i) : SV_TARGET
 
     float3 albedo   = i.col;
     float3 direct   = albedo * (ndl * shadow) * gLightDir.w;        // 직접광(흰빛)
-    ProbeSH sh      = SampleProbes(i.wpos);
-    float3 indirect = albedo * EvalIrradiance(sh, N) * gGI.x;       // DDGI 간접광(방향성 색 바운스)
+    ProbeSH sh      = SampleProbes(i.wpos, N);
+    float3 indirect = albedo * EvalIrradiance(sh, N) * gGI.x;       // DDGI 간접광(방향성 색 바운스, 가시성 가중)
     float3 col = albedo * gGI.z + direct + indirect;               // 미세 앰비언트 + 직접 + 간접
     return float4(col, 1.0);
 }

@@ -739,7 +739,7 @@ void D3D12Device::DrawInspector()
 			{ LoadClip(_clips[_curClip], _clip); _animated = _clip.frameCount > 0; _animTimeAcc = 0.0f; }
 		}
 		ImGui::SeparatorText("Turntable / History");                   // U14 / U17
-		ImGui::Checkbox("Auto-rotate", &_turntable); ImGui::SameLine(); ImGui::SliderFloat("Speed", &_turnSpeed, 0.05f, 2.0f);
+		ImGui::Checkbox("Auto-rotate", &_turntable); ImGui::SameLine(); ImGui::SliderFloat("Rot Speed", &_turnSpeed, 0.05f, 2.0f);
 		if (ImGui::Button("Checkpoint")) PushUndo();
 		ImGui::SameLine(); if (ImGui::Button("Undo")) DoUndo();
 		ImGui::SameLine(); if (ImGui::Button("Redo")) DoRedo();

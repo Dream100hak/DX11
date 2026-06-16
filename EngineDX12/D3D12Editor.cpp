@@ -530,6 +530,29 @@ void D3D12Device::DrawSceneView()
 	ImVec2 imgPos = ImGui::GetCursorScreenPos();
 	if (_sceneTexId)
 		ImGui::Image((ImTextureID)_sceneTexId, avail);
+
+	// ── .mesh 드래그드롭 → 바닥 히트 지점에 배치 ──
+	if (ImGui::BeginDragDropTarget())
+	{
+		if (const ImGuiPayload* pl = ImGui::AcceptDragDropPayload("MESH_PATH"))
+		{
+			using namespace DirectX;
+			std::wstring meshPath = Utf8ToW(std::string((const char*)pl->Data));
+			ImVec2 mp = ImGui::GetMousePos();
+			float u = (mp.x - imgPos.x) / avail.x, v = (mp.y - imgPos.y) / avail.y;
+			Vec3 pos = SpawnPoint(); pos.y = 0.f; // 폴백
+			float nx = u * 2.f - 1.f, ny = (1.f - v) * 2.f - 1.f;
+			XMMATRIX invVP = XMMatrixInverse(nullptr, XMLoadFloat4x4(&_viewM) * XMLoadFloat4x4(&_projM));
+			XMVECTOR n = XMVector4Transform(XMVectorSet(nx, ny, 0, 1), invVP); n = XMVectorScale(n, 1.f / XMVectorGetW(n));
+			XMVECTOR f = XMVector4Transform(XMVectorSet(nx, ny, 1, 1), invVP); f = XMVectorScale(f, 1.f / XMVectorGetW(f));
+			XMFLOAT3 ro; XMStoreFloat3(&ro, n);
+			XMFLOAT3 rd; XMStoreFloat3(&rd, XMVector3Normalize(XMVectorSubtract(f, n)));
+			if (fabsf(rd.y) > 1e-6f) { float t = -ro.y / rd.y; if (t > 0) pos = Vec3{ ro.x + rd.x * t, 0.f, ro.z + rd.z * t }; }
+			SpawnAnimatedModel(meshPath, pos);
+		}
+		ImGui::EndDragDropTarget();
+	}
+
 	_sceneHovered = ImGui::IsWindowHovered();
 	_sceneFocused = ImGui::IsWindowFocused();
 
@@ -1621,6 +1644,15 @@ void D3D12Device::DrawFolderContents()
 				ImGui::PopStyleColor(2);
 			}
 			if (selected) ImGui::PopStyleColor();
+
+			// .mesh 드래그 → Scene 뷰에 드롭하면 배치
+			if (!isDir && kind == AssetKind::Mesh && ImGui::BeginDragDropSource())
+			{
+				std::string up = WToUtf8(full);
+				ImGui::SetDragDropPayload("MESH_PATH", up.c_str(), up.size() + 1);
+				ImGui::TextUnformatted(WToUtf8(p.filename().wstring()).c_str());
+				ImGui::EndDragDropSource();
+			}
 
 			if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) dbl = true;
 

@@ -188,20 +188,30 @@ void ModelAnimator::CreateMaterials()
 		return outTex;
 	};
 	{ std::vector<uint8_t> white(4, 255); _whiteTex = makeTex(white, 1, 1); }
-	auto loadOr = [&](const std::wstring& file) -> ComPtr<ID3D12Resource>
-	{
-		std::vector<uint8_t> px; uint32 tw = 0, th = 0;
-		if (!file.empty() && LoadImageRGBA(file, px, tw, th)) return makeTex(px, tw, th);
-		return _whiteTex;
-	};
-	_matResources.resize(_matCount * 3);
+
+	// 텍스처 파일 경로 수집 (슬롯×3)
+	const uint32 nTex = _matCount * 3;
+	std::vector<std::wstring> files(nTex);
 	for (uint32 s = 0; s < _matCount; ++s)
 	{
 		MatTex mt; auto it = matMap.find(slotStems[s]); if (it != matMap.end()) mt = it->second;
-		_matResources[s * 3 + 0] = loadOr(mt.diffuse);
-		_matResources[s * 3 + 1] = loadOr(mt.normal);
-		_matResources[s * 3 + 2] = loadOr(mt.spec);
+		files[s * 3 + 0] = mt.diffuse; files[s * 3 + 1] = mt.normal; files[s * 3 + 2] = mt.spec;
 	}
+	// WIC 디코드 병렬화 (첫 로드 비용의 핵심 — CPU 디코드를 코어 분산, GPU 생성은 직렬)
+	struct Dec { std::vector<uint8_t> px; uint32 w = 0, h = 0; bool ok = false; };
+	std::vector<Dec> dec(nTex);
+	concurrency::parallel_for(uint32(0), nTex, [&](uint32 i)
+	{
+		if (files[i].empty()) return;
+		CoInitializeEx(nullptr, COINIT_MULTITHREADED); // 워커 스레드 WIC COM
+		Dec d; if (LoadImageRGBA(files[i], d.px, d.w, d.h)) d.ok = true;
+		CoUninitialize();
+		dec[i] = std::move(d);
+	});
+	// GPU 텍스처 생성 (직렬, cl 기록)
+	_matResources.resize(nTex);
+	for (uint32 i = 0; i < nTex; ++i)
+		_matResources[i] = dec[i].ok ? makeTex(dec[i].px, dec[i].w, dec[i].h) : _whiteTex;
 	cl->Close();
 	ID3D12CommandList* lists[] = { cl.Get() }; _dev->_queue->ExecuteCommandLists(1, lists);
 	// 전용 펜스 대기 (업로드만 — 렌더 프레임 펜스 미교란)

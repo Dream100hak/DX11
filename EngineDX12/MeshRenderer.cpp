@@ -4,6 +4,7 @@
 #include "Transform.h"
 #include "TextureLoader.h"
 #include "GeometryHelper.h"
+#include "RtBlas.h"
 #include "imgui.h"
 
 using namespace DirectX;
@@ -203,14 +204,27 @@ void MeshRenderer::OnInspectorGUI()
 	if (tintChanged) _baked = false; // 틴트는 정점색에 베이크 → 재베이크 강제
 }
 
+// RT 통합 — AS 패스에서 호출(Draw 전). 트랜스폼 변경 시에만 월드 정점 재생성.
+void MeshRenderer::UpdateWorld()
+{
+	if (!_dev || _local.empty()) return;
+	SyncMaterialTex();
+	uint32 ver = 0; if (auto t = GetTransform()) ver = t->Version();
+	if (!_baked || ver != _bakedVer) { Rebake(); _baked = true; _bakedVer = ver; }
+}
+
+void MeshRenderer::RecordBuildBLAS(ID3D12GraphicsCommandList4* cmd)
+{
+	if (!_dev || _local.empty()) return;
+	RtBlas::Build(_dev->_device.Get(), cmd, _vb.Get(), _ib.Get(),
+	              (UINT)_local.size(), (UINT)_indices.size(), sizeof(Vtx), _blas, _blasScratch);
+}
+
 void MeshRenderer::Draw(const RenderContext& ctx)
 {
 	if (!_dev || _local.empty()) return;
 
-	SyncMaterialTex(); // 머티리얼 텍스처 경로 변경 반영
-
-	uint32 ver = 0; if (auto t = GetTransform()) ver = t->Version();
-	if (!_baked || ver != _bakedVer) { Rebake(); _baked = true; _bakedVer = ver; }
+	UpdateWorld(); // 더티 아니면 no-op (AS 패스 미수집 오브젝트 안전망)
 
 	D3D12Device& d = *_dev;
 	auto* cmd = ctx.cmd;

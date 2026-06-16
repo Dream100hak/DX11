@@ -23,6 +23,11 @@ public:
 	virtual void TransformBoundingBox() override;
 	virtual void OnInspectorGUI() override; // 머티리얼/텍스처 편집
 
+	// RT 통합 — 월드 갱신(베이크) + 자체 BLAS 빌드 (AS 패스에서 호출, Draw 전)
+	void UpdateWorld();
+	void RecordBuildBLAS(ID3D12GraphicsCommandList4* cmd);
+	D3D12_GPU_VIRTUAL_ADDRESS BlasAddr() const { return _blas ? _blas->GetGPUVirtualAddress() : 0; }
+
 	Material& GetMaterial() { return _material; }
 	const vector<Vtx>&    GetLocalVerts() const { return _local; }   // 복제용
 	const vector<uint32>& GetLocalIndices() const { return _indices; }
@@ -53,4 +58,5 @@ private:
 	std::wstring                 _loadedTexPath; // 현재 SRV 에 올라간 경로 (변경 감지)
 	char                         _texPathBuf[260] = {}; // 인스펙터 입력 버퍼
 	MeshPrim                     _prim = MeshPrim::None; // 절차적 프리미티브 종류
+	ComPtr<ID3D12Resource>       _blas, _blasScratch;   // RT 통합 TLAS 인스턴스용
 };

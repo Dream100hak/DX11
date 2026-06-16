@@ -1,6 +1,9 @@
 #include "D3D12Device.h"
 #include "Renderer.h"
 #include "Transform.h"
+#include "MeshRenderer.h"
+#include "ModelAnimator.h"
+#include "RtBlas.h"
 #include "Camera.h"
 #include "Light.h"
 #include "TimeManager.h"
@@ -178,8 +181,33 @@ void D3D12Device::Render()
 	ThrowIfFailed(alloc->Reset(), "Allocator Reset");
 	ThrowIfFailed(_cmdList->Reset(alloc.Get(), nullptr), "CmdList Reset");
 
-	// 갱신된 정점으로 BLAS/TLAS 매 프레임 재빌드 (스키닝/기즈모 반영 → RT 일치)
-	_scene.RecordBuildAS(_cmdList.Get());
+	// ── RT 가속구조: 모든 렌더러 BLAS + 통합 TLAS (모델/바닥 + 스폰 메시 + 애니) ──
+	{
+		std::vector<D3D12_RAYTRACING_INSTANCE_DESC> rtInst;
+		_scene.RecordBuildModelBLAS(_cmdList.Get()); // 모델+바닥 BLAS
+		rtInst.push_back(RtBlas::IdentityInstance(_scene._blas->GetGPUVirtualAddress()));
+		if (_gameScene)
+			for (auto& kv : _gameScene->GetCreatedObjects())
+			{
+				auto& o = kv.second;
+				if (!o || !o->IsActive() || o == _modelObj) continue;
+				if (rtInst.size() >= ModelScene::MAX_INSTANCES) break;
+				if (auto mr = o->GetMeshRenderer())
+				{
+					mr->UpdateWorld(); mr->RecordBuildBLAS(_cmdList.Get());
+					if (mr->BlasAddr()) rtInst.push_back(RtBlas::IdentityInstance(mr->BlasAddr()));
+				}
+				else if (auto an = o->GetModelAnimator())
+				{
+					an->UpdateWorld(); an->RecordBuildBLAS(_cmdList.Get());
+					if (an->BlasAddr()) rtInst.push_back(RtBlas::IdentityInstance(an->BlasAddr()));
+				}
+			}
+		// 모든 BLAS 빌드 완료 후 UAV 배리어(전체) → 통합 TLAS
+		D3D12_RESOURCE_BARRIER uav{}; uav.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV; uav.UAV.pResource = nullptr;
+		_cmdList->ResourceBarrier(1, &uav);
+		_scene.BuildTLAS(_cmdList.Get(), rtInst);
+	}
 
 	// ── DDGI: 프로브 irradiance 갱신 (컴퓨트 RT) — 라스터 전에 ──
 	_ddgi.Dispatch(_cmdList.Get(), _cb[_frameIndex]->GetGPUVirtualAddress(),

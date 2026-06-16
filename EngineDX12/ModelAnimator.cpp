@@ -5,6 +5,7 @@
 #include "Define.h"
 #include "TimeManager.h"
 #include "TextureLoader.h"
+#include "RtBlas.h"
 #include "imgui.h"
 #include <filesystem>
 #include <unordered_map>
@@ -252,11 +253,25 @@ void ModelAnimator::TransformBoundingBox()
 	_boundingBox.Extents = XMFLOAT3((_aabbMax.x - _aabbMin.x) * 0.5f, (_aabbMax.y - _aabbMin.y) * 0.5f, (_aabbMax.z - _aabbMin.z) * 0.5f);
 }
 
-void ModelAnimator::Draw(const RenderContext& ctx)
+// RT 통합 — AS 패스에서 호출(Draw 전). 시간 전진 + 스키닝(월드 VB 갱신).
+void ModelAnimator::UpdateWorld()
 {
 	if (!_dev || _vtxCount == 0) return;
 	if (_playing) _animTime += DT * _speed;
-	Skin(); // 매 프레임 스키닝 (트랜스폼/포즈 반영)
+	Skin();
+}
+
+void ModelAnimator::RecordBuildBLAS(ID3D12GraphicsCommandList4* cmd)
+{
+	if (!_dev || _vtxCount == 0) return;
+	RtBlas::Build(_dev->_device.Get(), cmd, _vb.Get(), _ib.Get(),
+	              _vtxCount, _idxCount, sizeof(Vtx), _blas, _blasScratch);
+}
+
+void ModelAnimator::Draw(const RenderContext& ctx)
+{
+	if (!_dev || _vtxCount == 0) return;
+	// 스키닝/시간전진은 AS 패스의 UpdateWorld 에서 수행됨 (여기선 그리기만)
 
 	D3D12Device& d = *_dev;
 	auto* cmd = ctx.cmd;

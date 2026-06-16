@@ -24,7 +24,10 @@ public:
 	// 매 프레임 CPU 스키닝(or 바인드) → 기즈모 트랜스폼 → VB 갱신 + 월드 AABB/본 위치
 	void UpdateAnimation(float animTimeAcc, bool turntable, float turnAngle);
 
-	void RecordBuildAS(ID3D12GraphicsCommandList4* cmd); // BLAS+TLAS 빌드 기록 (매 프레임)
+	void RecordBuildAS(ID3D12GraphicsCommandList4* cmd); // 모델 단독 BLAS+TLAS (초기 빌드/폴백)
+	void RecordBuildModelBLAS(ID3D12GraphicsCommandList4* cmd);                              // 모델+바닥 BLAS 만
+	void BuildTLAS(ID3D12GraphicsCommandList4* cmd, const std::vector<D3D12_RAYTRACING_INSTANCE_DESC>& instances); // 통합 TLAS
+	static const UINT MAX_INSTANCES = 64;
 
 	// ── 지오메트리 버퍼 ──
 	ComPtr<ID3D12Resource>            _vb;
@@ -40,6 +43,8 @@ public:
 
 	// ── 가속구조 (BLAS/TLAS) ──
 	ComPtr<ID3D12Resource>            _blas, _blasScratch, _tlas, _tlasScratch, _instanceBuffer;
+	void*                             _instanceMapped = nullptr; // 인스턴스 desc 영속 매핑
+	UINT                              _instanceCount = 1;        // 마지막 TLAS 인스턴스 수
 
 	// ── 스키닝 / 애니메이션 ──
 	std::vector<LoadedBone>           _bonesData;

@@ -20,6 +20,11 @@ public:
 	virtual void TransformBoundingBox() override;
 	virtual void OnInspectorGUI() override;
 
+	// RT 통합 — 시간 전진+스키닝(AS 패스, Draw 전) + 자체 BLAS 빌드
+	void UpdateWorld();
+	void RecordBuildBLAS(ID3D12GraphicsCommandList4* cmd);
+	D3D12_GPU_VIRTUAL_ADDRESS BlasAddr() const { return _blas ? _blas->GetGPUVirtualAddress() : 0; }
+
 	const std::wstring& MeshDir()  const { return _modelDir; }
 	const std::wstring& MeshStem() const { return _modelStem; }
 	int  GetClipIndex() const { return _curClip; }
@@ -70,4 +75,6 @@ private:
 	uint32                              _matCount = 0;
 	std::vector<uint32>                 _subMatSlot;
 	bool                                _hasTexture = false;
+
+	ComPtr<ID3D12Resource>              _blas, _blasScratch; // RT 통합 TLAS 인스턴스용
 };

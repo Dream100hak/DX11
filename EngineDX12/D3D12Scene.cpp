@@ -405,17 +405,21 @@ void ModelScene::CreateASBuffers()
 	_blas        = _dev->CreateDefaultBuffer(blasInfo.ResultDataMaxSizeInBytes, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, true);
 	_blasScratch = _dev->CreateDefaultBuffer(blasInfo.ScratchDataSizeInBytes, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, true);
 
-	D3D12_RAYTRACING_INSTANCE_DESC inst{};
-	inst.Transform[0][0] = 1.f; inst.Transform[1][1] = 1.f; inst.Transform[2][2] = 1.f;
-	inst.InstanceMask = 0xFF;
-	inst.AccelerationStructure = _blas->GetGPUVirtualAddress();
-	_instanceBuffer = _dev->CreateUploadBuffer(&inst, sizeof(inst));
+	// 인스턴스 버퍼 — MAX_INSTANCES 분 (영속 매핑, 매 프레임 갱신). 슬롯0=모델 단위행렬.
+	_instanceBuffer = _dev->CreateUploadBuffer(nullptr, sizeof(D3D12_RAYTRACING_INSTANCE_DESC) * MAX_INSTANCES);
+	{
+		D3D12_RANGE nr{ 0, 0 }; ThrowIfFailed(_instanceBuffer->Map(0, &nr, &_instanceMapped), "Map instances");
+		D3D12_RAYTRACING_INSTANCE_DESC inst{};
+		inst.Transform[0][0] = 1.f; inst.Transform[1][1] = 1.f; inst.Transform[2][2] = 1.f;
+		inst.InstanceMask = 0xFF; inst.AccelerationStructure = _blas->GetGPUVirtualAddress();
+		memcpy(_instanceMapped, &inst, sizeof(inst)); _instanceCount = 1;
+	}
 
 	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS tlasIn{};
 	tlasIn.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
 	tlasIn.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
 	tlasIn.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
-	tlasIn.NumDescs = 1;
+	tlasIn.NumDescs = MAX_INSTANCES; // 최대치로 사이징 (빌드 시 실제 count 사용)
 	tlasIn.InstanceDescs = _instanceBuffer->GetGPUVirtualAddress();
 	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO tlasInfo{};
 	_dev->_device->GetRaytracingAccelerationStructurePrebuildInfo(&tlasIn, &tlasInfo);
@@ -432,7 +436,8 @@ void ModelScene::CreateASBuffers()
 	_dev->WaitForGpu();
 }
 
-void ModelScene::RecordBuildAS(ID3D12GraphicsCommandList4* cmd)
+// 모델+바닥 BLAS 만 빌드 (+ UAV 배리어). TLAS 는 BuildTLAS 가 통합해서.
+void ModelScene::RecordBuildModelBLAS(ID3D12GraphicsCommandList4* cmd)
 {
 	D3D12_RAYTRACING_GEOMETRY_DESC geom{};
 	FillBlasGeom(_vb.Get(), _ib.Get(), _vertexCount, _indexCount, geom);
@@ -449,17 +454,20 @@ void ModelScene::RecordBuildAS(ID3D12GraphicsCommandList4* cmd)
 	blasBuild.DestAccelerationStructureData = _blas->GetGPUVirtualAddress();
 	blasBuild.ScratchAccelerationStructureData = _blasScratch->GetGPUVirtualAddress();
 	cmd->BuildRaytracingAccelerationStructure(&blasBuild, 0, nullptr);
+}
 
-	D3D12_RESOURCE_BARRIER ub{};
-	ub.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-	ub.UAV.pResource = _blas.Get();
-	cmd->ResourceBarrier(1, &ub);
+// 통합 TLAS — instances(슬롯0=모델 포함) 를 인스턴스 버퍼에 기록 후 빌드.
+void ModelScene::BuildTLAS(ID3D12GraphicsCommandList4* cmd, const std::vector<D3D12_RAYTRACING_INSTANCE_DESC>& instances)
+{
+	_instanceCount = (UINT)(instances.size() < MAX_INSTANCES ? instances.size() : MAX_INSTANCES);
+	if (_instanceCount == 0) _instanceCount = 1; // 안전 (모델만)
+	memcpy(_instanceMapped, instances.data(), sizeof(D3D12_RAYTRACING_INSTANCE_DESC) * _instanceCount);
 
 	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS tlasIn{};
 	tlasIn.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
 	tlasIn.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
 	tlasIn.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
-	tlasIn.NumDescs = 1;
+	tlasIn.NumDescs = _instanceCount;
 	tlasIn.InstanceDescs = _instanceBuffer->GetGPUVirtualAddress();
 
 	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC tlasBuild{};
@@ -468,6 +476,22 @@ void ModelScene::RecordBuildAS(ID3D12GraphicsCommandList4* cmd)
 	tlasBuild.ScratchAccelerationStructureData = _tlasScratch->GetGPUVirtualAddress();
 	cmd->BuildRaytracingAccelerationStructure(&tlasBuild, 0, nullptr);
 
-	ub.UAV.pResource = _tlas.Get();
+	D3D12_RESOURCE_BARRIER ub{};
+	ub.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV; ub.UAV.pResource = _tlas.Get();
 	cmd->ResourceBarrier(1, &ub);
+}
+
+// 모델 단독(초기 빌드/폴백) — 모델 BLAS + 단일 인스턴스 TLAS
+void ModelScene::RecordBuildAS(ID3D12GraphicsCommandList4* cmd)
+{
+	RecordBuildModelBLAS(cmd);
+	D3D12_RESOURCE_BARRIER ub{};
+	ub.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV; ub.UAV.pResource = _blas.Get();
+	cmd->ResourceBarrier(1, &ub);
+
+	D3D12_RAYTRACING_INSTANCE_DESC inst{};
+	inst.Transform[0][0] = 1.f; inst.Transform[1][1] = 1.f; inst.Transform[2][2] = 1.f;
+	inst.InstanceMask = 0xFF; inst.AccelerationStructure = _blas->GetGPUVirtualAddress();
+	std::vector<D3D12_RAYTRACING_INSTANCE_DESC> one{ inst };
+	BuildTLAS(cmd, one);
 }

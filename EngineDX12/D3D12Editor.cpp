@@ -86,30 +86,48 @@ void D3D12Device::DrawDebugLines()
 		int e[24] = { 0,1,1,2,2,3,3,0, 4,5,5,6,6,7,7,4, 0,4,1,5,2,6,3,7 };
 		for (int k = 0; k < 24; k += 2) _debugDraw.Line(p[e[k]], p[e[k + 1]], c);
 	}
-	if (_showLightIcons)
+	// ── 씬 Light 컴포넌트 아이콘 (고정 3개 + 추가 라이트 전부) ──
+	if (_showLightIcons && _gameScene)
 	{
-		if (_pointOn) _debugDraw.Cross(_pointPos, _pointColor, 0.18f);
-		for (int li = 1; li < _ptCount; ++li) _debugDraw.Cross({ _ptPosArr[li].x,_ptPosArr[li].y,_ptPosArr[li].z }, { _ptColArr[li].x,_ptColArr[li].y,_ptColArr[li].z }, 0.18f);
-		if (_spotOn) _debugDraw.Cross(_spotPos, _spotColor, 0.18f);
-	}
-	if (_spotOn && _showSpotCone)
-	{
-		XMVECTOR ap = XMLoadFloat3(&_spotPos);
-		XMVECTOR dir = XMVector3Normalize(XMLoadFloat3(&_spotDir));
-		XMVECTOR up = fabsf(XMVectorGetY(dir)) > 0.95f ? XMVectorSet(1,0,0,0) : XMVectorSet(0,1,0,0);
-		XMVECTOR rt = XMVector3Normalize(XMVector3Cross(up, dir)); XMVECTOR bt = XMVector3Cross(dir, rt);
-		float len = min(_spotRadius, 5.0f), rad = tanf(_spotConeDeg * 0.01745f) * len;
-		XMVECTOR ce = XMVectorAdd(ap, XMVectorScale(dir, len));
-		XMFLOAT3 apex; XMStoreFloat3(&apex, ap); XMFLOAT3 col{ _spotColor.x, _spotColor.y, _spotColor.z };
-		XMFLOAT3 prev{};
-		for (int s = 0; s <= 16; ++s)
+		auto wireCircle = [&](XMVECTOR c, XMVECTOR a1, XMVECTOR a2, float r, XMFLOAT3 col)
 		{
-			float a = s / 16.0f * 6.2831853f;
-			XMVECTOR pw = XMVectorAdd(ce, XMVectorAdd(XMVectorScale(rt, cosf(a) * rad), XMVectorScale(bt, sinf(a) * rad)));
-			XMFLOAT3 p; XMStoreFloat3(&p, pw);
-			if (s > 0) _debugDraw.Line(prev, p, col);
-			if (s % 4 == 0) _debugDraw.Line(apex, p, col);
-			prev = p;
+			XMFLOAT3 prev{};
+			for (int s = 0; s <= 16; ++s)
+			{
+				float a = s / 16.0f * 6.2831853f;
+				XMVECTOR pw = XMVectorAdd(c, XMVectorAdd(XMVectorScale(a1, cosf(a) * r), XMVectorScale(a2, sinf(a) * r)));
+				XMFLOAT3 p; XMStoreFloat3(&p, pw); if (s > 0) _debugDraw.Line(prev, p, col); prev = p;
+			}
+		};
+		for (auto& kv : _gameScene->GetCreatedObjects())
+		{
+			auto& o = kv.second; if (!o || !o->IsActive()) continue;
+			auto l = o->GetLight(); if (!l || !l->_enabled || l->_lightType == LightType::Directional) continue; // 디렉셔널=글로벌(생략)
+			auto t = o->GetTransform(); Vec3 pp = t ? t->GetLocalPosition() : Vec3{ 0,0,0 };
+			XMFLOAT3 col = l->_color;
+			_debugDraw.Cross(pp, col, 0.2f);
+			XMVECTOR c = XMLoadFloat3(&pp);
+			wireCircle(c, XMVectorSet(1,0,0,0), XMVectorSet(0,1,0,0), 0.3f, col); // 전구 와이어 구(3축 원)
+			wireCircle(c, XMVectorSet(1,0,0,0), XMVectorSet(0,0,1,0), 0.3f, col);
+			wireCircle(c, XMVectorSet(0,1,0,0), XMVectorSet(0,0,1,0), 0.3f, col);
+			if (l->_lightType == LightType::Spot && _showSpotCone)
+			{
+				XMVECTOR dir = XMVector3Normalize(XMLoadFloat3(&l->_direction));
+				XMVECTOR up = fabsf(XMVectorGetY(dir)) > 0.95f ? XMVectorSet(1,0,0,0) : XMVectorSet(0,1,0,0);
+				XMVECTOR rt = XMVector3Normalize(XMVector3Cross(up, dir)); XMVECTOR bt = XMVector3Cross(dir, rt);
+				float len = min(l->_range, 5.0f), rad = tanf(l->_spotAngleDeg * 0.01745f) * len;
+				XMVECTOR ce = XMVectorAdd(c, XMVectorScale(dir, len));
+				XMFLOAT3 prev{};
+				for (int s = 0; s <= 16; ++s)
+				{
+					float a = s / 16.0f * 6.2831853f;
+					XMVECTOR pw = XMVectorAdd(ce, XMVectorAdd(XMVectorScale(rt, cosf(a) * rad), XMVectorScale(bt, sinf(a) * rad)));
+					XMFLOAT3 p; XMStoreFloat3(&p, pw);
+					if (s > 0) _debugDraw.Line(prev, p, col);
+					if (s % 4 == 0) _debugDraw.Line(pp, p, col);
+					prev = p;
+				}
+			}
 		}
 	}
 

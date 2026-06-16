@@ -21,7 +21,41 @@ static std::string WToUtf8(const std::wstring& w)
 	return s;
 }
 
-// 디버그 라인 빌드 + 드로우 (U10 본 / U11 AABB / U12 라이트 아이콘 / U13 스팟 콘)
+// W1 파티클 CPU 시뮬레이션 (sparks 분수 / snow 낙하)
+void D3D12Device::UpdateParticles(float dt)
+{
+	if (!_particlesOn) { _particles.clear(); return; }
+	auto rnd = [](float& s) { s = fmodf(s * 1664525.0f + 1013904223.0f, 4294967296.0f); return s / 4294967296.0f; };
+	const int CAP = 240;
+	static float seed = 12345.0f;
+	while ((int)_particles.size() < CAP)
+	{
+		Particle p;
+		if (_particleMode == 0) // sparks 분수
+		{
+			p.pos = { 0, 0.1f, 0 };
+			p.vel = { (rnd(seed) - 0.5f) * 2.2f, 2.5f + rnd(seed) * 2.5f, (rnd(seed) - 0.5f) * 2.2f };
+			p.col = { 1.4f, 0.5f + rnd(seed) * 0.4f, 0.12f }; p.life = 0.8f + rnd(seed) * 0.9f;
+		}
+		else // snow 낙하
+		{
+			p.pos = { (rnd(seed) - 0.5f) * 10.0f, 5.0f, (rnd(seed) - 0.5f) * 10.0f };
+			p.vel = { (rnd(seed) - 0.5f) * 0.3f, -0.8f - rnd(seed) * 0.6f, (rnd(seed) - 0.5f) * 0.3f };
+			p.col = { 0.9f, 0.95f, 1.1f }; p.life = 4.0f + rnd(seed) * 3.0f;
+		}
+		_particles.push_back(p);
+	}
+	for (auto it = _particles.begin(); it != _particles.end(); )
+	{
+		it->life -= dt;
+		if (_particleMode == 0) it->vel.y -= 6.0f * dt; // 중력
+		it->pos.x += it->vel.x * dt; it->pos.y += it->vel.y * dt; it->pos.z += it->vel.z * dt;
+		bool dead = it->life <= 0.0f || (_particleMode == 0 && it->pos.y < 0.0f) || (_particleMode == 1 && it->pos.y < 0.0f);
+		if (dead) it = _particles.erase(it); else ++it;
+	}
+}
+
+// 디버그 라인 빌드 + 드로우 (U10 본 / U11 AABB / U12 라이트 아이콘 / U13 스팟 콘 / W1 파티클)
 void D3D12Device::DrawDebugLines()
 {
 	using namespace DirectX;
@@ -33,6 +67,9 @@ void D3D12Device::DrawDebugLines()
 	auto cross = [&](XMFLOAT3 p, XMFLOAT3 c, float s) {
 		line({ p.x - s,p.y,p.z }, { p.x + s,p.y,p.z }, c); line({ p.x,p.y - s,p.z }, { p.x,p.y + s,p.z }, c); line({ p.x,p.y,p.z - s }, { p.x,p.y,p.z + s }, c);
 	};
+
+	if (_particlesOn) // W1: 파티클을 작은 월드 크로스로
+		for (auto& pt : _particles) { float s = (_particleMode == 0) ? 0.05f : 0.03f; cross(pt.pos, pt.col, s); }
 
 	if (_showAABB && _sel == SelEntity::Model)
 	{
@@ -408,6 +445,28 @@ void D3D12Device::DrawSceneView()
 		if (using_ && !wasUsing && _sel == SelEntity::Model) PushUndo(); // 조작 시작 시 되돌리기 지점
 		wasUsing = using_;
 	}
+
+	// W4 레터박스 + W5 오버레이 (씬 이미지 위 드로우리스트)
+	ImDrawList* dl = ImGui::GetWindowDrawList();
+	ImVec2 a = imgPos, b = ImVec2(imgPos.x + avail.x, imgPos.y + avail.y);
+	if (_letterbox > 0.001f)
+	{
+		float barH = avail.y * _letterbox * 0.5f;
+		dl->AddRectFilled(a, ImVec2(b.x, a.y + barH), IM_COL32(0, 0, 0, 255));
+		dl->AddRectFilled(ImVec2(a.x, b.y - barH), b, IM_COL32(0, 0, 0, 255));
+	}
+	if (_overlay)
+	{
+		ImU32 c = IM_COL32(255, 255, 255, 70);
+		for (int k = 1; k < 3; ++k)
+		{
+			float x = a.x + avail.x * k / 3.0f, y = a.y + avail.y * k / 3.0f;
+			dl->AddLine(ImVec2(x, a.y), ImVec2(x, b.y), c); dl->AddLine(ImVec2(a.x, y), ImVec2(b.x, y), c);
+		}
+		ImVec2 ct((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f);
+		dl->AddLine(ImVec2(ct.x - 11, ct.y), ImVec2(ct.x + 11, ct.y), IM_COL32(255, 255, 255, 170));
+		dl->AddLine(ImVec2(ct.x, ct.y - 11), ImVec2(ct.x, ct.y + 11), IM_COL32(255, 255, 255, 170));
+	}
 	ImGui::End();
 	ImGui::PopStyleVar();
 }
@@ -618,6 +677,10 @@ void D3D12Device::DrawInspector()
 		ImGui::ColorEdit3("Zenith", &_skyZenith.x);
 		ImGui::ColorEdit3("Horizon", &_skyHorizon.x);
 		ImGui::SliderFloat("Sun Size", &_sunSize, 50.0f, 4000.0f);
+		ImGui::SliderFloat("Shadow Strength", &_shadowStrength, 0.0f, 1.0f); // W6
+		ImGui::SliderFloat("Hemi Ambient", &_hemiAmbient, 0.0f, 1.0f);       // W7
+		ImGui::Checkbox("Night Stars", &_stars);                            // W8
+		ImGui::SliderFloat("Clouds", &_cloudAmt, 0.0f, 1.0f);               // W3
 		ImGui::TextDisabled("Presets:");                               // U8
 		ImGui::SameLine(); if (ImGui::Button("Day"))    { _skyZenith = {0.13f,0.22f,0.44f}; _skyHorizon = {0.52f,0.60f,0.72f}; _sunColor = {1,0.96f,0.88f}; _lightIntensity = 1.6f; _lightAngle = 0.6f; }
 		ImGui::SameLine(); if (ImGui::Button("Sunset")) { _skyZenith = {0.22f,0.15f,0.32f}; _skyHorizon = {0.95f,0.5f,0.22f}; _sunColor = {1.0f,0.55f,0.28f}; _lightIntensity = 1.3f; _lightAngle = 1.45f; _lightAnimate = false; }
@@ -646,6 +709,7 @@ void D3D12Device::DrawInspector()
 		ImGui::SliderFloat("Intensity##0", &_pointIntensity, 0.0f, 12.0f);
 		ImGui::SliderFloat("Radius##0", &_pointRadius, 0.5f, 20.0f);
 		ImGui::Checkbox("Orbit##0", &_ptOrbit); ImGui::SameLine(); ImGui::SliderFloat("Orbit Spd", &_ptOrbitSpeed, 0.1f, 3.0f); // V14
+		ImGui::Checkbox("Flicker", &_flicker); // W9
 		for (int li = 1; li < _ptCount; ++li)
 		{
 			ImGui::PushID(li);
@@ -716,6 +780,10 @@ void D3D12Device::DrawInspector()
 		ImGui::SliderFloat("Grid Fade", &_gridFade, 10.0f, 150.0f);
 		ImGui::Combo("Background", &_bgMode, "Sky\0Solid Color\0");      // V17
 		if (_bgMode == 1) ImGui::ColorEdit3("BG Color", &_bgColor.x);
+		ImGui::SeparatorText("Effects");                                // W1/W4/W5
+		ImGui::Checkbox("Particles", &_particlesOn); ImGui::SameLine(); ImGui::Combo("##pm", &_particleMode, "Sparks\0Snow\0");
+		ImGui::SliderFloat("Letterbox", &_letterbox, 0.0f, 0.4f);
+		ImGui::Checkbox("Composition Overlay", &_overlay);
 		if (ImGui::Button("Reset All To Defaults")) {                    // V18
 			_toonLevels = 0; _rimPower = 0; _normalIntensity = 1; _chroma = _grain = _sharpen = 0;
 			_lensDistort = 0; _posterize = 0; _filterMode = 0; _anamorphic = false; _renderScale = 1;
@@ -784,6 +852,11 @@ void D3D12Device::DrawInspector()
 		if (ImGui::Button("Checkpoint")) PushUndo();
 		ImGui::SameLine(); if (ImGui::Button("Undo")) DoUndo();
 		ImGui::SameLine(); if (ImGui::Button("Redo")) DoRedo();
+		if (ImGui::Button("Snap To Ground")) // W10
+		{
+			float t[3], r[3], sc[3]; ImGuizmo::DecomposeMatrixToComponents((float*)&_modelMatrix, t, r, sc);
+			t[1] -= _modelMin.y; ImGuizmo::RecomposeMatrixFromComponents(t, r, sc, (float*)&_modelMatrix);
+		}
 		ImGui::Checkbox("Show Bones", &_showBones); ImGui::SameLine(); ImGui::Checkbox("Show AABB", &_showAABB);
 		ImGui::SeparatorText("Info");
 		ImGui::Text("Verts %u  Tris %u  Bones %u", _vertexCount, _indexCount / 3, (unsigned)_bonesData.size());
@@ -799,7 +872,11 @@ void D3D12Device::DrawInspector()
 		ImGui::Checkbox("Checker Pattern", &_checker);                  // V16
 		if (ImGui::Checkbox("Terrain (heightmap)", &_terrain)) _wantReload = true; // V1
 		if (ImGui::SliderFloat("Ground Size", &_groundSize, 3.0f, 20.0f)) _wantReload = true; // V19
-		ImGui::TextDisabled("Bounces indirect light via DDGI");
+		ImGui::SeparatorText("Decal");                                 // W2
+		ImGui::Checkbox("Decal", &_decalOn);
+		ImGui::DragFloat3("Decal Pos", &_decalPos.x, 0.05f);
+		ImGui::ColorEdit3("Decal Color", &_decalColor.x);
+		ImGui::SliderFloat("Decal Radius", &_decalRadius, 0.2f, 5.0f);
 		break;
 	}
 

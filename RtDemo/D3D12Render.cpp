@@ -84,6 +84,7 @@ void D3D12Device::Render()
 	_time += 1.0f / 60.0f;
 	if (!_animPaused) _animTimeAcc += (1.0f / 60.0f) * _animSpeed; // 애니 재생/속도
 	if (_turntable) _turnAngle += (1.0f / 60.0f) * _turnSpeed;     // U14 턴테이블
+	UpdateParticles(1.0f / 60.0f);                                // W1 파티클
 	// U4 자동 노출 — 씬 조명 추정 휘도에 눈 적응(프리셋 Day/Night 전환 시 부드럽게 밝기 보정)
 	if (_autoExp)
 	{
@@ -166,7 +167,9 @@ void D3D12Device::Render()
 	cb.giParams = XMFLOAT4(_giStrength, _time * 60.f, _ambient, 0.f); // GI세기 / frame / 앰비언트
 	XMStoreFloat4x4(&cb.invVP, XMMatrixInverse(nullptr, view * proj)); // 스카이 레이 복원
 	cb.pointPos   = XMFLOAT4(_pointPos.x, _pointPos.y, _pointPos.z, _pointRadius);
-	cb.pointColor = XMFLOAT4(_pointColor.x * _pointIntensity, _pointColor.y * _pointIntensity, _pointColor.z * _pointIntensity, _pointOn ? 1.f : 0.f);
+	_flickerV = _flicker ? (0.65f + 0.35f * sinf(_time * 31.0f) * sinf(_time * 7.3f) + 0.1f * sinf(_time * 53.0f)) : 1.0f; // W9
+	float pInt = _pointIntensity * _flickerV;
+	cb.pointColor = XMFLOAT4(_pointColor.x * pInt, _pointColor.y * pInt, _pointColor.z * pInt, _pointOn ? 1.f : 0.f);
 	cb.matParams  = XMFLOAT4(_matMetallic, _matRoughness, _matEmissive, _matTint);
 	cb.sunColor   = XMFLOAT4(_sunColor.x, _sunColor.y, _sunColor.z, _envIntensity);
 	cb.fog        = XMFLOAT4(_fogColor.x, _fogColor.y, _fogColor.z, _fogDensity);
@@ -187,6 +190,9 @@ void D3D12Device::Render()
 	cb.rimColor   = XMFLOAT4(_rimColor.x, _rimColor.y, _rimColor.z, 0.f);
 	cb.gridParams = XMFLOAT4(_gridCell, _gridFade, float(_bgMode), 0.f);
 	cb.outline    = XMFLOAT4(_outlineColor.x, _outlineColor.y, _outlineColor.z, _outlineThick);
+	cb.decal      = XMFLOAT4(_decalPos.x, _decalPos.y, _decalPos.z, _decalOn ? _decalRadius : 0.f); // W2
+	cb.decalCol   = XMFLOAT4(_decalColor.x, _decalColor.y, _decalColor.z, _cloudAmt);                // W2/W3
+	cb.extra      = XMFLOAT4(_shadowStrength, _hemiAmbient, _stars ? 1.f : 0.f, 0.f);                // W6/W7/W8
 	// 다중 점광원 (slot0 = 기본 점광원과 동기화)
 	_ptPosArr[0] = cb.pointPos; _ptColArr[0] = cb.pointColor;
 	for (int i = 0; i < MAX_PT; ++i) { cb.ptPos[i] = (i < _ptCount) ? _ptPosArr[i] : XMFLOAT4(0,0,0,0); cb.ptCol[i] = (i < _ptCount) ? _ptColArr[i] : XMFLOAT4(0,0,0,0); }

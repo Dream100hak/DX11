@@ -47,6 +47,9 @@ struct SceneCB
 	DirectX::XMFLOAT4   rimColor;
 	DirectX::XMFLOAT4   gridParams;
 	DirectX::XMFLOAT4   outline;
+	DirectX::XMFLOAT4   decal;
+	DirectX::XMFLOAT4   decalCol;
+	DirectX::XMFLOAT4   extra;
 };
 
 // ───────────────────────────────────────────────────────────
@@ -350,6 +353,19 @@ private:
 	DirectX::XMFLOAT3                 _bgColor{ 0.06f, 0.07f, 0.10f }; // V17
 	bool                              _anamorphic = false;      // V19
 	bool                              _hiresShot = false;       // V20 (캡처 후 렌더스케일 복원)
+
+	// ── 4차 10종(W) ──
+	struct Particle { DirectX::XMFLOAT3 pos, vel, col; float life; }; // W1
+	std::vector<Particle>             _particles; bool _particlesOn = false; int _particleMode = 0; // 0 sparks / 1 snow
+	void                              UpdateParticles(float dt);
+	bool                              _decalOn = false; DirectX::XMFLOAT3 _decalPos{ 0,0,0 }, _decalColor{ 1.0f, 0.9f, 0.2f }; float _decalRadius = 1.5f; // W2
+	float                             _cloudAmt = 0.0f;         // W3
+	float                             _letterbox = 0.0f;        // W4
+	bool                              _overlay = false;         // W5
+	float                             _shadowStrength = 1.0f;   // W6
+	float                             _hemiAmbient = 0.0f;      // W7
+	bool                              _stars = false;           // W8
+	bool                              _flicker = false; float _flickerV = 1.0f; // W9
 
 	// FolderContents 상태
 	std::wstring                      _assetRoot;          // Resources/Assets 절대경로

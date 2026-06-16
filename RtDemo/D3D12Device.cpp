@@ -44,6 +44,9 @@ cbuffer SceneCB : register(b0)
     float4 gRimColor;   // rgb 림 색
     float4 gGridParams; // x cell, y fade, z bgMode(0 sky/1 solid), w _
     float4 gOutline;    // rgb 색, w thickness
+    float4 gDecal;      // xyz 데칼 위치, w 반경(0=off)
+    float4 gDecalCol;   // rgb 데칼 색, w 구름량(0=off)
+    float4 gExtra;      // x shadowStrength, y hemiAmbient, z stars(0/1), w _
 };
 )";
 
@@ -188,6 +191,12 @@ float4 PSMain(VSOut i) : SV_TARGET
         float c = (fmod(floor(i.wpos.x) + floor(i.wpos.z), 2.0) < 1.0) ? 0.75 : 0.35;
         albedo = gFloorMat.rgb * c;
     }
+    // W2 데칼 (바닥 투영)
+    if (gUseTex == 0 && gDecal.w > 0.001)
+    {
+        float m = saturate(1.0 - distance(i.wpos.xz, gDecal.xz) / gDecal.w);
+        albedo = lerp(albedo, gDecalCol.rgb, smoothstep(0.0, 1.0, m));
+    }
     float power = lerp(8.0, 256.0, 1.0 - roughness);
     float3 specColor = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
     float specMask = (gUseTex != 0) ? gSpecMap.Sample(gSamp, i.uv).r : 1.0;
@@ -217,6 +226,7 @@ float4 PSMain(VSOut i) : SV_TARGET
         }
         shadow = 1.0 - occ / float(K);
     }
+    shadow = lerp(1.0 - gExtra.x, 1.0, shadow); // W6 그림자 강도(완전 검정 방지/조절)
 
     float3 sunCol = gSunColor.rgb * gLightDir.w;
     float df = ndl * shadow;
@@ -289,6 +299,13 @@ float4 PSMain(VSOut i) : SV_TARGET
 
     float3 col = albedo * gGI.z * gSunColor.w * ao + direct + indirect * ao + spec;
     col += albedo * emissive;
+    // W7 헤미스피어 앰비언트 (하늘=위 / 바닥=아래)
+    if (gExtra.y > 0.001)
+    {
+        float3 skyA = lerp(gSkyHorizon.rgb, gSkyZenith.rgb, saturate(N.y));
+        float3 hemi = lerp(gFloorMat.rgb * 0.3, skyA, N.y * 0.5 + 0.5) * gExtra.y;
+        col += albedo * hemi * ao;
+    }
 
     // ── RT 반사 (글로시 비금속/바닥, gDebug.w = strength) ──
     float reflStr = gDebug.w;
@@ -479,6 +496,11 @@ VOut VSMain(uint id : SV_VertexID)
     o.clip = o.pos.xy;
     return o;
 }
+float h21(float2 p){ return frac(sin(dot(p, float2(127.1, 311.7))) * 43758.5453); }
+float vnoise(float2 p){ float2 i=floor(p), f=frac(p); f=f*f*(3.0-2.0*f);
+    float a=h21(i), b=h21(i+float2(1,0)), c=h21(i+float2(0,1)), d=h21(i+float2(1,1));
+    return lerp(lerp(a,b,f.x), lerp(c,d,f.x), f.y); }
+float fbm(float2 p){ float v=0, a=0.5; [unroll] for(int k=0;k<4;k++){ v+=a*vnoise(p); p*=2.0; a*=0.5; } return v; }
 float4 PSMain(VOut i) : SV_TARGET
 {
     float4 wn = mul(float4(i.clip, 0.0, 1.0), gInvVP); wn /= wn.w;
@@ -495,6 +517,19 @@ float4 PSMain(VOut i) : SV_TARGET
     float sunSize = max(gSkyHorizon.w, 1.0);
     sky += pow(s, sunSize) * 4.0 * gSunColor.rgb;        // 태양 디스크 (색/크기)
     sky += pow(s, 8.0) * 0.25 * gSunColor.rgb;           // 글로우
+    // W8 밤 별 (어두울 때 + 천정 방향)
+    if (gExtra.z > 0.5 && dir.y > 0.08)
+    {
+        float st = h21(floor(dir.xz / max(dir.y, 0.2) * 160.0));
+        sky += step(0.992, st) * saturate(0.9 - gLightDir.w) * saturate(dir.y) * 2.0;
+    }
+    // W3 구름 (절차 fbm, 상공)
+    if (gDecalCol.w > 0.01 && dir.y > 0.04)
+    {
+        float2 uv = dir.xz / (dir.y + 0.25) * 0.5 + gGI.y * 0.00012;
+        float c = smoothstep(0.45, 0.85, fbm(uv)) * gDecalCol.w * saturate(dir.y * 3.0);
+        sky = lerp(sky, float3(1.0, 1.0, 1.05) * (0.6 + 0.4 * s), c * 0.7);
+    }
     return float4(sky, 1.0);
 }
 )";

@@ -177,8 +177,13 @@ private:
 	std::wstring                      _pendingModel;
 	DirectX::XMFLOAT4X4               _pendingMatrix;
 	bool                              _hasPendingMatrix = false;
-	void                              SaveScene();     // .rtscene 저장
-	void                              LoadScene();     // .rtscene 로드
+	void                              SaveScene();     // .rtscene 저장 (quick)
+	void                              LoadScene();     // .rtscene 로드 (quick)
+	void                              SaveSceneTo(const std::wstring& path);
+	void                              LoadSceneFrom(const std::wstring& path);
+	void                              TogglePlay();    // Play=스냅샷 저장 / Stop=스냅샷 복원
+	int                               ClearDynamicObjects(); // 스폰 오브젝트 제거 (NewScene/Stop 공용)
+	bool                              _playing = false;
 
 	// Phase 3 — DDGI 프로브 볼륨 (Ddgi 클래스가 프로브 버퍼 + 컴퓨트 GI 디스패치 소유)
 	Ddgi                              _ddgi;

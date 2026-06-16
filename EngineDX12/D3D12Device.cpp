@@ -733,7 +733,7 @@ void D3D12Device::BuildGameScene()
 		tr->SetLocalPosition(Vec3{ 2.2f, 0.5f, 0.f });
 		auto cmr = make_shared<MeshRenderer>(); cmr->Bind(this);
 		vector<Vtx> cv; vector<uint32> ci; GeometryHelper::CreateCube(cv, ci, 1.0f, Vec3{ 1.f, 1.f, 1.f });
-		cmr->SetGeometry(cv, ci);
+		cmr->SetGeometry(cv, ci); cmr->SetPrim(MeshPrim::Cube); // 복제/직렬화 복원 가능하도록 prim 지정
 		// 절차적 체커 텍스처 (SRV 바인딩 경로 검증, 파일 의존 없음)
 		{
 			const uint32 N = 64; std::vector<uint8_t> tex(N * N * 4);

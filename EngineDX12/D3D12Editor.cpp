@@ -517,6 +517,14 @@ void D3D12Device::DrawHierarchy()
 void D3D12Device::DrawSceneView()
 {
 	ImGui::Begin("Scene");
+	// ── Play/Stop ──
+	{
+		ImVec4 pc = _playing ? ImVec4(0.8f, 0.3f, 0.2f, 1.f) : ImVec4(0.2f, 0.6f, 0.3f, 1.f);
+		ImGui::PushStyleColor(ImGuiCol_Button, pc);
+		if (ImGui::Button(_playing ? "■ Stop" : "▶ Play")) TogglePlay();
+		ImGui::PopStyleColor();
+		ImGui::SameLine(); ImGui::TextDisabled("|"); ImGui::SameLine();
+	}
 	// ── 기즈모 툴바 (EditorTool 씬뷰 스타일) ──
 	if (ImGui::RadioButton("Move(W)", _gizmoOp == 7)) _gizmoOp = 7; ImGui::SameLine();
 	if (ImGui::RadioButton("Rotate(E)", _gizmoOp == 120)) _gizmoOp = 120; ImGui::SameLine();
@@ -802,26 +810,51 @@ void D3D12Device::DeleteSelectedObject()
 	_selectedGO = nullptr;
 }
 
-// 새 씬 — 스폰/데모 메시 오브젝트 전부 제거(모델/라이트/카메라/내부 유지) + 파라미터 리셋
+// 스폰/추가 오브젝트(메시/애니/라이트) 전부 제거 — 모델/고정라이트/카메라/내부 유지
+int D3D12Device::ClearDynamicObjects()
+{
+	if (!_gameScene) return 0;
+	std::vector<shared_ptr<GameObject>> toRemove;
+	for (auto& kv : _gameScene->GetCreatedObjects())
+	{
+		auto& o = kv.second;
+		if (!o || o->IsEditorInternal() || o == _modelObj) continue;
+		if (o == _sunObj || o == _ptObj || o == _spotObj) continue; // 고정 라이트 유지
+		if (o->GetRenderer() || o->GetLight()) toRemove.push_back(o);
+	}
+	for (auto& o : toRemove) RemoveObject(o);
+	_selectedGO = nullptr;
+	return (int)toRemove.size();
+}
+
+// 새 씬 — 동적 오브젝트 제거 + 파라미터 리셋
 void D3D12Device::NewScene()
 {
-	if (_gameScene)
-	{
-		std::vector<shared_ptr<GameObject>> toRemove;
-		for (auto& kv : _gameScene->GetCreatedObjects())
-		{
-			auto& o = kv.second;
-			if (!o || o->IsEditorInternal() || o == _modelObj) continue;
-			if (o == _sunObj || o == _ptObj || o == _spotObj) continue; // 고정 라이트 유지
-			if (o->GetRenderer() || o->GetLight()) toRemove.push_back(o); // 스폰 메시/애니/추가 라이트
-		}
-		for (auto& o : toRemove) RemoveObject(o);
-		Log("New Scene: removed " + std::to_string(toRemove.size()) + " object(s)");
-	}
-	_selectedGO = nullptr;
+	int n = ClearDynamicObjects();
+	Log("New Scene: removed " + std::to_string(n) + " object(s)");
 	_sel = SelEntity::Model;
 	_spawnCounter = 0;
 	ResetDefaults(); // 포스트/라이팅 파라미터 + 모델 트랜스폼 리셋
+}
+
+// Play=현재 씬 스냅샷 저장 / Stop=스냅샷 복원 (플레이 중 편집 롤백, Unity 식)
+void D3D12Device::TogglePlay()
+{
+	std::wstring snap = (std::filesystem::path(_assetRoot) / L"Scenes" / L"__play_snapshot.rtscene").wstring();
+	if (!_playing)
+	{
+		std::error_code ec; std::filesystem::create_directories(std::filesystem::path(snap).parent_path(), ec);
+		SaveSceneTo(snap);
+		_playing = true;
+		Log("▶ Play (snapshot saved)");
+	}
+	else
+	{
+		_playing = false;
+		ClearDynamicObjects();           // 플레이 중 스폰된 것 제거
+		LoadSceneFrom(snap);             // 스냅샷 복원
+		Log("■ Stop (snapshot restored)");
+	}
 }
 
 void D3D12Device::DuplicateSelectedObject()
@@ -848,7 +881,7 @@ void D3D12Device::DuplicateSelectedObject()
 	auto st = source->GetTransform();
 	Vec3 pos{ 0,0,0 };
 	if (st) { pos = st->GetLocalPosition(); pos.x += 1.0f; }
-	auto obj = SpawnMeshObject(source->GetObjectName(), src->GetLocalVerts(), src->GetLocalIndices(), pos);
+	auto obj = SpawnMeshObject(source->GetObjectName(), src->GetLocalVerts(), src->GetLocalIndices(), pos, src->GetPrim()); // prim 종류 복사(직렬화 복원용)
 	if (obj) // 트랜스폼(회전/스케일) + 머티리얼 복사
 	{
 		if (auto dt = obj->GetTransform(); st && dt)
@@ -869,9 +902,10 @@ static std::wstring QuickScenePath(const std::wstring& root)
 	return (dir / L"quick.rtscene").wstring();
 }
 
-void D3D12Device::SaveScene()
+void D3D12Device::SaveScene() { SaveSceneTo(QuickScenePath(_assetRoot)); }
+
+void D3D12Device::SaveSceneTo(const std::wstring& path)
 {
-	std::wstring path = QuickScenePath(_assetRoot);
 	std::ofstream f(path);
 	if (!f) { Log("Save FAILED: " + WToUtf8(path)); return; }
 	f << "cam " << _camera.pos.x << ' ' << _camera.pos.y << ' ' << _camera.pos.z << ' ' << _camera.yaw << ' ' << _camera.pitch << '\n';
@@ -961,9 +995,10 @@ void D3D12Device::SaveScene()
 		+ std::to_string(lightCount) + " light, " + std::to_string(animCount) + " anim)");
 }
 
-void D3D12Device::LoadScene()
+void D3D12Device::LoadScene() { LoadSceneFrom(QuickScenePath(_assetRoot)); }
+
+void D3D12Device::LoadSceneFrom(const std::wstring& path)
 {
-	std::wstring path = QuickScenePath(_assetRoot);
 	std::ifstream f(path);
 	if (!f) { Log("Open FAILED (no scene file): " + WToUtf8(path)); return; }
 	std::string line;

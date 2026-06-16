@@ -57,6 +57,9 @@ void D3D12Device::Render()
 	_camera.Update(dt, cam);
 	BuildUI(); // ImGui 패널(CPU) — 카메라/라이팅/GI 파라미터 편집
 
+	// Play 중: 씬 그래프 컴포넌트 Update 틱 (스크립트/게임플레이) — 편집 중엔 정지
+	if (_playing && _gameScene) { _gameScene->Update(); _gameScene->LateUpdate(); }
+
 	// 더블클릭/씬로드 모델 교체 (GPU 유휴 시점)
 	if (_wantReload && _pendingModel.empty()) { _wantReload = false; _pendingModel = _scene._modelDir + _scene._modelStem + L".mesh"; } // V1 터레인 토글 등 재생성
 	if (!_pendingModel.empty())

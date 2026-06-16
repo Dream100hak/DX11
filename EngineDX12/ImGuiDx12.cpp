@@ -236,10 +236,21 @@ void ImGuiDx12::Render(ID3D12GraphicsCommandList* cmd, UINT frameIndex)
 	if (fb.vbCount < (UINT)dd->TotalVtxCount) { fb.vbCount = dd->TotalVtxCount + 5000; makeUpload(fb.vb, fb.vbCount * sizeof(ImDrawVert)); }
 	if (fb.ibCount < (UINT)dd->TotalIdxCount) { fb.ibCount = dd->TotalIdxCount + 10000; makeUpload(fb.ib, fb.ibCount * sizeof(ImDrawIdx)); }
 
-	// 정점/인덱스 채우기
+	// 정점/인덱스 채우기 — Map 실패(주로 device removed) 시 하드 크래시 대신 진단 로그 후 스킵
 	ImDrawVert* vtx = nullptr; ImDrawIdx* idx = nullptr; D3D12_RANGE nr{ 0, 0 };
-	fb.vb->Map(0, &nr, (void**)&vtx);
-	fb.ib->Map(0, &nr, (void**)&idx);
+	HRESULT hrv = fb.vb ? fb.vb->Map(0, &nr, (void**)&vtx) : E_POINTER;
+	HRESULT hri = fb.ib ? fb.ib->Map(0, &nr, (void**)&idx) : E_POINTER;
+	if (FAILED(hrv) || FAILED(hri) || !vtx || !idx)
+	{
+		char msg[256];
+		HRESULT rm = _dev ? _dev->GetDeviceRemovedReason() : 0;
+		sprintf_s(msg, "[ImGuiDx12] VB/IB Map 실패 hrv=0x%08X hri=0x%08X  DeviceRemovedReason=0x%08X\n",
+			(unsigned)hrv, (unsigned)hri, (unsigned)rm);
+		OutputDebugStringA(msg);
+		if (vtx) fb.vb->Unmap(0, nullptr);
+		if (idx) fb.ib->Unmap(0, nullptr);
+		return; // 이 프레임 ImGui 드로우 스킵 (크래시 방지)
+	}
 	for (int n = 0; n < dd->CmdListsCount; ++n)
 	{
 		const ImDrawList* cl = dd->CmdLists[n];

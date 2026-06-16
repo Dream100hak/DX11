@@ -88,6 +88,7 @@ private:
 	void CreateFrameResources();
 	void WaitForGpu();
 	void MoveToNextFrame();
+	void DumpDeviceRemoved(); // DRED breadcrumb/page-fault 덤프
 
 	// Phase 1
 	void CreateDepthBuffer();

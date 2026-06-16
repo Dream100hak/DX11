@@ -28,7 +28,9 @@ public:
 	void RecordBuildBLAS(ID3D12GraphicsCommandList4* cmd);
 	D3D12_GPU_VIRTUAL_ADDRESS BlasAddr() const { return _blas ? _blas->GetGPUVirtualAddress() : 0; }
 
-	Material& GetMaterial() { return _material; }
+	Material& GetMaterial() { return *_material; }
+	shared_ptr<Material> GetMaterialRef() const { return _material; }
+	void SetMaterialRef(shared_ptr<Material> m) { if (m) { _material = m; _baked = false; } } // 공유 머티리얼 지정
 	const vector<Vtx>&    GetLocalVerts() const { return _local; }   // 복제용
 	const vector<uint32>& GetLocalIndices() const { return _indices; }
 	void     SetPrim(MeshPrim p) { _prim = p; } // 직렬화/재생성용 프리미티브 종류
@@ -39,9 +41,11 @@ private:
 	void SyncMaterialTex(); // _material._diffuseTex 경로 변경 시 자동 SRV 로드
 
 	D3D12Device*             _dev = nullptr;
-	Material                 _material;
+	shared_ptr<Material>     _material = make_shared<Material>(); // 공유 가능(.mat 자산)
+	Vec3                     _lastBakedDiffuse{ -1,-1,-1 };       // 공유 머티리얼 외부 편집 감지
 	uint32                   _bakedVer = 0;
 	bool                     _baked = false;
+	char                     _matPathBuf[260] = {};               // .mat 경로 입력
 	vector<Vtx>              _local;     // 로컬 공간 원본
 	vector<uint32>          _indices;
 	vector<Vtx>             _world;      // 월드 베이크 스크래치

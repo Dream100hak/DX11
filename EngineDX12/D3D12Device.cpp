@@ -766,6 +766,49 @@ void D3D12Device::EnableDebugLayer()
 	ComPtr<ID3D12Debug> debug;
 	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug))))
 		debug->EnableDebugLayer();
+	// DRED — device removed 시 어떤 GPU 명령에서 터졌는지 breadcrumb/page-fault 기록
+	ComPtr<ID3D12DeviceRemovedExtendedDataSettings> dred;
+	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&dred))))
+	{
+		dred->SetAutoBreadcrumbsEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
+		dred->SetPageFaultEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
+	}
+#endif
+}
+
+// device removed 시 DRED breadcrumb/page-fault 덤프 (어느 GPU op 인지 추적)
+void D3D12Device::DumpDeviceRemoved()
+{
+	HRESULT reason = _device ? _device->GetDeviceRemovedReason() : 0;
+	char hdr[128]; sprintf_s(hdr, "\n===== DEVICE REMOVED  reason=0x%08X =====\n", (unsigned)reason);
+	OutputDebugStringA(hdr); Log(hdr);
+#if defined(_DEBUG)
+	ComPtr<ID3D12DeviceRemovedExtendedData> dred;
+	if (_device && SUCCEEDED(_device->QueryInterface(IID_PPV_ARGS(&dred))))
+	{
+		D3D12_DRED_AUTO_BREADCRUMBS_OUTPUT bc{};
+		if (SUCCEEDED(dred->GetAutoBreadcrumbsOutput(&bc)))
+		{
+			const D3D12_AUTO_BREADCRUMB_NODE* n = bc.pHeadAutoBreadcrumbNode;
+			while (n)
+			{
+				UINT done = n->pLastBreadcrumbValue ? *n->pLastBreadcrumbValue : 0;
+				if (done < n->BreadcrumbCount) // 미완료 노드 = 폴트 지점 근처
+				{
+					char b[256]; sprintf_s(b, "[DRED] %S / %S  op %u/%u 에서 중단\n",
+						n->pCommandQueueDebugNameW ? n->pCommandQueueDebugNameW : L"?",
+						n->pCommandListDebugNameW ? n->pCommandListDebugNameW : L"?", done, n->BreadcrumbCount);
+					OutputDebugStringA(b); Log(b);
+					for (UINT i = done; i < n->BreadcrumbCount && i < done + 4; ++i)
+					{ char o[64]; sprintf_s(o, "   op[%u]=%d\n", i, (int)n->pCommandHistory[i]); OutputDebugStringA(o); }
+				}
+				n = n->pNext;
+			}
+		}
+		D3D12_DRED_PAGE_FAULT_OUTPUT pf{};
+		if (SUCCEEDED(dred->GetPageFaultAllocationOutput(&pf)))
+		{ char b[128]; sprintf_s(b, "[DRED] PageFault VA=0x%llX\n", (unsigned long long)pf.PageFaultVA); OutputDebugStringA(b); Log(b); }
+	}
 #endif
 }
 

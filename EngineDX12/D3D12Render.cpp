@@ -343,7 +343,10 @@ void D3D12Device::Render()
 	ID3D12CommandList* lists[] = { _cmdList.Get() };
 	_queue->ExecuteCommandLists(1, lists);
 
-	ThrowIfFailed(_swapChain->Present(1, 0), "Present");
+	HRESULT hrPresent = _swapChain->Present(1, 0);
+	if (hrPresent == DXGI_ERROR_DEVICE_REMOVED || hrPresent == DXGI_ERROR_DEVICE_RESET)
+	{ DumpDeviceRemoved(); return; } // 어떤 GPU 명령에서 죽었는지 DRED 덤프
+	ThrowIfFailed(hrPresent, "Present");
 	MoveToNextFrame();
 
 	if (_wantShot) { _wantShot = false; SaveScreenshot(); if (_hiresShot) { _renderScale = 1.0f; _hiresShot = false; } } // GPU 유휴 시점 리드백

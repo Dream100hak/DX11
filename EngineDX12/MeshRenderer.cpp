@@ -5,6 +5,7 @@
 #include "TextureLoader.h"
 #include "GeometryHelper.h"
 #include "RtBlas.h"
+#include "ResourceManager.h"
 #include "imgui.h"
 
 using namespace DirectX;
@@ -141,20 +142,21 @@ void MeshRenderer::Rebake()
 		XMStoreFloat3(&_world[i].pos, p);
 		XMStoreFloat3(&_world[i].nrm, n);
 		XMStoreFloat3(&_world[i].tan, tn);
-		_world[i].col = XMFLOAT3(_local[i].col.x * _material._diffuse.x,
-		                         _local[i].col.y * _material._diffuse.y,
-		                         _local[i].col.z * _material._diffuse.z); // 머티리얼 틴트
+		_world[i].col = XMFLOAT3(_local[i].col.x * _material->_diffuse.x,
+		                         _local[i].col.y * _material->_diffuse.y,
+		                         _local[i].col.z * _material->_diffuse.z); // 머티리얼 틴트
 	}
+	_lastBakedDiffuse = _material->_diffuse;
 	memcpy(_vbMapped, _world.data(), _world.size() * sizeof(Vtx));
 }
 
 // 머티리얼 디퓨즈 텍스처 경로가 바뀌면 자동으로 SRV 재로드 (인스펙터 편집/씬 로드 반영)
 void MeshRenderer::SyncMaterialTex()
 {
-	if (_material._diffuseTex == _loadedTexPath) return;
-	_loadedTexPath = _material._diffuseTex; // 실패해도 갱신(재시도 폭주 방지)
-	if (!_material._diffuseTex.empty())
-		SetTexture(_material._diffuseTex);
+	if (_material->_diffuseTex == _loadedTexPath) return;
+	_loadedTexPath = _material->_diffuseTex; // 실패해도 갱신(재시도 폭주 방지)
+	if (!_material->_diffuseTex.empty())
+		SetTexture(_material->_diffuseTex);
 	else
 		_hasTex = false; // 경로 비우면 정점색으로 복귀
 }
@@ -179,27 +181,60 @@ void MeshRenderer::OnInspectorGUI()
 		SetGeometry(v, idx); _baked = false;
 	}
 
-	tintChanged |= ImGui::ColorEdit3("Diffuse (tint)", &_material._diffuse.x);
-	ImGui::DragFloat("Metallic", &_material._metallic, 0.01f, 0.f, 1.f);
-	ImGui::DragFloat("Roughness", &_material._roughness, 0.01f, 0.f, 1.f);
-	ImGui::DragFloat("Emissive", &_material._emissive, 0.02f, 0.f, 16.f);
+	tintChanged |= ImGui::ColorEdit3("Diffuse (tint)", &_material->_diffuse.x);
+	ImGui::DragFloat("Metallic", &_material->_metallic, 0.01f, 0.f, 1.f);
+	ImGui::DragFloat("Roughness", &_material->_roughness, 0.01f, 0.f, 1.f);
+	ImGui::DragFloat("Emissive", &_material->_emissive, 0.02f, 0.f, 16.f);
 
 	// 디퓨즈 텍스처 경로 — 입력 후 Load 로 적용 (Draw 에서 SyncMaterialTex 가 SRV 생성)
-	if (_texPathBuf[0] == '\0' && !_material._diffuseTex.empty())
+	if (_texPathBuf[0] == '\0' && !_material->_diffuseTex.empty())
 	{
-		int n = WideCharToMultiByte(CP_UTF8, 0, _material._diffuseTex.c_str(), -1, _texPathBuf, sizeof(_texPathBuf), nullptr, nullptr);
+		int n = WideCharToMultiByte(CP_UTF8, 0, _material->_diffuseTex.c_str(), -1, _texPathBuf, sizeof(_texPathBuf), nullptr, nullptr);
 		(void)n;
 	}
 	ImGui::InputText("Diffuse Tex", _texPathBuf, sizeof(_texPathBuf));
 	ImGui::SameLine();
-	if (ImGui::Button("Load"))
+	if (ImGui::Button("Load##tex"))
 	{
 		int n = MultiByteToWideChar(CP_UTF8, 0, _texPathBuf, -1, nullptr, 0);
 		std::wstring wp(n > 0 ? n - 1 : 0, L'\0');
 		if (n > 0) MultiByteToWideChar(CP_UTF8, 0, _texPathBuf, -1, wp.data(), n);
-		_material._diffuseTex = wp; // 다음 Draw 의 SyncMaterialTex 가 SRV 로드
+		_material->_diffuseTex = wp; // 다음 Draw 의 SyncMaterialTex 가 SRV 로드
 	}
-	if (_hasTex) { ImGui::SameLine(); if (ImGui::Button("Clear Tex")) { _material._diffuseTex.clear(); _texPathBuf[0] = '\0'; } }
+	if (_hasTex) { ImGui::SameLine(); if (ImGui::Button("Clear Tex")) { _material->_diffuseTex.clear(); _texPathBuf[0] = '\0'; } }
+
+	// ── .mat 자산(공유) ── 같은 .mat 로드 시 인스턴스끼리 공유 → 편집 일괄 반영
+	ImGui::Separator();
+	ImGui::TextDisabled(_material->_path.empty() ? "Material: (inline)" : "Material asset (shared)");
+	if (_matPathBuf[0] == '\0' && !_material->_path.empty())
+		WideCharToMultiByte(CP_UTF8, 0, _material->_path.c_str(), -1, _matPathBuf, sizeof(_matPathBuf), nullptr, nullptr);
+	ImGui::InputText(".mat path", _matPathBuf, sizeof(_matPathBuf));
+	auto bufToW = [&]() { int n = MultiByteToWideChar(CP_UTF8, 0, _matPathBuf, -1, nullptr, 0); std::wstring w(n > 0 ? n - 1 : 0, L'\0'); if (n > 0) MultiByteToWideChar(CP_UTF8, 0, _matPathBuf, -1, w.data(), n); return w; };
+	if (ImGui::Button("Save .mat"))
+	{
+		std::wstring wp = bufToW();
+		if (!wp.empty() && SaveMaterial(*_material, wp))
+		{
+			_material->_path = wp;
+			GET_SINGLE(ResourceManager)->Add<Material>(wp, _material); // 공유 캐시 등록
+		}
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Load .mat"))
+	{
+		std::wstring wp = bufToW();
+		if (!wp.empty())
+		{
+			auto shared = GET_SINGLE(ResourceManager)->Get<Material>(wp);
+			if (!shared) { shared = LoadMaterial(wp); if (shared) GET_SINGLE(ResourceManager)->Add<Material>(wp, shared); }
+			if (shared) SetMaterialRef(shared); // 공유 인스턴스 참조 → 편집 일괄 반영
+		}
+	}
+	if (!_material->_path.empty())
+	{
+		ImGui::SameLine();
+		if (ImGui::Button("Make Unique")) { auto u = make_shared<Material>(*_material); u->_path.clear(); _material = u; _baked = false; }
+	}
 
 	if (tintChanged) _baked = false; // 틴트는 정점색에 베이크 → 재베이크 강제
 }
@@ -210,7 +245,9 @@ void MeshRenderer::UpdateWorld()
 	if (!_dev || _local.empty()) return;
 	SyncMaterialTex();
 	uint32 ver = 0; if (auto t = GetTransform()) ver = t->Version();
-	if (!_baked || ver != _bakedVer) { Rebake(); _baked = true; _bakedVer = ver; _blasDirty = true; } // 월드 변경 → BLAS 재빌드 필요
+	const Vec3& d = _material->_diffuse;
+	bool tintChanged = d.x != _lastBakedDiffuse.x || d.y != _lastBakedDiffuse.y || d.z != _lastBakedDiffuse.z; // 공유 머티리얼 외부 편집 감지
+	if (!_baked || ver != _bakedVer || tintChanged) { Rebake(); _baked = true; _bakedVer = ver; _blasDirty = true; }
 }
 
 void MeshRenderer::RecordBuildBLAS(ID3D12GraphicsCommandList4* cmd)

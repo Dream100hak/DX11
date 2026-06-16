@@ -6,6 +6,7 @@
 #include "MeshRenderer.h"
 #include "ModelAnimator.h"
 #include "GeometryHelper.h"
+#include "ResourceManager.h"
 #include "Camera.h"
 #include "Light.h"
 #include "MonoBehaviour.h"
@@ -852,7 +853,11 @@ void D3D12Device::DuplicateSelectedObject()
 	{
 		if (auto dt = obj->GetTransform(); st && dt)
 		{ dt->SetLocalScale(st->GetLocalScale()); dt->SetLocalRotation(st->GetLocalRotation()); }
-		if (auto dr = obj->GetMeshRenderer()) dr->GetMaterial() = src->GetMaterial();
+		if (auto dr = obj->GetMeshRenderer())
+		{
+			if (!src->GetMaterialRef()->_path.empty()) dr->SetMaterialRef(src->GetMaterialRef()); // 공유 자산 → 참조 공유
+			else dr->GetMaterial() = src->GetMaterial();                                          // 인라인 → 값 복사
+		}
 	}
 }
 
@@ -901,9 +906,14 @@ void D3D12Device::SaveScene()
 			f << "mpar " << (parentName.empty() ? std::string("-") : WToUtf8(parentName)) << '\n';
 			f << "mxf " << p.x << ' ' << p.y << ' ' << p.z << ' ' << r.x << ' ' << r.y << ' ' << r.z
 			  << ' ' << sc.x << ' ' << sc.y << ' ' << sc.z << ' ' << (obj->IsActive() ? 1 : 0) << '\n';
-			f << "mmat " << mat._diffuse.x << ' ' << mat._diffuse.y << ' ' << mat._diffuse.z
-			  << ' ' << mat._metallic << ' ' << mat._roughness << ' ' << mat._emissive << '\n';
-			f << "mtex " << (mat._diffuseTex.empty() ? std::string("-") : WToUtf8(mat._diffuseTex)) << '\n';
+			if (!mat._path.empty())
+				f << "mref " << WToUtf8(mat._path) << '\n'; // 공유 .mat 자산 참조
+			else
+			{
+				f << "mmat " << mat._diffuse.x << ' ' << mat._diffuse.y << ' ' << mat._diffuse.z
+				  << ' ' << mat._metallic << ' ' << mat._roughness << ' ' << mat._emissive << '\n';
+				f << "mtex " << (mat._diffuseTex.empty() ? std::string("-") : WToUtf8(mat._diffuseTex)) << '\n';
+			}
 			++meshCount;
 		}
 
@@ -1006,6 +1016,15 @@ void D3D12Device::LoadScene()
 			std::string tp; std::getline(s >> std::ws, tp);
 			if (auto mr = curObj->GetMeshRenderer())
 				mr->GetMaterial()._diffuseTex = (tp == "-" || tp.empty()) ? L"" : Utf8ToW(tp);
+		}
+		else if (tag == "mref" && curObj) { // 공유 .mat 자산
+			std::string mp2; std::getline(s >> std::ws, mp2); std::wstring wp = Utf8ToW(mp2);
+			if (auto mr = curObj->GetMeshRenderer())
+			{
+				auto shared = GET_SINGLE(ResourceManager)->Get<Material>(wp);
+				if (!shared) { shared = LoadMaterial(wp); if (shared) GET_SINGLE(ResourceManager)->Add<Material>(wp, shared); }
+				if (shared) mr->SetMaterialRef(shared);
+			}
 		}
 		// ── 추가 라이트 ──
 		else if (tag == "lobj") {

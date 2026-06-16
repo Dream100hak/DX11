@@ -799,7 +799,7 @@ void D3D12Device::SaveScene()
 	f << '\n';
 
 	// ── 멀티 오브젝트: 씬그래프의 MeshRenderer GameObject 들 (트랜스폼 + 머티리얼 + 텍스처) ──
-	int meshCount = 0, lightCount = 0;
+	int meshCount = 0, lightCount = 0, animCount = 0;
 	if (_gameScene)
 	{
 		for (auto& kv : _gameScene->GetCreatedObjects())
@@ -842,9 +842,30 @@ void D3D12Device::SaveScene()
 			f << "lpar " << (parentName.empty() ? std::string("-") : WToUtf8(parentName)) << '\n';
 			++lightCount;
 		}
+
+		// 애니메이션 모델 (ModelAnimator)
+		for (auto& kv : _gameScene->GetCreatedObjects())
+		{
+			auto& obj = kv.second;
+			if (!obj || obj->IsEditorInternal()) continue;
+			auto an = obj->GetModelAnimator(); if (!an) continue;
+			auto t = obj->GetTransform(); if (!t) continue;
+			Vec3 p = t->GetLocalPosition(), r = t->GetLocalRotation(), sc = t->GetLocalScale();
+			std::wstring parentName;
+			if (auto pt = t->GetParent()) if (auto pgo = pt->GetGameObject()) parentName = pgo->GetObjectName();
+			std::wstring meshPath = an->MeshDir() + an->MeshStem() + L".mesh";
+			f << "aobj " << WToUtf8(obj->GetObjectName()) << '\n';
+			f << "apath " << WToUtf8(meshPath) << '\n';
+			f << "aclip " << an->GetClipIndex() << ' ' << an->GetSpeed() << ' ' << (an->IsPlaying() ? 1 : 0) << '\n';
+			f << "axf " << p.x << ' ' << p.y << ' ' << p.z << ' ' << r.x << ' ' << r.y << ' ' << r.z
+			  << ' ' << sc.x << ' ' << sc.y << ' ' << sc.z << ' ' << (obj->IsActive() ? 1 : 0) << '\n';
+			f << "apar " << (parentName.empty() ? std::string("-") : WToUtf8(parentName)) << '\n';
+			++animCount;
+		}
 	}
 	f.flush();
-	Log("Scene saved: " + WToUtf8(path) + "  (" + std::to_string(meshCount) + " mesh, " + std::to_string(lightCount) + " light)");
+	Log("Scene saved: " + WToUtf8(path) + "  (" + std::to_string(meshCount) + " mesh, "
+		+ std::to_string(lightCount) + " light, " + std::to_string(animCount) + " anim)");
 }
 
 void D3D12Device::LoadScene()
@@ -856,6 +877,7 @@ void D3D12Device::LoadScene()
 	std::string modelUtf8;
 	shared_ptr<GameObject> curObj; // 현재 mobj 블록 대상
 	shared_ptr<GameObject> curLight; std::wstring curLightName; // 현재 lobj 블록 대상
+	shared_ptr<GameObject> curAnim;  std::wstring curAnimName;  // 현재 aobj 블록 대상
 	std::wstring curName;          // 현재 블록 오브젝트 이름 (없으면 재생성용)
 	std::vector<std::pair<std::wstring, std::wstring>> parentLinks; // (child, parent) — 전부 파싱 후 링크
 	auto findByName = [&](const std::wstring& wname) -> shared_ptr<GameObject>
@@ -932,6 +954,31 @@ void D3D12Device::LoadScene()
 		else if (tag == "lpar" && curLight) {
 			std::string pn; std::getline(s >> std::ws, pn);
 			if (pn != "-" && !pn.empty()) parentLinks.push_back({ curLightName, Utf8ToW(pn) });
+		}
+		// ── 애니메이션 모델 ──
+		else if (tag == "aobj") { std::string nm; std::getline(s >> std::ws, nm); curAnimName = Utf8ToW(nm); curAnim = findByName(curAnimName); }
+		else if (tag == "apath") {
+			std::string ap; std::getline(s >> std::ws, ap); std::wstring meshPath = Utf8ToW(ap);
+			if (!curAnim) { // 없으면 생성 (정확한 이름)
+				auto obj = make_shared<GameObject>();
+				obj->SetObjectName(curAnimName); obj->GetOrAddTransform();
+				auto an = make_shared<ModelAnimator>(); an->Bind(this);
+				if (an->Load(meshPath)) { obj->AddComponent(an); _gameScene->Add(obj); curAnim = obj; }
+				else Log("Load: animated model FAILED " + ap);
+			}
+		}
+		else if (tag == "aclip" && curAnim) {
+			int ci = 0, pl = 1; float sp = 1.f; s >> ci >> sp >> pl;
+			if (auto an = curAnim->GetModelAnimator()) { an->SetClipIndex(ci); an->SetSpeed(sp); an->SetPlaying(pl != 0); }
+		}
+		else if (tag == "axf" && curAnim) {
+			Vec3 p, r, sc; s >> p.x >> p.y >> p.z >> r.x >> r.y >> r.z >> sc.x >> sc.y >> sc.z;
+			if (auto t = curAnim->GetTransform()) { t->SetLocalScale(sc); t->SetLocalRotation(r); t->SetLocalPosition(p); }
+			int act = 1; if (s >> act) curAnim->SetActive(act != 0);
+		}
+		else if (tag == "apar" && curAnim) {
+			std::string pn; std::getline(s >> std::ws, pn);
+			if (pn != "-" && !pn.empty()) parentLinks.push_back({ curAnimName, Utf8ToW(pn) });
 		}
 	}
 	// 부모 링크 (모든 오브젝트 생성 후 — LOCAL 유지)

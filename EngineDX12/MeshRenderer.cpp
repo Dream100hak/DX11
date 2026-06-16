@@ -210,14 +210,16 @@ void MeshRenderer::UpdateWorld()
 	if (!_dev || _local.empty()) return;
 	SyncMaterialTex();
 	uint32 ver = 0; if (auto t = GetTransform()) ver = t->Version();
-	if (!_baked || ver != _bakedVer) { Rebake(); _baked = true; _bakedVer = ver; }
+	if (!_baked || ver != _bakedVer) { Rebake(); _baked = true; _bakedVer = ver; _blasDirty = true; } // 월드 변경 → BLAS 재빌드 필요
 }
 
 void MeshRenderer::RecordBuildBLAS(ID3D12GraphicsCommandList4* cmd)
 {
 	if (!_dev || _local.empty()) return;
+	if (_blas && !_blasDirty) return; // 정적: 기존 BLAS 유지 (재빌드 생략)
 	RtBlas::Build(_dev->_device.Get(), cmd, _vb.Get(), _ib.Get(),
 	              (UINT)_local.size(), (UINT)_indices.size(), sizeof(Vtx), _blas, _blasScratch);
+	_blasDirty = false;
 }
 
 void MeshRenderer::Draw(const RenderContext& ctx)

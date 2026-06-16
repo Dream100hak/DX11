@@ -31,6 +31,7 @@ public:
 	void SetClipIndex(int i);
 	float GetSpeed() const { return _speed; }
 	void  SetSpeed(float s) { _speed = s; }
+	bool  IsPlaying() const { return _playing; }
 	void  SetPlaying(bool p) { _playing = p; }
 
 private:

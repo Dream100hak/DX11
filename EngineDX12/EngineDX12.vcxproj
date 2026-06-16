@@ -12,16 +12,68 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Common.h" />
+    <ClInclude Include="Define.h" />
+    <ClInclude Include="Component.h" />
+    <ClInclude Include="Transform.h" />
+    <ClInclude Include="GameObject.h" />
+    <ClInclude Include="Scene.h" />
+    <ClInclude Include="SceneManager.h" />
+    <ClInclude Include="Renderer.h" />
+    <ClInclude Include="ModelRenderer.h" />
+    <ClInclude Include="MeshRenderer.h" />
+    <ClInclude Include="ModelAnimator.h" />
+    <ClInclude Include="SkyRenderer.h" />
+    <ClInclude Include="GridRenderer.h" />
+    <ClInclude Include="Camera.h" />
+    <ClInclude Include="Light.h" />
+    <ClInclude Include="Terrain.h" />
+    <ClInclude Include="TimeManager.h" />
+    <ClInclude Include="InputManager.h" />
+    <ClInclude Include="ResourceManager.h" />
+    <ClInclude Include="ImGuiManager.h" />
+    <ClInclude Include="MonoBehaviour.h" />
+    <ClInclude Include="Material.h" />
+    <ClInclude Include="Mesh.h" />
+    <ClInclude Include="GeometryHelper.h" />
+    <ClInclude Include="Frustum.h" />
+    <ClInclude Include="RenderContext.h" />
     <ClInclude Include="D3D12Device.h" />
     <ClInclude Include="MeshLoader.h" />
     <ClInclude Include="TextureLoader.h" />
     <ClInclude Include="ImGuiDx12.h" />
+    <ClInclude Include="DebugDraw.h" />
+    <ClInclude Include="Thumbnail.h" />
+    <ClInclude Include="Ddgi.h" />
+    <ClInclude Include="PostFX.h" />
+    <ClInclude Include="FlyCamera.h" />
+    <ClInclude Include="ModelScene.h" />
+    <ClInclude Include="EditorWindow.h" />
+    <ClInclude Include="EditorWindows.h" />
+    <ClInclude Include="EditorManager.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Component.cpp" />
+    <ClCompile Include="Transform.cpp" />
+    <ClCompile Include="GameObject.cpp" />
+    <ClCompile Include="Scene.cpp" />
+    <ClCompile Include="Renderer.cpp" />
+    <ClCompile Include="ModelRenderer.cpp" />
+    <ClCompile Include="MeshRenderer.cpp" />
+    <ClCompile Include="SkyRenderer.cpp" />
+    <ClCompile Include="GridRenderer.cpp" />
+    <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="Frustum.cpp" />
+    <ClCompile Include="Mesh.cpp" />
     <ClCompile Include="D3D12Device.cpp" />
     <ClCompile Include="D3D12Render.cpp" />
     <ClCompile Include="D3D12Scene.cpp" />
     <ClCompile Include="D3D12Editor.cpp" />
+    <ClCompile Include="EditorManager.cpp" />
+    <ClCompile Include="DebugDraw.cpp" />
+    <ClCompile Include="Thumbnail.cpp" />
+    <ClCompile Include="Ddgi.cpp" />
+    <ClCompile Include="PostFX.cpp" />
+    <ClCompile Include="FlyCamera.cpp" />
     <ClCompile Include="ImGuiDx12.cpp" />
     <ClCompile Include="main.cpp" />
     <!-- ImGui 코어 + Win32 입력 백엔드 (Engine 과 소스 공유, DX12 렌더 백엔드는 ImGuiDx12.cpp) -->
@@ -36,7 +88,7 @@
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{C7A2D1E4-9B3F-4A6C-8D2E-1F5A7B9C3D0E}</ProjectGuid>
-    <RootNamespace>RtDemo</RootNamespace>
+    <RootNamespace>EngineDX12</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />

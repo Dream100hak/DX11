@@ -1,4 +1,5 @@
-#include "D3D12Device.h"
+#include "ModelScene.h"
+#include "D3D12Device.h"   // GPU 인프라 백포인터(_dev) — friend 접근
 #include "MeshLoader.h"
 #include "TextureLoader.h"
 #include <filesystem>
@@ -18,7 +19,7 @@ static std::wstring FindClip(const std::wstring& dir, const std::wstring& stem)
 }
 
 // 모델 폴더의 .clip 목록 스캔 (클립 전환 UI 용)
-void D3D12Device::ScanClips()
+void ModelScene::ScanClips()
 {
 	namespace fs = std::filesystem;
 	_clips.clear(); _curClip = 0;
@@ -28,9 +29,9 @@ void D3D12Device::ScanClips()
 }
 
 // 런타임 모델 교체 — 상태 리셋 후 메시/텍스처/AS 재구성 (전체 플러시로 GPU 유휴 가정)
-void D3D12Device::LoadModelFromFile(const std::wstring& meshPath)
+void ModelScene::Load(const std::wstring& meshPath)
 {
-	if (_device) WaitForGpu();
+	if (_dev->_device) _dev->WaitForGpu();
 
 	namespace fs = std::filesystem;
 	fs::path mp(meshPath);
@@ -51,16 +52,14 @@ void D3D12Device::LoadModelFromFile(const std::wstring& meshPath)
 	CreateASBuffers();         // BLAS/TLAS (정점/인덱스 수에 맞춰 재생성)
 	{
 		std::string nm(_modelStem.begin(), _modelStem.end());
-		Log("Loaded model '" + nm + "' (" + std::to_string(_vertexCount) + " verts, " + std::to_string((int)_submeshes.size()) + " submeshes, " + std::to_string((int)_clips.size()) + " clips)");
+		_dev->Log("Loaded model '" + nm + "' (" + std::to_string(_vertexCount) + " verts, " + std::to_string((int)_submeshes.size()) + " submeshes, " + std::to_string((int)_clips.size()) + " clips)");
 	}
 }
 
 // ───────────────────────────────────────────────────────────
 // 씬 리소스 — 모델/바닥 지오메트리, CPU 스키닝, 디퓨즈 텍스처
-// (D3D12Device.cpp 에서 분리)
 // ───────────────────────────────────────────────────────────
-
-void D3D12Device::CreateCubeGeometry()
+void ModelScene::CreateCubeGeometry()
 {
 	std::vector<uint32_t> indices;
 	const XMFLOAT3 modelC(0.82f, 0.78f, 0.72f);
@@ -147,7 +146,7 @@ void D3D12Device::CreateCubeGeometry()
 	const size_t ibSize = indices.size() * sizeof(uint32_t);
 
 	// VB = 업로드힙 + 영속 매핑 (스키닝으로 매 프레임 갱신). 초기엔 바인드 포즈.
-	_vb = CreateUploadBuffer(nullptr, vbSize);
+	_vb = _dev->CreateUploadBuffer(nullptr, vbSize);
 	{
 		D3D12_RANGE noRead{ 0, 0 };
 		ThrowIfFailed(_vb->Map(0, &noRead, &_vbMapped), "Map VB");
@@ -157,7 +156,7 @@ void D3D12Device::CreateCubeGeometry()
 	_vbv.StrideInBytes = sizeof(Vtx);
 	_vbv.SizeInBytes = (UINT)vbSize;
 
-	_ib = CreateUploadBuffer(indices.data(), ibSize);
+	_ib = _dev->CreateUploadBuffer(indices.data(), ibSize);
 	_ibv.BufferLocation = _ib->GetGPUVirtualAddress();
 	_ibv.Format = DXGI_FORMAT_R32_UINT;
 	_ibv.SizeInBytes = (UINT)ibSize;
@@ -165,7 +164,7 @@ void D3D12Device::CreateCubeGeometry()
 
 // 매 프레임 CPU 갱신 — (스키닝 or 바인드) 베이스 월드 → 기즈모 _modelMatrix 적용 → VB 갱신.
 // _modelMatrix 를 정점에 직접 적용하므로 BLAS(매프레임 재빌드)·래스터·DDGI 가 모두 일치 (RT 그림자 따라옴).
-void D3D12Device::UpdateAnimation()
+void ModelScene::UpdateAnimation(float animTimeAcc, bool turntable, float turnAngle)
 {
 	if (_modelVtxCount == 0) return;
 
@@ -173,10 +172,11 @@ void D3D12Device::UpdateAnimation()
 	bool anim = _animated && _clip.frameCount > 0 && nb > 0;
 
 	std::vector<XMMATRIX> skin;
+	std::vector<XMMATRIX> global; // 본 모델공간 글로벌 행렬 (애니=클립 / 정지=바인드 포즈)
 	if (anim)
 	{
-		uint32 frame = (uint32)(_animTimeAcc * _clip.frameRate) % _clip.frameCount;
-		std::vector<XMMATRIX> global(nb); skin.resize(nb);
+		uint32 frame = (uint32)(animTimeAcc * _clip.frameRate) % _clip.frameCount;
+		global.resize(nb); skin.resize(nb);
 		for (size_t b = 0; b < nb; ++b)
 		{
 			const LoadedBone& bone = _bonesData[b];
@@ -193,9 +193,20 @@ void D3D12Device::UpdateAnimation()
 			global[b] = matAnim * parent;
 			skin[b] = XMMatrixInverse(nullptr, XMLoadFloat4x4(&bone.bind)) * global[b];
 		}
-		// 본 월드 위치(스켈레톤 시각화) — 정점과 동일 변환
+	}
+	else if (nb > 0)
+	{
+		// 애니 없음/정지 — 바인드 포즈 스켈레톤 (inverse offset = 본 글로벌). Show Bones 시각화용
+		global.resize(nb);
+		for (size_t b = 0; b < nb; ++b)
+			global[b] = XMMatrixInverse(nullptr, XMLoadFloat4x4(&_bonesData[b].bind));
+	}
+
+	// 본 월드 위치(스켈레톤 시각화) — 정점과 동일 변환 (애니/바인드 공통)
+	if (!global.empty())
+	{
 		XMVECTOR off0 = XMVectorSet(_modelOffset.x, _modelOffset.y, _modelOffset.z, 0.f);
-		XMMATRIX Mb = XMLoadFloat4x4(&_modelMatrix); if (_turntable) Mb = XMMatrixRotationY(_turnAngle) * Mb;
+		XMMATRIX Mb = XMLoadFloat4x4(&_modelMatrix); if (turntable) Mb = XMMatrixRotationY(turnAngle) * Mb;
 		_boneWorld.resize(nb);
 		for (size_t b = 0; b < nb; ++b)
 		{
@@ -208,7 +219,7 @@ void D3D12Device::UpdateAnimation()
 
 	XMVECTOR off = XMVectorSet(_modelOffset.x, _modelOffset.y, _modelOffset.z, 0.f);
 	XMMATRIX M = XMLoadFloat4x4(&_modelMatrix); // 기즈모 트랜스폼
-	if (_turntable) M = XMMatrixRotationY(_turnAngle) * M; // U14 자동 회전
+	if (turntable) M = XMMatrixRotationY(turnAngle) * M; // U14 자동 회전
 	XMFLOAT3 mn(1e9f, 1e9f, 1e9f), mx(-1e9f, -1e9f, -1e9f); // 모델 월드 AABB (픽킹용)
 
 	for (uint32 i = 0; i < _modelVtxCount; ++i)
@@ -249,7 +260,7 @@ void D3D12Device::UpdateAnimation()
 	memcpy(_vbMapped, _cpuVerts.data(), _cpuVerts.size() * sizeof(Vtx));
 }
 
-void D3D12Device::CreateTextureResources()
+void ModelScene::CreateTextureResources()
 {
 	std::wstring base = _modelDir;
 
@@ -270,8 +281,8 @@ void D3D12Device::CreateTextureResources()
 
 	std::vector<ComPtr<ID3D12Resource>> uploads; // WaitForGpu 까지 생존 필요
 
-	ThrowIfFailed(_allocators[_frameIndex]->Reset(), "tex alloc reset");
-	ThrowIfFailed(_cmdList->Reset(_allocators[_frameIndex].Get(), nullptr), "tex cmd reset");
+	ThrowIfFailed(_dev->_allocators[_dev->_frameIndex]->Reset(), "tex alloc reset");
+	ThrowIfFailed(_dev->_cmdList->Reset(_dev->_allocators[_dev->_frameIndex].Get(), nullptr), "tex cmd reset");
 
 	// 원시 RGBA8 픽셀 → DX12 텍스처 생성 + 업로드 복사 기록
 	auto makeTex = [&](const std::vector<uint8_t>& px, uint32 tw, uint32 th) -> ComPtr<ID3D12Resource>
@@ -282,12 +293,12 @@ void D3D12Device::CreateTextureResources()
 		td.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 		td.Width = tw; td.Height = th; td.DepthOrArraySize = 1; td.MipLevels = 1;
 		td.Format = DXGI_FORMAT_R8G8B8A8_UNORM; td.SampleDesc.Count = 1;
-		ThrowIfFailed(_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &td,
+		ThrowIfFailed(_dev->_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &td,
 			D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&outTex)), "Create Tex");
 
 		D3D12_PLACED_SUBRESOURCE_FOOTPRINT fp{}; UINT numRows = 0; UINT64 rowSize = 0, uploadSize = 0;
-		_device->GetCopyableFootprints(&td, 0, 1, 0, &fp, &numRows, &rowSize, &uploadSize);
-		ComPtr<ID3D12Resource> up = CreateUploadBuffer(nullptr, (size_t)uploadSize);
+		_dev->_device->GetCopyableFootprints(&td, 0, 1, 0, &fp, &numRows, &rowSize, &uploadSize);
+		ComPtr<ID3D12Resource> up = _dev->CreateUploadBuffer(nullptr, (size_t)uploadSize);
 		uint8_t* mapped = nullptr; D3D12_RANGE noRead{ 0, 0 };
 		ThrowIfFailed(up->Map(0, &noRead, (void**)&mapped), "Map texUpload");
 		for (UINT y = 0; y < numRows; ++y)
@@ -297,7 +308,7 @@ void D3D12Device::CreateTextureResources()
 
 		D3D12_TEXTURE_COPY_LOCATION dst{}; dst.pResource = outTex.Get(); dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX; dst.SubresourceIndex = 0;
 		D3D12_TEXTURE_COPY_LOCATION src{}; src.pResource = up.Get(); src.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT; src.PlacedFootprint = fp;
-		_cmdList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+		_dev->_cmdList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
 
 		D3D12_RESOURCE_BARRIER bar{};
 		bar.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -305,7 +316,7 @@ void D3D12Device::CreateTextureResources()
 		bar.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
 		bar.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 		bar.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-		_cmdList->ResourceBarrier(1, &bar);
+		_dev->_cmdList->ResourceBarrier(1, &bar);
 		return outTex;
 	};
 
@@ -333,19 +344,19 @@ void D3D12Device::CreateTextureResources()
 		_matResources[s * 3 + 2] = loadOr(mt.spec);
 	}
 
-	ThrowIfFailed(_cmdList->Close(), "tex cmd close");
-	ID3D12CommandList* lists[] = { _cmdList.Get() };
-	_queue->ExecuteCommandLists(1, lists);
-	WaitForGpu();
+	ThrowIfFailed(_dev->_cmdList->Close(), "tex cmd close");
+	ID3D12CommandList* lists[] = { _dev->_cmdList.Get() };
+	_dev->_queue->ExecuteCommandLists(1, lists);
+	_dev->WaitForGpu();
 
 	// 연속 SRV 힙 (_matCount×3, 슬롯당 디퓨즈 t2 / 노멀 t3 / 스펙 t4)
 	D3D12_DESCRIPTOR_HEAP_DESC hd{};
 	hd.NumDescriptors = _matCount * 3;
 	hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	hd.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	ThrowIfFailed(_device->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&_srvHeap)), "srv heap");
+	ThrowIfFailed(_dev->_device->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&_srvHeap)), "srv heap");
 
-	_srvInc = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	_srvInc = _dev->_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	D3D12_CPU_DESCRIPTOR_HANDLE h = _srvHeap->GetCPUDescriptorHandleForHeapStart();
 	for (uint32 i = 0; i < _matCount * 3; ++i)
 	{
@@ -354,8 +365,109 @@ void D3D12Device::CreateTextureResources()
 		sd.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 		sd.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 		sd.Texture2D.MipLevels = 1;
-		_device->CreateShaderResourceView(_matResources[i].Get(), &sd, h);
+		_dev->_device->CreateShaderResourceView(_matResources[i].Get(), &sd, h);
 		h.ptr += _srvInc;
 	}
 	_hasTexture = true;
+}
+
+// ───────────────────────────────────────────────────────────
+// 레이트레이싱 가속구조 (BLAS/TLAS) — 모델+바닥 합본 VB/IB 가 BLAS 소스
+// ───────────────────────────────────────────────────────────
+static void FillBlasGeom(ID3D12Resource* vb, ID3D12Resource* ib, UINT vcount, UINT icount,
+                         D3D12_RAYTRACING_GEOMETRY_DESC& geom)
+{
+	geom = {};
+	geom.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
+	geom.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
+	geom.Triangles.VertexBuffer.StartAddress = vb->GetGPUVirtualAddress();
+	geom.Triangles.VertexBuffer.StrideInBytes = sizeof(Vtx);
+	geom.Triangles.VertexCount = vcount;
+	geom.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
+	geom.Triangles.IndexBuffer = ib->GetGPUVirtualAddress();
+	geom.Triangles.IndexCount = icount;
+	geom.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;
+}
+
+void ModelScene::CreateASBuffers()
+{
+	D3D12_RAYTRACING_GEOMETRY_DESC geom{};
+	FillBlasGeom(_vb.Get(), _ib.Get(), _vertexCount, _indexCount, geom);
+
+	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS blasIn{};
+	blasIn.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
+	blasIn.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+	blasIn.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
+	blasIn.NumDescs = 1;
+	blasIn.pGeometryDescs = &geom;
+	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO blasInfo{};
+	_dev->_device->GetRaytracingAccelerationStructurePrebuildInfo(&blasIn, &blasInfo);
+	_blas        = _dev->CreateDefaultBuffer(blasInfo.ResultDataMaxSizeInBytes, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, true);
+	_blasScratch = _dev->CreateDefaultBuffer(blasInfo.ScratchDataSizeInBytes, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, true);
+
+	D3D12_RAYTRACING_INSTANCE_DESC inst{};
+	inst.Transform[0][0] = 1.f; inst.Transform[1][1] = 1.f; inst.Transform[2][2] = 1.f;
+	inst.InstanceMask = 0xFF;
+	inst.AccelerationStructure = _blas->GetGPUVirtualAddress();
+	_instanceBuffer = _dev->CreateUploadBuffer(&inst, sizeof(inst));
+
+	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS tlasIn{};
+	tlasIn.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
+	tlasIn.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+	tlasIn.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
+	tlasIn.NumDescs = 1;
+	tlasIn.InstanceDescs = _instanceBuffer->GetGPUVirtualAddress();
+	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO tlasInfo{};
+	_dev->_device->GetRaytracingAccelerationStructurePrebuildInfo(&tlasIn, &tlasInfo);
+	_tlas        = _dev->CreateDefaultBuffer(tlasInfo.ResultDataMaxSizeInBytes, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, true);
+	_tlasScratch = _dev->CreateDefaultBuffer(tlasInfo.ScratchDataSizeInBytes, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, true);
+
+	// 초기 빌드 (1회) — 정적이면 이것만으로 충분, 스키닝이면 매 프레임 RecordBuildAS 재빌드
+	ThrowIfFailed(_dev->_allocators[_dev->_frameIndex]->Reset(), "AS alloc reset");
+	ThrowIfFailed(_dev->_cmdList->Reset(_dev->_allocators[_dev->_frameIndex].Get(), nullptr), "AS cmd reset");
+	RecordBuildAS(_dev->_cmdList.Get());
+	ThrowIfFailed(_dev->_cmdList->Close(), "AS cmd close");
+	ID3D12CommandList* lists[] = { _dev->_cmdList.Get() };
+	_dev->_queue->ExecuteCommandLists(1, lists);
+	_dev->WaitForGpu();
+}
+
+void ModelScene::RecordBuildAS(ID3D12GraphicsCommandList4* cmd)
+{
+	D3D12_RAYTRACING_GEOMETRY_DESC geom{};
+	FillBlasGeom(_vb.Get(), _ib.Get(), _vertexCount, _indexCount, geom);
+
+	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS blasIn{};
+	blasIn.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
+	blasIn.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+	blasIn.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
+	blasIn.NumDescs = 1;
+	blasIn.pGeometryDescs = &geom;
+
+	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC blasBuild{};
+	blasBuild.Inputs = blasIn;
+	blasBuild.DestAccelerationStructureData = _blas->GetGPUVirtualAddress();
+	blasBuild.ScratchAccelerationStructureData = _blasScratch->GetGPUVirtualAddress();
+	cmd->BuildRaytracingAccelerationStructure(&blasBuild, 0, nullptr);
+
+	D3D12_RESOURCE_BARRIER ub{};
+	ub.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+	ub.UAV.pResource = _blas.Get();
+	cmd->ResourceBarrier(1, &ub);
+
+	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS tlasIn{};
+	tlasIn.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
+	tlasIn.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
+	tlasIn.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
+	tlasIn.NumDescs = 1;
+	tlasIn.InstanceDescs = _instanceBuffer->GetGPUVirtualAddress();
+
+	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC tlasBuild{};
+	tlasBuild.Inputs = tlasIn;
+	tlasBuild.DestAccelerationStructureData = _tlas->GetGPUVirtualAddress();
+	tlasBuild.ScratchAccelerationStructureData = _tlasScratch->GetGPUVirtualAddress();
+	cmd->BuildRaytracingAccelerationStructure(&tlasBuild, 0, nullptr);
+
+	ub.UAV.pResource = _tlas.Get();
+	cmd->ResourceBarrier(1, &ub);
 }

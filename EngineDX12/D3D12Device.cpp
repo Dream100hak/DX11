@@ -1,10 +1,23 @@
 #include "D3D12Device.h"
 #include "MeshLoader.h"
 #include "TextureLoader.h"
+#include "ModelRenderer.h"
+#include "MeshRenderer.h"
+#include "GeometryHelper.h"
+#include "SkyRenderer.h"
+#include "GridRenderer.h"
+#include "SceneManager.h"
+#include "Transform.h"
+#include "Camera.h"
+#include "Light.h"
+#include "TimeManager.h"
+#include "InputManager.h"
 #include "imgui.h"
 #include "imgui_impl_win32.h"
 #include <dxcapi.h>
 #pragma comment(lib, "dxcompiler.lib")
+
+D3D12Device* D3D12Device::s_main = nullptr;
 
 using namespace DirectX;
 
@@ -591,12 +604,7 @@ float4 PSMain() : SV_TARGET { return float4(gOutline.rgb, 1.0); } // 아웃라�
 )";
 
 // 디버그 라인 (본/AABB/스팟콘/라이트 아이콘) — LINELIST, pos+color
-static const std::string kDbgShader = std::string(kSceneCB) + R"(
-struct VIn { float3 pos:POSITION; float3 col:COLOR; };
-struct VOut { float4 pos:SV_POSITION; float3 col:COLOR; };
-VOut VSMain(VIn i) { VOut o; o.pos = mul(float4(i.pos, 1.0), gMVP); o.col = i.col; return o; }
-float4 PSMain(VOut i) : SV_TARGET { return float4(i.col, 1.0); }
-)";
+// 디버그 라인 셰이더는 DebugDraw.cpp 로 이동(자체 포함, kSceneCB 불필요)
 
 // DDGI 프로브 시각화 — 프로브 위치마다 점(POINTLIST), 색 = DC irradiance
 static const std::string kProbeViz = std::string(kSceneCB) + R"(
@@ -617,215 +625,14 @@ VOut VSMain(uint id : SV_VertexID)
 float4 PSMain(VOut i) : SV_TARGET { return float4(i.col, 1.0); }
 )";
 
-// 포스트프로세스 공용 — 풀스크린 삼각형 VS
-static const char* kPostCommon = R"(
-struct VOut { float4 pos:SV_POSITION; float2 uv:TEXCOORD0; };
-VOut VSFull(uint id : SV_VertexID)
-{
-    VOut o; float2 uv = float2((id << 1) & 2, id & 2);
-    o.uv = uv; o.pos = float4(uv * float2(2, -2) + float2(-1, 1), 0, 1); return o;
-}
-)";
-// ACES 톤맵 + 노출 + 감마 (+ S4 블룸 합성)
-static const std::string kTonemapShader = std::string(kPostCommon) + R"(
-Texture2D gHDR : register(t0);
-Texture2D gBloom : register(t1);
-SamplerState gS : register(s0);
-cbuffer PostCB : register(b0) { float gExposure; float gBloomI; float gBloomOn; float gTonemapOp;
-                                float gContrast; float gSaturation; float gTemperature; float gVignette; };
-cbuffer PostCB2 : register(b1) { float gChroma; float gGrain; float gSharpen; float gPostTime; float gTexelX; float gTexelY; float gExpScale; float gAutoExp; };
-cbuffer PostCB3 : register(b2) { float gSunSX; float gSunSY; float gVolStr; float gDofFocus; float gDofRange; float gDofOn; float gVolOn; float _p3; };
-cbuffer PostCB4 : register(b3) { float gLensDistort; float gPosterize; float gAnamorphic; float gFilterMode; float _q0; float _q1; float _q2; float _q3; };
-Texture2D gDepth : register(t2);
-float3 ACES(float3 x){ float a=2.51,b=0.03,c=2.43,d=0.59,e=0.14; return saturate((x*(a*x+b))/(x*(c*x+d)+e)); }
-float3 Filmic(float3 x){ x=max(0,x-0.004); return (x*(6.2*x+0.5))/(x*(6.2*x+1.7)+0.06); } // 감마 내장
-float4 PSTonemap(VOut i) : SV_TARGET
-{
-    // V10 렌즈 왜곡 (배럴/핀쿠션) — 이후 모든 샘플에 적용
-    if (gLensDistort != 0.0) { float2 cc = i.uv - 0.5; i.uv = 0.5 + cc * (1.0 + gLensDistort * dot(cc, cc)); }
-    // 색수차 (채널별 오프셋 샘플)
-    float2 caoff = gChroma * (i.uv - 0.5);
-    float3 hdr;
-    hdr.r = gHDR.Sample(gS, i.uv + caoff).r;
-    hdr.g = gHDR.Sample(gS, i.uv).g;
-    hdr.b = gHDR.Sample(gS, i.uv - caoff).b;
-    if (gBloomOn > 0.5) hdr += gBloom.Sample(gS, i.uv).rgb * gBloomI;
-    // V19 아나모픽 블룸 (수평 스트릭)
-    if (gAnamorphic > 0.5)
-        hdr += (gBloom.Sample(gS, i.uv + float2(gTexelX * 9.0, 0)).rgb + gBloom.Sample(gS, i.uv - float2(gTexelX * 9.0, 0)).rgb) * gBloomI * 0.5 * float3(0.4, 0.6, 1.0);
-    // 샤픈 (언샤프 마스크)
-    if (gSharpen > 0.001)
-    {
-        float2 tx = float2(gTexelX, gTexelY);
-        float3 nb = (gHDR.Sample(gS, i.uv + float2(tx.x,0)).rgb + gHDR.Sample(gS, i.uv - float2(tx.x,0)).rgb
-                   + gHDR.Sample(gS, i.uv + float2(0,tx.y)).rgb + gHDR.Sample(gS, i.uv - float2(0,tx.y)).rgb) * 0.25;
-        hdr += (hdr - nb) * gSharpen;
-    }
-    // 피사계심도 (깊이 기반 CoC 디스크 블러)
-    if (gDofOn > 0.5)
-    {
-        float zr = gDepth.Sample(gS, i.uv).r;
-        float vz = (0.1 * 200.0) / (200.0 - zr * (200.0 - 0.1));
-        float coc = saturate(abs(vz - gDofFocus) / max(gDofRange, 0.01));
-        if (coc > 0.02)
-        {
-            float2 tx = float2(gTexelX, gTexelY) * coc * 7.0;
-            float3 acc = hdr; float wsum = 1.0;
-            [unroll] for (int k = 0; k < 8; ++k) { float a = k * 0.7853982; float2 o = float2(cos(a), sin(a)) * tx; acc += gHDR.Sample(gS, i.uv + o).rgb; wsum += 1.0; }
-            hdr = acc / wsum;
-        }
-    }
-    // 볼류메트릭 갓레이 (스크린스페이스 방사형, 태양 화면위치로)
-    if (gVolOn > 0.5)
-    {
-        float2 dir = (float2(gSunSX, gSunSY) - i.uv) / 24.0;
-        float2 uv2 = i.uv; float dec = 1.0; float3 gr = 0;
-        [unroll] for (int k = 0; k < 24; ++k) { uv2 += dir; float3 sm = gHDR.Sample(gS, uv2).rgb; float l = max(dot(sm, float3(0.3,0.6,0.1)) - 1.0, 0.0); gr += sm * l * dec; dec *= 0.93; }
-        hdr += gr * (gVolStr / 24.0);
-    }
-    hdr *= gExposure * gExpScale; // 수동 × 자동노출
-    float3 c;
-    if (gTonemapOp < 0.5)      { c = pow(ACES(hdr), 1.0/2.2); }
-    else if (gTonemapOp < 1.5) { c = pow(hdr / (1.0 + hdr), 1.0/2.2); } // Reinhard
-    else                       { c = Filmic(hdr); }                     // Filmic(감마 포함)
-    // 컬러 그레이딩
-    c.r *= 1.0 + gTemperature * 0.12; c.b *= 1.0 - gTemperature * 0.12;  // 색온도
-    c = saturate((c - 0.5) * gContrast + 0.5);                          // 대비
-    float luma = dot(c, float3(0.2126, 0.7152, 0.0722));
-    c = lerp(float3(luma, luma, luma), c, gSaturation);                 // 채도
-    // V11 포스터라이즈
-    if (gPosterize > 1.5) c = floor(c * gPosterize) / gPosterize;
-    // V12 필터 (1 세피아 / 2 흑백 / 3 반전)
-    if (gFilterMode > 0.5)
-    {
-        float lm = dot(c, float3(0.2126, 0.7152, 0.0722));
-        if (gFilterMode < 1.5)      c = lm * float3(1.07, 0.82, 0.57); // 세피아
-        else if (gFilterMode < 2.5) c = float3(lm, lm, lm);            // 흑백
-        else                        c = 1.0 - c;                       // 반전
-    }
-    // 필름 그레인
-    if (gGrain > 0.001) { float n = frac(sin(dot(i.uv * (gPostTime + 1.0), float2(12.9898, 78.233))) * 43758.5453); c += (n - 0.5) * gGrain; }
-    // 비네트
-    float2 dd = i.uv - 0.5;
-    c *= saturate(1.0 - dot(dd, dd) * gVignette * 2.8);
-    return float4(c, 1.0);
-}
-// 브라이트패스 — 휘도 임계값(gExposure 재사용) 초과분 추출
-float4 PSBright(VOut i) : SV_TARGET
-{
-    float3 c = gHDR.Sample(gS, i.uv).rgb;
-    float l = dot(c, float3(0.2126, 0.7152, 0.0722));
-    float contrib = max(l - gExposure, 0.0);
-    return float4(c * (contrib / (l + 1e-4)), 1.0);
-}
-// 분리형 가우시안 (cbuffer 재해석: gExposure,gBloomI=texel / gBloomOn,gTonemapOp=방향)
-float4 PSBlur(VOut i) : SV_TARGET
-{
-    float2 texel = float2(gExposure, gBloomI);
-    float2 dir   = float2(gBloomOn, gTonemapOp);
-    float w[5] = { 0.227027, 0.194594, 0.121622, 0.054054, 0.016216 };
-    float3 sum = gHDR.Sample(gS, i.uv).rgb * w[0];
-    [unroll] for (int k = 1; k < 5; ++k)
-    {
-        float2 o = dir * texel * (float)k;
-        sum += gHDR.Sample(gS, i.uv + o).rgb * w[k];
-        sum += gHDR.Sample(gS, i.uv - o).rgb * w[k];
-    }
-    return float4(sum, 1.0);
-}
-// FXAA (콘솔 컴팩트판) — gExposure,gBloomI = 1/해상도
-float4 PSFxaa(VOut i) : SV_TARGET
-{
-    float2 rcp = float2(gExposure, gBloomI);
-    float3 luma = float3(0.299, 0.587, 0.114);
-    float3 rgbM  = gHDR.Sample(gS, i.uv).rgb;
-    float3 rgbNW = gHDR.Sample(gS, i.uv + float2(-1,-1) * rcp).rgb;
-    float3 rgbNE = gHDR.Sample(gS, i.uv + float2( 1,-1) * rcp).rgb;
-    float3 rgbSW = gHDR.Sample(gS, i.uv + float2(-1, 1) * rcp).rgb;
-    float3 rgbSE = gHDR.Sample(gS, i.uv + float2( 1, 1) * rcp).rgb;
-    float lNW = dot(rgbNW, luma), lNE = dot(rgbNE, luma), lSW = dot(rgbSW, luma), lSE = dot(rgbSE, luma), lM = dot(rgbM, luma);
-    float lMin = min(lM, min(min(lNW, lNE), min(lSW, lSE)));
-    float lMax = max(lM, max(max(lNW, lNE), max(lSW, lSE)));
-    float2 dir;
-    dir.x = -((lNW + lNE) - (lSW + lSE));
-    dir.y =  ((lNW + lSW) - (lNE + lSE));
-    float reduce = max((lNW + lNE + lSW + lSE) * 0.25 * 0.125, 1e-5);
-    float rcpMin = 1.0 / (min(abs(dir.x), abs(dir.y)) + reduce);
-    dir = clamp(dir * rcpMin, -8.0, 8.0) * rcp;
-    float3 rgbA = 0.5 * (gHDR.Sample(gS, i.uv + dir * (1.0/3.0 - 0.5)).rgb + gHDR.Sample(gS, i.uv + dir * (2.0/3.0 - 0.5)).rgb);
-    float3 rgbB = rgbA * 0.5 + 0.25 * (gHDR.Sample(gS, i.uv + dir * -0.5).rgb + gHDR.Sample(gS, i.uv + dir * 0.5).rgb);
-    float lB = dot(rgbB, luma);
-    return float4((lB < lMin || lB > lMax) ? rgbA : rgbB, 1.0);
-}
-)";
 
 ComPtr<IDxcBlob> CompileDxc(const char* src, const wchar_t* entry, const wchar_t* target); // 전방 선언
 
-void D3D12Device::CreatePostFX()
-{
-	// 공용 SRV 힙 (shader-visible)
-	D3D12_DESCRIPTOR_HEAP_DESC hd{}; hd.NumDescriptors = 8;
-	hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV; hd.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	ThrowIfFailed(_device->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&_postSrvHeap)), "post srv heap");
-	_postSrvInc = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-	// 루트시그: t0..t1 테이블 + b0/b1/b2 루트상수 + t2 depth 테이블(DOF) + s0
-	D3D12_DESCRIPTOR_RANGE range{}; range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	range.NumDescriptors = 2; range.BaseShaderRegister = 0; range.OffsetInDescriptorsFromTableStart = 0;
-	D3D12_DESCRIPTOR_RANGE rangeD{}; rangeD.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	rangeD.NumDescriptors = 1; rangeD.BaseShaderRegister = 2; rangeD.OffsetInDescriptorsFromTableStart = 0;
-	D3D12_ROOT_PARAMETER p[6]{};
-	p[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	p[0].DescriptorTable.NumDescriptorRanges = 1; p[0].DescriptorTable.pDescriptorRanges = &range;
-	p[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-	p[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-	p[1].Constants.ShaderRegister = 0; p[1].Constants.Num32BitValues = 8;
-	p[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-	p[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-	p[2].Constants.ShaderRegister = 1; p[2].Constants.Num32BitValues = 8; // b1
-	p[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-	p[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-	p[3].Constants.ShaderRegister = 2; p[3].Constants.Num32BitValues = 8; // b2: DOF/갓레이
-	p[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-	p[4].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE; // t2 depth
-	p[4].DescriptorTable.NumDescriptorRanges = 1; p[4].DescriptorTable.pDescriptorRanges = &rangeD;
-	p[4].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-	p[5].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-	p[5].Constants.ShaderRegister = 3; p[5].Constants.Num32BitValues = 8; // b3: 렌즈왜곡/포스터/아나모픽/필터
-	p[5].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-	D3D12_STATIC_SAMPLER_DESC s{}; s.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-	s.AddressU = s.AddressV = s.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP; s.ShaderRegister = 0;
-	s.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL; s.MaxLOD = D3D12_FLOAT32_MAX;
-	D3D12_ROOT_SIGNATURE_DESC rs{}; rs.NumParameters = 6; rs.pParameters = p; rs.NumStaticSamplers = 1; rs.pStaticSamplers = &s;
-	rs.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
-	ComPtr<ID3DBlob> sig, err;
-	ThrowIfFailed(D3D12SerializeRootSignature(&rs, D3D_ROOT_SIGNATURE_VERSION_1, &sig, &err), "post rootsig");
-	ThrowIfFailed(_device->CreateRootSignature(0, sig->GetBufferPointer(), sig->GetBufferSize(), IID_PPV_ARGS(&_postRootSig)), "post rootsig create");
-
-	auto makePSO = [&](const std::string& shader, const wchar_t* psEntry, DXGI_FORMAT fmt, ComPtr<ID3D12PipelineState>& out)
-	{
-		ComPtr<IDxcBlob> vs = CompileDxc(shader.c_str(), L"VSFull", L"vs_6_5");
-		ComPtr<IDxcBlob> ps = CompileDxc(shader.c_str(), psEntry, L"ps_6_5");
-		D3D12_GRAPHICS_PIPELINE_STATE_DESC d{};
-		d.pRootSignature = _postRootSig.Get();
-		d.VS = { vs->GetBufferPointer(), vs->GetBufferSize() };
-		d.PS = { ps->GetBufferPointer(), ps->GetBufferSize() };
-		d.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID; d.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
-		d.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
-		d.DepthStencilState.DepthEnable = FALSE;
-		d.SampleMask = UINT_MAX; d.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-		d.NumRenderTargets = 1; d.RTVFormats[0] = fmt; d.SampleDesc.Count = 1;
-		ThrowIfFailed(_device->CreateGraphicsPipelineState(&d, IID_PPV_ARGS(&out)), "post pso");
-	};
-	makePSO(kTonemapShader, L"PSTonemap", DXGI_FORMAT_R8G8B8A8_UNORM, _tonemapPSO);
-	makePSO(kTonemapShader, L"PSBright", DXGI_FORMAT_R16G16B16A16_FLOAT, _brightPSO);
-	makePSO(kTonemapShader, L"PSBlur",   DXGI_FORMAT_R16G16B16A16_FLOAT, _blurPSO);
-	makePSO(kTonemapShader, L"PSFxaa",   DXGI_FORMAT_R8G8B8A8_UNORM,     _fxaaPSO);
-}
 
 // ───────────────────────────────────────────────────────────
 void D3D12Device::Init(HWND hwnd, UINT width, UINT height)
 {
+	s_main = this; // 전역 접근(Get) 등록
 	_width = width;
 	_height = height;
 	_hwnd = hwnd;
@@ -845,20 +652,112 @@ void D3D12Device::Init(HWND hwnd, UINT width, UINT height)
 	CreateConstantBuffers();
 
 	// 모델(기본 Archer) 로드 — 메시 + 바닥 + 텍스처 + BLAS/TLAS (런타임 교체 가능)
+	_scene.Init(this);
 	{
 		wchar_t exe[MAX_PATH]{}; GetModuleFileNameW(nullptr, exe, MAX_PATH);
 		std::wstring dir(exe); dir = dir.substr(0, dir.find_last_of(L"\\/"));
-		LoadModelFromFile(dir + L"\\..\\Resources\\Assets\\Models\\Archer\\Archer.mesh");
+		_scene.Load(dir + L"\\..\\Resources\\Assets\\Models\\Archer\\Archer.mesh");
 	}
+
+	GET_SINGLE(TimeManager)->Init(); // 델타타임 기준점
+
+	BuildGameScene(); // 씬 그래프(모델 GameObject + ModelRenderer) — 렌더 루프가 순회
 
 	// Phase 3 — DDGI 프로브 볼륨
 	CreateGI();
 
-	// 포스트프로세스 (HDR 톤맵 / 블룸) — SceneRT SRV 생성 전에 힙/PSO 준비
-	CreatePostFX();
+	// 포스트프로세스 (HDR 톤맵 / 블룸 / FXAA) — SceneRT SRV 생성 전에 힙/PSO 준비
+	_postfx.Init(_device.Get(), _sceneFmt);
 
 	// 에디터 UI (ImGui DX12 + 도킹)
 	InitEditor();
+}
+
+// 씬 그래프 구성 — 모델을 GameObject(Transform + ModelRenderer)로, SceneManager 현재 씬에 등록.
+// 렌더 루프가 Scene 의 렌더러를 순회해 Draw(ctx) 한다 (DX11 Engine 의 Scene→Renderer 경로 이식 시작).
+void D3D12Device::BuildGameScene()
+{
+	_gameScene = make_shared<Scene>();
+	GET_SINGLE(SceneManager)->SetCurrentScene(_gameScene);
+
+	_modelObj = make_shared<GameObject>();
+	_modelObj->SetObjectName(L"Model");
+	_modelObj->GetOrAddTransform();
+	auto mr = make_shared<ModelRenderer>();
+	mr->Bind(this);
+	_modelObj->AddComponent(mr);
+	_gameScene->Add(_modelObj);
+
+	// 에디터 카메라 GameObject — Camera 컴포넌트 (GetMainCamera 캐시 대상). view/proj 는 FlyCamera 가 매 프레임 주입.
+	_camObj = make_shared<GameObject>();
+	_camObj->SetObjectName(L"EditorCamera");
+	_camObj->SetEditorInternal(true);
+	_camObj->GetOrAddTransform();
+	_camObj->AddComponent(make_shared<Camera>());
+	_gameScene->Add(_camObj);
+
+	// 스카이박스(Background 큐) / 씬 그리드(Transparent 큐) GameObject
+	{
+		auto skyObj = make_shared<GameObject>();
+		skyObj->SetObjectName(L"Sky"); skyObj->SetEditorInternal(true); skyObj->GetOrAddTransform();
+		auto skyR = make_shared<SkyRenderer>(); skyR->Bind(this); skyObj->AddComponent(skyR);
+		_gameScene->Add(skyObj);
+
+		auto gridObj = make_shared<GameObject>();
+		gridObj->SetObjectName(L"Grid"); gridObj->SetEditorInternal(true); gridObj->GetOrAddTransform();
+		auto gridR = make_shared<GridRenderer>(); gridR->Bind(this); gridObj->AddComponent(gridR);
+		_gameScene->Add(gridObj);
+	}
+
+	// 라이트 GameObject (씬 그래프 + CB 소스). 매 프레임 SyncLights 로 스칼라→컴포넌트 미러.
+	auto addLight = [&](const wchar_t* name, LightType lt, Vec3 color, float intensity) -> shared_ptr<GameObject>
+	{
+		auto o = make_shared<GameObject>();
+		o->SetObjectName(name); o->GetOrAddTransform();
+		auto l = make_shared<Light>(); l->_lightType = lt; l->_color = color; l->_intensity = intensity;
+		o->AddComponent(l);
+		_gameScene->Add(o);
+		return o;
+	};
+	_sunObj  = addLight(L"Directional Light", LightType::Directional, _sunColor, _lightIntensity);
+	_ptObj   = addLight(L"Point Light",       LightType::Point,       _pointColor, _pointIntensity);
+	_spotObj = addLight(L"Spot Light",        LightType::Spot,        _spotColor,  _spotIntensity);
+
+	// 정적 메시 데모 — MeshRenderer 실드로우 검증용 큐브 (모델 옆, Opaque 버킷)
+	{
+		auto cubeObj = make_shared<GameObject>();
+		cubeObj->SetObjectName(L"Cube");
+		auto tr = cubeObj->GetOrAddTransform();
+		tr->SetLocalPosition(Vec3{ 2.2f, 0.5f, 0.f });
+		auto cmr = make_shared<MeshRenderer>(); cmr->Bind(this);
+		vector<Vtx> cv; vector<uint32> ci; GeometryHelper::CreateCube(cv, ci, 1.0f, Vec3{ 1.f, 1.f, 1.f });
+		cmr->SetGeometry(cv, ci);
+		// 절차적 체커 텍스처 (SRV 바인딩 경로 검증, 파일 의존 없음)
+		{
+			const uint32 N = 64; std::vector<uint8_t> tex(N * N * 4);
+			for (uint32 y = 0; y < N; ++y) for (uint32 x = 0; x < N; ++x)
+			{
+				bool c = ((x / 8) + (y / 8)) & 1;
+				uint8_t* p = &tex[(y * N + x) * 4];
+				p[0] = c ? 230 : 60; p[1] = c ? 120 : 90; p[2] = c ? 60 : 200; p[3] = 255;
+			}
+			cmr->SetTexturePixels(tex, N, N);
+		}
+		cubeObj->AddComponent(cmr);
+		_gameScene->Add(cubeObj);
+	}
+}
+
+// 스칼라 라이팅 파라미터 → Light 컴포넌트 미러 (CB 가 컴포넌트에서 읽도록). 무중단 전환.
+void D3D12Device::SyncLights()
+{
+	if (_sunObj) { auto l = _sunObj->GetLight(); l->_color = _sunColor; l->_intensity = _lightIntensity;
+		float a = _lightAngle; l->_direction = Vec3{ cosf(a) * 0.6f, -1.f, sinf(a) * 0.6f }; }
+	if (_ptObj)  { auto l = _ptObj->GetLight(); l->_enabled = _pointOn; l->_color = _pointColor; l->_intensity = _pointIntensity; l->_range = _pointRadius;
+		if (auto t = _ptObj->GetTransform()) t->SetLocalPosition(_pointPos); }
+	if (_spotObj){ auto l = _spotObj->GetLight(); l->_enabled = _spotOn; l->_color = _spotColor; l->_intensity = _spotIntensity; l->_range = _spotRadius;
+		l->_spotAngleDeg = _spotConeDeg; l->_direction = _spotDir;
+		if (auto t = _spotObj->GetTransform()) t->SetLocalPosition(_spotPos); }
 }
 
 void D3D12Device::EnableDebugLayer()
@@ -1202,26 +1101,8 @@ void D3D12Device::CreatePipeline()
 	ppso.DSVFormat = DXGI_FORMAT_D32_FLOAT; ppso.SampleDesc.Count = 1;
 	ThrowIfFailed(_device->CreateGraphicsPipelineState(&ppso, IID_PPV_ARGS(&_probePSO)), "CreateProbePSO");
 
-	// ── 디버그 라인 PSO (LINELIST, pos+color) ──
-	ComPtr<IDxcBlob> dvs = CompileDxc(kDbgShader.c_str(), L"VSMain", L"vs_6_5");
-	ComPtr<IDxcBlob> dps = CompileDxc(kDbgShader.c_str(), L"PSMain", L"ps_6_5");
-	D3D12_INPUT_ELEMENT_DESC dil[] = {
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "COLOR",    0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-	};
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC dpso{};
-	dpso.pRootSignature = _rootSig.Get();
-	dpso.VS = { dvs->GetBufferPointer(), dvs->GetBufferSize() };
-	dpso.PS = { dps->GetBufferPointer(), dps->GetBufferSize() };
-	dpso.InputLayout = { dil, 2 };
-	dpso.RasterizerState = rast; dpso.BlendState = blend;
-	dpso.DepthStencilState.DepthEnable = TRUE; dpso.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
-	dpso.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
-	dpso.SampleMask = UINT_MAX;
-	dpso.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
-	dpso.NumRenderTargets = 1; dpso.RTVFormats[0] = _sceneFmt;
-	dpso.DSVFormat = DXGI_FORMAT_D32_FLOAT; dpso.SampleDesc.Count = 1;
-	ThrowIfFailed(_device->CreateGraphicsPipelineState(&dpso, IID_PPV_ARGS(&_dbgPSO)), "CreateDbgPSO");
+	// ── 디버그 라인(본/AABB/콘/아이콘/파티클) — DebugDraw 클래스가 PSO 2종 생성 ──
+	_debugDraw.Init(_device.Get(), _rootSig.Get(), _sceneFmt);
 }
 
 ComPtr<ID3D12Resource> D3D12Device::CreateUploadBuffer(const void* data, size_t size)
@@ -1273,105 +1154,6 @@ ComPtr<ID3D12Resource> D3D12Device::CreateDefaultBuffer(UINT64 size, D3D12_RESOU
 	return buf;
 }
 
-// BLAS 입력(삼각형 지오메트리) 구성 — 매번 동일(정점 데이터만 GPU 실행 시 갱신)
-static void FillBlasGeom(ID3D12Resource* vb, ID3D12Resource* ib, UINT vcount, UINT icount,
-                         D3D12_RAYTRACING_GEOMETRY_DESC& geom)
-{
-	geom = {};
-	geom.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
-	geom.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
-	geom.Triangles.VertexBuffer.StartAddress = vb->GetGPUVirtualAddress();
-	geom.Triangles.VertexBuffer.StrideInBytes = sizeof(Vtx);
-	geom.Triangles.VertexCount = vcount;
-	geom.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
-	geom.Triangles.IndexBuffer = ib->GetGPUVirtualAddress();
-	geom.Triangles.IndexCount = icount;
-	geom.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;
-}
-
-void D3D12Device::CreateASBuffers()
-{
-	D3D12_RAYTRACING_GEOMETRY_DESC geom{};
-	FillBlasGeom(_vb.Get(), _ib.Get(), _vertexCount, _indexCount, geom);
-
-	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS blasIn{};
-	blasIn.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
-	blasIn.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-	blasIn.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
-	blasIn.NumDescs = 1;
-	blasIn.pGeometryDescs = &geom;
-	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO blasInfo{};
-	_device->GetRaytracingAccelerationStructurePrebuildInfo(&blasIn, &blasInfo);
-	_blas        = CreateDefaultBuffer(blasInfo.ResultDataMaxSizeInBytes, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, true);
-	_blasScratch = CreateDefaultBuffer(blasInfo.ScratchDataSizeInBytes, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, true);
-
-	D3D12_RAYTRACING_INSTANCE_DESC inst{};
-	inst.Transform[0][0] = 1.f; inst.Transform[1][1] = 1.f; inst.Transform[2][2] = 1.f;
-	inst.InstanceMask = 0xFF;
-	inst.AccelerationStructure = _blas->GetGPUVirtualAddress();
-	_instanceBuffer = CreateUploadBuffer(&inst, sizeof(inst));
-
-	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS tlasIn{};
-	tlasIn.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
-	tlasIn.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-	tlasIn.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
-	tlasIn.NumDescs = 1;
-	tlasIn.InstanceDescs = _instanceBuffer->GetGPUVirtualAddress();
-	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO tlasInfo{};
-	_device->GetRaytracingAccelerationStructurePrebuildInfo(&tlasIn, &tlasInfo);
-	_tlas        = CreateDefaultBuffer(tlasInfo.ResultDataMaxSizeInBytes, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, true);
-	_tlasScratch = CreateDefaultBuffer(tlasInfo.ScratchDataSizeInBytes, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, true);
-
-	// 초기 빌드 (1회) — 정적이면 이것만으로 충분, 스키닝이면 매 프레임 RecordBuildAS 재빌드
-	ThrowIfFailed(_allocators[_frameIndex]->Reset(), "AS alloc reset");
-	ThrowIfFailed(_cmdList->Reset(_allocators[_frameIndex].Get(), nullptr), "AS cmd reset");
-	RecordBuildAS();
-	ThrowIfFailed(_cmdList->Close(), "AS cmd close");
-	ID3D12CommandList* lists[] = { _cmdList.Get() };
-	_queue->ExecuteCommandLists(1, lists);
-	WaitForGpu();
-}
-
-void D3D12Device::RecordBuildAS()
-{
-	D3D12_RAYTRACING_GEOMETRY_DESC geom{};
-	FillBlasGeom(_vb.Get(), _ib.Get(), _vertexCount, _indexCount, geom);
-
-	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS blasIn{};
-	blasIn.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
-	blasIn.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-	blasIn.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
-	blasIn.NumDescs = 1;
-	blasIn.pGeometryDescs = &geom;
-
-	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC blasBuild{};
-	blasBuild.Inputs = blasIn;
-	blasBuild.DestAccelerationStructureData = _blas->GetGPUVirtualAddress();
-	blasBuild.ScratchAccelerationStructureData = _blasScratch->GetGPUVirtualAddress();
-	_cmdList->BuildRaytracingAccelerationStructure(&blasBuild, 0, nullptr);
-
-	D3D12_RESOURCE_BARRIER ub{};
-	ub.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-	ub.UAV.pResource = _blas.Get();
-	_cmdList->ResourceBarrier(1, &ub);
-
-	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS tlasIn{};
-	tlasIn.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
-	tlasIn.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-	tlasIn.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
-	tlasIn.NumDescs = 1;
-	tlasIn.InstanceDescs = _instanceBuffer->GetGPUVirtualAddress();
-
-	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC tlasBuild{};
-	tlasBuild.Inputs = tlasIn;
-	tlasBuild.DestAccelerationStructureData = _tlas->GetGPUVirtualAddress();
-	tlasBuild.ScratchAccelerationStructureData = _tlasScratch->GetGPUVirtualAddress();
-	_cmdList->BuildRaytracingAccelerationStructure(&tlasBuild, 0, nullptr);
-
-	ub.UAV.pResource = _tlas.Get();
-	_cmdList->ResourceBarrier(1, &ub);
-}
-
 void D3D12Device::Transition(ID3D12Resource* res, D3D12_RESOURCE_STATES& cur, D3D12_RESOURCE_STATES to)
 {
 	if (cur == to) return;
@@ -1387,64 +1169,9 @@ void D3D12Device::Transition(ID3D12Resource* res, D3D12_RESOURCE_STATES& cur, D3
 
 void D3D12Device::CreateGI()
 {
-	// 프로브 버퍼 (ProbeSH = float3 × 4 = SH-L1) × PROBE_COUNT — 컴퓨트 UAV 쓰기 / 픽셀 SRV 읽기
-	_probes = CreateDefaultBuffer(PROBE_COUNT * sizeof(XMFLOAT3) * 4, D3D12_RESOURCE_STATE_COMMON, true);
-	_probeState = D3D12_RESOURCE_STATE_COMMON;
-
-	// 옥타헤드럴 depth 버퍼 (float2 mean/mean²) × PROBE_COUNT × OCT²
-	_probeDepth = CreateDefaultBuffer(PROBE_COUNT * PROBE_OCT * PROBE_OCT * sizeof(XMFLOAT2), D3D12_RESOURCE_STATE_COMMON, true);
-	_probeDepthState = D3D12_RESOURCE_STATE_COMMON;
-
-	// 컴퓨트 루트 시그니처: b0 CBV, u0 probes, u1 depth, t0 TLAS, t1 verts, t2 indices (전부 루트 디스크립터)
-	D3D12_ROOT_PARAMETER p[6]{};
-	p[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; p[0].Descriptor.ShaderRegister = 0;
-	p[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV; p[1].Descriptor.ShaderRegister = 0;
-	p[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV; p[2].Descriptor.ShaderRegister = 1; // depth
-	p[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; p[3].Descriptor.ShaderRegister = 0;
-	p[4].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; p[4].Descriptor.ShaderRegister = 1;
-	p[5].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; p[5].Descriptor.ShaderRegister = 2;
-	for (auto& rp : p) rp.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
-	D3D12_ROOT_SIGNATURE_DESC rs{};
-	rs.NumParameters = 6;
-	rs.pParameters = p;
-	rs.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
-
-	ComPtr<ID3DBlob> sig, err;
-	ThrowIfFailed(D3D12SerializeRootSignature(&rs, D3D_ROOT_SIGNATURE_VERSION_1, &sig, &err), "Serialize GI RootSig");
-	ThrowIfFailed(_device->CreateRootSignature(0, sig->GetBufferPointer(), sig->GetBufferSize(), IID_PPV_ARGS(&_giRootSig)), "Create GI RootSig");
-
+	// gather 컴퓨트 셰이더는 공용 SceneCB 레이아웃에 의존 → 여기서 컴파일 후 바이트코드만 Ddgi 에 전달
 	ComPtr<IDxcBlob> cs = CompileDxc(kGatherShader.c_str(), L"CSMain", L"cs_6_5");
-
-	D3D12_COMPUTE_PIPELINE_STATE_DESC pso{};
-	pso.pRootSignature = _giRootSig.Get();
-	pso.CS = { cs->GetBufferPointer(), cs->GetBufferSize() };
-	ThrowIfFailed(_device->CreateComputePipelineState(&pso, IID_PPV_ARGS(&_giPSO)), "Create GI PSO");
-}
-
-void D3D12Device::DispatchGI()
-{
-	// 프로브/depth 를 UAV 상태로 → RT 레이 수집 → 픽셀 읽기용 SRV 로 전환
-	Transition(_probes.Get(), _probeState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-	Transition(_probeDepth.Get(), _probeDepthState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-
-	_cmdList->SetPipelineState(_giPSO.Get());
-	_cmdList->SetComputeRootSignature(_giRootSig.Get());
-	_cmdList->SetComputeRootConstantBufferView(0, _cb[_frameIndex]->GetGPUVirtualAddress());
-	_cmdList->SetComputeRootUnorderedAccessView(1, _probes->GetGPUVirtualAddress());
-	_cmdList->SetComputeRootUnorderedAccessView(2, _probeDepth->GetGPUVirtualAddress());
-	_cmdList->SetComputeRootShaderResourceView(3, _tlas->GetGPUVirtualAddress());
-	_cmdList->SetComputeRootShaderResourceView(4, _vb->GetGPUVirtualAddress());
-	_cmdList->SetComputeRootShaderResourceView(5, _ib->GetGPUVirtualAddress());
-	_cmdList->Dispatch((PROBE_COUNT + 63) / 64, 1, 1);
-
-	D3D12_RESOURCE_BARRIER uav[2]{};
-	uav[0].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV; uav[0].UAV.pResource = _probes.Get();
-	uav[1].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV; uav[1].UAV.pResource = _probeDepth.Get();
-	_cmdList->ResourceBarrier(2, uav);
-
-	Transition(_probes.Get(), _probeState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-	Transition(_probeDepth.Get(), _probeDepthState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	_ddgi.Create(_device.Get(), cs->GetBufferPointer(), cs->GetBufferSize());
 }
 
 void D3D12Device::CreateConstantBuffers()

@@ -9,7 +9,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tools", "Tools", "{CBF29C81
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "EditorTool", "EditorTool\EditorTool.vcxproj", "{16597670-7EB6-4AD5-AC4A-EA9065674E8B}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RtDemo", "RtDemo\RtDemo.vcxproj", "{C7A2D1E4-9B3F-4A6C-8D2E-1F5A7B9C3D0E}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "EngineDX12", "EngineDX12\EngineDX12.vcxproj", "{C7A2D1E4-9B3F-4A6C-8D2E-1F5A7B9C3D0E}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "솔루션 항목", "솔루션 항목", "{2A3A057F-5D22-31FD-628C-DF5EF75AEF1E}"
 	ProjectSection(SolutionItems) = preProject

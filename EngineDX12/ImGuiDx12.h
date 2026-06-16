@@ -16,6 +16,10 @@ public:
 	// 씬 RT 텍스처를 슬롯1 SRV 로 등록(리사이즈 시 재호출) → ImGui::Image 용 ImTextureID 반환
 	uint64 SetSceneTexture(ID3D12Resource* tex);
 
+	// 임의 텍스처(썸네일 등)를 SRV 힙 다음 빈 슬롯(2~)에 등록 → ImGui::Image 용 ImTextureID 반환.
+	// 슬롯 풀이 가득 차면 0 반환. 한 번 등록하면 캐시해 매 프레임 재등록하지 말 것.
+	uint64 RegisterTexture(ID3D12Resource* tex, DXGI_FORMAT fmt = DXGI_FORMAT_R8G8B8A8_UNORM);
+
 private:
 	void CreateFontTexture(ID3D12CommandQueue* queue);
 
@@ -27,6 +31,8 @@ private:
 	ComPtr<ID3D12DescriptorHeap>  _srvHeap;   // shader-visible, slot0 = 폰트, slot1 = 씬RT
 	D3D12_GPU_DESCRIPTOR_HANDLE   _fontGpu{};
 	UINT                          _srvInc = 0;
+	UINT                          _srvCapacity = 0; // SRV 힙 디스크립터 수
+	UINT                          _nextSlot = 2;    // 0 폰트 / 1 씬RT / 2~ 썸네일 등 동적 등록
 
 	struct FrameBuf
 	{

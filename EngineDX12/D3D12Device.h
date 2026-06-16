@@ -2,17 +2,17 @@
 #include "Common.h"
 #include "MeshLoader.h"
 #include "ImGuiDx12.h"
+#include "DebugDraw.h"
+#include "Thumbnail.h"
+#include "Ddgi.h"
+#include "PostFX.h"
+#include "FlyCamera.h"
+#include "ModelScene.h"
+#include "Scene.h"
+#include "GameObject.h"
+#include "EditorManager.h"
+#include "EditorWindows.h"
 #include <string>
-
-// 정점 (래스터 입력 + RT BLAS 소스 + GI gather 소스 공용)
-struct Vtx
-{
-	DirectX::XMFLOAT3 pos;
-	DirectX::XMFLOAT3 nrm;
-	DirectX::XMFLOAT3 col;
-	DirectX::XMFLOAT2 uv;
-	DirectX::XMFLOAT3 tan;
-};
 
 // 상수버퍼 (HLSL SceneCB 와 일치, row_major)
 struct SceneCB
@@ -65,6 +65,15 @@ public:
 	void Render();
 	void Destroy();
 
+	static D3D12Device* Get() { return s_main; } // 전역 접근(컴포넌트가 백포인터 없이 디바이스 도달) — DX12판 GRAPHICS
+
+	// Engine GRAPHICS->GetDevice()/GetDeviceContext() 접근 관례 (DX12 적응) — 물리 분리 대신 접근 API
+	ID3D12Device5*              Device()     const { return _device.Get(); }
+	ID3D12CommandQueue*         Queue()      const { return _queue.Get(); }
+	ID3D12GraphicsCommandList4* Cmd()        const { return _cmdList.Get(); }
+	UINT                        FrameIndex() const { return _frameIndex; }
+	D3D12_GPU_VIRTUAL_ADDRESS   FrameCB()    const { return _cb[_frameIndex]->GetGPUVirtualAddress(); }
+
 	bool                  SupportsDXR() const { return _dxrTier >= D3D12_RAYTRACING_TIER_1_0; }
 	D3D12_RAYTRACING_TIER GetDXRTier() const { return _dxrTier; }
 	const std::wstring&   GetAdapterName() const { return _adapterName; }
@@ -83,25 +92,19 @@ private:
 	void CreateDepthBuffer();
 	void CreateRootSignature();
 	void CreatePipeline();
-	void CreateCubeGeometry();
-	void LoadModelFromFile(const std::wstring& meshPath); // 런타임 모델 교체 (에셋 더블클릭)
 	void CreateConstantBuffers();
 	ComPtr<ID3D12Resource> CreateUploadBuffer(const void* data, size_t size); // 단순 업로드힙 버퍼
-
-	// Phase 2 (DXR)
-	void CreateASBuffers();   // BLAS/TLAS/스크래치/인스턴스 버퍼 생성 + 초기 빌드 (1회)
-	void RecordBuildAS();     // BLAS+TLAS 빌드를 현재 커맨드리스트에 기록 (정적=1회, 스키닝=매프레임)
 	ComPtr<ID3D12Resource> CreateDefaultBuffer(UINT64 size, D3D12_RESOURCE_STATES state, bool allowUAV);
 
-	// 스키닝 애니메이션 (CPU) — 매 프레임 본 행렬 계산 → 정점 스키닝 → VB 갱신
-	void UpdateAnimation();
+	// 모델/스키닝/텍스처/가속구조는 ModelScene 가 소유 (_scene). 렌더러 컴포넌트도 friend 로 접근.
+	friend class ModelScene;
+	friend class ModelRenderer;
+	friend class MeshRenderer;
+	friend class SkyRenderer;
+	friend class GridRenderer;
 
-	// 텍스처 (디퓨즈 PNG → DX12 텍스처 + SRV 힙)
-	void CreateTextureResources();
-
-	// Phase 3 (DDGI)
-	void CreateGI();    // 프로브 버퍼 + 컴퓨트 루트시그/PSO
-	void DispatchGI();  // 매 프레임 RT 레이로 프로브 irradiance 갱신
+	// Phase 3 (DDGI) — 프로브/컴퓨트는 Ddgi 클래스가 소유. CreateGI 는 셰이더 컴파일 후 위임
+	void CreateGI();
 	void Transition(ID3D12Resource* res, D3D12_RESOURCE_STATES& cur, D3D12_RESOURCE_STATES to);
 
 private:
@@ -135,122 +138,69 @@ private:
 	ComPtr<ID3D12PipelineState>       _outlinePSO; // 선택 아웃라인(인버티드 헐)
 	ComPtr<ID3D12PipelineState>       _wirePSO;    // 와이어프레임 토글
 	ComPtr<ID3D12PipelineState>       _probePSO;   // DDGI 프로브 점 시각화
-	ComPtr<ID3D12PipelineState>       _fxaaPSO;    // FXAA
-	ComPtr<ID3D12PipelineState>       _dbgPSO;     // 디버그 라인(본/AABB/콘/아이콘)
-	ComPtr<ID3D12Resource>            _dbgVB;      // 디버그 라인 동적 VB
-	void*                             _dbgMapped = nullptr;
-	UINT                              _dbgCap = 0;
-	std::vector<DirectX::XMFLOAT3>    _boneWorld;  // 본 월드 위치(스키닝 시 채움)
-	void                              DrawDebugLines(); // 본/AABB/콘/아이콘 라인 빌드+드로우
+	DebugDraw                         _debugDraw;  // 디버그 라인 렌더러(본/AABB/콘/아이콘/파티클)
+	void                              DrawDebugLines(); // 에디터 상태 → 라인 빌드 → _debugDraw 드로우
 	DXGI_FORMAT                       _sceneFmt = DXGI_FORMAT_R16G16B16A16_FLOAT; // 씬 RT(HDR)
 
-	// 포스트프로세스 (S3 톤맵 / S4 블룸) — 공용 SRV 힙 + 루트시그
-	void CreatePostFX();
-	ComPtr<ID3D12RootSignature>       _postRootSig;
-	ComPtr<ID3D12PipelineState>       _tonemapPSO;
-	ComPtr<ID3D12DescriptorHeap>      _postSrvHeap; // slot0 HDR씬 / slot1 bloom / 2~ bloom 밉
-	UINT                              _postSrvInc = 0;
-	ComPtr<ID3D12Resource>            _sceneLDR;    // 톤맵 결과
-	ComPtr<ID3D12Resource>            _sceneLDR2;   // FXAA 결과 (ImGui 표시 후보)
-	D3D12_RESOURCE_STATES             _sceneLDRState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-	D3D12_RESOURCE_STATES             _sceneLDR2State = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-	float                             _exposure = 1.0f;
-	// 블룸 (S4) — 반해상도 ping-pong
-	ComPtr<ID3D12PipelineState>       _brightPSO, _blurPSO;
-	ComPtr<ID3D12Resource>            _bloomA, _bloomB;
-	ComPtr<ID3D12DescriptorHeap>      _bloomRtvHeap;
-	D3D12_RESOURCE_STATES             _bloomAState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-	D3D12_RESOURCE_STATES             _bloomBState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-	UINT                              _bloomW = 0, _bloomH = 0;
-	bool                              _bloomReady = false; // S4 에서 true
-	float                             _bloomIntensity = 0.6f;
-	ComPtr<ID3D12Resource>            _vb;
-	D3D12_VERTEX_BUFFER_VIEW          _vbv{};
-	ComPtr<ID3D12Resource>            _ib;
-	D3D12_INDEX_BUFFER_VIEW           _ibv{};
-	UINT                              _indexCount = 0;
+	// 포스트프로세스 (블룸/톤맵/FXAA) — PostFX 클래스가 RT/힙/PSO 소유
+	PostFX                            _postfx;
+	float                             _exposure = 1.0f;      // 에디터 파라미터(인스펙터/씬저장) → TonemapParams
+	float                             _bloomIntensity = 0.6f; // 〃
 	ComPtr<ID3D12Resource>            _cb[FRAME_COUNT];
 	void*                             _cbMapped[FRAME_COUNT] = {};
-
-	// Phase 2 — 가속구조 (BLAS/TLAS), RayQuery 인라인 RT 용
-	ComPtr<ID3D12Resource>            _blas;
-	ComPtr<ID3D12Resource>            _blasScratch;
-	ComPtr<ID3D12Resource>            _tlas;
-	ComPtr<ID3D12Resource>            _tlasScratch;
-	ComPtr<ID3D12Resource>            _instanceBuffer;
-	UINT                              _vertexCount = 0;
-
-	// 스키닝 애니메이션
-	std::vector<LoadedBone>           _bonesData;
-	std::vector<SkinVtx>              _skinSrc;       // 모델 원본 정점(바인드, 블렌드 포함)
-	AnimClip                          _clip;
-	bool                              _animated = false;
-	std::vector<Vtx>                  _cpuVerts;      // 합본(모델+바닥) CPU 미러 — 매프레임 모델부 갱신
-	uint32                            _modelVtxCount = 0;
-	float                             _modelScale = 1.f;
-	DirectX::XMFLOAT3                 _modelOffset{ 0, 0, 0 };
-	void*                             _vbMapped = nullptr; // VB 영속 매핑
 	UINT64                            _flushValue = 0;
-	uint32                            _modelIndexCount = 0; // 모델 인덱스 수(바닥 제외) — 텍스처 드로우 분리용
-	std::wstring                      _modelDir;       // 현재 모델 폴더(.mmat/.mat/텍스처 기준)
-	std::wstring                      _modelStem;      // 현재 모델 스템(예: Archer)
-	std::wstring                      _modelLabel = L"Archer"; // 하이어라키/인스펙터 표시명
-	std::wstring                      _pendingModel;   // 더블클릭/씬로드 모델 경로 (다음 프레임 처리)
-	DirectX::XMFLOAT4X4               _modelMatrix;    // 기즈모 트랜스폼 (정점에 매프레임 적용 → RT 일치)
-	bool                              _modelMatrixInit = false;
-	DirectX::XMFLOAT4X4               _pendingMatrix;  // 씬 로드 시 모델 로드 후 적용할 트랜스폼
+
+	// 모델/스키닝/텍스처/가속구조 일체 — ModelScene 클래스
+	ModelScene                        _scene;
+	// 씬 그래프(이관 시작) — 모델을 GameObject(ModelRenderer)로 보유, 렌더 루프가 순회
+	shared_ptr<Scene>                 _gameScene;
+	shared_ptr<GameObject>            _modelObj;
+	shared_ptr<GameObject>            _camObj;  // 에디터 카메라 GameObject (Camera 컴포넌트)
+	shared_ptr<GameObject>            _sunObj, _ptObj, _spotObj; // 라이트 GameObject (CB 소스)
+	void                              BuildGameScene(); // 모델 + 카메라 + 라이트 GameObject 구성
+	void                              SyncLights();     // 스칼라 → Light 컴포넌트 동기화 (CB 가 컴포넌트 읽음)
+	// 씬그래프 편집 (하이어라키 컨텍스트 메뉴/단축키)
+	shared_ptr<GameObject>            SpawnMeshObject(const std::wstring& name, const vector<Vtx>& v, const vector<uint32>& idx, const Vec3& pos);
+	shared_ptr<GameObject>            SpawnEmpty(const std::wstring& name, const Vec3& pos);
+	void                              DeleteSelectedObject();    // _selectedGO 삭제 (에디터 내부/모델 보호)
+	void                              DuplicateSelectedObject(); // _selectedGO 복제
+	int                               _spawnCounter = 0;         // 고유 이름 접미사
+	// 모델 교체 예약 (더블클릭/씬로드 — 다음 프레임 GPU 유휴 시점에 처리)
+	std::wstring                      _pendingModel;
+	DirectX::XMFLOAT4X4               _pendingMatrix;
 	bool                              _hasPendingMatrix = false;
 	void                              SaveScene();     // .rtscene 저장
 	void                              LoadScene();     // .rtscene 로드
 
-	// PBR 텍스처 — 다중 머티리얼: 머티리얼 슬롯당 3개(디퓨즈/노멀/스펙) 연속 SRV 힙.
-	// 드로우 시 서브메시의 matSlot 으로 테이블 핸들을 slot*3 만큼 오프셋.
-	std::vector<ComPtr<ID3D12Resource>> _matResources; // 슬롯×3 (생존 유지)
-	ComPtr<ID3D12Resource>            _whiteTex;        // 폴백(1×1 흰색)
-	ComPtr<ID3D12DescriptorHeap>      _srvHeap;
-	UINT                              _srvInc = 0;       // 디스크립터 증가량
-	UINT                              _matCount = 0;     // 머티리얼 슬롯 수
-	std::vector<SubMesh>              _submeshes;        // 머티리얼별 인덱스 구간 + matSlot(materialName→슬롯)
-	std::vector<uint32>               _subMatSlot;       // _submeshes[i] 의 머티리얼 슬롯 인덱스
-	bool                              _hasTexture = false;
-
-	// Phase 3 — DDGI 프로브 볼륨 (DC irradiance, 컴퓨트 RT 수집)
-	static const UINT PROBE_X = 10;
-	static const UINT PROBE_Y = 5;
-	static const UINT PROBE_Z = 10;
-	static const UINT PROBE_COUNT = PROBE_X * PROBE_Y * PROBE_Z;
-	static const UINT PROBE_OCT = 8; // 프로브당 옥타헤드럴 depth 해상도 (셰이더 OCT 와 일치)
-	ComPtr<ID3D12RootSignature>       _giRootSig;
-	ComPtr<ID3D12PipelineState>       _giPSO;
-	ComPtr<ID3D12Resource>            _probes;       // ProbeSH[PROBE_COUNT] (UAV/SRV)
-	ComPtr<ID3D12Resource>            _probeDepth;   // float2[PROBE_COUNT×OCT²] mean/mean² (UAV/SRV)
-	D3D12_RESOURCE_STATES             _probeState = D3D12_RESOURCE_STATE_COMMON;
-	D3D12_RESOURCE_STATES             _probeDepthState = D3D12_RESOURCE_STATE_COMMON;
+	// Phase 3 — DDGI 프로브 볼륨 (Ddgi 클래스가 프로브 버퍼 + 컴퓨트 GI 디스패치 소유)
+	Ddgi                              _ddgi;
 
 	D3D12_RAYTRACING_TIER             _dxrTier = D3D12_RAYTRACING_TIER_NOT_SUPPORTED;
 	std::wstring                      _adapterName;
 	float                             _time = 0.f;
 
-	// 자유 비행 카메라 (WASD 이동 / 우클릭 드래그 마우스 룩 / Q·E 상하 / Shift 가속)
-	void                              UpdateCamera(float dt);
+	// 자유 비행 카메라 — FlyCamera 클래스가 상태/입력/뷰·프로젝션 소유
+	FlyCamera                         _camera;
 	HWND                              _hwnd = nullptr;
-	DirectX::XMFLOAT3                 _camPos{ 3.4f, 2.4f, -4.6f };
-	float                             _camYaw = -0.637f;   // 초기 시선(원점 부근) 방향
-	float                             _camPitch = -0.232f;
-	bool                              _rmbDown = false;
-	POINT                             _lastCursor{ 0, 0 };
 
-	// ── 에디터 UI (ImGui) — 도킹 + Inspector / FolderContents / Scene(RT 이미지) ──
+	// ── 에디터 UI (ImGui) — EditorManager + EditorWindow 프레임워크(EditorTool 대응) ──
+	// 각 Draw* 는 해당 윈도우 클래스가 Update() 에서 렌더한다(friend).
+	EditorManager                     _editor;
+	friend class MainMenuBarWindow; friend class SceneViewWindow; friend class HierarchyWindow;
+	friend class InspectorWindow; friend class ProjectWindow; friend class FolderContentsWindow; friend class LogPanelWindow;
 	void                              InitEditor();
-	void                              BuildUI();           // ImGui::NewFrame ~ Render 사이 패널 구성
+	void                              BuildUI();           // ImGui NewFrame ~ Render (EditorManager 위임)
+	void                              DrawMainMenuBar();
 	void                              DrawHierarchy();
 	void                              DrawInspector();
+	void                              DrawGameObjectInspector(const shared_ptr<GameObject>& go); // 컴포넌트 기반
 	void                              DrawFolderContents();
 	void                              DrawSceneView();
 	void                              DrawLog();
 	void                              DrawProject();
 	enum class SelEntity { Model, Floor, Sun, DDGI, Camera, Point, Spot, Post };
 	SelEntity                         _sel = SelEntity::Model; // 하이어라키 선택 → 인스펙터 표시 대상
+	shared_ptr<GameObject>            _selectedGO;             // GameObject 기반 선택 (있으면 인스펙터가 컴포넌트 표시)
 	void                              CreateSceneRT(UINT w, UINT h); // 씬 오프스크린 RT/깊이 (재)생성
 	ImGuiDx12                         _imgui;
 	bool                              _editorReady = false;
@@ -268,8 +218,7 @@ private:
 	bool                              _sceneHovered = false, _sceneFocused = false;
 	DirectX::XMFLOAT4X4               _viewM, _projM;      // ImGuizmo 용 (Render 에서 갱신)
 	int                               _gizmoOp = 7;        // ImGuizmo::TRANSLATE (헤더에 ImGuizmo 미포함 → int)
-	DirectX::XMFLOAT3                 _modelMin{}, _modelMax{}; // 모델 월드 AABB (클릭 픽킹)
-	void                              PickAt(float u, float v); // 씬뷰 클릭 → 레이 픽킹
+	void                              PickAt(float u, float v); // 씬뷰 클릭 → 레이 픽킹 (모델 AABB = _scene._modelMin/Max)
 	// 인스펙터에서 편집하는 라이팅/GI 파라미터 (Render 가 매 프레임 SceneCB 에 반영)
 	float                             _lightIntensity = 1.2f;
 	bool                              _lightAnimate = true;
@@ -286,9 +235,10 @@ private:
 	float                             _matMetallic = 0.0f, _matRoughness = 0.5f, _matEmissive = 0.0f, _matTint = 1.0f;
 	// 뷰포트 토글 (S10)
 	bool                              _showGrid = true, _showSky = true, _bloomOn = true, _wireframe = false;
+	bool                              _frustumCull = false; // 절두체 컬링(Opaque) — 기본 off(안전), 인스펙터 토글
+	static D3D12Device*               s_main;               // Get() 전역 접근용
 
-	// ── 20종 확장 상태 ──
-	float                             _fov = 55.f, _moveSpeed = 3.5f, _fastMul = 2.6f; // T1
+	// ── 20종 확장 상태 ── (카메라 FOV/이동속도/Near·Far/오빗/북마크는 FlyCamera 로 이동)
 	bool                              _gizmoLocal = false, _snapOn = false; float _snapT = 0.5f, _snapR = 15.f, _snapS = 0.1f; // T2
 	DirectX::XMFLOAT3                 _sunColor{ 1.0f, 0.96f, 0.88f }; float _envIntensity = 1.0f; // T5
 	float                             _bloomThreshold = 1.0f; // T6 (셰이더 전달)
@@ -305,12 +255,10 @@ private:
 	bool                              _probeViz = false; // T15
 	int                               _debugView = 0;    // T16: 0 none/1 albedo/2 normal/3 depth/4 GI
 	bool                              _animPaused = false; float _animSpeed = 1.0f, _animTimeAcc = 0.0f; // T17
-	std::vector<std::wstring>         _clips; int _curClip = 0; // T18
 	bool                              _wantShot = false; // T19
 	DirectX::XMFLOAT3                 _skyZenith{ 0.13f, 0.22f, 0.44f }, _skyHorizon{ 0.52f, 0.60f, 0.72f }; float _sunSize = 900.f; // T20
 	DirectX::XMFLOAT3                 _diffuseTint{ 1.0f, 1.0f, 1.0f }; // T4 RGB 틴트
 	void                              SaveScreenshot(); // T19
-	void                              ScanClips();      // T18
 
 	// ── 추가 20종(U) ──
 	bool                              _aoOn = false; float _aoIntensity = 1.0f, _aoRadius = 0.6f; // U1 RT AO
@@ -325,7 +273,7 @@ private:
 	bool                              _showAABB = false;    // U11
 	bool                              _showLightIcons = true; // U12
 	bool                              _showSpotCone = true; // U13
-	float                             _groundSize = 6.0f;   // U19
+	// U19 _groundSize → Scene._groundSize
 	std::vector<std::string>          _log;                 // U16 로그
 	void                              Log(const std::string& m);
 	void                              ResetDefaults();
@@ -335,14 +283,13 @@ private:
 	float                             _frameTimes[120]{}; int _frameIdx = 0; // U18
 
 	// ── 3차 20종(V) ──
-	bool                              _terrain = false; bool _wantReload = false; // V1 절차 터레인
+	bool                              _wantReload = false; // V1 재생성 트리거 (_terrain 토글은 Scene._terrain)
 	int                               _toonLevels = 0;          // V2 (0=off)
 	float                             _rimPower = 0.0f; DirectX::XMFLOAT3 _rimColor{ 0.3f, 0.55f, 1.0f }; // V3
 	bool                              _todOn = false; float _timeOfDay = 0.35f; // V4 시간대
 	DirectX::XMFLOAT3                 _outlineColor{ 1.7f, 0.85f, 0.12f }; float _outlineThick = 0.005f; // V5
 	float                             _gizmoSize = 0.1f;        // V6
-	float                             _camNear = 0.1f, _camFar = 200.0f; bool _orbit = false; // V7
-	struct Bookmark { DirectX::XMFLOAT3 pos; float yaw, pitch; bool set = false; }; Bookmark _bm[4]; // V8
+	// V7 Near/Far/Orbit, V8 북마크 → FlyCamera
 	float                             _normalIntensity = 1.0f;  // V9
 	float                             _lensDistort = 0.0f;      // V10
 	float                             _posterize = 0.0f;        // V11 (0=off)
@@ -373,4 +320,7 @@ private:
 	std::wstring                      _assetRoot;          // Resources/Assets 절대경로
 	std::wstring                      _curDir;             // 현재 탐색 폴더
 	std::wstring                      _selectedAsset;      // 선택 파일(인스펙터 표시)
+
+	// 메시/이미지 썸네일 (FolderContents 그리드) — Thumbnail 클래스가 생성/캐시 담당
+	Thumbnail                         _thumbnail;
 };

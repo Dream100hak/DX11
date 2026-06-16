@@ -38,7 +38,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow)
 {
-	const wchar_t* kClass = L"RtDemoWindow";
+	const wchar_t* kClass = L"EngineDX12Window";
 	WNDCLASSEX wc{};
 	wc.cbSize = sizeof(wc);
 	wc.style = CS_HREDRAW | CS_VREDRAW;
@@ -50,9 +50,40 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow)
 
 	RECT rc{ 0, 0, (LONG)WIN_W, (LONG)WIN_H };
 	AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, FALSE);
+	const int winW = rc.right - rc.left;
+	const int winH = rc.bottom - rc.top;
 
-	HWND hwnd = CreateWindow(kClass, L"RtDemo (DX12)", WS_OVERLAPPEDWINDOW,
-		CW_USEDEFAULT, CW_USEDEFAULT, rc.right - rc.left, rc.bottom - rc.top,
+	// 가장 오른쪽 모니터를 찾아 그 작업영역 중앙에 띄운다 (듀얼모니터: 왼쪽은 풀스크린 다른 작업용)
+	struct MonPick { RECT best{}; bool found = false; };
+	MonPick pick;
+	EnumDisplayMonitors(nullptr, nullptr,
+		[](HMONITOR hMon, HDC, LPRECT, LPARAM data) -> BOOL
+		{
+			MONITORINFO mi{ sizeof(mi) };
+			if (GetMonitorInfo(hMon, &mi))
+			{
+				auto* p = reinterpret_cast<MonPick*>(data);
+				if (!p->found || mi.rcWork.left > p->best.left)
+				{
+					p->best = mi.rcWork;
+					p->found = true;
+				}
+			}
+			return TRUE;
+		},
+		reinterpret_cast<LPARAM>(&pick));
+
+	int posX = CW_USEDEFAULT, posY = CW_USEDEFAULT;
+	if (pick.found)
+	{
+		const int monW = pick.best.right - pick.best.left;
+		const int monH = pick.best.bottom - pick.best.top;
+		posX = pick.best.left + (monW - winW) / 2;
+		posY = pick.best.top + (monH - winH) / 2;
+	}
+
+	HWND hwnd = CreateWindow(kClass, L"EngineDX12", WS_OVERLAPPEDWINDOW,
+		posX, posY, winW, winH,
 		nullptr, nullptr, hInstance, nullptr);
 
 	try
@@ -66,7 +97,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow)
 	}
 
 	// 타이틀에 어댑터 + DXR 지원 표시 (Phase 0 검증 지표)
-	std::wstring title = L"RtDemo (DX12)  |  " + g_device.GetAdapterName() + L"  |  " + DxrTierString(g_device.GetDXRTier());
+	std::wstring title = L"EngineDX12  |  " + g_device.GetAdapterName() + L"  |  " + DxrTierString(g_device.GetDXRTier());
 	SetWindowText(hwnd, title.c_str());
 
 	ShowWindow(hwnd, nCmdShow);

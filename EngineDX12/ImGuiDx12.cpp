@@ -100,13 +100,14 @@ void ImGuiDx12::Init(ID3D12Device* dev, ID3D12CommandQueue* queue, DXGI_FORMAT r
 	pso.DepthStencilState.StencilEnable = FALSE;
 	ThrowIfFailed(_dev->CreateGraphicsPipelineState(&pso, IID_PPV_ARGS(&_pso)), "ImGui PSO");
 
-	// SRV 힙 (slot0 폰트 / slot1 씬RT / 여유)
+	// SRV 힙 (slot0 폰트 / slot1 씬RT / 2~ 동적 등록(썸네일 등))
 	D3D12_DESCRIPTOR_HEAP_DESC hd{};
-	hd.NumDescriptors = 8;
+	hd.NumDescriptors = 256;
 	hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	hd.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	ThrowIfFailed(_dev->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&_srvHeap)), "ImGui SRV heap");
 	_srvInc = _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	_srvCapacity = hd.NumDescriptors;
 
 	CreateFontTexture(queue);
 }
@@ -189,6 +190,23 @@ uint64 ImGuiDx12::SetSceneTexture(ID3D12Resource* tex)
 	cpu.ptr += (SIZE_T)slot * _srvInc;
 	D3D12_SHADER_RESOURCE_VIEW_DESC sd{};
 	sd.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	sd.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	sd.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	sd.Texture2D.MipLevels = 1;
+	_dev->CreateShaderResourceView(tex, &sd, cpu);
+	D3D12_GPU_DESCRIPTOR_HANDLE gpu = _srvHeap->GetGPUDescriptorHandleForHeapStart();
+	gpu.ptr += (UINT64)slot * _srvInc;
+	return gpu.ptr;
+}
+
+uint64 ImGuiDx12::RegisterTexture(ID3D12Resource* tex, DXGI_FORMAT fmt)
+{
+	if (_nextSlot >= _srvCapacity) return 0; // 슬롯 풀 소진
+	const UINT slot = _nextSlot++;
+	D3D12_CPU_DESCRIPTOR_HANDLE cpu = _srvHeap->GetCPUDescriptorHandleForHeapStart();
+	cpu.ptr += (SIZE_T)slot * _srvInc;
+	D3D12_SHADER_RESOURCE_VIEW_DESC sd{};
+	sd.Format = fmt;
 	sd.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	sd.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	sd.Texture2D.MipLevels = 1;

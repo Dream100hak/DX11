@@ -248,6 +248,7 @@ private:
 	void                              DrawFolderContents();
 	void                              DrawSceneView();
 	void                              DrawLog();
+	void                              DrawProject();
 	enum class SelEntity { Model, Floor, Sun, DDGI, Camera, Point, Spot, Post };
 	SelEntity                         _sel = SelEntity::Model; // 하이어라키 선택 → 인스펙터 표시 대상
 	void                              CreateSceneRT(UINT w, UINT h); // 씬 오프스크린 RT/깊이 (재)생성
@@ -327,6 +328,7 @@ private:
 	float                             _groundSize = 6.0f;   // U19
 	std::vector<std::string>          _log;                 // U16 로그
 	void                              Log(const std::string& m);
+	void                              ResetDefaults();
 	struct Snapshot { DirectX::XMFLOAT4X4 m; float met, rough, emis, tint; DirectX::XMFLOAT3 dt; }; // U17
 	std::vector<Snapshot>             _undo, _redo;
 	void                              PushUndo(); void DoUndo(); void DoRedo();

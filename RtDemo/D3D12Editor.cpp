@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <functional>
 #include <wincodec.h>
 #pragma comment(lib, "windowscodecs.lib")
 
@@ -127,6 +128,19 @@ void D3D12Device::DrawDebugLines()
 
 void D3D12Device::Log(const std::string& m) { _log.push_back(m); if (_log.size() > 200) _log.erase(_log.begin()); }
 
+void D3D12Device::ResetDefaults()
+{
+	_toonLevels = 0; _rimPower = 0; _normalIntensity = 1; _chroma = _grain = _sharpen = 0;
+	_lensDistort = 0; _posterize = 0; _filterMode = 0; _anamorphic = false; _renderScale = 1;
+	_contrast = _saturation = 1; _temperature = 0; _vignette = 0.25f; _ev = 0; _fogDensity = 0;
+	_aoOn = _dofOn = _volOn = _autoExp = _checker = _terrain = _todOn = false; _wantReload = true;
+	_bgMode = 0; _tonemapOp = 0; _exposure = 1;
+	_particlesOn = _decalOn = _stars = _flicker = _overlay = false; _letterbox = 0; _cloudAmt = 0;
+	_shadowStrength = 1; _hemiAmbient = 0;
+	DirectX::XMStoreFloat4x4(&_modelMatrix, DirectX::XMMatrixIdentity());
+	Log("Reset scene to defaults");
+}
+
 void D3D12Device::PushUndo()
 {
 	Snapshot s; s.m = _modelMatrix; s.met = _matMetallic; s.rough = _matRoughness; s.emis = _matEmissive; s.tint = _matTint; s.dt = _diffuseTint;
@@ -151,6 +165,38 @@ void D3D12Device::DoRedo()
 	Log("Redo");
 }
 
+// EditorTool 의 ImGuiManager::ApplyEditorStyle 이식 — 차콜 다크 + 블루 액센트 + 라운딩
+static void ApplyEditorStyle()
+{
+	ImGuiStyle& style = ImGui::GetStyle();
+	style.WindowPadding = ImVec2(10, 8); style.FramePadding = ImVec2(8, 4); style.CellPadding = ImVec2(6, 3);
+	style.ItemSpacing = ImVec2(8, 5); style.ItemInnerSpacing = ImVec2(6, 4); style.IndentSpacing = 16;
+	style.ScrollbarSize = 13; style.GrabMinSize = 10;
+	style.WindowBorderSize = 1; style.ChildBorderSize = 1; style.PopupBorderSize = 1; style.FrameBorderSize = 0; style.TabBorderSize = 0;
+	style.WindowRounding = 6; style.ChildRounding = 4; style.FrameRounding = 3; style.PopupRounding = 4; style.ScrollbarRounding = 9; style.GrabRounding = 3; style.TabRounding = 4;
+	style.WindowTitleAlign = ImVec2(0.5f, 0.5f); style.WindowMenuButtonPosition = ImGuiDir_None;
+	const ImVec4 accent(0.26f, 0.56f, 0.96f, 1), accentDim(0.22f, 0.42f, 0.69f, 1), accentBright(0.36f, 0.65f, 1, 1);
+	ImVec4* c = style.Colors;
+	c[ImGuiCol_Text] = ImVec4(0.92f, 0.92f, 0.93f, 1); c[ImGuiCol_TextDisabled] = ImVec4(0.50f, 0.51f, 0.53f, 1);
+	c[ImGuiCol_WindowBg] = ImVec4(0.13f, 0.14f, 0.15f, 1); c[ImGuiCol_ChildBg] = ImVec4(0.12f, 0.13f, 0.14f, 1);
+	c[ImGuiCol_PopupBg] = ImVec4(0.10f, 0.11f, 0.12f, 0.98f); c[ImGuiCol_Border] = ImVec4(0.25f, 0.26f, 0.29f, 0.60f);
+	c[ImGuiCol_BorderShadow] = ImVec4(0, 0, 0, 0);
+	c[ImGuiCol_FrameBg] = ImVec4(0.20f, 0.21f, 0.24f, 1); c[ImGuiCol_FrameBgHovered] = ImVec4(0.25f, 0.27f, 0.30f, 1); c[ImGuiCol_FrameBgActive] = ImVec4(0.28f, 0.30f, 0.34f, 1);
+	c[ImGuiCol_TitleBg] = ImVec4(0.10f, 0.11f, 0.12f, 1); c[ImGuiCol_TitleBgActive] = ImVec4(0.14f, 0.15f, 0.18f, 1); c[ImGuiCol_TitleBgCollapsed] = ImVec4(0.10f, 0.11f, 0.12f, 0.75f);
+	c[ImGuiCol_MenuBarBg] = ImVec4(0.12f, 0.13f, 0.14f, 1);
+	c[ImGuiCol_ScrollbarBg] = ImVec4(0.11f, 0.12f, 0.13f, 0.60f); c[ImGuiCol_ScrollbarGrab] = ImVec4(0.30f, 0.31f, 0.35f, 1); c[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.36f, 0.38f, 0.42f, 1); c[ImGuiCol_ScrollbarGrabActive] = accentDim;
+	c[ImGuiCol_CheckMark] = accentBright; c[ImGuiCol_SliderGrab] = accentDim; c[ImGuiCol_SliderGrabActive] = accentBright;
+	c[ImGuiCol_Button] = ImVec4(0.22f, 0.23f, 0.27f, 1); c[ImGuiCol_ButtonHovered] = ImVec4(0.28f, 0.30f, 0.35f, 1); c[ImGuiCol_ButtonActive] = accentDim;
+	c[ImGuiCol_Header] = ImVec4(0.24f, 0.26f, 0.30f, 1); c[ImGuiCol_HeaderHovered] = ImVec4(0.28f, 0.32f, 0.40f, 1); c[ImGuiCol_HeaderActive] = accentDim;
+	c[ImGuiCol_Separator] = ImVec4(0.25f, 0.26f, 0.29f, 0.60f); c[ImGuiCol_SeparatorHovered] = ImVec4(0.26f, 0.56f, 0.96f, 0.78f); c[ImGuiCol_SeparatorActive] = accent;
+	c[ImGuiCol_ResizeGrip] = ImVec4(0.26f, 0.56f, 0.96f, 0.20f); c[ImGuiCol_ResizeGripHovered] = ImVec4(0.26f, 0.56f, 0.96f, 0.60f); c[ImGuiCol_ResizeGripActive] = ImVec4(0.26f, 0.56f, 0.96f, 0.90f);
+	c[ImGuiCol_Tab] = ImVec4(0.15f, 0.16f, 0.18f, 1); c[ImGuiCol_TabHovered] = ImVec4(0.26f, 0.42f, 0.66f, 1); c[ImGuiCol_TabActive] = ImVec4(0.20f, 0.30f, 0.45f, 1); c[ImGuiCol_TabUnfocused] = ImVec4(0.13f, 0.14f, 0.15f, 1); c[ImGuiCol_TabUnfocusedActive] = ImVec4(0.17f, 0.21f, 0.28f, 1);
+	c[ImGuiCol_PlotLines] = ImVec4(0.61f, 0.62f, 0.64f, 1); c[ImGuiCol_PlotLinesHovered] = accentBright; c[ImGuiCol_PlotHistogram] = ImVec4(0.90f, 0.60f, 0.22f, 1); c[ImGuiCol_PlotHistogramHovered] = ImVec4(1, 0.70f, 0.30f, 1);
+	c[ImGuiCol_TableHeaderBg] = ImVec4(0.19f, 0.20f, 0.23f, 1); c[ImGuiCol_TableBorderStrong] = ImVec4(0.31f, 0.32f, 0.35f, 1); c[ImGuiCol_TableBorderLight] = ImVec4(0.23f, 0.24f, 0.26f, 1); c[ImGuiCol_TableRowBgAlt] = ImVec4(1, 1, 1, 0.03f);
+	c[ImGuiCol_TextSelectedBg] = ImVec4(0.26f, 0.56f, 0.96f, 0.35f); c[ImGuiCol_DragDropTarget] = ImVec4(0.36f, 0.65f, 1, 0.90f); c[ImGuiCol_NavHighlight] = accent;
+	c[ImGuiCol_ModalWindowDimBg] = ImVec4(0, 0, 0, 0.50f);
+}
+
 void D3D12Device::InitEditor()
 {
 	IMGUI_CHECKVERSION();
@@ -158,7 +204,7 @@ void D3D12Device::InitEditor()
 	ImGuiIO& io = ImGui::GetIO();
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	io.IniFilename = nullptr; // imgui.ini 미저장 (런타임 아티팩트 방지)
-	ImGui::StyleColorsDark();
+	ApplyEditorStyle(); // EditorTool 동일 스타일 (차콜 다크 + 블루 액센트)
 
 	ImGui_ImplWin32_Init(_hwnd);
 	_imgui.Init(_device.Get(), _queue.Get(), DXGI_FORMAT_R8G8B8A8_UNORM, FRAME_COUNT);
@@ -289,22 +335,45 @@ void D3D12Device::BuildUI()
 	ImGui::NewFrame();
 	ImGuizmo::BeginFrame();
 
-	// ── 메인 메뉴바 (File / View / 우측 통계) ──
+	// ── 메인 메뉴바 (EditorTool 구조: File / Edit / GameObject / Component / View) ──
 	if (ImGui::BeginMainMenuBar())
 	{
 		if (ImGui::BeginMenu("File"))
 		{
-			if (ImGui::MenuItem("Save Scene")) SaveScene();
-			if (ImGui::MenuItem("Load Scene")) LoadScene();
+			if (ImGui::MenuItem("New Scene")) ResetDefaults();
+			if (ImGui::MenuItem("Open Scene...", "Ctrl+O")) LoadScene();
+			if (ImGui::MenuItem("Save Scene...", "Ctrl+S")) SaveScene();
+			ImGui::Separator();
+			ImGui::MenuItem("Convert FBX...", nullptr, false, false); // RtDemo 는 .mesh 직접 로드
 			ImGui::Separator();
 			if (ImGui::MenuItem("Screenshot (PNG)")) _wantShot = true;
-			if (ImGui::MenuItem("Screenshot Hi-Res 2x")) { _renderScale = 2.0f; _wantShot = true; _hiresShot = true; } // V20
+			if (ImGui::MenuItem("Screenshot Hi-Res 2x")) { _renderScale = 2.0f; _wantShot = true; _hiresShot = true; }
+			ImGui::Separator();
+			if (ImGui::MenuItem("Quit", "Alt+F4")) PostQuitMessage(0);
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Edit"))
 		{
-			if (ImGui::MenuItem("Undo", "Ctrl+Z")) DoUndo();
-			if (ImGui::MenuItem("Redo", "Ctrl+Y")) DoRedo();
+			if (ImGui::MenuItem("Undo", "Ctrl+Z", false, !_undo.empty())) DoUndo();
+			if (ImGui::MenuItem("Redo", "Ctrl+Y", false, !_redo.empty())) DoRedo();
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("GameObject"))
+		{
+			if (ImGui::MenuItem("Create Empty", "Ctrl+B")) { Log("Create Empty (single-model demo)"); }
+			ImGui::Separator();
+			if (ImGui::MenuItem("Directional Light")) _sel = SelEntity::Sun;
+			if (ImGui::MenuItem("Point Light")) { _pointOn = true; _sel = SelEntity::Point; }
+			if (ImGui::MenuItem("Spot Light")) { _spotOn = true; _sel = SelEntity::Spot; }
+			if (ImGui::MenuItem("Camera")) _sel = SelEntity::Camera;
+			ImGui::EndMenu();
+		}
+		if (ImGui::BeginMenu("Component"))
+		{
+			if (ImGui::MenuItem("Mesh")) _sel = SelEntity::Model;
+			ImGui::MenuItem("Sound", nullptr, false, false);
+			if (ImGui::MenuItem("Light")) _sel = SelEntity::Sun;
+			if (ImGui::MenuItem("Camera")) _sel = SelEntity::Camera;
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("View"))
@@ -352,8 +421,10 @@ void D3D12Device::BuildUI()
 		ImGuiID left = ImGui::DockBuilderSplitNode(center, ImGuiDir_Left, 0.17f, nullptr, &center);
 		ImGuiID right = ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, 0.30f, nullptr, &center);
 		ImGuiID bottom = ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, 0.30f, nullptr, &center);
+		ImGuiID bleft = ImGui::DockBuilderSplitNode(bottom, ImGuiDir_Left, 0.22f, nullptr, &bottom);
 		ImGui::DockBuilderDockWindow("Hierarchy", left);
 		ImGui::DockBuilderDockWindow("Inspector", right);
+		ImGui::DockBuilderDockWindow("Project", bleft);
 		ImGui::DockBuilderDockWindow("FolderContents", bottom);
 		ImGui::DockBuilderDockWindow("Log", bottom);
 		ImGui::DockBuilderDockWindow("Scene", center);
@@ -365,6 +436,7 @@ void D3D12Device::BuildUI()
 	DrawSceneView();
 	DrawHierarchy();
 	DrawInspector();
+	DrawProject();
 	DrawFolderContents();
 	DrawLog();
 
@@ -394,13 +466,31 @@ void D3D12Device::DrawHierarchy()
 		if (ImGui::Selectable(it.label.c_str(), _sel == it.e))
 			_sel = it.e;
 	}
+	// 우클릭 컨텍스트 메뉴 (EditorTool GameObject 생성 흐름)
+	if (ImGui::BeginPopupContextWindow("hctx", ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
+	{
+		if (ImGui::MenuItem("Create Empty")) Log("Create Empty (single-model demo)");
+		ImGui::Separator();
+		if (ImGui::MenuItem("Directional Light")) _sel = SelEntity::Sun;
+		if (ImGui::MenuItem("Point Light")) { _pointOn = true; _sel = SelEntity::Point; }
+		if (ImGui::MenuItem("Spot Light")) { _spotOn = true; _sel = SelEntity::Spot; }
+		if (ImGui::MenuItem("Camera")) _sel = SelEntity::Camera;
+		ImGui::EndPopup();
+	}
 	ImGui::End();
 }
 
 void D3D12Device::DrawSceneView()
 {
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 	ImGui::Begin("Scene");
+	// ── 기즈모 툴바 (EditorTool 씬뷰 스타일) ──
+	if (ImGui::RadioButton("Move(W)", _gizmoOp == 7)) _gizmoOp = 7; ImGui::SameLine();
+	if (ImGui::RadioButton("Rotate(E)", _gizmoOp == 120)) _gizmoOp = 120; ImGui::SameLine();
+	if (ImGui::RadioButton("Scale(R)", _gizmoOp == 896)) _gizmoOp = 896; ImGui::SameLine();
+	ImGui::TextDisabled("|"); ImGui::SameLine();
+	if (ImGui::RadioButton("Local", _gizmoLocal)) _gizmoLocal = true; ImGui::SameLine();
+	if (ImGui::RadioButton("World", !_gizmoLocal)) _gizmoLocal = false; ImGui::SameLine();
+	ImGui::Checkbox("Snap", &_snapOn);
 	ImVec2 avail = ImGui::GetContentRegionAvail();
 	_pendingSceneW = (UINT)max(8.0f, avail.x);
 	_pendingSceneH = (UINT)max(8.0f, avail.y);
@@ -468,7 +558,6 @@ void D3D12Device::DrawSceneView()
 		dl->AddLine(ImVec2(ct.x, ct.y - 11), ImVec2(ct.x, ct.y + 11), IM_COL32(255, 255, 255, 170));
 	}
 	ImGui::End();
-	ImGui::PopStyleVar();
 }
 
 void D3D12Device::DrawLog()
@@ -784,13 +873,7 @@ void D3D12Device::DrawInspector()
 		ImGui::Checkbox("Particles", &_particlesOn); ImGui::SameLine(); ImGui::Combo("##pm", &_particleMode, "Sparks\0Snow\0");
 		ImGui::SliderFloat("Letterbox", &_letterbox, 0.0f, 0.4f);
 		ImGui::Checkbox("Composition Overlay", &_overlay);
-		if (ImGui::Button("Reset All To Defaults")) {                    // V18
-			_toonLevels = 0; _rimPower = 0; _normalIntensity = 1; _chroma = _grain = _sharpen = 0;
-			_lensDistort = 0; _posterize = 0; _filterMode = 0; _anamorphic = false; _renderScale = 1;
-			_contrast = _saturation = 1; _temperature = 0; _vignette = 0.25f; _ev = 0; _fogDensity = 0;
-			_aoOn = _dofOn = _volOn = _autoExp = _checker = _terrain = _todOn = false; _wantReload = true;
-			_bgMode = 0; _tonemapOp = 0; _exposure = 1;
-		}
+		if (ImGui::Button("Reset All To Defaults")) ResetDefaults();    // V18
 		ImGui::SeparatorText("Debug View / Gizmos");
 		ImGui::Combo("View", &_debugView, "Lit\0Albedo\0Normal\0Depth\0GI\0");
 		ImGui::Checkbox("Wireframe", &_wireframe);
@@ -892,6 +975,32 @@ void D3D12Device::DrawInspector()
 		if (!ec) ImGui::Text("Size: %.1f KB", sz / 1024.0);
 	}
 
+	ImGui::End();
+}
+
+// Project — 폴더 트리 (EditorTool 의 Project 창). 폴더 클릭 → FolderContents 가 그 내용 표시
+void D3D12Device::DrawProject()
+{
+	ImGui::Begin("Project");
+	std::error_code ec;
+	std::function<void(const fs::path&)> rec = [&](const fs::path& dir)
+	{
+		for (auto& e : fs::directory_iterator(dir, ec))
+		{
+			if (!e.is_directory(ec)) continue;
+			std::string nm = WToUtf8(e.path().filename().wstring());
+			ImGuiTreeNodeFlags f = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
+			if (e.path() == fs::path(_curDir)) f |= ImGuiTreeNodeFlags_Selected;
+			bool open = ImGui::TreeNodeEx(("[/] " + nm).c_str(), f);
+			if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) _curDir = e.path().wstring();
+			if (open) { rec(e.path()); ImGui::TreePop(); }
+		}
+	};
+	if (ImGui::TreeNodeEx("Assets", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow))
+	{
+		if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) _curDir = _assetRoot;
+		rec(fs::path(_assetRoot)); ImGui::TreePop();
+	}
 	ImGui::End();
 }
 

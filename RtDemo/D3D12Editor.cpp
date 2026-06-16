@@ -19,6 +19,99 @@ static std::string WToUtf8(const std::wstring& w)
 	return s;
 }
 
+// 디버그 라인 빌드 + 드로우 (U10 본 / U11 AABB / U12 라이트 아이콘 / U13 스팟 콘)
+void D3D12Device::DrawDebugLines()
+{
+	using namespace DirectX;
+	std::vector<float> v;
+	auto line = [&](XMFLOAT3 a, XMFLOAT3 b, XMFLOAT3 c) {
+		float arr[12] = { a.x,a.y,a.z, c.x,c.y,c.z, b.x,b.y,b.z, c.x,c.y,c.z };
+		v.insert(v.end(), arr, arr + 12);
+	};
+	auto cross = [&](XMFLOAT3 p, XMFLOAT3 c, float s) {
+		line({ p.x - s,p.y,p.z }, { p.x + s,p.y,p.z }, c); line({ p.x,p.y - s,p.z }, { p.x,p.y + s,p.z }, c); line({ p.x,p.y,p.z - s }, { p.x,p.y,p.z + s }, c);
+	};
+
+	if (_showAABB && _sel == SelEntity::Model)
+	{
+		XMFLOAT3 n = _modelMin, x = _modelMax, c{ 1.0f, 0.6f, 0.1f };
+		XMFLOAT3 p[8] = { {n.x,n.y,n.z},{x.x,n.y,n.z},{x.x,n.y,x.z},{n.x,n.y,x.z},{n.x,x.y,n.z},{x.x,x.y,n.z},{x.x,x.y,x.z},{n.x,x.y,x.z} };
+		int e[24] = { 0,1,1,2,2,3,3,0, 4,5,5,6,6,7,7,4, 0,4,1,5,2,6,3,7 };
+		for (int k = 0; k < 24; k += 2) line(p[e[k]], p[e[k + 1]], c);
+	}
+	if (_showBones)
+		for (size_t b = 0; b < _boneWorld.size(); ++b)
+		{ int par = _bonesData[b].parent; if (par >= 0 && par < (int)_boneWorld.size()) line(_boneWorld[b], _boneWorld[par], { 0.2f, 1.0f, 1.0f }); }
+	if (_showLightIcons)
+	{
+		if (_pointOn) cross(_pointPos, _pointColor, 0.18f);
+		for (int li = 1; li < _ptCount; ++li) cross({ _ptPosArr[li].x,_ptPosArr[li].y,_ptPosArr[li].z }, { _ptColArr[li].x,_ptColArr[li].y,_ptColArr[li].z }, 0.18f);
+		if (_spotOn) cross(_spotPos, _spotColor, 0.18f);
+	}
+	if (_spotOn && _showSpotCone)
+	{
+		XMVECTOR ap = XMLoadFloat3(&_spotPos);
+		XMVECTOR dir = XMVector3Normalize(XMLoadFloat3(&_spotDir));
+		XMVECTOR up = fabsf(XMVectorGetY(dir)) > 0.95f ? XMVectorSet(1,0,0,0) : XMVectorSet(0,1,0,0);
+		XMVECTOR rt = XMVector3Normalize(XMVector3Cross(up, dir)); XMVECTOR bt = XMVector3Cross(dir, rt);
+		float len = min(_spotRadius, 5.0f), rad = tanf(_spotConeDeg * 0.01745f) * len;
+		XMVECTOR ce = XMVectorAdd(ap, XMVectorScale(dir, len));
+		XMFLOAT3 apex; XMStoreFloat3(&apex, ap); XMFLOAT3 col{ _spotColor.x, _spotColor.y, _spotColor.z };
+		XMFLOAT3 prev{};
+		for (int s = 0; s <= 16; ++s)
+		{
+			float a = s / 16.0f * 6.2831853f;
+			XMVECTOR pw = XMVectorAdd(ce, XMVectorAdd(XMVectorScale(rt, cosf(a) * rad), XMVectorScale(bt, sinf(a) * rad)));
+			XMFLOAT3 p; XMStoreFloat3(&p, pw);
+			if (s > 0) line(prev, p, col);
+			if (s % 4 == 0) line(apex, p, col);
+			prev = p;
+		}
+	}
+
+	if (v.empty()) return;
+	UINT bytes = (UINT)(v.size() * sizeof(float));
+	if (_dbgCap < bytes)
+	{
+		_dbgCap = bytes + 8192; _dbgVB = CreateUploadBuffer(nullptr, _dbgCap);
+		D3D12_RANGE nr{ 0, 0 }; _dbgVB->Map(0, &nr, &_dbgMapped);
+	}
+	memcpy(_dbgMapped, v.data(), bytes);
+	D3D12_VERTEX_BUFFER_VIEW vbv{ _dbgVB->GetGPUVirtualAddress(), bytes, 24 };
+	_cmdList->SetPipelineState(_dbgPSO.Get());
+	_cmdList->SetGraphicsRootSignature(_rootSig.Get());
+	_cmdList->SetGraphicsRootConstantBufferView(0, _cb[_frameIndex]->GetGPUVirtualAddress());
+	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
+	_cmdList->IASetVertexBuffers(0, 1, &vbv);
+	_cmdList->DrawInstanced((UINT)(v.size() / 6), 1, 0, 0);
+}
+
+void D3D12Device::Log(const std::string& m) { _log.push_back(m); if (_log.size() > 200) _log.erase(_log.begin()); }
+
+void D3D12Device::PushUndo()
+{
+	Snapshot s; s.m = _modelMatrix; s.met = _matMetallic; s.rough = _matRoughness; s.emis = _matEmissive; s.tint = _matTint; s.dt = _diffuseTint;
+	_undo.push_back(s); if (_undo.size() > 64) _undo.erase(_undo.begin()); _redo.clear();
+}
+void D3D12Device::DoUndo()
+{
+	if (_undo.empty()) return;
+	Snapshot cur; cur.m = _modelMatrix; cur.met = _matMetallic; cur.rough = _matRoughness; cur.emis = _matEmissive; cur.tint = _matTint; cur.dt = _diffuseTint;
+	_redo.push_back(cur);
+	Snapshot s = _undo.back(); _undo.pop_back();
+	_modelMatrix = s.m; _matMetallic = s.met; _matRoughness = s.rough; _matEmissive = s.emis; _matTint = s.tint; _diffuseTint = s.dt;
+	Log("Undo");
+}
+void D3D12Device::DoRedo()
+{
+	if (_redo.empty()) return;
+	Snapshot cur; cur.m = _modelMatrix; cur.met = _matMetallic; cur.rough = _matRoughness; cur.emis = _matEmissive; cur.tint = _matTint; cur.dt = _diffuseTint;
+	_undo.push_back(cur);
+	Snapshot s = _redo.back(); _redo.pop_back();
+	_modelMatrix = s.m; _matMetallic = s.met; _matRoughness = s.rough; _matEmissive = s.emis; _matTint = s.tint; _diffuseTint = s.dt;
+	Log("Redo");
+}
+
 void D3D12Device::InitEditor()
 {
 	IMGUI_CHECKVERSION();
@@ -163,6 +256,12 @@ void D3D12Device::BuildUI()
 			if (ImGui::MenuItem("Screenshot (BMP)")) _wantShot = true;
 			ImGui::EndMenu();
 		}
+		if (ImGui::BeginMenu("Edit"))
+		{
+			if (ImGui::MenuItem("Undo", "Ctrl+Z")) DoUndo();
+			if (ImGui::MenuItem("Redo", "Ctrl+Y")) DoRedo();
+			ImGui::EndMenu();
+		}
 		if (ImGui::BeginMenu("View"))
 		{
 			ImGui::MenuItem("Grid", nullptr, &_showGrid);
@@ -211,6 +310,7 @@ void D3D12Device::BuildUI()
 		ImGui::DockBuilderDockWindow("Hierarchy", left);
 		ImGui::DockBuilderDockWindow("Inspector", right);
 		ImGui::DockBuilderDockWindow("FolderContents", bottom);
+		ImGui::DockBuilderDockWindow("Log", bottom);
 		ImGui::DockBuilderDockWindow("Scene", center);
 		ImGui::DockBuilderFinish(dockId);
 	}
@@ -221,6 +321,7 @@ void D3D12Device::BuildUI()
 	DrawHierarchy();
 	DrawInspector();
 	DrawFolderContents();
+	DrawLog();
 
 	ImGui::Render();
 }
@@ -293,9 +394,25 @@ void D3D12Device::DrawSceneView()
 				ImGuizmo::TRANSLATE, ImGuizmo::WORLD, (float*)&m);
 			_pointPos = { m._41, m._42, m._43 };
 		}
+		static bool wasUsing = false;
+		bool using_ = ImGuizmo::IsUsing();
+		if (using_ && !wasUsing && _sel == SelEntity::Model) PushUndo(); // 조작 시작 시 되돌리기 지점
+		wasUsing = using_;
 	}
 	ImGui::End();
 	ImGui::PopStyleVar();
+}
+
+void D3D12Device::DrawLog()
+{
+	ImGui::Begin("Log");
+	if (ImGui::Button("Clear")) _log.clear();
+	ImGui::Separator();
+	ImGui::BeginChild("logscroll");
+	for (auto& m : _log) ImGui::TextUnformatted(m.c_str());
+	if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 1.0f) ImGui::SetScrollHereY(1.0f);
+	ImGui::EndChild();
+	ImGui::End();
 }
 
 // ── 스크린샷 (T19) — _sceneLDR 리드백 → BMP (exe 폴더) ──
@@ -352,6 +469,7 @@ void D3D12Device::SaveScreenshot()
 	o.write((char*)hdr, 54);
 	uint8_t padb[3] = {0,0,0};
 	for (UINT y = 0; y < H; ++y) { o.write((char*)(bgr.data() + (size_t)y * W * 3), rowBytes); if (pad) o.write((char*)padb, pad); }
+	Log("Screenshot saved: " + WToUtf8(fs::path(path).filename().wstring()));
 }
 
 // ── 씬 저장/로드 (.rtscene 텍스트) — <Assets>/Scenes/quick.rtscene ──
@@ -476,6 +594,10 @@ void D3D12Device::DrawInspector()
 		ImGui::ColorEdit3("Zenith", &_skyZenith.x);
 		ImGui::ColorEdit3("Horizon", &_skyHorizon.x);
 		ImGui::SliderFloat("Sun Size", &_sunSize, 50.0f, 4000.0f);
+		ImGui::TextDisabled("Presets:");                               // U8
+		ImGui::SameLine(); if (ImGui::Button("Day"))    { _skyZenith = {0.13f,0.22f,0.44f}; _skyHorizon = {0.52f,0.60f,0.72f}; _sunColor = {1,0.96f,0.88f}; _lightIntensity = 1.6f; _lightAngle = 0.6f; }
+		ImGui::SameLine(); if (ImGui::Button("Sunset")) { _skyZenith = {0.22f,0.15f,0.32f}; _skyHorizon = {0.95f,0.5f,0.22f}; _sunColor = {1.0f,0.55f,0.28f}; _lightIntensity = 1.3f; _lightAngle = 1.45f; _lightAnimate = false; }
+		ImGui::SameLine(); if (ImGui::Button("Night"))  { _skyZenith = {0.02f,0.03f,0.09f}; _skyHorizon = {0.06f,0.08f,0.14f}; _sunColor = {0.4f,0.5f,0.7f}; _lightIntensity = 0.25f; }
 		break;
 
 	case SelEntity::DDGI:
@@ -543,9 +665,23 @@ void D3D12Device::DrawInspector()
 		ImGui::Checkbox("FXAA", &_fxaaOn);
 		ImGui::Checkbox("RT Reflection", &_reflectOn);
 		ImGui::SliderFloat("Reflect Strength", &_reflectStrength, 0.0f, 1.0f);
-		ImGui::SeparatorText("Debug View");
+		ImGui::SeparatorText("Ambient Occlusion (RT)");
+		ImGui::Checkbox("RT AO", &_aoOn);
+		ImGui::SliderFloat("AO Intensity", &_aoIntensity, 0.0f, 2.0f);
+		ImGui::SliderFloat("AO Radius", &_aoRadius, 0.1f, 2.0f);
+		ImGui::SeparatorText("Lens FX");
+		ImGui::SliderFloat("Chromatic Aberr.", &_chroma, 0.0f, 0.02f);
+		ImGui::SliderFloat("Film Grain", &_grain, 0.0f, 0.2f);
+		ImGui::SliderFloat("Sharpen", &_sharpen, 0.0f, 1.5f);
+		ImGui::SliderFloat("Render Scale", &_renderScale, 0.5f, 2.0f);
+		ImGui::SeparatorText("Debug View / Gizmos");
 		ImGui::Combo("View", &_debugView, "Lit\0Albedo\0Normal\0Depth\0GI\0");
 		ImGui::Checkbox("Wireframe", &_wireframe);
+		ImGui::Checkbox("Show Bones", &_showBones); ImGui::SameLine(); ImGui::Checkbox("AABB", &_showAABB);
+		ImGui::Checkbox("Light Icons", &_showLightIcons); ImGui::SameLine(); ImGui::Checkbox("Spot Cone", &_showSpotCone);
+		ImGui::SeparatorText("Frame Time");
+		ImGui::PlotLines("ms", _frameTimes, 120, _frameIdx % 120, nullptr, 0.0f, 40.0f, ImVec2(0, 60));
+		ImGui::Text("%.2f ms  /  %.0f FPS", _frameTimes[(_frameIdx + 119) % 120], ImGui::GetIO().Framerate);
 		break;
 
 	case SelEntity::Model:
@@ -587,6 +723,12 @@ void D3D12Device::DrawInspector()
 			if (ImGui::Combo("Clip", &_curClip, clipNames.c_str()))
 			{ LoadClip(_clips[_curClip], _clip); _animated = _clip.frameCount > 0; _animTimeAcc = 0.0f; }
 		}
+		ImGui::SeparatorText("Turntable / History");                   // U14 / U17
+		ImGui::Checkbox("Auto-rotate", &_turntable); ImGui::SameLine(); ImGui::SliderFloat("Speed", &_turnSpeed, 0.05f, 2.0f);
+		if (ImGui::Button("Checkpoint")) PushUndo();
+		ImGui::SameLine(); if (ImGui::Button("Undo")) DoUndo();
+		ImGui::SameLine(); if (ImGui::Button("Redo")) DoRedo();
+		ImGui::Checkbox("Show Bones", &_showBones); ImGui::SameLine(); ImGui::Checkbox("Show AABB", &_showAABB);
 		ImGui::SeparatorText("Info");
 		ImGui::Text("Verts %u  Tris %u  Bones %u", _vertexCount, _indexCount / 3, (unsigned)_bonesData.size());
 		ImGui::Text("Submeshes %u  Materials %u", (unsigned)_submeshes.size(), _matCount);
@@ -594,9 +736,11 @@ void D3D12Device::DrawInspector()
 	}
 
 	case SelEntity::Floor:
-		ImGui::SeparatorText("Floor");
-		ImGui::TextDisabled("Static quad (vertex color, red)");
-		ImGui::Text("Bounces indirect light via DDGI");
+		ImGui::SeparatorText("Floor / Ground");                        // U9 / U19
+		ImGui::ColorEdit3("Color", &_floorColor.x);
+		ImGui::SliderFloat("Metallic", &_floorMetallic, 0.0f, 1.0f);
+		ImGui::SliderFloat("Roughness", &_floorRough, 0.02f, 1.0f);
+		ImGui::TextDisabled("Bounces indirect light via DDGI");
 		break;
 	}
 

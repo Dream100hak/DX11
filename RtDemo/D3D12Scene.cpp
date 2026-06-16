@@ -49,6 +49,10 @@ void D3D12Device::LoadModelFromFile(const std::wstring& meshPath)
 	ScanClips();               // 클립 목록(전환 UI)
 	CreateTextureResources();  // .mmat/.mat → 머티리얼 텍스처
 	CreateASBuffers();         // BLAS/TLAS (정점/인덱스 수에 맞춰 재생성)
+	{
+		std::string nm(_modelStem.begin(), _modelStem.end());
+		Log("Loaded model '" + nm + "' (" + std::to_string(_vertexCount) + " verts, " + std::to_string((int)_submeshes.size()) + " submeshes, " + std::to_string((int)_clips.size()) + " clips)");
+	}
 }
 
 // ───────────────────────────────────────────────────────────
@@ -167,10 +171,22 @@ void D3D12Device::UpdateAnimation()
 			global[b] = matAnim * parent;
 			skin[b] = XMMatrixInverse(nullptr, XMLoadFloat4x4(&bone.bind)) * global[b];
 		}
+		// 본 월드 위치(스켈레톤 시각화) — 정점과 동일 변환
+		XMVECTOR off0 = XMVectorSet(_modelOffset.x, _modelOffset.y, _modelOffset.z, 0.f);
+		XMMATRIX Mb = XMLoadFloat4x4(&_modelMatrix); if (_turntable) Mb = XMMatrixRotationY(_turnAngle) * Mb;
+		_boneWorld.resize(nb);
+		for (size_t b = 0; b < nb; ++b)
+		{
+			XMVECTOR p = global[b].r[3]; // 모델공간 본 위치
+			p = XMVectorScale(XMVectorSubtract(p, off0), _modelScale);
+			XMStoreFloat3(&_boneWorld[b], XMVector3Transform(XMVectorSetW(p, 1.f), Mb));
+		}
 	}
+	else _boneWorld.clear();
 
 	XMVECTOR off = XMVectorSet(_modelOffset.x, _modelOffset.y, _modelOffset.z, 0.f);
 	XMMATRIX M = XMLoadFloat4x4(&_modelMatrix); // 기즈모 트랜스폼
+	if (_turntable) M = XMMatrixRotationY(_turnAngle) * M; // U14 자동 회전
 	XMFLOAT3 mn(1e9f, 1e9f, 1e9f), mx(-1e9f, -1e9f, -1e9f); // 모델 월드 AABB (픽킹용)
 
 	for (uint32 i = 0; i < _modelVtxCount; ++i)

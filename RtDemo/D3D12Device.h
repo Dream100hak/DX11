@@ -41,6 +41,8 @@ struct SceneCB
 	DirectX::XMFLOAT4   tint;
 	DirectX::XMFLOAT4   ptPos[4];
 	DirectX::XMFLOAT4   ptCol[4];
+	DirectX::XMFLOAT4   floorMat;
+	DirectX::XMFLOAT4   ao;
 };
 
 // ───────────────────────────────────────────────────────────
@@ -127,6 +129,12 @@ private:
 	ComPtr<ID3D12PipelineState>       _wirePSO;    // 와이어프레임 토글
 	ComPtr<ID3D12PipelineState>       _probePSO;   // DDGI 프로브 점 시각화
 	ComPtr<ID3D12PipelineState>       _fxaaPSO;    // FXAA
+	ComPtr<ID3D12PipelineState>       _dbgPSO;     // 디버그 라인(본/AABB/콘/아이콘)
+	ComPtr<ID3D12Resource>            _dbgVB;      // 디버그 라인 동적 VB
+	void*                             _dbgMapped = nullptr;
+	UINT                              _dbgCap = 0;
+	std::vector<DirectX::XMFLOAT3>    _boneWorld;  // 본 월드 위치(스키닝 시 채움)
+	void                              DrawDebugLines(); // 본/AABB/콘/아이콘 라인 빌드+드로우
 	DXGI_FORMAT                       _sceneFmt = DXGI_FORMAT_R16G16B16A16_FLOAT; // 씬 RT(HDR)
 
 	// 포스트프로세스 (S3 톤맵 / S4 블룸) — 공용 SRV 힙 + 루트시그
@@ -232,6 +240,7 @@ private:
 	void                              DrawInspector();
 	void                              DrawFolderContents();
 	void                              DrawSceneView();
+	void                              DrawLog();
 	enum class SelEntity { Model, Floor, Sun, DDGI, Camera, Point, Spot, Post };
 	SelEntity                         _sel = SelEntity::Model; // 하이어라키 선택 → 인스펙터 표시 대상
 	void                              CreateSceneRT(UINT w, UINT h); // 씬 오프스크린 RT/깊이 (재)생성
@@ -293,6 +302,28 @@ private:
 	DirectX::XMFLOAT3                 _diffuseTint{ 1.0f, 1.0f, 1.0f }; // T4 RGB 틴트
 	void                              SaveScreenshot(); // T19
 	void                              ScanClips();      // T18
+
+	// ── 추가 20종(U) ──
+	bool                              _aoOn = false; float _aoIntensity = 1.0f, _aoRadius = 0.6f; // U1 RT AO
+	bool                              _dofOn = false; float _dofFocus = 6.0f, _dofRange = 4.0f;   // U2 DOF
+	bool                              _volOn = false; float _volStrength = 0.5f;                  // U3 갓레이
+	bool                              _autoExp = false; float _expScale = 1.0f, _expTarget = 0.5f; // U4 자동노출
+	float                             _chroma = 0.0f, _grain = 0.0f, _sharpen = 0.0f;             // U5/U6/U7
+	DirectX::XMFLOAT3                 _floorColor{ 0.85f, 0.13f, 0.11f }; float _floorMetallic = 0.0f, _floorRough = 0.6f; // U9
+	bool                              _turntable = false; float _turnSpeed = 0.4f, _turnAngle = 0.0f; // U14
+	float                             _renderScale = 1.0f;  // U15
+	bool                              _showBones = false;   // U10
+	bool                              _showAABB = false;    // U11
+	bool                              _showLightIcons = true; // U12
+	bool                              _showSpotCone = true; // U13
+	float                             _groundSize = 6.0f;   // U19
+	std::vector<std::string>          _log;                 // U16 로그
+	void                              Log(const std::string& m);
+	struct Snapshot { DirectX::XMFLOAT4X4 m; float met, rough, emis, tint; DirectX::XMFLOAT3 dt; }; // U17
+	std::vector<Snapshot>             _undo, _redo;
+	void                              PushUndo(); void DoUndo(); void DoRedo();
+	float                             _frameTimes[120]{}; int _frameIdx = 0; // U18
+
 	// FolderContents 상태
 	std::wstring                      _assetRoot;          // Resources/Assets 절대경로
 	std::wstring                      _curDir;             // 현재 탐색 폴더

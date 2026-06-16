@@ -83,6 +83,10 @@ void D3D12Device::Render()
 {
 	_time += 1.0f / 60.0f;
 	if (!_animPaused) _animTimeAcc += (1.0f / 60.0f) * _animSpeed; // 애니 재생/속도
+	if (_turntable) _turnAngle += (1.0f / 60.0f) * _turnSpeed;     // U14 턴테이블
+	// U18 프레임타임 그래프 갱신
+	_frameTimes[_frameIdx % 120] = ImGui::GetIO().Framerate > 0 ? 1000.0f / ImGui::GetIO().Framerate : 0.0f;
+	_frameIdx++;
 	UpdateCamera(1.0f / 60.0f);
 	BuildUI(); // ImGui 패널(CPU) — 카메라/라이팅/GI 파라미터 편집
 
@@ -94,9 +98,10 @@ void D3D12Device::Render()
 		if (_hasPendingMatrix) { _modelMatrix = _pendingMatrix; _hasPendingMatrix = false; } // 씬로드 트랜스폼 복원
 	}
 
-	// Scene 창 크기 변경 시 오프스크린 RT 재생성 (전체 플러시로 직전 프레임 GPU 유휴)
-	if (_pendingSceneW && (_pendingSceneW != _sceneW || _pendingSceneH != _sceneH))
-		CreateSceneRT(_pendingSceneW, _pendingSceneH);
+	// Scene 창 크기 변경/렌더 스케일 변경 시 오프스크린 RT 재생성 (전체 플러시로 GPU 유휴)
+	UINT tW = (UINT)max(8.0f, _pendingSceneW * _renderScale), tH = (UINT)max(8.0f, _pendingSceneH * _renderScale);
+	if (_pendingSceneW && (tW != _sceneW || tH != _sceneH))
+		CreateSceneRT(tW, tH);
 
 
 	// ── 상수버퍼 갱신 (카메라 뷰 + 빛 방향 애니메이션 → RT 그림자 이동) ──
@@ -139,7 +144,9 @@ void D3D12Device::Render()
 	cb.spotPos    = XMFLOAT4(_spotPos.x, _spotPos.y, _spotPos.z, _spotRadius);
 	cb.spotDir    = XMFLOAT4(sdn.x, sdn.y, sdn.z, cosf(XMConvertToRadians(_spotConeDeg)));
 	cb.spotColor  = XMFLOAT4(_spotColor.x * _spotIntensity, _spotColor.y * _spotIntensity, _spotColor.z * _spotIntensity, _spotOn ? 1.f : 0.f);
-	cb.tint       = XMFLOAT4(_diffuseTint.x * _matTint, _diffuseTint.y * _matTint, _diffuseTint.z * _matTint, 1.f);
+	cb.tint       = XMFLOAT4(_diffuseTint.x * _matTint, _diffuseTint.y * _matTint, _diffuseTint.z * _matTint, _floorRough);
+	cb.floorMat   = XMFLOAT4(_floorColor.x, _floorColor.y, _floorColor.z, _floorMetallic);
+	cb.ao         = XMFLOAT4(_aoOn ? 1.f : 0.f, _aoIntensity, _aoRadius, 0.f);
 	// 다중 점광원 (slot0 = 기본 점광원과 동기화)
 	_ptPosArr[0] = cb.pointPos; _ptColArr[0] = cb.pointColor;
 	for (int i = 0; i < MAX_PT; ++i) { cb.ptPos[i] = (i < _ptCount) ? _ptPosArr[i] : XMFLOAT4(0,0,0,0); cb.ptCol[i] = (i < _ptCount) ? _ptColArr[i] : XMFLOAT4(0,0,0,0); }
@@ -244,6 +251,9 @@ void D3D12Device::Render()
 		_cmdList->DrawInstanced(3, 1, 0, 0);
 	}
 
+	// ── 디버그 라인 (본/AABB/콘/아이콘) ──
+	DrawDebugLines();
+
 	// ── DDGI 프로브 시각화 (점) ──
 	if (_probeViz)
 	{
@@ -315,6 +325,8 @@ void D3D12Device::Render()
 		float pc[8] = { _exposure, _bloomIntensity, (_bloomOn && _bloomReady) ? 1.0f : 0.0f, float(_tonemapOp),
 		                _contrast, _saturation, _temperature, _vignette };
 		_cmdList->SetGraphicsRoot32BitConstants(1, 8, pc, 0);
+		float pc2[8] = { _chroma, _grain, _sharpen, _time * 60.0f, 1.0f / float(_sceneW), 1.0f / float(_sceneH), _expScale, 0.0f };
+		_cmdList->SetGraphicsRoot32BitConstants(2, 8, pc2, 0);
 		_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		_cmdList->DrawInstanced(3, 1, 0, 0);
 	}

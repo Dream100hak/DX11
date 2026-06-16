@@ -107,16 +107,38 @@ void D3D12Device::CreateCubeGeometry()
 
 	_modelIndexCount = (uint32)indices.size(); // 바닥 추가 전 = 모델 인덱스 수
 
-	// ── 바닥 평면 (빨강) — 모델 정점 뒤에 추가 ──
+	// ── 바닥 (평면 또는 V1 절차적 터레인 하이트맵) — 모델 정점 뒤에 추가 ──
 	{
-		const float g = 6.f;
-		const XMFLOAT3 fc(0.90f, 0.12f, 0.10f), n(0, 1, 0), t(1, 0, 0);
-		const XMFLOAT2 z(0, 0);
-		uint32 b = (uint32)_cpuVerts.size();
-		_cpuVerts.push_back({ XMFLOAT3(-g,0, g), n, fc, z, t }); _cpuVerts.push_back({ XMFLOAT3(g,0, g), n, fc, z, t });
-		_cpuVerts.push_back({ XMFLOAT3( g,0,-g), n, fc, z, t }); _cpuVerts.push_back({ XMFLOAT3(-g,0,-g), n, fc, z, t });
-		indices.push_back(b); indices.push_back(b + 1); indices.push_back(b + 2);
-		indices.push_back(b); indices.push_back(b + 2); indices.push_back(b + 3);
+		const float g = _groundSize;
+		const XMFLOAT3 fc(0.90f, 0.12f, 0.10f), t(1, 0, 0);
+		if (_terrain)
+		{
+			const int N = 56; float step = 2.f * g / N;
+			auto hgt = [](float x, float z) { return sinf(x * 0.6f) * cosf(z * 0.55f) * 0.5f + sinf(x * 1.7f + z * 0.9f) * 0.16f; };
+			uint32 base = (uint32)_cpuVerts.size();
+			for (int zi = 0; zi <= N; ++zi) for (int xi = 0; xi <= N; ++xi)
+			{
+				float x = -g + xi * step, z = -g + zi * step, y = hgt(x, z);
+				float hx = hgt(x + 0.1f, z) - hgt(x - 0.1f, z), hz = hgt(x, z + 0.1f) - hgt(x, z - 0.1f);
+				XMFLOAT3 nrm; XMStoreFloat3(&nrm, XMVector3Normalize(XMVectorSet(-hx / 0.2f, 1.f, -hz / 0.2f, 0.f)));
+				_cpuVerts.push_back({ XMFLOAT3(x, y, z), nrm, fc, XMFLOAT2(xi / (float)N, zi / (float)N), t });
+			}
+			for (int zi = 0; zi < N; ++zi) for (int xi = 0; xi < N; ++xi)
+			{
+				uint32 i0 = base + zi * (N + 1) + xi, i1 = i0 + 1, i2 = i0 + (N + 1), i3 = i2 + 1;
+				indices.push_back(i0); indices.push_back(i2); indices.push_back(i1);
+				indices.push_back(i1); indices.push_back(i2); indices.push_back(i3);
+			}
+		}
+		else
+		{
+			const XMFLOAT3 n(0, 1, 0); const XMFLOAT2 z(0, 0);
+			uint32 b = (uint32)_cpuVerts.size();
+			_cpuVerts.push_back({ XMFLOAT3(-g,0, g), n, fc, z, t }); _cpuVerts.push_back({ XMFLOAT3(g,0, g), n, fc, z, t });
+			_cpuVerts.push_back({ XMFLOAT3( g,0,-g), n, fc, z, t }); _cpuVerts.push_back({ XMFLOAT3(-g,0,-g), n, fc, z, t });
+			indices.push_back(b); indices.push_back(b + 1); indices.push_back(b + 2);
+			indices.push_back(b); indices.push_back(b + 2); indices.push_back(b + 3);
+		}
 	}
 
 	_vertexCount = (UINT)_cpuVerts.size();

@@ -101,6 +101,7 @@ void D3D12Device::Render()
 	BuildUI(); // ImGui 패널(CPU) — 카메라/라이팅/GI 파라미터 편집
 
 	// 더블클릭/씬로드 모델 교체 (GPU 유휴 시점)
+	if (_wantReload && _pendingModel.empty()) { _wantReload = false; _pendingModel = _modelDir + _modelStem + L".mesh"; } // V1 터레인 토글 등 재생성
 	if (!_pendingModel.empty())
 	{
 		std::wstring path = _pendingModel; _pendingModel.clear();
@@ -114,6 +115,16 @@ void D3D12Device::Render()
 		CreateSceneRT(tW, tH);
 
 
+	// V7 카메라 자동 오빗 (원점 중심)
+	if (_orbit)
+	{
+		float ang = _time * 0.3f;
+		_camPos = { cosf(ang) * 6.0f, 3.0f, sinf(ang) * 6.0f };
+		XMVECTOR d = XMVector3Normalize(XMVectorSubtract(XMVectorSet(0, 1.0f, 0, 0), XMLoadFloat3(&_camPos)));
+		XMFLOAT3 df; XMStoreFloat3(&df, d);
+		_camYaw = atan2f(df.x, df.z); _camPitch = asinf(df.y);
+	}
+
 	// ── 상수버퍼 갱신 (카메라 뷰 + 빛 방향 애니메이션 → RT 그림자 이동) ──
 	XMMATRIX model = XMMatrixIdentity();
 	XMVECTOR eye = XMLoadFloat3(&_camPos);
@@ -121,12 +132,27 @@ void D3D12Device::Render()
 	XMVECTOR up  = XMVectorSet(0.f, 1.f, 0.f, 0.f);
 	XMMATRIX view = XMMatrixLookAtLH(eye, XMVectorAdd(eye, fwd), up);
 	float aspect = float(_sceneW) / float(_sceneH); // 씬 RT 비율 (왜곡 방지)
-	XMMATRIX proj = XMMatrixPerspectiveFovLH(XMConvertToRadians(_fov), aspect, 0.1f, 200.f);
+	XMMATRIX proj = XMMatrixPerspectiveFovLH(XMConvertToRadians(_fov), aspect, _camNear, _camFar); // V7
 	XMStoreFloat4x4(&_viewM, view); // ImGuizmo 용 (다음 프레임 BuildUI 에서 사용)
 	XMStoreFloat4x4(&_projM, proj);
 
+	// V4 시간대 — 태양 각도 + 하늘/세기 블렌드 (밤→낮→석양)
+	if (_todOn)
+	{
+		float day = sinf(_timeOfDay * 3.14159f); day = max(day, 0.0f);
+		_lightAngle = (_timeOfDay - 0.5f) * 2.4f;
+		_lightIntensity = 0.15f + day * 1.6f;
+		XMFLOAT3 nightZ{ 0.02f,0.03f,0.09f }, dayZ{ 0.13f,0.22f,0.44f };
+		XMFLOAT3 nightH{ 0.05f,0.06f,0.12f }, dayH{ 0.52f,0.60f,0.72f };
+		float sunset = powf(1.0f - day, 2.0f); // 지평선 부근 주황
+		_skyZenith = { nightZ.x + (dayZ.x - nightZ.x) * day, nightZ.y + (dayZ.y - nightZ.y) * day, nightZ.z + (dayZ.z - nightZ.z) * day };
+		_skyHorizon = { nightH.x + (dayH.x - nightH.x) * day + sunset * 0.5f, nightH.y + (dayH.y - nightH.y) * day + sunset * 0.18f, nightH.z + (dayH.z - nightH.z) * day };
+		_sunColor = { 1.0f, 0.85f + day * 0.11f, 0.55f + day * 0.33f };
+	}
+	// V14 점광원 오빗
+	if (_ptOrbit) { _ptOrbitAng += (1.0f / 60.0f) * _ptOrbitSpeed; _pointPos = { cosf(_ptOrbitAng) * 2.6f, _pointPos.y, sinf(_ptOrbitAng) * 2.6f }; }
 	// 빛 방향 — 애니메이션 또는 인스펙터 수동 각도 (그림자/간접광 같이 변함)
-	if (_lightAnimate) _lightAngle = _time * 0.6f;
+	if (_lightAnimate && !_todOn) _lightAngle = _time * 0.6f;
 	float a = _lightAngle;
 
 	SceneCB cb;
@@ -157,6 +183,10 @@ void D3D12Device::Render()
 	cb.tint       = XMFLOAT4(_diffuseTint.x * _matTint, _diffuseTint.y * _matTint, _diffuseTint.z * _matTint, _floorRough);
 	cb.floorMat   = XMFLOAT4(_floorColor.x, _floorColor.y, _floorColor.z, _floorMetallic);
 	cb.ao         = XMFLOAT4(_aoOn ? 1.f : 0.f, _aoIntensity, _aoRadius, 0.f);
+	cb.shade      = XMFLOAT4(float(_toonLevels), _rimPower, _normalIntensity, _checker ? 1.f : 0.f);
+	cb.rimColor   = XMFLOAT4(_rimColor.x, _rimColor.y, _rimColor.z, 0.f);
+	cb.gridParams = XMFLOAT4(_gridCell, _gridFade, float(_bgMode), 0.f);
+	cb.outline    = XMFLOAT4(_outlineColor.x, _outlineColor.y, _outlineColor.z, _outlineThick);
 	// 다중 점광원 (slot0 = 기본 점광원과 동기화)
 	_ptPosArr[0] = cb.pointPos; _ptColArr[0] = cb.pointColor;
 	for (int i = 0; i < MAX_PT; ++i) { cb.ptPos[i] = (i < _ptCount) ? _ptPosArr[i] : XMFLOAT4(0,0,0,0); cb.ptCol[i] = (i < _ptCount) ? _ptColArr[i] : XMFLOAT4(0,0,0,0); }
@@ -183,7 +213,7 @@ void D3D12Device::Render()
 	D3D12_CPU_DESCRIPTOR_HANDLE dsv = _sceneDsvHeap->GetCPUDescriptorHandleForHeapStart();
 	_cmdList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
 
-	float clear[4] = { 0.06f, 0.07f, 0.10f, 1.0f };
+	float clear[4] = { _bgColor.x, _bgColor.y, _bgColor.z, 1.0f }; // V17 배경색
 	_cmdList->ClearRenderTargetView(rtv, clear, 0, nullptr);
 	_cmdList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
@@ -192,8 +222,8 @@ void D3D12Device::Render()
 	_cmdList->RSSetViewports(1, &vp);
 	_cmdList->RSSetScissorRects(1, &sc);
 
-	// ── 스카이박스 (배경, 깊이 없음) ──
-	if (_showSky)
+	// ── 스카이박스 (배경, 깊이 없음) — 솔리드 배경 모드면 생략 ──
+	if (_showSky && _bgMode == 0)
 	{
 		_cmdList->SetPipelineState(_skyPSO.Get());
 		_cmdList->SetGraphicsRootSignature(_rootSig.Get());
@@ -334,8 +364,8 @@ void D3D12Device::Render()
 		ID3D12DescriptorHeap* ph[] = { _postSrvHeap.Get() };
 		_cmdList->SetDescriptorHeaps(1, ph);
 		_cmdList->SetGraphicsRootDescriptorTable(0, _postSrvHeap->GetGPUDescriptorHandleForHeapStart());
-		float pc[8] = { _exposure, _bloomIntensity, (_bloomOn && _bloomReady) ? 1.0f : 0.0f, float(_tonemapOp),
-		                _contrast, _saturation, _temperature, _vignette };
+		float pc[8] = { _exposure * powf(2.0f, _ev), _bloomIntensity, (_bloomOn && _bloomReady) ? 1.0f : 0.0f, float(_tonemapOp),
+		                _contrast, _saturation, _temperature, _vignette }; // V13 EV
 		_cmdList->SetGraphicsRoot32BitConstants(1, 8, pc, 0);
 		float pc2[8] = { _chroma, _grain, _sharpen, _time * 60.0f, 1.0f / float(_sceneW), 1.0f / float(_sceneH), _expScale, 0.0f };
 		_cmdList->SetGraphicsRoot32BitConstants(2, 8, pc2, 0);
@@ -349,6 +379,8 @@ void D3D12Device::Render()
 		_cmdList->SetGraphicsRoot32BitConstants(3, 8, pc3, 0);
 		D3D12_GPU_DESCRIPTOR_HANDLE depthH = _postSrvHeap->GetGPUDescriptorHandleForHeapStart(); depthH.ptr += UINT64(2) * _postSrvInc; // slot2 depth
 		_cmdList->SetGraphicsRootDescriptorTable(4, depthH);
+		float pc4[8] = { _lensDistort, _posterize, _anamorphic ? 1.0f : 0.0f, float(_filterMode), 0,0,0,0 };
+		_cmdList->SetGraphicsRoot32BitConstants(5, 8, pc4, 0);
 		_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		_cmdList->DrawInstanced(3, 1, 0, 0);
 	}
@@ -407,5 +439,5 @@ void D3D12Device::Render()
 	ThrowIfFailed(_swapChain->Present(1, 0), "Present");
 	MoveToNextFrame();
 
-	if (_wantShot) { _wantShot = false; SaveScreenshot(); } // GPU 유휴 시점 리드백
+	if (_wantShot) { _wantShot = false; SaveScreenshot(); if (_hiresShot) { _renderScale = 1.0f; _hiresShot = false; } } // GPU 유휴 시점 리드백
 }

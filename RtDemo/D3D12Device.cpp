@@ -40,6 +40,10 @@ cbuffer SceneCB : register(b0)
     float4 gPtCol[4];   // 다중 점광원 색×세기 (w on)
     float4 gFloorMat;   // rgb 바닥 albedo, w 바닥 metallic
     float4 gAO;         // x on, y intensity, z radius
+    float4 gShade;      // x toonLevels(0=off), y rimPower(0=off), z normalIntensity, w checker(0/1)
+    float4 gRimColor;   // rgb 림 색
+    float4 gGridParams; // x cell, y fade, z bgMode(0 sky/1 solid), w _
+    float4 gOutline;    // rgb 색, w thickness
 };
 )";
 
@@ -164,6 +168,7 @@ float4 PSMain(VSOut i) : SV_TARGET
             T = normalize(T);
             float3 B = cross(Ngeo, T);
             float3 nTS = gNormalMap.Sample(gSamp, i.uv).rgb * 2.0 - 1.0;
+            nTS.xy *= gShade.z; // V9 노멀맵 강도
             N = normalize(nTS.x * T + nTS.y * B + nTS.z * Ngeo);
         }
     }
@@ -177,6 +182,12 @@ float4 PSMain(VSOut i) : SV_TARGET
     float roughness = (gUseTex != 0) ? gMatParams.y : gTint.w;
     float emissive  = (gUseTex != 0) ? gMatParams.z : 0.0;
     float3 albedo   = (gUseTex != 0) ? gDiffuse.Sample(gSamp, i.uv).rgb * gTint.rgb : gFloorMat.rgb;
+    // V16 체커 바닥
+    if (gUseTex == 0 && gShade.w > 0.5)
+    {
+        float c = (fmod(floor(i.wpos.x) + floor(i.wpos.z), 2.0) < 1.0) ? 0.75 : 0.35;
+        albedo = gFloorMat.rgb * c;
+    }
     float power = lerp(8.0, 256.0, 1.0 - roughness);
     float3 specColor = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
     float specMask = (gUseTex != 0) ? gSpecMap.Sample(gSamp, i.uv).r : 1.0;
@@ -208,7 +219,9 @@ float4 PSMain(VSOut i) : SV_TARGET
     }
 
     float3 sunCol = gSunColor.rgb * gLightDir.w;
-    float3 direct = albedo * (ndl * shadow) * sunCol * (1.0 - metallic * 0.75);
+    float df = ndl * shadow;
+    if (gShade.x > 0.5) df = floor(df * gShade.x + 0.5) / gShade.x; // V2 툰(계단형 음영)
+    float3 direct = albedo * df * sunCol * (1.0 - metallic * 0.75);
     float3 spec = 0;
     if (ndl > 0.0) { float3 H = normalize(L + V); spec += pow(saturate(dot(N, H)), power) * specMask * shadow * sunCol * specColor * (1.0 - roughness * 0.5); }
 
@@ -290,6 +303,13 @@ float4 PSMain(VSOut i) : SV_TARGET
         else { float t = saturate(R.y); refl = lerp(gSkyHorizon.rgb, gSkyZenith.rgb, pow(t, 0.55)); }
         float fres = pow(1.0 - saturate(dot(N, V)), 4.0);
         col = lerp(col, refl, saturate(reflStr * (0.15 + 0.85 * fres)));
+    }
+
+    // ── V3 림 라이트 (프레넬 가장자리광) ──
+    if (gShade.y > 0.5)
+    {
+        float rim = pow(1.0 - saturate(dot(N, V)), gShade.y);
+        col += gRimColor.rgb * rim;
     }
 
     // ── 거리 안개 ──
@@ -507,13 +527,14 @@ POut PSMain(VOut i)
     float3 wp = ro + rd * t;
     float4 cp = mul(float4(wp, 1.0), gMVP); o.depth = cp.z / cp.w;
 
-    float a = max(GridA(wp.xz, 1.0) * 0.30, GridA(wp.xz, 10.0) * 0.65);
+    float cell = max(gGridParams.x, 0.05);
+    float a = max(GridA(wp.xz, cell) * 0.30, GridA(wp.xz, cell * 10.0) * 0.65);
     float3 col = float3(0.55, 0.55, 0.62);
     float ax = 1.0 - min(abs(wp.z) / fwidth(wp.z), 1.0); // z≈0 → X축(빨강)
     float az = 1.0 - min(abs(wp.x) / fwidth(wp.x), 1.0); // x≈0 → Z축(파랑)
     if (ax > 0.1) { col = float3(0.9, 0.25, 0.25); a = max(a, ax); }
     if (az > 0.1) { col = float3(0.25, 0.45, 0.95); a = max(a, az); }
-    a *= saturate(1.0 - length(wp.xz - ro.xz) / 60.0);
+    a *= saturate(1.0 - length(wp.xz - ro.xz) / max(gGridParams.y, 1.0));
     if (a <= 0.001) discard;
     o.col = float4(col, a);
     return o;
@@ -528,10 +549,10 @@ float4 VSMain(VIn i) : SV_POSITION
     float3 wp = i.pos;                 // 정점은 이미 월드(스키닝/기즈모 반영)
     float3 n = normalize(i.nrm);
     float d = distance(gCamPos.xyz, wp);
-    wp += n * d * 0.005;               // 화면상 일정 두께 (얇게)
+    wp += n * d * gOutline.w;          // 두께(카메라 거리 비례)
     return mul(float4(wp, 1.0), gMVP);
 }
-float4 PSMain() : SV_TARGET { return float4(1.7, 0.85, 0.12, 1.0); } // HDR 주황 (톤맵 후에도 선명)
+float4 PSMain() : SV_TARGET { return float4(gOutline.rgb, 1.0); } // 아웃라인 색(HDR)
 )";
 
 // 디버그 라인 (본/AABB/스팟콘/라이트 아이콘) — LINELIST, pos+color
@@ -579,11 +600,14 @@ cbuffer PostCB : register(b0) { float gExposure; float gBloomI; float gBloomOn; 
                                 float gContrast; float gSaturation; float gTemperature; float gVignette; };
 cbuffer PostCB2 : register(b1) { float gChroma; float gGrain; float gSharpen; float gPostTime; float gTexelX; float gTexelY; float gExpScale; float gAutoExp; };
 cbuffer PostCB3 : register(b2) { float gSunSX; float gSunSY; float gVolStr; float gDofFocus; float gDofRange; float gDofOn; float gVolOn; float _p3; };
+cbuffer PostCB4 : register(b3) { float gLensDistort; float gPosterize; float gAnamorphic; float gFilterMode; float _q0; float _q1; float _q2; float _q3; };
 Texture2D gDepth : register(t2);
 float3 ACES(float3 x){ float a=2.51,b=0.03,c=2.43,d=0.59,e=0.14; return saturate((x*(a*x+b))/(x*(c*x+d)+e)); }
 float3 Filmic(float3 x){ x=max(0,x-0.004); return (x*(6.2*x+0.5))/(x*(6.2*x+1.7)+0.06); } // 감마 내장
 float4 PSTonemap(VOut i) : SV_TARGET
 {
+    // V10 렌즈 왜곡 (배럴/핀쿠션) — 이후 모든 샘플에 적용
+    if (gLensDistort != 0.0) { float2 cc = i.uv - 0.5; i.uv = 0.5 + cc * (1.0 + gLensDistort * dot(cc, cc)); }
     // 색수차 (채널별 오프셋 샘플)
     float2 caoff = gChroma * (i.uv - 0.5);
     float3 hdr;
@@ -591,6 +615,9 @@ float4 PSTonemap(VOut i) : SV_TARGET
     hdr.g = gHDR.Sample(gS, i.uv).g;
     hdr.b = gHDR.Sample(gS, i.uv - caoff).b;
     if (gBloomOn > 0.5) hdr += gBloom.Sample(gS, i.uv).rgb * gBloomI;
+    // V19 아나모픽 블룸 (수평 스트릭)
+    if (gAnamorphic > 0.5)
+        hdr += (gBloom.Sample(gS, i.uv + float2(gTexelX * 9.0, 0)).rgb + gBloom.Sample(gS, i.uv - float2(gTexelX * 9.0, 0)).rgb) * gBloomI * 0.5 * float3(0.4, 0.6, 1.0);
     // 샤픈 (언샤프 마스크)
     if (gSharpen > 0.001)
     {
@@ -631,6 +658,16 @@ float4 PSTonemap(VOut i) : SV_TARGET
     c = saturate((c - 0.5) * gContrast + 0.5);                          // 대비
     float luma = dot(c, float3(0.2126, 0.7152, 0.0722));
     c = lerp(float3(luma, luma, luma), c, gSaturation);                 // 채도
+    // V11 포스터라이즈
+    if (gPosterize > 1.5) c = floor(c * gPosterize) / gPosterize;
+    // V12 필터 (1 세피아 / 2 흑백 / 3 반전)
+    if (gFilterMode > 0.5)
+    {
+        float lm = dot(c, float3(0.2126, 0.7152, 0.0722));
+        if (gFilterMode < 1.5)      c = lm * float3(1.07, 0.82, 0.57); // 세피아
+        else if (gFilterMode < 2.5) c = float3(lm, lm, lm);            // 흑백
+        else                        c = 1.0 - c;                       // 반전
+    }
     // 필름 그레인
     if (gGrain > 0.001) { float n = frac(sin(dot(i.uv * (gPostTime + 1.0), float2(12.9898, 78.233))) * 43758.5453); c += (n - 0.5) * gGrain; }
     // 비네트
@@ -702,7 +739,7 @@ void D3D12Device::CreatePostFX()
 	range.NumDescriptors = 2; range.BaseShaderRegister = 0; range.OffsetInDescriptorsFromTableStart = 0;
 	D3D12_DESCRIPTOR_RANGE rangeD{}; rangeD.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	rangeD.NumDescriptors = 1; rangeD.BaseShaderRegister = 2; rangeD.OffsetInDescriptorsFromTableStart = 0;
-	D3D12_ROOT_PARAMETER p[5]{};
+	D3D12_ROOT_PARAMETER p[6]{};
 	p[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 	p[0].DescriptorTable.NumDescriptorRanges = 1; p[0].DescriptorTable.pDescriptorRanges = &range;
 	p[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
@@ -718,10 +755,13 @@ void D3D12Device::CreatePostFX()
 	p[4].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE; // t2 depth
 	p[4].DescriptorTable.NumDescriptorRanges = 1; p[4].DescriptorTable.pDescriptorRanges = &rangeD;
 	p[4].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	p[5].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+	p[5].Constants.ShaderRegister = 3; p[5].Constants.Num32BitValues = 8; // b3: 렌즈왜곡/포스터/아나모픽/필터
+	p[5].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 	D3D12_STATIC_SAMPLER_DESC s{}; s.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
 	s.AddressU = s.AddressV = s.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP; s.ShaderRegister = 0;
 	s.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL; s.MaxLOD = D3D12_FLOAT32_MAX;
-	D3D12_ROOT_SIGNATURE_DESC rs{}; rs.NumParameters = 5; rs.pParameters = p; rs.NumStaticSamplers = 1; rs.pStaticSamplers = &s;
+	D3D12_ROOT_SIGNATURE_DESC rs{}; rs.NumParameters = 6; rs.pParameters = p; rs.NumStaticSamplers = 1; rs.pStaticSamplers = &s;
 	rs.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
 	ComPtr<ID3DBlob> sig, err;
 	ThrowIfFailed(D3D12SerializeRootSignature(&rs, D3D_ROOT_SIGNATURE_VERSION_1, &sig, &err), "post rootsig");

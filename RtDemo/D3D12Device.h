@@ -43,6 +43,10 @@ struct SceneCB
 	DirectX::XMFLOAT4   ptCol[4];
 	DirectX::XMFLOAT4   floorMat;
 	DirectX::XMFLOAT4   ao;
+	DirectX::XMFLOAT4   shade;
+	DirectX::XMFLOAT4   rimColor;
+	DirectX::XMFLOAT4   gridParams;
+	DirectX::XMFLOAT4   outline;
 };
 
 // ───────────────────────────────────────────────────────────
@@ -324,6 +328,28 @@ private:
 	std::vector<Snapshot>             _undo, _redo;
 	void                              PushUndo(); void DoUndo(); void DoRedo();
 	float                             _frameTimes[120]{}; int _frameIdx = 0; // U18
+
+	// ── 3차 20종(V) ──
+	bool                              _terrain = false; bool _wantReload = false; // V1 절차 터레인
+	int                               _toonLevels = 0;          // V2 (0=off)
+	float                             _rimPower = 0.0f; DirectX::XMFLOAT3 _rimColor{ 0.3f, 0.55f, 1.0f }; // V3
+	bool                              _todOn = false; float _timeOfDay = 0.35f; // V4 시간대
+	DirectX::XMFLOAT3                 _outlineColor{ 1.7f, 0.85f, 0.12f }; float _outlineThick = 0.005f; // V5
+	float                             _gizmoSize = 0.1f;        // V6
+	float                             _camNear = 0.1f, _camFar = 200.0f; bool _orbit = false; // V7
+	struct Bookmark { DirectX::XMFLOAT3 pos; float yaw, pitch; bool set = false; }; Bookmark _bm[4]; // V8
+	float                             _normalIntensity = 1.0f;  // V9
+	float                             _lensDistort = 0.0f;      // V10
+	float                             _posterize = 0.0f;        // V11 (0=off)
+	int                               _filterMode = 0;          // V12 none/sepia/gray/invert
+	float                             _ev = 0.0f;               // V13 EV
+	bool                              _ptOrbit = false; float _ptOrbitSpeed = 0.6f, _ptOrbitAng = 0.0f; // V14
+	float                             _gridCell = 1.0f, _gridFade = 60.0f; // V15
+	bool                              _checker = false;         // V16
+	int                               _bgMode = 0;              // V17 0 sky / 1 solid
+	DirectX::XMFLOAT3                 _bgColor{ 0.06f, 0.07f, 0.10f }; // V17
+	bool                              _anamorphic = false;      // V19
+	bool                              _hiresShot = false;       // V20 (캡처 후 렌더스케일 복원)
 
 	// FolderContents 상태
 	std::wstring                      _assetRoot;          // Resources/Assets 절대경로

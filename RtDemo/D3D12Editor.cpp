@@ -260,7 +260,8 @@ void D3D12Device::BuildUI()
 			if (ImGui::MenuItem("Save Scene")) SaveScene();
 			if (ImGui::MenuItem("Load Scene")) LoadScene();
 			ImGui::Separator();
-			if (ImGui::MenuItem("Screenshot (BMP)")) _wantShot = true;
+			if (ImGui::MenuItem("Screenshot (PNG)")) _wantShot = true;
+			if (ImGui::MenuItem("Screenshot Hi-Res 2x")) { _renderScale = 2.0f; _wantShot = true; _hiresShot = true; } // V20
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Edit"))
@@ -385,6 +386,7 @@ void D3D12Device::DrawSceneView()
 	{
 		ImGuizmo::SetOrthographic(false);
 		ImGuizmo::SetDrawlist();
+		ImGuizmo::SetGizmoSizeClipSpace(_gizmoSize); // V6
 		ImGuizmo::SetRect(imgPos.x, imgPos.y, avail.x, avail.y);
 		if (_sel == SelEntity::Model)
 		{
@@ -585,8 +587,21 @@ void D3D12Device::DrawInspector()
 		ImGui::SliderFloat("Move Speed", &_moveSpeed, 0.5f, 20.0f);      // T1
 		if (ImGui::Button("Reset Camera"))                              // T1
 		{ _camPos = { 3.4f, 2.4f, -4.6f }; _camYaw = -0.637f; _camPitch = -0.232f; _fov = 55.0f; }
-		ImGui::TextDisabled("Hold RMB to fly: WASD/QE, Shift=fast");
-		ImGui::TextDisabled("W/E/R=gizmo, F=focus (no RMB)");
+		ImGui::SliderFloat("Near", &_camNear, 0.01f, 2.0f);             // V7
+		ImGui::SliderFloat("Far", &_camFar, 20.0f, 500.0f);
+		ImGui::Checkbox("Auto Orbit", &_orbit);
+		ImGui::SliderFloat("EV", &_ev, -4.0f, 4.0f);                    // V13
+		ImGui::SliderFloat("Gizmo Size", &_gizmoSize, 0.05f, 0.25f);    // V6
+		ImGui::SeparatorText("Bookmarks");                              // V8
+		for (int k = 0; k < 4; ++k)
+		{
+			ImGui::PushID(k);
+			if (ImGui::Button("Set")) { _bm[k] = { _camPos, _camYaw, _camPitch, true }; }
+			ImGui::SameLine(); if (ImGui::Button("Go") && _bm[k].set) { _camPos = _bm[k].pos; _camYaw = _bm[k].yaw; _camPitch = _bm[k].pitch; }
+			ImGui::SameLine(); ImGui::Text("Cam %d %s", k + 1, _bm[k].set ? "*" : "");
+			ImGui::PopID();
+		}
+		ImGui::TextDisabled("RMB fly: WASD/QE/Shift, W/E/R gizmo, F focus");
 		break;
 
 	case SelEntity::Sun:
@@ -597,6 +612,8 @@ void D3D12Device::DrawInspector()
 		ImGui::Checkbox("Animate Sun", &_lightAnimate);
 		if (!_lightAnimate) ImGui::SliderFloat("Sun Angle", &_lightAngle, -3.14159f, 3.14159f);
 		ImGui::SliderFloat("Shadow Softness", &_shadowSoft, 0.0f, 0.12f); // T11
+		ImGui::Checkbox("Time of Day", &_todOn);                          // V4
+		if (_todOn) ImGui::SliderFloat("Hour", &_timeOfDay, 0.0f, 1.0f);
 		ImGui::SeparatorText("Sky");                                    // T20
 		ImGui::ColorEdit3("Zenith", &_skyZenith.x);
 		ImGui::ColorEdit3("Horizon", &_skyHorizon.x);
@@ -628,6 +645,7 @@ void D3D12Device::DrawInspector()
 		ImGui::ColorEdit3("Color##0", &_pointColor.x);
 		ImGui::SliderFloat("Intensity##0", &_pointIntensity, 0.0f, 12.0f);
 		ImGui::SliderFloat("Radius##0", &_pointRadius, 0.5f, 20.0f);
+		ImGui::Checkbox("Orbit##0", &_ptOrbit); ImGui::SameLine(); ImGui::SliderFloat("Orbit Spd", &_ptOrbitSpeed, 0.1f, 3.0f); // V14
 		for (int li = 1; li < _ptCount; ++li)
 		{
 			ImGui::PushID(li);
@@ -688,7 +706,23 @@ void D3D12Device::DrawInspector()
 		ImGui::SliderFloat("Chromatic Aberr.", &_chroma, 0.0f, 0.02f);
 		ImGui::SliderFloat("Film Grain", &_grain, 0.0f, 0.2f);
 		ImGui::SliderFloat("Sharpen", &_sharpen, 0.0f, 1.5f);
+		ImGui::SliderFloat("Lens Distort", &_lensDistort, -0.5f, 0.5f);   // V10
+		ImGui::SliderFloat("Posterize", &_posterize, 0.0f, 16.0f);       // V11 (0=off)
+		ImGui::Combo("Filter", &_filterMode, "None\0Sepia\0Grayscale\0Invert\0"); // V12
+		ImGui::Checkbox("Anamorphic Bloom", &_anamorphic);               // V19
 		ImGui::SliderFloat("Render Scale", &_renderScale, 0.5f, 2.0f);
+		ImGui::SeparatorText("Grid / Background");
+		ImGui::SliderFloat("Grid Cell", &_gridCell, 0.25f, 5.0f);        // V15
+		ImGui::SliderFloat("Grid Fade", &_gridFade, 10.0f, 150.0f);
+		ImGui::Combo("Background", &_bgMode, "Sky\0Solid Color\0");      // V17
+		if (_bgMode == 1) ImGui::ColorEdit3("BG Color", &_bgColor.x);
+		if (ImGui::Button("Reset All To Defaults")) {                    // V18
+			_toonLevels = 0; _rimPower = 0; _normalIntensity = 1; _chroma = _grain = _sharpen = 0;
+			_lensDistort = 0; _posterize = 0; _filterMode = 0; _anamorphic = false; _renderScale = 1;
+			_contrast = _saturation = 1; _temperature = 0; _vignette = 0.25f; _ev = 0; _fogDensity = 0;
+			_aoOn = _dofOn = _volOn = _autoExp = _checker = _terrain = _todOn = false; _wantReload = true;
+			_bgMode = 0; _tonemapOp = 0; _exposure = 1;
+		}
 		ImGui::SeparatorText("Debug View / Gizmos");
 		ImGui::Combo("View", &_debugView, "Lit\0Albedo\0Normal\0Depth\0GI\0");
 		ImGui::Checkbox("Wireframe", &_wireframe);
@@ -728,6 +762,13 @@ void D3D12Device::DrawInspector()
 		ImGui::SliderFloat("Roughness", &_matRoughness, 0.02f, 1.0f);
 		ImGui::SliderFloat("Emissive", &_matEmissive, 0.0f, 5.0f);
 		ImGui::SliderFloat("Brightness", &_matTint, 0.0f, 2.0f);
+		ImGui::SliderFloat("Normal Map", &_normalIntensity, 0.0f, 3.0f); // V9
+		ImGui::SeparatorText("Shading / Outline");
+		ImGui::SliderInt("Toon Levels", &_toonLevels, 0, 6);             // V2 (0=off)
+		ImGui::SliderFloat("Rim Power", &_rimPower, 0.0f, 8.0f);         // V3
+		ImGui::ColorEdit3("Rim Color", &_rimColor.x);
+		ImGui::ColorEdit3("Outline Color", &_outlineColor.x);           // V5
+		ImGui::SliderFloat("Outline Width", &_outlineThick, 0.0f, 0.03f);
 		// 애니메이션 (T17/T18)
 		if (!_clips.empty())
 		{
@@ -755,6 +796,9 @@ void D3D12Device::DrawInspector()
 		ImGui::ColorEdit3("Color", &_floorColor.x);
 		ImGui::SliderFloat("Metallic", &_floorMetallic, 0.0f, 1.0f);
 		ImGui::SliderFloat("Roughness", &_floorRough, 0.02f, 1.0f);
+		ImGui::Checkbox("Checker Pattern", &_checker);                  // V16
+		if (ImGui::Checkbox("Terrain (heightmap)", &_terrain)) _wantReload = true; // V1
+		if (ImGui::SliderFloat("Ground Size", &_groundSize, 3.0f, 20.0f)) _wantReload = true; // V19
 		ImGui::TextDisabled("Bounces indirect light via DDGI");
 		break;
 	}

@@ -59,6 +59,7 @@
     <ClCompile Include="Renderer.cpp" />
     <ClCompile Include="ModelRenderer.cpp" />
     <ClCompile Include="MeshRenderer.cpp" />
+    <ClCompile Include="ModelAnimator.cpp" />
     <ClCompile Include="SkyRenderer.cpp" />
     <ClCompile Include="GridRenderer.cpp" />
     <ClCompile Include="Camera.cpp" />

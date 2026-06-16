@@ -103,9 +103,7 @@ void D3D12Device::Render()
 
 	SyncLights(); // 스칼라 → Light 컴포넌트 (CB 가 컴포넌트에서 읽음)
 	auto sunL  = _sunObj  ? _sunObj->GetLight()  : nullptr;
-	auto ptL   = _ptObj   ? _ptObj->GetLight()   : nullptr;
-	auto spotL = _spotObj ? _spotObj->GetLight() : nullptr;
-	_flickerV = _flicker ? (0.65f + 0.35f * sinf(_time * 31.0f) * sinf(_time * 7.3f) + 0.1f * sinf(_time * 53.0f)) : 1.0f; // W9
+	_flickerV = _flicker ?(0.65f + 0.35f * sinf(_time * 31.0f) * sinf(_time * 7.3f) + 0.1f * sinf(_time * 53.0f)) : 1.0f; // W9
 
 	SceneCB cb;
 	XMStoreFloat4x4(&cb.mvp, model * view * proj); // row_major HLSL → 전치 불필요
@@ -118,14 +116,35 @@ void D3D12Device::Render()
 	cb.gridDim  = XMFLOAT4(float(Ddgi::PROBE_X), float(Ddgi::PROBE_Y), float(Ddgi::PROBE_Z), 128.f); // 128 rays/probe
 	cb.giParams = XMFLOAT4(_giStrength, _time * 60.f, _ambient, 0.f); // GI세기 / frame / 앰비언트
 	XMStoreFloat4x4(&cb.invVP, XMMatrixInverse(nullptr, view * proj)); // 스카이 레이 복원
-	// 점광원 — Light 컴포넌트가 소스 (위치=Transform, 색/세기/반경/on=Light)
-	Vec3 ptPos = ptL && _ptObj->GetTransform() ? _ptObj->GetTransform()->GetLocalPosition() : _pointPos;
-	float pRange = ptL ? ptL->_range : _pointRadius;
-	float pInt = (ptL ? ptL->_intensity : _pointIntensity) * _flickerV;
-	Vec3 pCol = ptL ? ptL->_color : _pointColor;
-	bool pOn = ptL ? ptL->_enabled : _pointOn;
-	cb.pointPos   = XMFLOAT4(ptPos.x, ptPos.y, ptPos.z, pRange);
-	cb.pointColor = XMFLOAT4(pCol.x * pInt, pCol.y * pInt, pCol.z * pInt, pOn ? 1.f : 0.f);
+	// ── 점/스팟 라이트: 씬의 모든 Light 컴포넌트에서 수집 (동적 추가 라이트 포함, 점=최대4 스팟=1) ──
+	int ptN = 0; XMFLOAT4 ptPosA[4] = {}, ptColA[4] = {};
+	bool haveSpot = false; XMFLOAT4 spotP{}, spotD{ 0,-1,0,0.5f }, spotC{};
+	if (_gameScene)
+		for (auto& kv : _gameScene->GetCreatedObjects())
+		{
+			auto& o = kv.second; if (!o || !o->IsActive()) continue;
+			auto l = o->GetLight(); if (!l || !l->_enabled) continue;
+			auto t = o->GetTransform();
+			Vec3 lp = t ? t->GetLocalPosition() : Vec3{ 0,0,0 };
+			if (l->_lightType == LightType::Point && ptN < 4)
+			{
+				float in = l->_intensity * _flickerV;
+				ptPosA[ptN] = XMFLOAT4(lp.x, lp.y, lp.z, l->_range);
+				ptColA[ptN] = XMFLOAT4(l->_color.x * in, l->_color.y * in, l->_color.z * in, 1.f);
+				++ptN;
+			}
+			else if (l->_lightType == LightType::Spot && !haveSpot)
+			{
+				XMVECTOR sd2 = XMVector3Normalize(XMLoadFloat3(&l->_direction));
+				XMFLOAT3 sdn2; XMStoreFloat3(&sdn2, sd2);
+				spotP = XMFLOAT4(lp.x, lp.y, lp.z, l->_range);
+				spotD = XMFLOAT4(sdn2.x, sdn2.y, sdn2.z, cosf(XMConvertToRadians(l->_spotAngleDeg)));
+				spotC = XMFLOAT4(l->_color.x * l->_intensity, l->_color.y * l->_intensity, l->_color.z * l->_intensity, 1.f);
+				haveSpot = true;
+			}
+		}
+	cb.pointPos   = ptN > 0 ? ptPosA[0] : XMFLOAT4(0, 0, 0, 0); // 단일 참조(스크린 갓레이 등) 호환
+	cb.pointColor = ptN > 0 ? ptColA[0] : XMFLOAT4(0, 0, 0, 0);
 	cb.matParams  = XMFLOAT4(_matMetallic, _matRoughness, _matEmissive, _matTint);
 	cb.sunColor   = sunL ? XMFLOAT4(sunL->_color.x, sunL->_color.y, sunL->_color.z, _envIntensity)
 	                     : XMFLOAT4(_sunColor.x, _sunColor.y, _sunColor.z, _envIntensity);
@@ -134,19 +153,10 @@ void D3D12Device::Render()
 	cb.skyZenith  = XMFLOAT4(_skyZenith.x, _skyZenith.y, _skyZenith.z, _shadowSoft);
 	cb.skyHorizon = XMFLOAT4(_skyHorizon.x, _skyHorizon.y, _skyHorizon.z, _sunSize);
 	cb.dbg        = XMFLOAT4(float(_debugView), _probeViz ? 1.f : 0.f, float(_tonemapOp), _reflectOn ? _reflectStrength : 0.f);
-	// 스팟 라이트 — Light 컴포넌트가 소스 (위치=Transform, 방향/색/세기/각도/on=Light)
-	Vec3 spPos = spotL && _spotObj->GetTransform() ? _spotObj->GetTransform()->GetLocalPosition() : _spotPos;
-	Vec3 spDir = spotL ? spotL->_direction : _spotDir;
-	Vec3 spCol = spotL ? spotL->_color : _spotColor;
-	float spInt = spotL ? spotL->_intensity : _spotIntensity;
-	float spRange = spotL ? spotL->_range : _spotRadius;
-	float spCone = spotL ? spotL->_spotAngleDeg : _spotConeDeg;
-	bool spOn = spotL ? spotL->_enabled : _spotOn;
-	XMVECTOR sd = XMVector3Normalize(XMLoadFloat3(&spDir));
-	XMFLOAT3 sdn; XMStoreFloat3(&sdn, sd);
-	cb.spotPos    = XMFLOAT4(spPos.x, spPos.y, spPos.z, spRange);
-	cb.spotDir    = XMFLOAT4(sdn.x, sdn.y, sdn.z, cosf(XMConvertToRadians(spCone)));
-	cb.spotColor  = XMFLOAT4(spCol.x * spInt, spCol.y * spInt, spCol.z * spInt, spOn ? 1.f : 0.f);
+	// 스팟 라이트 (씬 수집 결과 — haveSpot 이면 첫 스팟 컴포넌트)
+	cb.spotPos    = spotP;
+	cb.spotDir    = spotD;
+	cb.spotColor  = haveSpot ? spotC : XMFLOAT4(0, 0, 0, 0);
 	cb.tint       = XMFLOAT4(_diffuseTint.x * _matTint, _diffuseTint.y * _matTint, _diffuseTint.z * _matTint, _floorRough);
 	cb.floorMat   = XMFLOAT4(_floorColor.x, _floorColor.y, _floorColor.z, _floorMetallic);
 	cb.ao         = XMFLOAT4(_aoOn ? 1.f : 0.f, _aoIntensity, _aoRadius, 0.f);
@@ -157,9 +167,8 @@ void D3D12Device::Render()
 	cb.decal      = XMFLOAT4(_decalPos.x, _decalPos.y, _decalPos.z, _decalOn ? _decalRadius : 0.f); // W2
 	cb.decalCol   = XMFLOAT4(_decalColor.x, _decalColor.y, _decalColor.z, _cloudAmt);                // W2/W3
 	cb.extra      = XMFLOAT4(_shadowStrength, _hemiAmbient, _stars ? 1.f : 0.f, 0.f);                // W6/W7/W8
-	// 다중 점광원 (slot0 = 기본 점광원과 동기화)
-	_ptPosArr[0] = cb.pointPos; _ptColArr[0] = cb.pointColor;
-	for (int i = 0; i < MAX_PT; ++i) { cb.ptPos[i] = (i < _ptCount) ? _ptPosArr[i] : XMFLOAT4(0,0,0,0); cb.ptCol[i] = (i < _ptCount) ? _ptColArr[i] : XMFLOAT4(0,0,0,0); }
+	// 다중 점광원 — 씬에서 수집한 ptN 개 (셰이더 gPtPos/gPtCol[4])
+	for (int i = 0; i < 4; ++i) { cb.ptPos[i] = (i < ptN) ? ptPosA[i] : XMFLOAT4(0,0,0,0); cb.ptCol[i] = (i < ptN) ? ptColA[i] : XMFLOAT4(0,0,0,0); }
 	memcpy(_cbMapped[_frameIndex], &cb, sizeof(cb));
 
 	// ── 모델 갱신: 스키닝(or 바인드) + 기즈모 트랜스폼 적용 → VB (GPU 유휴, 전체 플러시) ──

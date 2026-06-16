@@ -4,6 +4,7 @@
 #include "Transform.h"
 #include "Renderer.h"
 #include "MeshRenderer.h"
+#include "ModelAnimator.h"
 #include "GeometryHelper.h"
 #include "Camera.h"
 #include "Light.h"
@@ -315,6 +316,9 @@ void D3D12Device::DrawMainMenuBar()
 				if (ImGui::MenuItem("Cube"))   { BuildPrim(MeshPrim::Cube, v, idx);   SpawnMeshObject(L"Cube", v, idx, Vec3{ 0,0.5f,0 }, MeshPrim::Cube); }
 				if (ImGui::MenuItem("Sphere")) { BuildPrim(MeshPrim::Sphere, v, idx); SpawnMeshObject(L"Sphere", v, idx, Vec3{ 0,0.5f,0 }, MeshPrim::Sphere); }
 				if (ImGui::MenuItem("Plane"))  { BuildPrim(MeshPrim::Plane, v, idx);  SpawnMeshObject(L"Plane", v, idx, Vec3{ 0,0,0 }, MeshPrim::Plane); }
+				ImGui::Separator();
+				if (ImGui::MenuItem("Animated Model (Archer)"))
+					SpawnAnimatedModel(_assetRoot + L"\\Models\\Archer\\Archer.mesh", Vec3{ -2.2f, 0, 0 });
 				ImGui::EndMenu();
 			}
 			ImGui::Separator();
@@ -464,6 +468,9 @@ void D3D12Device::DrawHierarchy()
 			if (ImGui::MenuItem("Cube"))   { BuildPrim(MeshPrim::Cube, v, idx);   SpawnMeshObject(L"Cube", v, idx, spawnAt, MeshPrim::Cube); }
 			if (ImGui::MenuItem("Sphere")) { BuildPrim(MeshPrim::Sphere, v, idx); SpawnMeshObject(L"Sphere", v, idx, spawnAt, MeshPrim::Sphere); }
 			if (ImGui::MenuItem("Plane"))  { BuildPrim(MeshPrim::Plane, v, idx);  SpawnMeshObject(L"Plane", v, idx, Vec3{ 0,0,0 }, MeshPrim::Plane); }
+			ImGui::Separator();
+			if (ImGui::MenuItem("Animated Model (Archer)"))
+				SpawnAnimatedModel(_assetRoot + L"\\Models\\Archer\\Archer.mesh", Vec3{ -2.2f, 0, 0 });
 			ImGui::EndMenu();
 		}
 		ImGui::Separator();
@@ -674,6 +681,22 @@ static void BuildPrim(MeshPrim prim, vector<Vtx>& v, vector<uint32>& idx)
 	}
 }
 
+shared_ptr<GameObject> D3D12Device::SpawnAnimatedModel(const std::wstring& meshPath, const Vec3& pos)
+{
+	if (!_gameScene) return nullptr;
+	auto obj = make_shared<GameObject>();
+	fs::path mp(meshPath);
+	obj->SetObjectName(mp.stem().wstring() + L"_" + std::to_wstring(++_spawnCounter));
+	obj->GetOrAddTransform()->SetLocalPosition(pos);
+	auto an = make_shared<ModelAnimator>(); an->Bind(this);
+	if (!an->Load(meshPath)) { Log("Animated model load FAILED: " + WToUtf8(meshPath)); return nullptr; }
+	obj->AddComponent(an);
+	_gameScene->Add(obj);
+	_selectedGO = obj; _sel = SelEntity::Model;
+	Log("Created animated: " + WToUtf8(obj->GetObjectName()));
+	return obj;
+}
+
 shared_ptr<GameObject> D3D12Device::SpawnEmpty(const std::wstring& name, const Vec3& pos)
 {
 	if (!_gameScene) return nullptr;
@@ -720,7 +743,8 @@ void D3D12Device::NewScene()
 		{
 			auto& o = kv.second;
 			if (!o || o->IsEditorInternal() || o == _modelObj) continue;
-			if (o->GetMeshRenderer()) toRemove.push_back(o); // MeshRenderer = 스폰/데모 프리미티브
+			if (o == _sunObj || o == _ptObj || o == _spotObj) continue; // 고정 라이트 유지
+			if (o->GetRenderer() || o->GetLight()) toRemove.push_back(o); // 스폰 메시/애니/추가 라이트
 		}
 		for (auto& o : toRemove) RemoveObject(o);
 		Log("New Scene: removed " + std::to_string(toRemove.size()) + " object(s)");
@@ -775,7 +799,7 @@ void D3D12Device::SaveScene()
 	f << '\n';
 
 	// ── 멀티 오브젝트: 씬그래프의 MeshRenderer GameObject 들 (트랜스폼 + 머티리얼 + 텍스처) ──
-	int meshCount = 0;
+	int meshCount = 0, lightCount = 0;
 	if (_gameScene)
 	{
 		for (auto& kv : _gameScene->GetCreatedObjects())
@@ -799,9 +823,28 @@ void D3D12Device::SaveScene()
 			f << "mtex " << (mat._diffuseTex.empty() ? std::string("-") : WToUtf8(mat._diffuseTex)) << '\n';
 			++meshCount;
 		}
+
+		// 추가 라이트(고정 3개 제외) — Light 컴포넌트 보유 GameObject
+		for (auto& kv : _gameScene->GetCreatedObjects())
+		{
+			auto& obj = kv.second;
+			if (!obj || obj->IsEditorInternal()) continue;
+			if (obj == _sunObj || obj == _ptObj || obj == _spotObj) continue; // 고정 라이트는 스칼라로 영속
+			auto l = obj->GetLight(); if (!l) continue;
+			auto t = obj->GetTransform(); Vec3 p = t ? t->GetLocalPosition() : Vec3{ 0,0,0 };
+			std::wstring parentName;
+			if (t) if (auto pt = t->GetParent()) if (auto pgo = pt->GetGameObject()) parentName = pgo->GetObjectName();
+			f << "lobj " << WToUtf8(obj->GetObjectName()) << '\n';
+			f << "lprm " << (int)l->_lightType << ' ' << l->_color.x << ' ' << l->_color.y << ' ' << l->_color.z
+			  << ' ' << l->_intensity << ' ' << l->_range << ' ' << l->_spotAngleDeg << ' ' << (l->_enabled ? 1 : 0) << '\n';
+			f << "ldir " << l->_direction.x << ' ' << l->_direction.y << ' ' << l->_direction.z << '\n';
+			f << "lxf " << p.x << ' ' << p.y << ' ' << p.z << ' ' << (obj->IsActive() ? 1 : 0) << '\n';
+			f << "lpar " << (parentName.empty() ? std::string("-") : WToUtf8(parentName)) << '\n';
+			++lightCount;
+		}
 	}
 	f.flush();
-	Log("Scene saved: " + WToUtf8(path) + "  (" + std::to_string(meshCount) + " mesh objects)");
+	Log("Scene saved: " + WToUtf8(path) + "  (" + std::to_string(meshCount) + " mesh, " + std::to_string(lightCount) + " light)");
 }
 
 void D3D12Device::LoadScene()
@@ -812,6 +855,7 @@ void D3D12Device::LoadScene()
 	std::string line;
 	std::string modelUtf8;
 	shared_ptr<GameObject> curObj; // 현재 mobj 블록 대상
+	shared_ptr<GameObject> curLight; std::wstring curLightName; // 현재 lobj 블록 대상
 	std::wstring curName;          // 현재 블록 오브젝트 이름 (없으면 재생성용)
 	std::vector<std::pair<std::wstring, std::wstring>> parentLinks; // (child, parent) — 전부 파싱 후 링크
 	auto findByName = [&](const std::wstring& wname) -> shared_ptr<GameObject>
@@ -857,6 +901,37 @@ void D3D12Device::LoadScene()
 			std::string tp; std::getline(s >> std::ws, tp);
 			if (auto mr = curObj->GetMeshRenderer())
 				mr->GetMaterial()._diffuseTex = (tp == "-" || tp.empty()) ? L"" : Utf8ToW(tp);
+		}
+		// ── 추가 라이트 ──
+		else if (tag == "lobj") {
+			std::string nm; std::getline(s >> std::ws, nm); curLightName = Utf8ToW(nm);
+			curLight = findByName(curLightName);
+			if (!curLight) { // 없으면 빈 GameObject + Light 생성
+				curLight = make_shared<GameObject>();
+				curLight->SetObjectName(curLightName);
+				curLight->GetOrAddTransform();
+				curLight->AddComponent(make_shared<Light>());
+				_gameScene->Add(curLight);
+			}
+			else if (!curLight->GetLight()) curLight->AddComponent(make_shared<Light>());
+		}
+		else if (tag == "lprm" && curLight) {
+			if (auto l = curLight->GetLight()) {
+				int ty = 0, en = 1;
+				s >> ty >> l->_color.x >> l->_color.y >> l->_color.z >> l->_intensity >> l->_range >> l->_spotAngleDeg >> en;
+				l->_lightType = (LightType)ty; l->_enabled = en != 0;
+			}
+		}
+		else if (tag == "ldir" && curLight) {
+			if (auto l = curLight->GetLight()) s >> l->_direction.x >> l->_direction.y >> l->_direction.z;
+		}
+		else if (tag == "lxf" && curLight) {
+			Vec3 p; s >> p.x >> p.y >> p.z; if (auto t = curLight->GetTransform()) t->SetLocalPosition(p);
+			int act = 1; if (s >> act) curLight->SetActive(act != 0);
+		}
+		else if (tag == "lpar" && curLight) {
+			std::string pn; std::getline(s >> std::ws, pn);
+			if (pn != "-" && !pn.empty()) parentLinks.push_back({ curLightName, Utf8ToW(pn) });
 		}
 	}
 	// 부모 링크 (모든 오브젝트 생성 후 — LOCAL 유지)
@@ -921,9 +996,9 @@ void D3D12Device::PickAt(float u, float v)
 		for (auto& kv : _gameScene->GetCreatedObjects())
 		{
 			auto& obj = kv.second;
-			if (!obj || obj->IsEditorInternal() || !obj->IsActive() || !obj->GetUIPickable()) continue;
-			auto mr = obj->GetMeshRenderer(); if (!mr) continue;
-			const DirectX::BoundingBox& bb = mr->GetBoundingBox();
+			if (!obj || obj == _modelObj || obj->IsEditorInternal() || !obj->IsActive() || !obj->GetUIPickable()) continue;
+			auto r = obj->GetRenderer(); if (!r) continue; // 메시/애니메이터 공통
+			const DirectX::BoundingBox& bb = r->GetBoundingBox();
 			float bmn[3] = { bb.Center.x - bb.Extents.x, bb.Center.y - bb.Extents.y, bb.Center.z - bb.Extents.z };
 			float bmx[3] = { bb.Center.x + bb.Extents.x, bb.Center.y + bb.Extents.y, bb.Center.z + bb.Extents.z };
 			float tmin = 0.0f, tmax = 1e9f; bool ok = true;
@@ -1256,18 +1331,30 @@ void D3D12Device::DrawGameObjectInspector(const shared_ptr<GameObject>& go)
 	ImGui::TextDisabled("ID %lld%s", (long long)go->GetId(), go->IsEditorInternal() ? "  (editor)" : "");
 	ImGui::Separator();
 
+	const bool internal = go->IsEditorInternal();
 	for (uint8 i = 0; i < static_cast<uint8>(ComponentType::End); ++i)
 	{
-		auto c = go->GetFixedComponent(static_cast<ComponentType>(i));
+		ComponentType ct = static_cast<ComponentType>(i);
+		auto c = go->GetFixedComponent(ct);
 		if (!c) continue;
 
-		if (static_cast<ComponentType>(i) == ComponentType::Renderer)
+		if (ct == ComponentType::Renderer)
 		{
 			if (auto r = go->GetRenderer())
 				ImGui::SeparatorText(ImGuiManager::EnumToString(r->GetRenderType()));
 		}
 		else
-			ImGui::SeparatorText(ImGuiManager::EnumToString(static_cast<ComponentType>(i)));
+			ImGui::SeparatorText(ImGuiManager::EnumToString(ct));
+
+		// 컴포넌트 제거 (Transform/에디터내부/메인모델 렌더러 제외)
+		bool canRemove = ct != ComponentType::Transform && !internal && !(go == _modelObj && ct == ComponentType::Renderer);
+		if (canRemove)
+		{
+			ImGui::SameLine(ImGui::GetContentRegionAvail().x - 18.0f);
+			ImGui::PushID(i);
+			if (ImGui::SmallButton("X")) { go->RemoveComponent(ct); ImGui::PopID(); continue; }
+			ImGui::PopID();
+		}
 
 		c->OnInspectorGUI();
 	}
@@ -1277,6 +1364,33 @@ void D3D12Device::DrawGameObjectInspector(const shared_ptr<GameObject>& go)
 		if (!s) continue;
 		ImGui::SeparatorText("Script");
 		s->OnInspectorGUI();
+	}
+
+	// ── Add Component (에디터 내부 오브젝트 제외) ──
+	if (!internal)
+	{
+		ImGui::Separator();
+		if (ImGui::Button("Add Component", ImVec2(-1, 0))) ImGui::OpenPopup("addcomp");
+		if (ImGui::BeginPopup("addcomp"))
+		{
+			if (!go->GetRenderer() && ImGui::MenuItem("Mesh Renderer"))
+			{
+				auto mr = make_shared<MeshRenderer>(); mr->Bind(this);
+				vector<Vtx> v; vector<uint32> idx; BuildPrim(MeshPrim::Cube, v, idx);
+				mr->SetGeometry(v, idx); mr->SetPrim(MeshPrim::Cube);
+				go->AddComponent(mr);
+				Log("Added MeshRenderer to " + WToUtf8(go->GetObjectName()));
+			}
+			if (!go->GetLight() && ImGui::MenuItem("Light"))
+			{
+				auto l = make_shared<Light>();
+				l->_lightType = LightType::Point; l->_color = Vec3{ 1.f, 0.8f, 0.6f }; l->_intensity = 3.f; l->_range = 6.f;
+				go->AddComponent(l);
+				Log("Added Light to " + WToUtf8(go->GetObjectName()));
+			}
+			if (go->GetRenderer() && go->GetLight()) ImGui::TextDisabled("(no more components)");
+			ImGui::EndPopup();
+		}
 	}
 }
 

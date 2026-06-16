@@ -101,6 +101,7 @@ private:
 	friend class ModelScene;
 	friend class ModelRenderer;
 	friend class MeshRenderer;
+	friend class ModelAnimator;
 	friend class SkyRenderer;
 	friend class GridRenderer;
 
@@ -163,6 +164,7 @@ private:
 	// 씬그래프 편집 (하이어라키 컨텍스트 메뉴/단축키)
 	shared_ptr<GameObject>            SpawnMeshObject(const std::wstring& name, const vector<Vtx>& v, const vector<uint32>& idx, const Vec3& pos, MeshPrim prim = MeshPrim::None, bool autoName = true);
 	shared_ptr<GameObject>            SpawnEmpty(const std::wstring& name, const Vec3& pos);
+	shared_ptr<GameObject>            SpawnAnimatedModel(const std::wstring& meshPath, const Vec3& pos); // ModelAnimator
 	void                              DeleteSelectedObject();    // _selectedGO 삭제 (에디터 내부/모델 보호)
 	void                              DuplicateSelectedObject(); // _selectedGO 복제
 	void                              RemoveObject(const shared_ptr<GameObject>& obj); // 부모분리+자식승격+씬제거

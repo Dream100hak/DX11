@@ -160,6 +160,9 @@
     <ClCompile Include="ModelRenderer.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="ModelAnimator.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
     <ClCompile Include="MeshRenderer.cpp">
       <Filter>Core</Filter>
     </ClCompile>

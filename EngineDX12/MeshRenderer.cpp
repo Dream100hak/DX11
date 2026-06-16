@@ -3,6 +3,7 @@
 #include "GameObject.h"
 #include "Transform.h"
 #include "TextureLoader.h"
+#include "GeometryHelper.h"
 #include "imgui.h"
 
 using namespace DirectX;
@@ -161,6 +162,22 @@ void MeshRenderer::OnInspectorGUI()
 {
 	bool tintChanged = false;
 	ImGui::SeparatorText("MeshRenderer");
+
+	// 프리미티브 교체 (절차적 지오메트리 재생성)
+	const char* prims[] = { "(custom)", "Cube", "Sphere", "Plane" };
+	int pk = (int)_prim;
+	if (ImGui::Combo("Primitive", &pk, prims, 4) && pk != 0 && _dev)
+	{
+		_prim = (MeshPrim)pk;
+		vector<Vtx> v; vector<uint32> idx;
+		switch (_prim) {
+		case MeshPrim::Sphere: GeometryHelper::CreateSphere(v, idx, 0.5f); break;
+		case MeshPrim::Plane:  GeometryHelper::CreatePlane(v, idx, 2.0f);  break;
+		default:               GeometryHelper::CreateCube(v, idx, 1.0f);   break;
+		}
+		SetGeometry(v, idx); _baked = false;
+	}
+
 	tintChanged |= ImGui::ColorEdit3("Diffuse (tint)", &_material._diffuse.x);
 	ImGui::DragFloat("Metallic", &_material._metallic, 0.01f, 0.f, 1.f);
 	ImGui::DragFloat("Roughness", &_material._roughness, 0.01f, 0.f, 1.f);

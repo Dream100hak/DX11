@@ -3,6 +3,7 @@
 #include "MeshLoader.h"
 #include "TextureLoader.h"
 #include <filesystem>
+#include <ppl.h>   // 병렬 스키닝
 
 using namespace DirectX;
 
@@ -220,14 +221,18 @@ void ModelScene::UpdateAnimation(float animTimeAcc, bool turntable, float turnAn
 	XMVECTOR off = XMVectorSet(_modelOffset.x, _modelOffset.y, _modelOffset.z, 0.f);
 	XMMATRIX M = XMLoadFloat4x4(&_modelMatrix); // 기즈모 트랜스폼
 	if (turntable) M = XMMatrixRotationY(turnAngle) * M; // U14 자동 회전
-	XMFLOAT3 mn(1e9f, 1e9f, 1e9f), mx(-1e9f, -1e9f, -1e9f); // 모델 월드 AABB (픽킹용)
 
-	for (uint32 i = 0; i < _modelVtxCount; ++i)
+	const float scale = _modelScale; const bool useAnim = anim;
+	const SkinVtx* src = _skinSrc.data(); Vtx* dst = _cpuVerts.data();
+	const XMMATRIX* skinM = skin.empty() ? nullptr : skin.data();
+
+	// 모델 정점 변환 병렬화 (Debug 단일스레드 XMMath 병목 완화)
+	concurrency::parallel_for(uint32(0), _modelVtxCount, [&](uint32 i)
 	{
-		const SkinVtx& sv = _skinSrc[i];
+		const SkinVtx& sv = src[i];
 		XMVECTOR bp = XMLoadFloat3(&sv.pos), bn = XMLoadFloat3(&sv.nrm), bt = XMLoadFloat3(&sv.tan);
 		XMVECTOR p, n, t;
-		if (anim)
+		if (useAnim && skinM)
 		{
 			p = XMVectorZero(); n = XMVectorZero(); t = XMVectorZero();
 			float wsum = 0.f;
@@ -235,24 +240,29 @@ void ModelScene::UpdateAnimation(float animTimeAcc, bool turntable, float turnAn
 			{
 				float w = sv.wgt[j]; uint32 bi = sv.idx[j];
 				if (w <= 0.f || bi >= nb) continue;
-				p = XMVectorAdd(p, XMVectorScale(XMVector3Transform(bp, skin[bi]), w));
-				n = XMVectorAdd(n, XMVectorScale(XMVector3TransformNormal(bn, skin[bi]), w));
-				t = XMVectorAdd(t, XMVectorScale(XMVector3TransformNormal(bt, skin[bi]), w));
+				p = XMVectorAdd(p, XMVectorScale(XMVector3Transform(bp, skinM[bi]), w));
+				n = XMVectorAdd(n, XMVectorScale(XMVector3TransformNormal(bn, skinM[bi]), w));
+				t = XMVectorAdd(t, XMVectorScale(XMVector3TransformNormal(bt, skinM[bi]), w));
 				wsum += w;
 			}
 			if (wsum < 1e-4f) { p = bp; n = bn; t = bt; }
 		}
 		else { p = bp; n = bn; t = bt; } // 정적: 바인드 포즈
 
-		// 베이스 월드(정규화) → 기즈모 M 적용
-		XMVECTOR wp = XMVectorScale(XMVectorSubtract(p, off), _modelScale);
+		XMVECTOR wp = XMVectorScale(XMVectorSubtract(p, off), scale);
 		wp = XMVector3Transform(wp, M);
 		n = XMVector3TransformNormal(n, M);
 		t = XMVector3TransformNormal(t, M);
-		XMStoreFloat3(&_cpuVerts[i].pos, wp);
-		XMStoreFloat3(&_cpuVerts[i].nrm, XMVector3Normalize(n));
-		XMStoreFloat3(&_cpuVerts[i].tan, XMVector3Normalize(t));
-		XMFLOAT3 P = _cpuVerts[i].pos;
+		XMStoreFloat3(&dst[i].pos, wp);
+		XMStoreFloat3(&dst[i].nrm, XMVector3Normalize(n));
+		XMStoreFloat3(&dst[i].tan, XMVector3Normalize(t));
+	});
+
+	// 모델 월드 AABB 직렬 리덕션 (픽킹용)
+	XMFLOAT3 mn(1e9f, 1e9f, 1e9f), mx(-1e9f, -1e9f, -1e9f);
+	for (uint32 i = 0; i < _modelVtxCount; ++i)
+	{
+		const XMFLOAT3& P = dst[i].pos;
 		mn.x = min(mn.x, P.x); mn.y = min(mn.y, P.y); mn.z = min(mn.z, P.z);
 		mx.x = max(mx.x, P.x); mx.y = max(mx.y, P.y); mx.z = max(mx.z, P.z);
 	}

@@ -36,7 +36,7 @@ public:
 
 private:
 	void ScanClips();
-	void Skin();             // 현재 프레임 스키닝 → _world → VB
+	void Skin(uint32 frame); // 지정 프레임 스키닝 → _world → VB
 	void CreateMaterials();  // .mmat → 슬롯별 디퓨즈/노멀/스펙 SRV 힙
 
 	D3D12Device* _dev = nullptr;
@@ -78,4 +78,8 @@ private:
 	bool                                _hasTexture = false;
 
 	ComPtr<ID3D12Resource>              _blas, _blasScratch; // RT 통합 TLAS 인스턴스용
+	bool                                _blasDirty = true;   // 스키닝 변경 시에만 BLAS 재빌드
+	uint32                              _bakedVer = 0;       // 트랜스폼 더티 체크
+	uint32                              _lastFrame = 0xFFFFFFFF; // 마지막 스키닝 프레임(변화 없으면 스킵)
+	bool                                _skinnedOnce = false;
 };

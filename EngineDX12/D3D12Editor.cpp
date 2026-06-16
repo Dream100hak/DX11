@@ -1610,7 +1610,7 @@ void D3D12Device::DrawFolderContents()
 			if (dbl)
 			{
 				if (isDir) _curDir = full;
-				else if (kind == AssetKind::Mesh) { _pendingModel = full; _sel = SelEntity::Model; _selectedAsset = full; }
+				else if (kind == AssetKind::Mesh) { _selectedAsset = full; Vec3 sp = SpawnPoint(); SpawnAnimatedModel(full, Vec3{ sp.x, 0, sp.z }); } // 씬에 추가 배치(정적/애니 공통)
 				else if (kind == AssetKind::Scene) { _selectedAsset = full; } // (씬 로드는 메뉴 Open Scene)
 			}
 

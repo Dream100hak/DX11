@@ -9,6 +9,7 @@
 #include "imgui.h"
 #include <filesystem>
 #include <unordered_map>
+#include <ppl.h>   // 병렬 스키닝 (concurrency::parallel_for)
 
 using namespace DirectX;
 namespace fs = std::filesystem;
@@ -43,20 +44,68 @@ void ModelAnimator::ScanClips()
 		if (e.path().extension() == L".clip") _clips.push_back(e.path().wstring());
 }
 
+// ── 공유 모델 캐시 (DX11 의 리소스 공유에 대응) ──
+// 같은 .mesh 재스폰 시 파일 읽기/탱전트/텍스처 디코드·업로드·GPU 대기 없이 GPU 리소스 공유.
+// CPU 메시 데이터는 복사(저렴), 비싼 GPU 리소스(IB/텍스처/SRV힙)는 ComPtr 공유 → 스폰 끊김 제거.
+struct CachedModel
+{
+	std::vector<LoadedBone> bones; std::vector<SkinVtx> skinSrc; std::vector<uint32> indices;
+	std::vector<SubMesh> submeshes;
+	float modelScale = 1.f; DirectX::XMFLOAT3 modelOffset{};
+	std::vector<std::wstring> clips; std::wstring modelDir, modelStem;
+	ComPtr<ID3D12Resource> ib; D3D12_INDEX_BUFFER_VIEW ibv{};
+	std::vector<ComPtr<ID3D12Resource>> matResources; ComPtr<ID3D12Resource> whiteTex;
+	ComPtr<ID3D12DescriptorHeap> srvHeap; UINT srvInc = 0; uint32 matCount = 0;
+	std::vector<uint32> subMatSlot; bool hasTexture = false;
+};
+static std::unordered_map<std::wstring, std::shared_ptr<CachedModel>> s_modelCache;
+
 bool ModelAnimator::Load(const std::wstring& meshPath)
 {
 	if (!_dev) return false;
+	_clip = AnimClip{}; _animated = false; _curClip = 0; _animTime = 0.f;
+
+	auto createWorldVB = [&]()
+	{
+		const size_t vbSize = (size_t)_vtxCount * sizeof(Vtx);
+		_vb = MakeUploadA(_dev->_device.Get(), vbSize);
+		D3D12_RANGE nr{ 0, 0 }; _vb->Map(0, &nr, &_vbMapped);
+		_vbv.BufferLocation = _vb->GetGPUVirtualAddress(); _vbv.StrideInBytes = sizeof(Vtx); _vbv.SizeInBytes = (UINT)vbSize;
+		_world.assign(_vtxCount, Vtx{});
+	};
+	auto finishClip = [&]()
+	{
+		std::wstring clipPath = FindClipA(_modelDir, _modelStem);
+		if (!clipPath.empty()) _animated = LoadClip(clipPath, _clip);
+		Skin(0); _skinnedOnce = true; _lastFrame = 0;
+	};
+
+	// ── 캐시 히트: 파일/텍스처 재로드 없이 공유 (스폰 즉시) ──
+	auto it = s_modelCache.find(meshPath);
+	if (it != s_modelCache.end())
+	{
+		auto& c = *it->second;
+		_bonesData = c.bones; _skinSrc = c.skinSrc; _indices = c.indices; _submeshes = c.submeshes;
+		_modelScale = c.modelScale; _modelOffset = c.modelOffset; _clips = c.clips;
+		_modelDir = c.modelDir; _modelStem = c.modelStem;
+		_ib = c.ib; _ibv = c.ibv;                 // GPU 리소스 공유
+		_matResources = c.matResources; _whiteTex = c.whiteTex; _srvHeap = c.srvHeap;
+		_srvInc = c.srvInc; _matCount = c.matCount; _subMatSlot = c.subMatSlot; _hasTexture = c.hasTexture;
+		_vtxCount = (uint32)_skinSrc.size(); _idxCount = (uint32)_indices.size();
+		createWorldVB();
+		finishClip();
+		return true;
+	}
+
+	// ── 캐시 미스: 최초 로드 ──
 	fs::path mp(meshPath);
 	_modelDir = mp.parent_path().wstring() + L"\\";
 	_modelStem = mp.stem().wstring();
-
 	_bonesData.clear(); _skinSrc.clear(); _indices.clear(); _submeshes.clear();
-	_clip = AnimClip{}; _animated = false; _curClip = 0; _animTime = 0.f;
 
 	if (!LoadMeshSkinned(meshPath, _bonesData, _skinSrc, _indices, &_submeshes)) return false;
 	GenerateTangents(_skinSrc, _indices);
 
-	// 바인드 AABB → 높이 2.2 정규화, x/z 중앙, 바닥 안착 (ModelScene 과 동일)
 	XMFLOAT3 mn(1e9f, 1e9f, 1e9f), mx(-1e9f, -1e9f, -1e9f);
 	for (auto& v : _skinSrc)
 	{
@@ -67,25 +116,28 @@ bool ModelAnimator::Load(const std::wstring& meshPath)
 	_modelOffset = XMFLOAT3((mn.x + mx.x) * 0.5f, mn.y, (mn.z + mx.z) * 0.5f);
 	_vtxCount = (uint32)_skinSrc.size();
 	_idxCount = (uint32)_indices.size();
-	_world.assign(_vtxCount, Vtx{});
 
 	ScanClips();
-	std::wstring clipPath = FindClipA(_modelDir, _modelStem);
-	if (!clipPath.empty()) _animated = LoadClip(clipPath, _clip);
+	CreateMaterials();
 
-	CreateMaterials(); // .mmat → 슬롯 SRV (실패 시 정점색 폴백)
-
-	// 월드 VB (영속 매핑, 매 프레임 스키닝 갱신) + IB
-	const size_t vbSize = (size_t)_vtxCount * sizeof(Vtx);
+	// 공유 IB (인덱스는 인스턴스 불변)
 	const size_t ibSize = (size_t)_idxCount * sizeof(uint32);
-	_vb = MakeUploadA(_dev->_device.Get(), vbSize);
-	D3D12_RANGE nr{ 0, 0 }; _vb->Map(0, &nr, &_vbMapped);
-	_vbv.BufferLocation = _vb->GetGPUVirtualAddress(); _vbv.StrideInBytes = sizeof(Vtx); _vbv.SizeInBytes = (UINT)vbSize;
 	_ib = MakeUploadA(_dev->_device.Get(), ibSize);
-	void* p = nullptr; _ib->Map(0, &nr, &p); memcpy(p, _indices.data(), ibSize); _ib->Unmap(0, nullptr);
+	void* p = nullptr; D3D12_RANGE nr2{ 0, 0 }; _ib->Map(0, &nr2, &p); memcpy(p, _indices.data(), ibSize); _ib->Unmap(0, nullptr);
 	_ibv.BufferLocation = _ib->GetGPUVirtualAddress(); _ibv.Format = DXGI_FORMAT_R32_UINT; _ibv.SizeInBytes = (UINT)ibSize;
 
-	Skin(); // 초기 포즈
+	createWorldVB();
+	finishClip();
+
+	// 캐시에 등록
+	auto c = std::make_shared<CachedModel>();
+	c->bones = _bonesData; c->skinSrc = _skinSrc; c->indices = _indices;
+	c->submeshes = _submeshes; c->modelScale = _modelScale; c->modelOffset = _modelOffset;
+	c->clips = _clips; c->modelDir = _modelDir; c->modelStem = _modelStem;
+	c->ib = _ib; c->ibv = _ibv;
+	c->matResources = _matResources; c->whiteTex = _whiteTex; c->srvHeap = _srvHeap;
+	c->srvInc = _srvInc; c->matCount = _matCount; c->subMatSlot = _subMatSlot; c->hasTexture = _hasTexture;
+	s_modelCache[meshPath] = c;
 	return true;
 }
 
@@ -171,9 +223,10 @@ void ModelAnimator::SetClipIndex(int i)
 	if (i < 0 || i >= (int)_clips.size()) return;
 	_curClip = i; _animTime = 0.f;
 	_animated = LoadClip(_clips[i], _clip);
+	_skinnedOnce = false; // 일시정지 상태에서도 새 포즈 반영
 }
 
-void ModelAnimator::Skin()
+void ModelAnimator::Skin(uint32 frame)
 {
 	if (_vtxCount == 0) return;
 	const size_t nb = _bonesData.size();
@@ -182,9 +235,6 @@ void ModelAnimator::Skin()
 	std::vector<XMMATRIX> global, skin;
 	if (anim)
 	{
-		uint32 raw = (uint32)(_animTime * _clip.frameRate);
-		uint32 frame = _loop ? (raw % _clip.frameCount)               // 루프
-		                     : (raw < _clip.frameCount ? raw : _clip.frameCount - 1); // 마지막 프레임 유지
 		global.resize(nb); skin.resize(nb);
 		for (size_t b = 0; b < nb; ++b)
 		{
@@ -209,38 +259,47 @@ void ModelAnimator::Skin()
 	if (auto t = GetTransform()) { Matrix wm = t->GetWorldMatrix(); M = XMLoadFloat4x4(&wm); }
 	XMVECTOR off = XMVectorSet(_modelOffset.x, _modelOffset.y, _modelOffset.z, 0.f);
 	const XMFLOAT3 modelC(0.82f, 0.78f, 0.72f);
-	XMFLOAT3 mn(1e9f, 1e9f, 1e9f), mx(-1e9f, -1e9f, -1e9f);
+	const float scale = _modelScale; const bool useAnim = anim;
+	const SkinVtx* src = _skinSrc.data(); Vtx* dst = _world.data();
+	const XMMATRIX* skinM = skin.empty() ? nullptr : skin.data();
 
-	for (uint32 i = 0; i < _vtxCount; ++i)
+	// 정점 변환 병렬화 (코어 분산 — Debug 단일스레드 XMMath 병목 완화)
+	concurrency::parallel_for(uint32(0), _vtxCount, [&](uint32 i)
 	{
-		const SkinVtx& sv = _skinSrc[i];
+		const SkinVtx& sv = src[i];
 		XMVECTOR bp = XMLoadFloat3(&sv.pos), bn = XMLoadFloat3(&sv.nrm), bt = XMLoadFloat3(&sv.tan);
 		XMVECTOR p, n, t;
-		if (anim)
+		if (useAnim && skinM)
 		{
 			p = n = t = XMVectorZero(); float wsum = 0.f;
 			for (int j = 0; j < 4; ++j)
 			{
 				float w = sv.wgt[j]; uint32 bi = sv.idx[j];
 				if (w <= 0.f || bi >= nb) continue;
-				p = XMVectorAdd(p, XMVectorScale(XMVector3Transform(bp, skin[bi]), w));
-				n = XMVectorAdd(n, XMVectorScale(XMVector3TransformNormal(bn, skin[bi]), w));
-				t = XMVectorAdd(t, XMVectorScale(XMVector3TransformNormal(bt, skin[bi]), w));
+				p = XMVectorAdd(p, XMVectorScale(XMVector3Transform(bp, skinM[bi]), w));
+				n = XMVectorAdd(n, XMVectorScale(XMVector3TransformNormal(bn, skinM[bi]), w));
+				t = XMVectorAdd(t, XMVectorScale(XMVector3TransformNormal(bt, skinM[bi]), w));
 				wsum += w;
 			}
 			if (wsum < 1e-4f) { p = bp; n = bn; t = bt; }
 		}
 		else { p = bp; n = bn; t = bt; }
 
-		XMVECTOR wp = XMVectorScale(XMVectorSubtract(p, off), _modelScale);
+		XMVECTOR wp = XMVectorScale(XMVectorSubtract(p, off), scale);
 		wp = XMVector3Transform(wp, M);
 		n = XMVector3TransformNormal(n, M);
 		t = XMVector3TransformNormal(t, M);
-		_world[i].pos = {}; XMStoreFloat3(&_world[i].pos, wp);
-		XMStoreFloat3(&_world[i].nrm, XMVector3Normalize(n));
-		XMStoreFloat3(&_world[i].tan, XMVector3Normalize(t));
-		_world[i].col = modelC; _world[i].uv = sv.uv;
-		XMFLOAT3 P = _world[i].pos;
+		XMStoreFloat3(&dst[i].pos, wp);
+		XMStoreFloat3(&dst[i].nrm, XMVector3Normalize(n));
+		XMStoreFloat3(&dst[i].tan, XMVector3Normalize(t));
+		dst[i].col = modelC; dst[i].uv = sv.uv;
+	});
+
+	// AABB 직렬 리덕션 (가벼움)
+	XMFLOAT3 mn(1e9f, 1e9f, 1e9f), mx(-1e9f, -1e9f, -1e9f);
+	for (uint32 i = 0; i < _vtxCount; ++i)
+	{
+		const XMFLOAT3& P = dst[i].pos;
 		mn.x = min(mn.x, P.x); mn.y = min(mn.y, P.y); mn.z = min(mn.z, P.z);
 		mx.x = max(mx.x, P.x); mx.y = max(mx.y, P.y); mx.z = max(mx.z, P.z);
 	}
@@ -255,19 +314,35 @@ void ModelAnimator::TransformBoundingBox()
 	_boundingBox.Extents = XMFLOAT3((_aabbMax.x - _aabbMin.x) * 0.5f, (_aabbMax.y - _aabbMin.y) * 0.5f, (_aabbMax.z - _aabbMin.z) * 0.5f);
 }
 
-// RT 통합 — AS 패스에서 호출(Draw 전). 시간 전진 + 스키닝(월드 VB 갱신).
+// RT 통합 — AS 패스에서 호출(Draw 전). 프레임/트랜스폼이 바뀐 경우에만 재스키닝(낭비 제거).
 void ModelAnimator::UpdateWorld()
 {
 	if (!_dev || _vtxCount == 0) return;
-	if (_playing) _animTime += DT * _speed;
-	Skin();
+	const bool anim = _animated && _clip.frameCount > 0;
+	if (anim && _playing) _animTime += DT * _speed;
+
+	uint32 frame = 0;
+	if (anim)
+	{
+		uint32 raw = (uint32)(_animTime * _clip.frameRate);
+		frame = _loop ? (raw % _clip.frameCount) : (raw < _clip.frameCount ? raw : _clip.frameCount - 1);
+	}
+	uint32 ver = 0; if (auto t = GetTransform()) ver = t->Version();
+
+	// 프레임도 트랜스폼도 그대로면 스킵 (60fps 렌더 × 30fps 클립 → 중복 프레임 생략)
+	if (_skinnedOnce && frame == _lastFrame && ver == _bakedVer) return;
+
+	Skin(frame);
+	_lastFrame = frame; _bakedVer = ver; _skinnedOnce = true; _blasDirty = true;
 }
 
 void ModelAnimator::RecordBuildBLAS(ID3D12GraphicsCommandList4* cmd)
 {
 	if (!_dev || _vtxCount == 0) return;
+	if (_blas && !_blasDirty) return; // 변경 없으면 기존 BLAS 유지
 	RtBlas::Build(_dev->_device.Get(), cmd, _vb.Get(), _ib.Get(),
 	              _vtxCount, _idxCount, sizeof(Vtx), _blas, _blasScratch);
+	_blasDirty = false;
 }
 
 void ModelAnimator::Draw(const RenderContext& ctx)

@@ -131,6 +131,17 @@ void Transform::SetParentKeepWorld(shared_ptr<Transform> newParent)
 	UpdateTransform();
 }
 
+void Transform::SetParentKeepLocal(shared_ptr<Transform> newParent)
+{
+	// 로컬 TRS 유지(이미 설정됨) — 월드만 재계산. 씬 로드 시 LOCAL-preserving 링크.
+	if (newParent.get() == this) return;
+	if (newParent && IsAncestorOf(newParent.get())) return;
+	if (auto old = _parent.lock()) old->RemoveChild(this);
+	_parent = newParent;
+	if (newParent) newParent->_children.push_back(GetTransform());
+	UpdateTransform();
+}
+
 void Transform::OnInspectorGUI()
 {
 	const ImVec4 col(0.85f, 0.94f, 0.f, 1.f);

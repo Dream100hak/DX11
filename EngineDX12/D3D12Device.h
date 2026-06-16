@@ -10,6 +10,7 @@
 #include "ModelScene.h"
 #include "Scene.h"
 #include "GameObject.h"
+#include "MeshRenderer.h"
 #include "EditorManager.h"
 #include "EditorWindows.h"
 #include <string>
@@ -160,10 +161,12 @@ private:
 	void                              BuildGameScene(); // 모델 + 카메라 + 라이트 GameObject 구성
 	void                              SyncLights();     // 스칼라 → Light 컴포넌트 동기화 (CB 가 컴포넌트 읽음)
 	// 씬그래프 편집 (하이어라키 컨텍스트 메뉴/단축키)
-	shared_ptr<GameObject>            SpawnMeshObject(const std::wstring& name, const vector<Vtx>& v, const vector<uint32>& idx, const Vec3& pos);
+	shared_ptr<GameObject>            SpawnMeshObject(const std::wstring& name, const vector<Vtx>& v, const vector<uint32>& idx, const Vec3& pos, MeshPrim prim = MeshPrim::None, bool autoName = true);
 	shared_ptr<GameObject>            SpawnEmpty(const std::wstring& name, const Vec3& pos);
 	void                              DeleteSelectedObject();    // _selectedGO 삭제 (에디터 내부/모델 보호)
 	void                              DuplicateSelectedObject(); // _selectedGO 복제
+	void                              RemoveObject(const shared_ptr<GameObject>& obj); // 부모분리+자식승격+씬제거
+	void                              NewScene();                // 씬그래프 비우기 + 파라미터 리셋
 	int                               _spawnCounter = 0;         // 고유 이름 접미사
 	// 모델 교체 예약 (더블클릭/씬로드 — 다음 프레임 GPU 유휴 시점에 처리)
 	std::wstring                      _pendingModel;

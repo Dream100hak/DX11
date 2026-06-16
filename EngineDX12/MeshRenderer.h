@@ -4,6 +4,9 @@
 
 class D3D12Device;
 
+// 절차적 프리미티브 종류 (씬 직렬화 시 스폰 오브젝트 재생성용)
+enum class MeshPrim : uint8 { None, Cube, Sphere, Plane };
+
 // DX11 Engine/MeshRenderer 이식 — 정적 메시 렌더러.
 // per-object 트랜스폼: ModelScene 과 동일하게 GameObject 월드행렬로 **CPU 정점 베이크**(gMVP=VP)
 // → 셰이더/루트시그 변경 없이 임의 위치 메시 드로우. (정점색 경로, useTex=0)
@@ -23,6 +26,8 @@ public:
 	Material& GetMaterial() { return _material; }
 	const vector<Vtx>&    GetLocalVerts() const { return _local; }   // 복제용
 	const vector<uint32>& GetLocalIndices() const { return _indices; }
+	void     SetPrim(MeshPrim p) { _prim = p; } // 직렬화/재생성용 프리미티브 종류
+	MeshPrim GetPrim() const { return _prim; }
 
 private:
 	void Rebake();         // 트랜스폼/머티리얼 변경 시에만 월드 정점 재생성
@@ -47,4 +52,5 @@ private:
 	bool                         _hasTex = false;
 	std::wstring                 _loadedTexPath; // 현재 SRV 에 올라간 경로 (변경 감지)
 	char                         _texPathBuf[260] = {}; // 인스펙터 입력 버퍼
+	MeshPrim                     _prim = MeshPrim::None; // 절차적 프리미티브 종류
 };

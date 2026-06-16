@@ -48,6 +48,7 @@ public:
 	void RemoveChild(Transform* child);
 
 	void SetParentKeepWorld(shared_ptr<Transform> newParent); // 월드 유지 재부모 (자기/자손 거부)
+	void SetParentKeepLocal(shared_ptr<Transform> newParent); // 로컬 유지 재부모 (씬 로드용)
 	bool IsAncestorOf(Transform* other);
 
 	uint32 Version() const { return _version; } // 변경 카운터 (렌더러 더티 체크 — 변경 시에만 재처리)

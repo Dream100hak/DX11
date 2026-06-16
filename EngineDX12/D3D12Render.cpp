@@ -42,6 +42,14 @@ void D3D12Device::Render()
 	cam.inputAllowed = !_editorReady || _sceneHovered;
 	cam.keysAllowed  = !_editorReady || _sceneFocused;
 	cam.focusMin = _scene._modelMin; cam.focusMax = _scene._modelMax;
+	// 선택 GameObject 가 있으면 그 AABB 로 포커스 대상 변경 (직전 프레임 월드 바운드)
+	if (_selectedGO && _selectedGO != _modelObj)
+		if (auto mr = _selectedGO->GetMeshRenderer())
+		{
+			auto& bb = mr->GetBoundingBox();
+			cam.focusMin = Vec3{ bb.Center.x - bb.Extents.x, bb.Center.y - bb.Extents.y, bb.Center.z - bb.Extents.z };
+			cam.focusMax = Vec3{ bb.Center.x + bb.Extents.x, bb.Center.y + bb.Extents.y, bb.Center.z + bb.Extents.z };
+		}
 	cam.gizmoOp = &_gizmoOp;
 	_camera.Update(dt, cam);
 	BuildUI(); // ImGui 패널(CPU) — 카메라/라이팅/GI 파라미터 편집

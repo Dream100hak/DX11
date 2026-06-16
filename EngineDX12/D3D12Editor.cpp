@@ -32,6 +32,7 @@ static std::string WToUtf8(const std::wstring& w)
 	return s;
 }
 // Utf8ToW 는 MeshLoader.h 에 정의됨 (재사용)
+static void BuildPrim(MeshPrim prim, vector<Vtx>& v, vector<uint32>& idx); // 프리미티브 지오메트리 생성
 
 // W1 파티클 CPU 시뮬레이션 (sparks 분수 / snow 낙하)
 void D3D12Device::UpdateParticles(float dt)
@@ -287,7 +288,7 @@ void D3D12Device::DrawMainMenuBar()
 	{
 		if (ImGui::BeginMenu("File"))
 		{
-			if (ImGui::MenuItem("New Scene")) ResetDefaults();
+			if (ImGui::MenuItem("New Scene", "Ctrl+N")) NewScene();
 			if (ImGui::MenuItem("Open Scene...", "Ctrl+O")) LoadScene();
 			if (ImGui::MenuItem("Save Scene...", "Ctrl+S")) SaveScene();
 			ImGui::Separator();
@@ -307,7 +308,15 @@ void D3D12Device::DrawMainMenuBar()
 		}
 		if (ImGui::BeginMenu("GameObject"))
 		{
-			if (ImGui::MenuItem("Create Empty", "Ctrl+B")) { Log("Create Empty (single-model demo)"); }
+			if (ImGui::MenuItem("Create Empty", "Ctrl+B")) SpawnEmpty(L"GameObject", Vec3{ 0.f, 0.5f, 0.f });
+			if (ImGui::BeginMenu("3D Object"))
+			{
+				vector<Vtx> v; vector<uint32> idx;
+				if (ImGui::MenuItem("Cube"))   { BuildPrim(MeshPrim::Cube, v, idx);   SpawnMeshObject(L"Cube", v, idx, Vec3{ 0,0.5f,0 }, MeshPrim::Cube); }
+				if (ImGui::MenuItem("Sphere")) { BuildPrim(MeshPrim::Sphere, v, idx); SpawnMeshObject(L"Sphere", v, idx, Vec3{ 0,0.5f,0 }, MeshPrim::Sphere); }
+				if (ImGui::MenuItem("Plane"))  { BuildPrim(MeshPrim::Plane, v, idx);  SpawnMeshObject(L"Plane", v, idx, Vec3{ 0,0,0 }, MeshPrim::Plane); }
+				ImGui::EndMenu();
+			}
 			ImGui::Separator();
 			if (ImGui::MenuItem("Directional Light")) _sel = SelEntity::Sun;
 			if (ImGui::MenuItem("Point Light")) { _pointOn = true; _sel = SelEntity::Point; }
@@ -339,6 +348,15 @@ void D3D12Device::DrawMainMenuBar()
 		ImGui::TextDisabled("%s", stat);
 		ImGui::EndMainMenuBar();
 	}
+
+	// 전역 단축키 (메뉴 라벨 Ctrl+S/Ctrl+O 실제 동작) — 텍스트 입력 중 제외
+	ImGuiIO& io = ImGui::GetIO();
+	if (!io.WantTextInput && io.KeyCtrl)
+	{
+		if (ImGui::IsKeyPressed(ImGuiKey_S, false)) SaveScene();
+		else if (ImGui::IsKeyPressed(ImGuiKey_O, false)) LoadScene();
+		else if (ImGui::IsKeyPressed(ImGuiKey_N, false)) NewScene();
+	}
 }
 
 void D3D12Device::DrawHierarchy()
@@ -367,16 +385,71 @@ void D3D12Device::DrawHierarchy()
 
 	// ── 씬 그래프 GameObject 목록 (EditorTool Hierarchy 대응) ──
 	ImGui::Separator();
-	ImGui::TextDisabled("GameObjects");
+	ImGui::TextDisabled("GameObjects  (drag = reparent)");
 	if (_gameScene)
 	{
+		// 재귀 트리 (루트 = 부모 없음) + 드래그드롭 부모지정
+		std::function<void(const shared_ptr<GameObject>&)> drawNode = [&](const shared_ptr<GameObject>& obj)
+		{
+			if (!obj) return;
+			auto t = obj->GetTransform();
+			bool hasChildren = t && !t->GetChildren().empty();
+			ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_DefaultOpen;
+			if (!hasChildren) flags |= ImGuiTreeNodeFlags_Leaf;
+			if (_selectedGO == obj) flags |= ImGuiTreeNodeFlags_Selected;
+			std::string label = WToUtf8(obj->GetObjectName());
+			bool open = ImGui::TreeNodeEx((void*)(intptr_t)obj->GetId(), flags, "%s", label.c_str());
+			if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) _selectedGO = obj;
+			if (ImGui::BeginDragDropSource())
+			{
+				int64 id = obj->GetId();
+				ImGui::SetDragDropPayload("GO_ID", &id, sizeof(id));
+				ImGui::TextUnformatted(label.c_str());
+				ImGui::EndDragDropSource();
+			}
+			if (ImGui::BeginDragDropTarget())
+			{
+				if (const ImGuiPayload* pl = ImGui::AcceptDragDropPayload("GO_ID"))
+				{
+					int64 id = *(const int64*)pl->Data;
+					if (auto dragged = _gameScene->GetCreatedObject(id); dragged && dragged != obj)
+						if (auto dt = dragged->GetTransform(), pt = obj->GetTransform(); dt && pt)
+							dt->SetParentKeepWorld(pt); // 월드 유지 재부모
+				}
+				ImGui::EndDragDropTarget();
+			}
+			if (open)
+			{
+				if (hasChildren)
+				{
+					std::vector<shared_ptr<GameObject>> kids; // 재부모가 자식목록을 변경하므로 스냅샷
+					for (auto& ct : t->GetChildren())
+						if (ct) if (auto cgo = ct->GetGameObject()) kids.push_back(cgo);
+					for (auto& k : kids) drawNode(k);
+				}
+				ImGui::TreePop();
+			}
+		};
+		std::vector<shared_ptr<GameObject>> roots;
 		for (auto& kv : _gameScene->GetCreatedObjects())
 		{
-			auto& obj = kv.second;
-			if (!obj) continue;
-			std::string label = "[GO] " + WToUtf8(obj->GetObjectName());
-			if (ImGui::Selectable(label.c_str(), _selectedGO == obj))
-				_selectedGO = obj;
+			auto& obj = kv.second; if (!obj) continue;
+			auto t = obj->GetTransform();
+			if (!t || !t->GetParent()) roots.push_back(obj);
+		}
+		for (auto& r : roots) drawNode(r);
+
+		// 빈 공간 = 부모 해제 (루트로)
+		ImGui::Dummy(ImVec2(ImGui::GetContentRegionAvail().x, 24));
+		if (ImGui::BeginDragDropTarget())
+		{
+			if (const ImGuiPayload* pl = ImGui::AcceptDragDropPayload("GO_ID"))
+			{
+				int64 id = *(const int64*)pl->Data;
+				if (auto dragged = _gameScene->GetCreatedObject(id))
+					if (auto dt = dragged->GetTransform()) dt->SetParentKeepWorld(nullptr);
+			}
+			ImGui::EndDragDropTarget();
 		}
 	}
 
@@ -388,9 +461,9 @@ void D3D12Device::DrawHierarchy()
 		if (ImGui::BeginMenu("3D Object"))
 		{
 			vector<Vtx> v; vector<uint32> idx;
-			if (ImGui::MenuItem("Cube"))   { GeometryHelper::CreateCube(v, idx, 1.0f);   SpawnMeshObject(L"Cube", v, idx, spawnAt); }
-			if (ImGui::MenuItem("Sphere")) { GeometryHelper::CreateSphere(v, idx, 0.5f);  SpawnMeshObject(L"Sphere", v, idx, spawnAt); }
-			if (ImGui::MenuItem("Plane"))  { GeometryHelper::CreatePlane(v, idx, 2.0f);   SpawnMeshObject(L"Plane", v, idx, Vec3{ 0,0,0 }); }
+			if (ImGui::MenuItem("Cube"))   { BuildPrim(MeshPrim::Cube, v, idx);   SpawnMeshObject(L"Cube", v, idx, spawnAt, MeshPrim::Cube); }
+			if (ImGui::MenuItem("Sphere")) { BuildPrim(MeshPrim::Sphere, v, idx); SpawnMeshObject(L"Sphere", v, idx, spawnAt, MeshPrim::Sphere); }
+			if (ImGui::MenuItem("Plane"))  { BuildPrim(MeshPrim::Plane, v, idx);  SpawnMeshObject(L"Plane", v, idx, Vec3{ 0,0,0 }, MeshPrim::Plane); }
 			ImGui::EndMenu();
 		}
 		ImGui::Separator();
@@ -577,18 +650,28 @@ void D3D12Device::SaveScreenshot()
 }
 
 // ── 씬그래프 편집: GameObject 생성/삭제/복제 (하이어라키) ──
-shared_ptr<GameObject> D3D12Device::SpawnMeshObject(const std::wstring& name, const vector<Vtx>& v, const vector<uint32>& idx, const Vec3& pos)
+shared_ptr<GameObject> D3D12Device::SpawnMeshObject(const std::wstring& name, const vector<Vtx>& v, const vector<uint32>& idx, const Vec3& pos, MeshPrim prim, bool autoName)
 {
 	if (!_gameScene) return nullptr;
 	auto obj = make_shared<GameObject>();
-	obj->SetObjectName(name + L"_" + std::to_wstring(++_spawnCounter));
+	obj->SetObjectName(autoName ? (name + L"_" + std::to_wstring(++_spawnCounter)) : name);
 	auto tr = obj->GetOrAddTransform(); tr->SetLocalPosition(pos);
-	auto mr = make_shared<MeshRenderer>(); mr->Bind(this); mr->SetGeometry(v, idx);
+	auto mr = make_shared<MeshRenderer>(); mr->Bind(this); mr->SetGeometry(v, idx); mr->SetPrim(prim);
 	obj->AddComponent(mr);
 	_gameScene->Add(obj);
-	_selectedGO = obj; _sel = SelEntity::Model;
-	Log("Created: " + WToUtf8(obj->GetObjectName()));
+	if (autoName) { _selectedGO = obj; _sel = SelEntity::Model; Log("Created: " + WToUtf8(obj->GetObjectName())); }
 	return obj;
+}
+
+// 프리미티브 종류 → 지오메트리 생성 (재생성/스폰 공용)
+static void BuildPrim(MeshPrim prim, vector<Vtx>& v, vector<uint32>& idx)
+{
+	switch (prim) {
+	case MeshPrim::Sphere: GeometryHelper::CreateSphere(v, idx, 0.5f); break;
+	case MeshPrim::Plane:  GeometryHelper::CreatePlane(v, idx, 2.0f);  break;
+	case MeshPrim::Cube:
+	default:               GeometryHelper::CreateCube(v, idx, 1.0f);   break;
+	}
 }
 
 shared_ptr<GameObject> D3D12Device::SpawnEmpty(const std::wstring& name, const Vec3& pos)
@@ -603,14 +686,49 @@ shared_ptr<GameObject> D3D12Device::SpawnEmpty(const std::wstring& name, const V
 	return obj;
 }
 
+// 부모에서 분리 + 자식 루트 승격(댕글링 방지) + 씬 제거
+void D3D12Device::RemoveObject(const shared_ptr<GameObject>& obj)
+{
+	if (!obj || !_gameScene) return;
+	if (auto t = obj->GetTransform())
+	{
+		auto kids = t->GetChildren(); // 복사 — SetParentKeepWorld 가 _children 변경
+		for (auto& c : kids) if (c) c->SetParentKeepWorld(nullptr);
+		if (auto p = t->GetParent()) p->RemoveChild(t.get());
+		t->SetParent(nullptr);
+	}
+	_gameScene->Remove(obj);
+}
+
 void D3D12Device::DeleteSelectedObject()
 {
 	if (!_selectedGO || !_gameScene) return;
 	if (_selectedGO->IsEditorInternal()) { Log("Cannot delete editor-internal object"); return; }
 	if (_selectedGO == _modelObj) { Log("Cannot delete the main Model"); return; }
 	Log("Deleted: " + WToUtf8(_selectedGO->GetObjectName()));
-	_gameScene->Remove(_selectedGO);
+	RemoveObject(_selectedGO);
 	_selectedGO = nullptr;
+}
+
+// 새 씬 — 스폰/데모 메시 오브젝트 전부 제거(모델/라이트/카메라/내부 유지) + 파라미터 리셋
+void D3D12Device::NewScene()
+{
+	if (_gameScene)
+	{
+		std::vector<shared_ptr<GameObject>> toRemove;
+		for (auto& kv : _gameScene->GetCreatedObjects())
+		{
+			auto& o = kv.second;
+			if (!o || o->IsEditorInternal() || o == _modelObj) continue;
+			if (o->GetMeshRenderer()) toRemove.push_back(o); // MeshRenderer = 스폰/데모 프리미티브
+		}
+		for (auto& o : toRemove) RemoveObject(o);
+		Log("New Scene: removed " + std::to_string(toRemove.size()) + " object(s)");
+	}
+	_selectedGO = nullptr;
+	_sel = SelEntity::Model;
+	_spawnCounter = 0;
+	ResetDefaults(); // 포스트/라이팅 파라미터 + 모델 트랜스폼 리셋
 }
 
 void D3D12Device::DuplicateSelectedObject()
@@ -641,8 +759,9 @@ static std::wstring QuickScenePath(const std::wstring& root)
 
 void D3D12Device::SaveScene()
 {
-	std::ofstream f(QuickScenePath(_assetRoot));
-	if (!f) return;
+	std::wstring path = QuickScenePath(_assetRoot);
+	std::ofstream f(path);
+	if (!f) { Log("Save FAILED: " + WToUtf8(path)); return; }
 	f << "cam " << _camera.pos.x << ' ' << _camera.pos.y << ' ' << _camera.pos.z << ' ' << _camera.yaw << ' ' << _camera.pitch << '\n';
 	f << "sun " << _lightIntensity << ' ' << _lightAngle << ' ' << (_lightAnimate ? 1 : 0) << '\n';
 	f << "point " << (_pointOn ? 1 : 0) << ' ' << _pointPos.x << ' ' << _pointPos.y << ' ' << _pointPos.z
@@ -656,6 +775,7 @@ void D3D12Device::SaveScene()
 	f << '\n';
 
 	// ── 멀티 오브젝트: 씬그래프의 MeshRenderer GameObject 들 (트랜스폼 + 머티리얼 + 텍스처) ──
+	int meshCount = 0;
 	if (_gameScene)
 	{
 		for (auto& kv : _gameScene->GetCreatedObjects())
@@ -668,26 +788,35 @@ void D3D12Device::SaveScene()
 			Vec3 p = t->GetLocalPosition(), r = t->GetLocalRotation(), sc = t->GetLocalScale();
 			Material& mat = mr->GetMaterial();
 			f << "mobj " << WToUtf8(obj->GetObjectName()) << '\n';
+			f << "mprim " << (int)mr->GetPrim() << '\n'; // 0=None(매칭만), 1=Cube,2=Sphere,3=Plane(재생성)
+			std::wstring parentName;
+			if (auto pt = t->GetParent()) if (auto pgo = pt->GetGameObject()) parentName = pgo->GetObjectName();
+			f << "mpar " << (parentName.empty() ? std::string("-") : WToUtf8(parentName)) << '\n';
 			f << "mxf " << p.x << ' ' << p.y << ' ' << p.z << ' ' << r.x << ' ' << r.y << ' ' << r.z
 			  << ' ' << sc.x << ' ' << sc.y << ' ' << sc.z << ' ' << (obj->IsActive() ? 1 : 0) << '\n';
 			f << "mmat " << mat._diffuse.x << ' ' << mat._diffuse.y << ' ' << mat._diffuse.z
 			  << ' ' << mat._metallic << ' ' << mat._roughness << ' ' << mat._emissive << '\n';
 			f << "mtex " << (mat._diffuseTex.empty() ? std::string("-") : WToUtf8(mat._diffuseTex)) << '\n';
+			++meshCount;
 		}
 	}
+	f.flush();
+	Log("Scene saved: " + WToUtf8(path) + "  (" + std::to_string(meshCount) + " mesh objects)");
 }
 
 void D3D12Device::LoadScene()
 {
-	std::ifstream f(QuickScenePath(_assetRoot));
-	if (!f) return;
+	std::wstring path = QuickScenePath(_assetRoot);
+	std::ifstream f(path);
+	if (!f) { Log("Open FAILED (no scene file): " + WToUtf8(path)); return; }
 	std::string line;
 	std::string modelUtf8;
 	shared_ptr<GameObject> curObj; // 현재 mobj 블록 대상
-	auto findByName = [&](const std::string& nameUtf8) -> shared_ptr<GameObject>
+	std::wstring curName;          // 현재 블록 오브젝트 이름 (없으면 재생성용)
+	std::vector<std::pair<std::wstring, std::wstring>> parentLinks; // (child, parent) — 전부 파싱 후 링크
+	auto findByName = [&](const std::wstring& wname) -> shared_ptr<GameObject>
 	{
 		if (!_gameScene) return nullptr;
-		std::wstring wname = Utf8ToW(nameUtf8);
 		for (auto& kv : _gameScene->GetCreatedObjects())
 			if (kv.second && kv.second->GetObjectName() == wname) return kv.second;
 		return nullptr;
@@ -703,7 +832,18 @@ void D3D12Device::LoadScene()
 		else if (tag == "model") { std::getline(s >> std::ws, modelUtf8); }
 		else if (tag == "xform") { float* m = &_pendingMatrix._11; for (int i = 0; i < 16; ++i) s >> m[i]; _hasPendingMatrix = true; }
 		// ── 멀티 오브젝트 ──
-		else if (tag == "mobj") { std::string nm; std::getline(s >> std::ws, nm); curObj = findByName(nm); }
+		else if (tag == "mobj") { std::string nm; std::getline(s >> std::ws, nm); curName = Utf8ToW(nm); curObj = findByName(curName); }
+		else if (tag == "mprim") { // 없는 오브젝트면 프리미티브 재생성 (스폰 오브젝트 영속)
+			int pk = 0; s >> pk;
+			if (!curObj && pk != 0 && !curName.empty()) {
+				vector<Vtx> v; vector<uint32> idx; MeshPrim prim = (MeshPrim)pk; BuildPrim(prim, v, idx);
+				curObj = SpawnMeshObject(curName, v, idx, Vec3{ 0,0,0 }, prim, false); // 정확한 이름, 자동선택 안 함
+			}
+		}
+		else if (tag == "mpar" && curObj) {
+			std::string pn; std::getline(s >> std::ws, pn);
+			if (pn != "-" && !pn.empty()) parentLinks.push_back({ curName, Utf8ToW(pn) });
+		}
 		else if (tag == "mxf" && curObj) {
 			Vec3 p, r, sc; s >> p.x >> p.y >> p.z >> r.x >> r.y >> r.z >> sc.x >> sc.y >> sc.z;
 			if (auto t = curObj->GetTransform()) { t->SetLocalScale(sc); t->SetLocalRotation(r); t->SetLocalPosition(p); }
@@ -719,12 +859,22 @@ void D3D12Device::LoadScene()
 				mr->GetMaterial()._diffuseTex = (tp == "-" || tp.empty()) ? L"" : Utf8ToW(tp);
 		}
 	}
+	// 부모 링크 (모든 오브젝트 생성 후 — LOCAL 유지)
+	for (auto& link : parentLinks)
+	{
+		auto child = findByName(link.first), parent = findByName(link.second);
+		if (child && parent)
+			if (auto ct = child->GetTransform(), pt = parent->GetTransform(); ct && pt)
+				ct->SetParentKeepLocal(pt);
+	}
+
 	if (!modelUtf8.empty())
 	{
 		int n = MultiByteToWideChar(CP_UTF8, 0, modelUtf8.c_str(), (int)modelUtf8.size(), nullptr, 0);
 		std::wstring wp(n, L'\0'); MultiByteToWideChar(CP_UTF8, 0, modelUtf8.c_str(), (int)modelUtf8.size(), wp.data(), n);
 		_pendingModel = wp; // 다음 프레임 GPU 유휴 시 로드 + _pendingMatrix 적용
 	}
+	Log("Scene loaded: " + WToUtf8(path));
 }
 
 // 씬뷰 클릭 레이 → 모델 AABB / 바닥 평면 픽킹 → 하이어라키 선택

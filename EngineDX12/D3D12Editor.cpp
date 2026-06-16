@@ -5,6 +5,7 @@
 #include "Renderer.h"
 #include "MeshRenderer.h"
 #include "ModelAnimator.h"
+#include "Collider.h"
 #include "GeometryHelper.h"
 #include "ResourceManager.h"
 #include "Camera.h"
@@ -131,6 +132,33 @@ void D3D12Device::DrawDebugLines()
 			}
 		}
 	}
+
+	// ── 콜라이더 와이어프레임 (초록) ──
+	if (_gameScene)
+		for (auto& kv : _gameScene->GetCreatedObjects())
+		{
+			auto& o = kv.second; if (!o || !o->IsActive()) continue;
+			auto col = o->GetComponent<BaseCollider>(); if (!col) continue;
+			const XMFLOAT3 gc{ 0.2f, 1.0f, 0.3f };
+			if (auto box = std::dynamic_pointer_cast<AABBBoxCollider>(col))
+			{
+				Vec3 n, x; box->WorldBounds(n, x);
+				XMFLOAT3 p[8] = { {n.x,n.y,n.z},{x.x,n.y,n.z},{x.x,n.y,x.z},{n.x,n.y,x.z},{n.x,x.y,n.z},{x.x,x.y,n.z},{x.x,x.y,x.z},{n.x,x.y,x.z} };
+				int e[24] = { 0,1,1,2,2,3,3,0, 4,5,5,6,6,7,7,4, 0,4,1,5,2,6,3,7 };
+				for (int k = 0; k < 24; k += 2) _debugDraw.Line(p[e[k]], p[e[k + 1]], gc);
+			}
+			else if (auto sph = std::dynamic_pointer_cast<SphereCollider>(col))
+			{
+				XMVECTOR c = XMVectorSet(0, 0, 0, 1);
+				if (auto t = o->GetTransform()) { Vec3 cp = t->GetLocalPosition(); c = XMVectorSet(cp.x + sph->_center.x, cp.y + sph->_center.y, cp.z + sph->_center.z, 1); }
+				float r = sph->WorldRadius();
+				auto circ = [&](XMVECTOR a1, XMVECTOR a2) { XMFLOAT3 prev{};
+					for (int s = 0; s <= 20; ++s) { float a = s / 20.f * 6.2831853f;
+						XMVECTOR pw = XMVectorAdd(c, XMVectorAdd(XMVectorScale(a1, cosf(a) * r), XMVectorScale(a2, sinf(a) * r)));
+						XMFLOAT3 pp; XMStoreFloat3(&pp, pw); if (s > 0) _debugDraw.Line(prev, pp, gc); prev = pp; } };
+				circ(XMVectorSet(1,0,0,0), XMVectorSet(0,1,0,0)); circ(XMVectorSet(1,0,0,0), XMVectorSet(0,0,1,0)); circ(XMVectorSet(0,1,0,0), XMVectorSet(0,0,1,0));
+			}
+		}
 
 	// 본 스켈레톤 — 오버레이(깊이 OFF) 배치에 추가해 메시 안에 묻혀도 보이게
 	if (_showBones)
@@ -948,6 +976,12 @@ void D3D12Device::SaveSceneTo(const std::wstring& path)
 				  << ' ' << mat._metallic << ' ' << mat._roughness << ' ' << mat._emissive << '\n';
 				f << "mtex " << (mat._diffuseTex.empty() ? std::string("-") : WToUtf8(mat._diffuseTex)) << '\n';
 			}
+			if (auto bc = obj->GetComponent<AABBBoxCollider>())
+				f << "mcol 1 " << bc->_center.x << ' ' << bc->_center.y << ' ' << bc->_center.z
+				  << ' ' << bc->_extents.x << ' ' << bc->_extents.y << ' ' << bc->_extents.z << '\n';
+			else if (auto sp = obj->GetComponent<SphereCollider>())
+				f << "mcol 0 " << sp->_center.x << ' ' << sp->_center.y << ' ' << sp->_center.z
+				  << ' ' << sp->_radius << " 0 0\n";
 			++meshCount;
 		}
 
@@ -1059,6 +1093,14 @@ void D3D12Device::LoadSceneFrom(const std::wstring& path)
 				auto shared = GET_SINGLE(ResourceManager)->Get<Material>(wp);
 				if (!shared) { shared = LoadMaterial(wp); if (shared) GET_SINGLE(ResourceManager)->Add<Material>(wp, shared); }
 				if (shared) mr->SetMaterialRef(shared);
+			}
+		}
+		else if (tag == "mcol" && curObj) { // 콜라이더 (1=박스 / 0=구)
+			int ct = 0; float cx, cy, cz, a, b, c2; s >> ct >> cx >> cy >> cz >> a >> b >> c2;
+			if (!curObj->GetComponent<BaseCollider>())
+			{
+				if (ct == 1) { auto bc = make_shared<AABBBoxCollider>(); bc->_center = { cx,cy,cz }; bc->_extents = { a,b,c2 }; curObj->AddComponent(bc); }
+				else { auto sc2 = make_shared<SphereCollider>(); sc2->_center = { cx,cy,cz }; sc2->_radius = a; curObj->AddComponent(sc2); }
 			}
 		}
 		// ── 추가 라이트 ──
@@ -1181,7 +1223,14 @@ void D3D12Device::PickAt(float u, float v)
 		{
 			auto& obj = kv.second;
 			if (!obj || obj == _modelObj || obj->IsEditorInternal() || !obj->IsActive() || !obj->GetUIPickable()) continue;
-			auto r = obj->GetRenderer(); if (!r) continue; // 메시/애니메이터 공통
+			// 콜라이더 있으면 정밀 교차 우선
+			if (auto col = obj->GetComponent<BaseCollider>())
+			{
+				float cd = 1e9f;
+				if (col->Intersects(ro, rdv, cd) && cd < tGO) { tGO = cd; hitGO = obj; }
+				continue;
+			}
+			auto r = obj->GetRenderer(); if (!r) continue; // 메시/애니메이터 공통(콜라이더 없을 때)
 			const DirectX::BoundingBox& bb = r->GetBoundingBox();
 			float bmn[3] = { bb.Center.x - bb.Extents.x, bb.Center.y - bb.Extents.y, bb.Center.z - bb.Extents.z };
 			float bmx[3] = { bb.Center.x + bb.Extents.x, bb.Center.y + bb.Extents.y, bb.Center.z + bb.Extents.z };
@@ -1579,7 +1628,10 @@ void D3D12Device::DrawGameObjectInspector(const shared_ptr<GameObject>& go)
 				go->AddComponent(l);
 				Log("Added Light to " + WToUtf8(go->GetObjectName()));
 			}
-			if (go->GetRenderer() && go->GetLight()) ImGui::TextDisabled("(no more components)");
+			if (!go->GetComponent<BaseCollider>() && ImGui::MenuItem("Box Collider"))
+			{ go->AddComponent(make_shared<AABBBoxCollider>()); Log("Added Box Collider to " + WToUtf8(go->GetObjectName())); }
+			if (!go->GetComponent<BaseCollider>() && ImGui::MenuItem("Sphere Collider"))
+			{ go->AddComponent(make_shared<SphereCollider>()); Log("Added Sphere Collider to " + WToUtf8(go->GetObjectName())); }
 			ImGui::EndPopup();
 		}
 	}

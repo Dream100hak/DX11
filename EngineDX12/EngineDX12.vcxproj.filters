@@ -83,6 +83,9 @@
     <ClInclude Include="MeshRenderer.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="Collider.h">
+      <Filter>Core</Filter>
+    </ClInclude>
     <ClInclude Include="ModelAnimator.h">
       <Filter>Core</Filter>
     </ClInclude>

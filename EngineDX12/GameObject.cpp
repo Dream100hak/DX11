@@ -113,3 +113,9 @@ void GameObject::RemoveComponent(ComponentType type)
 	if (idx < FIXED_COMPONENT_COUNT)
 		_components[idx] = nullptr;
 }
+
+void GameObject::RemoveScript(const shared_ptr<MonoBehaviour>& s)
+{
+	for (auto it = _scripts.begin(); it != _scripts.end(); ++it)
+		if (*it == s) { _scripts.erase(it); return; }
+}

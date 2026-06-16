@@ -54,6 +54,7 @@ public:
 
 	void AddComponent(shared_ptr<Component> component);
 	void RemoveComponent(ComponentType type);
+	void RemoveScript(const shared_ptr<MonoBehaviour>& s);
 
 	// ── 식별/정렬 ──
 	const int64 GetCreatedTime() { return _createdTime; }

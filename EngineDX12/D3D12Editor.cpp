@@ -7,6 +7,7 @@
 #include "ModelAnimator.h"
 #include "Collider.h"
 #include "ParticleSystem.h"
+#include "Scripts.h"
 #include "GeometryHelper.h"
 #include "ResourceManager.h"
 #include "Camera.h"
@@ -256,6 +257,7 @@ static void ApplyEditorStyle()
 
 void D3D12Device::InitEditor()
 {
+	RegisterBuiltinScripts(); // 스크립트 팩토리 등록 (Rotator/Bobber)
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();
@@ -947,6 +949,17 @@ static std::wstring QuickScenePath(const std::wstring& root)
 	return (dir / L"quick.rtscene").wstring();
 }
 
+// GameObject 의 스크립트(MonoBehaviour) 직렬화 — 각 오브젝트 블록 끝에 mb 라인 추가
+static void WriteScripts(std::ofstream& f, const shared_ptr<GameObject>& obj)
+{
+	for (auto& s : obj->GetMonoBehaviours())
+	{
+		if (!s) continue;
+		std::ostringstream os; s->Serialize(os);
+		f << "mb " << s->TypeName() << ' ' << os.str() << '\n';
+	}
+}
+
 void D3D12Device::SaveScene() { SaveSceneTo(QuickScenePath(_assetRoot)); }
 
 void D3D12Device::SaveSceneTo(const std::wstring& path)
@@ -999,6 +1012,7 @@ void D3D12Device::SaveSceneTo(const std::wstring& path)
 			else if (auto sp = obj->GetComponent<SphereCollider>())
 				f << "mcol 0 " << sp->_center.x << ' ' << sp->_center.y << ' ' << sp->_center.z
 				  << ' ' << sp->_radius << " 0 0\n";
+			WriteScripts(f, obj);
 			++meshCount;
 		}
 
@@ -1018,6 +1032,7 @@ void D3D12Device::SaveSceneTo(const std::wstring& path)
 			f << "ldir " << l->_direction.x << ' ' << l->_direction.y << ' ' << l->_direction.z << '\n';
 			f << "lxf " << p.x << ' ' << p.y << ' ' << p.z << ' ' << (obj->IsActive() ? 1 : 0) << '\n';
 			f << "lpar " << (parentName.empty() ? std::string("-") : WToUtf8(parentName)) << '\n';
+			WriteScripts(f, obj);
 			++lightCount;
 		}
 
@@ -1038,6 +1053,7 @@ void D3D12Device::SaveSceneTo(const std::wstring& path)
 			f << "axf " << p.x << ' ' << p.y << ' ' << p.z << ' ' << r.x << ' ' << r.y << ' ' << r.z
 			  << ' ' << sc.x << ' ' << sc.y << ' ' << sc.z << ' ' << (obj->IsActive() ? 1 : 0) << '\n';
 			f << "apar " << (parentName.empty() ? std::string("-") : WToUtf8(parentName)) << '\n';
+			WriteScripts(f, obj);
 			++animCount;
 		}
 
@@ -1056,6 +1072,7 @@ void D3D12Device::SaveSceneTo(const std::wstring& path)
 			  << ' ' << ps->_color.x << ' ' << ps->_color.y << ' ' << ps->_color.z << '\n';
 			f << "pxf " << p.x << ' ' << p.y << ' ' << p.z << ' ' << (obj->IsActive() ? 1 : 0) << '\n';
 			f << "ppar " << (parentName.empty() ? std::string("-") : WToUtf8(parentName)) << '\n';
+			WriteScripts(f, obj);
 		}
 	}
 	f.flush();
@@ -1075,6 +1092,7 @@ void D3D12Device::LoadSceneFrom(const std::wstring& path)
 	shared_ptr<GameObject> curLight; std::wstring curLightName; // 현재 lobj 블록 대상
 	shared_ptr<GameObject> curAnim;  std::wstring curAnimName;  // 현재 aobj 블록 대상
 	shared_ptr<GameObject> curPart;  std::wstring curPartName;  // 현재 pobj 블록 대상
+	shared_ptr<GameObject> curAny;   // 가장 최근 블록 오브젝트 (스크립트 mb 적용 대상)
 	std::wstring curName;          // 현재 블록 오브젝트 이름 (없으면 재생성용)
 	std::vector<std::pair<std::wstring, std::wstring>> parentLinks; // (child, parent) — 전부 파싱 후 링크
 	auto findByName = [&](const std::wstring& wname) -> shared_ptr<GameObject>
@@ -1095,12 +1113,13 @@ void D3D12Device::LoadSceneFrom(const std::wstring& path)
 		else if (tag == "model") { std::getline(s >> std::ws, modelUtf8); }
 		else if (tag == "xform") { float* m = &_pendingMatrix._11; for (int i = 0; i < 16; ++i) s >> m[i]; _hasPendingMatrix = true; }
 		// ── 멀티 오브젝트 ──
-		else if (tag == "mobj") { std::string nm; std::getline(s >> std::ws, nm); curName = Utf8ToW(nm); curObj = findByName(curName); }
+		else if (tag == "mobj") { std::string nm; std::getline(s >> std::ws, nm); curName = Utf8ToW(nm); curObj = findByName(curName); curAny = curObj; }
 		else if (tag == "mprim") { // 없는 오브젝트면 프리미티브 재생성 (스폰 오브젝트 영속)
 			int pk = 0; s >> pk;
 			if (!curObj && pk != 0 && !curName.empty()) {
 				vector<Vtx> v; vector<uint32> idx; MeshPrim prim = (MeshPrim)pk; BuildPrim(prim, v, idx);
 				curObj = SpawnMeshObject(curName, v, idx, Vec3{ 0,0,0 }, prim, false); // 정확한 이름, 자동선택 안 함
+				curAny = curObj;
 			}
 		}
 		else if (tag == "mpar" && curObj) {
@@ -1150,6 +1169,7 @@ void D3D12Device::LoadSceneFrom(const std::wstring& path)
 				_gameScene->Add(curLight);
 			}
 			else if (!curLight->GetLight()) curLight->AddComponent(make_shared<Light>());
+			curAny = curLight;
 		}
 		else if (tag == "lprm" && curLight) {
 			if (auto l = curLight->GetLight()) {
@@ -1170,7 +1190,7 @@ void D3D12Device::LoadSceneFrom(const std::wstring& path)
 			if (pn != "-" && !pn.empty()) parentLinks.push_back({ curLightName, Utf8ToW(pn) });
 		}
 		// ── 애니메이션 모델 ──
-		else if (tag == "aobj") { std::string nm; std::getline(s >> std::ws, nm); curAnimName = Utf8ToW(nm); curAnim = findByName(curAnimName); }
+		else if (tag == "aobj") { std::string nm; std::getline(s >> std::ws, nm); curAnimName = Utf8ToW(nm); curAnim = findByName(curAnimName); curAny = curAnim; }
 		else if (tag == "apath") {
 			std::string ap; std::getline(s >> std::ws, ap); std::wstring meshPath = Utf8ToW(ap);
 			if (!curAnim) { // 없으면 생성 (정확한 이름)
@@ -1180,6 +1200,7 @@ void D3D12Device::LoadSceneFrom(const std::wstring& path)
 				if (an->Load(meshPath)) { obj->AddComponent(an); _gameScene->Add(obj); curAnim = obj; }
 				else Log("Load: animated model FAILED " + ap);
 			}
+			curAny = curAnim;
 		}
 		else if (tag == "aclip" && curAnim) {
 			int ci = 0, pl = 1; float sp = 1.f; s >> ci >> sp >> pl;
@@ -1203,6 +1224,7 @@ void D3D12Device::LoadSceneFrom(const std::wstring& path)
 				curPart->AddComponent(make_shared<ParticleSystem>()); _gameScene->Add(curPart);
 			}
 			else if (!std::dynamic_pointer_cast<ParticleSystem>(curPart->GetRenderer())) curPart->AddComponent(make_shared<ParticleSystem>());
+			curAny = curPart;
 		}
 		else if (tag == "pprm" && curPart) {
 			if (auto ps = std::dynamic_pointer_cast<ParticleSystem>(curPart->GetRenderer())) {
@@ -1217,6 +1239,11 @@ void D3D12Device::LoadSceneFrom(const std::wstring& path)
 		else if (tag == "ppar" && curPart) {
 			std::string pn; std::getline(s >> std::ws, pn);
 			if (pn != "-" && !pn.empty()) parentLinks.push_back({ curPartName, Utf8ToW(pn) });
+		}
+		// ── 스크립트(MonoBehaviour) — 직전 블록 오브젝트에 부착 ──
+		else if (tag == "mb" && curAny) {
+			std::string name; s >> name;
+			if (auto mb = ScriptRegistry::Create(name)) { std::string rest; std::getline(s, rest); std::istringstream is(rest); mb->Deserialize(is); curAny->AddComponent(mb); }
 		}
 	}
 	// 부모 링크 (모든 오브젝트 생성 후 — LOCAL 유지)
@@ -1651,11 +1678,24 @@ void D3D12Device::DrawGameObjectInspector(const shared_ptr<GameObject>& go)
 		c->OnInspectorGUI();
 	}
 
-	for (auto& s : go->GetMonoBehaviours())
 	{
-		if (!s) continue;
-		ImGui::SeparatorText("Script");
-		s->OnInspectorGUI();
+		shared_ptr<MonoBehaviour> removeScript;
+		int si = 0;
+		for (auto& s : go->GetMonoBehaviours())
+		{
+			if (!s) continue;
+			ImGui::SeparatorText(s->TypeName());
+			if (!internal)
+			{
+				ImGui::SameLine(ImGui::GetContentRegionAvail().x - 18.0f);
+				ImGui::PushID(1000 + si);
+				if (ImGui::SmallButton("X")) removeScript = s;
+				ImGui::PopID();
+			}
+			s->OnInspectorGUI();
+			++si;
+		}
+		if (removeScript) go->RemoveScript(removeScript);
 	}
 
 	// ── Add Component (에디터 내부 오브젝트 제외) ──
@@ -1693,6 +1733,13 @@ void D3D12Device::DrawGameObjectInspector(const shared_ptr<GameObject>& go)
 			{ go->AddComponent(make_shared<AABBBoxCollider>()); Log("Added Box Collider to " + WToUtf8(go->GetObjectName())); }
 			if (!go->GetComponent<BaseCollider>() && ImGui::MenuItem("Sphere Collider"))
 			{ go->AddComponent(make_shared<SphereCollider>()); Log("Added Sphere Collider to " + WToUtf8(go->GetObjectName())); }
+			if (ImGui::BeginMenu("Script"))
+			{
+				for (auto& kv : ScriptRegistry::Map())
+					if (ImGui::MenuItem(kv.first.c_str()))
+					{ go->AddComponent(ScriptRegistry::Create(kv.first)); Log("Added script: " + kv.first); }
+				ImGui::EndMenu();
+			}
 			ImGui::EndPopup();
 		}
 	}

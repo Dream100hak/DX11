@@ -166,6 +166,7 @@ private:
 	shared_ptr<GameObject>            SpawnEmpty(const std::wstring& name, const Vec3& pos);
 	shared_ptr<GameObject>            SpawnAnimatedModel(const std::wstring& meshPath, const Vec3& pos); // ModelAnimator
 	Vec3                              SpawnPoint(); // 카메라 앞 4m 지점 (스폰 위치)
+	shared_ptr<GameObject>            SpawnLight(int type, const std::wstring& name, const Vec3& pos); // 0 Dir/1 Point/2 Spot
 	void                              DeleteSelectedObject();    // _selectedGO 삭제 (에디터 내부/모델 보호)
 	void                              DuplicateSelectedObject(); // _selectedGO 복제
 	void                              RemoveObject(const shared_ptr<GameObject>& obj); // 부모분리+자식승격+씬제거

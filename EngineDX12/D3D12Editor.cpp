@@ -341,9 +341,9 @@ void D3D12Device::DrawMainMenuBar()
 				ImGui::EndMenu();
 			}
 			ImGui::Separator();
-			if (ImGui::MenuItem("Directional Light")) _sel = SelEntity::Sun;
-			if (ImGui::MenuItem("Point Light")) { _pointOn = true; _sel = SelEntity::Point; }
-			if (ImGui::MenuItem("Spot Light")) { _spotOn = true; _sel = SelEntity::Spot; }
+			if (ImGui::MenuItem("Directional Light")) { _sel = SelEntity::Sun; _selectedGO = nullptr; } // 디렉셔널=단일 sun(선택)
+			if (ImGui::MenuItem("Point Light"))       SpawnLight(1, L"Point Light", sp);
+			if (ImGui::MenuItem("Spot Light"))        SpawnLight(2, L"Spot Light", sp);
 			if (ImGui::MenuItem("Camera")) _sel = SelEntity::Camera;
 			ImGui::EndMenu();
 		}
@@ -493,9 +493,9 @@ void D3D12Device::DrawHierarchy()
 			ImGui::EndMenu();
 		}
 		ImGui::Separator();
-		if (ImGui::MenuItem("Directional Light")) _sel = SelEntity::Sun;
-		if (ImGui::MenuItem("Point Light")) { _pointOn = true; _sel = SelEntity::Point; }
-		if (ImGui::MenuItem("Spot Light")) { _spotOn = true; _sel = SelEntity::Spot; }
+		if (ImGui::MenuItem("Directional Light")) { _sel = SelEntity::Sun; _selectedGO = nullptr; } // 디렉셔널=단일 sun(선택)
+		if (ImGui::MenuItem("Point Light"))       SpawnLight(1, L"Point Light", spawnAt);
+		if (ImGui::MenuItem("Spot Light"))        SpawnLight(2, L"Spot Light", spawnAt);
 		if (ImGui::MenuItem("Camera")) _sel = SelEntity::Camera;
 		ImGui::Separator();
 		bool hasSel = _selectedGO != nullptr;
@@ -698,6 +698,24 @@ static void BuildPrim(MeshPrim prim, vector<Vtx>& v, vector<uint32>& idx)
 	case MeshPrim::Cube:
 	default:               GeometryHelper::CreateCube(v, idx, 1.0f);   break;
 	}
+}
+
+shared_ptr<GameObject> D3D12Device::SpawnLight(int type, const std::wstring& name, const Vec3& pos)
+{
+	if (!_gameScene) return nullptr;
+	auto obj = make_shared<GameObject>();
+	obj->SetObjectName(name + L"_" + std::to_wstring(++_spawnCounter));
+	obj->GetOrAddTransform()->SetLocalPosition(pos);
+	auto l = make_shared<Light>();
+	l->_lightType = (LightType)type;
+	if (type == 0)      { l->_color = Vec3{ 1.f, 0.96f, 0.88f }; l->_intensity = 1.2f; l->_direction = Vec3{ 0.3f, -1.f, 0.2f }; }
+	else if (type == 1) { l->_color = Vec3{ 1.f, 0.8f, 0.6f };   l->_intensity = 3.f;  l->_range = 6.f; }
+	else                { l->_color = Vec3{ 0.6f, 0.8f, 1.f };   l->_intensity = 5.f;  l->_range = 9.f; l->_spotAngleDeg = 28.f; l->_direction = Vec3{ 0.f, -1.f, 0.f }; }
+	obj->AddComponent(l);
+	_gameScene->Add(obj);
+	_selectedGO = obj; _sel = SelEntity::Model;
+	Log("Created light: " + WToUtf8(obj->GetObjectName()));
+	return obj;
 }
 
 Vec3 D3D12Device::SpawnPoint()

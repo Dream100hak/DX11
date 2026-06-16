@@ -157,9 +157,11 @@ void ModelAnimator::CreateMaterials()
 	_matCount = (uint32)slotStems.size();
 	if (_matCount == 0) { _hasTexture = false; return; }
 
+	// 전용 업로드 커맨드리스트+펜스 (메인 렌더 파이프라인/공유 cmdList 미사용 — 전체 플러시 회피)
 	std::vector<ComPtr<ID3D12Resource>> uploads;
-	ThrowIfFailed(_dev->_allocators[_dev->_frameIndex]->Reset(), "anim tex alloc reset");
-	ThrowIfFailed(_dev->_cmdList->Reset(_dev->_allocators[_dev->_frameIndex].Get(), nullptr), "anim tex cmd reset");
+	ComPtr<ID3D12CommandAllocator> al; ComPtr<ID3D12GraphicsCommandList> cl;
+	_dev->_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&al));
+	_dev->_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, al.Get(), nullptr, IID_PPV_ARGS(&cl));
 
 	auto makeTex = [&](const std::vector<uint8_t>& px, uint32 tw, uint32 th) -> ComPtr<ID3D12Resource>
 	{
@@ -179,10 +181,10 @@ void ModelAnimator::CreateMaterials()
 		up->Unmap(0, nullptr); uploads.push_back(up);
 		D3D12_TEXTURE_COPY_LOCATION dst{}; dst.pResource = outTex.Get(); dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX; dst.SubresourceIndex = 0;
 		D3D12_TEXTURE_COPY_LOCATION src{}; src.pResource = up.Get(); src.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT; src.PlacedFootprint = fp;
-		_dev->_cmdList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+		cl->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
 		D3D12_RESOURCE_BARRIER b{}; b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION; b.Transition.pResource = outTex.Get();
 		b.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST; b.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-		b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES; _dev->_cmdList->ResourceBarrier(1, &b);
+		b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES; cl->ResourceBarrier(1, &b);
 		return outTex;
 	};
 	{ std::vector<uint8_t> white(4, 255); _whiteTex = makeTex(white, 1, 1); }
@@ -200,9 +202,14 @@ void ModelAnimator::CreateMaterials()
 		_matResources[s * 3 + 1] = loadOr(mt.normal);
 		_matResources[s * 3 + 2] = loadOr(mt.spec);
 	}
-	ThrowIfFailed(_dev->_cmdList->Close(), "anim tex cmd close");
-	ID3D12CommandList* lists[] = { _dev->_cmdList.Get() }; _dev->_queue->ExecuteCommandLists(1, lists);
-	_dev->WaitForGpu();
+	cl->Close();
+	ID3D12CommandList* lists[] = { cl.Get() }; _dev->_queue->ExecuteCommandLists(1, lists);
+	// 전용 펜스 대기 (업로드만 — 렌더 프레임 펜스 미교란)
+	ComPtr<ID3D12Fence> fence; _dev->_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
+	HANDLE ev = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+	_dev->_queue->Signal(fence.Get(), 1);
+	if (fence->GetCompletedValue() < 1) { fence->SetEventOnCompletion(1, ev); WaitForSingleObject(ev, INFINITE); }
+	CloseHandle(ev);
 
 	D3D12_DESCRIPTOR_HEAP_DESC hd{}; hd.NumDescriptors = _matCount * 3;
 	hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV; hd.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;

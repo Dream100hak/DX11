@@ -250,6 +250,7 @@ private:
 	// 씬 오프스크린 RT (ImGui::Image 로 "Scene" 도킹 탭에 표시)
 	ComPtr<ID3D12Resource>            _sceneRT;
 	ComPtr<ID3D12Resource>            _sceneDepth;
+	D3D12_RESOURCE_STATES             _sceneDepthState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
 	ComPtr<ID3D12DescriptorHeap>      _sceneRtvHeap;
 	ComPtr<ID3D12DescriptorHeap>      _sceneDsvHeap;
 	D3D12_RESOURCE_STATES             _sceneRTState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;

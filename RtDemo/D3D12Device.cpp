@@ -578,6 +578,8 @@ SamplerState gS : register(s0);
 cbuffer PostCB : register(b0) { float gExposure; float gBloomI; float gBloomOn; float gTonemapOp;
                                 float gContrast; float gSaturation; float gTemperature; float gVignette; };
 cbuffer PostCB2 : register(b1) { float gChroma; float gGrain; float gSharpen; float gPostTime; float gTexelX; float gTexelY; float gExpScale; float gAutoExp; };
+cbuffer PostCB3 : register(b2) { float gSunSX; float gSunSY; float gVolStr; float gDofFocus; float gDofRange; float gDofOn; float gVolOn; float _p3; };
+Texture2D gDepth : register(t2);
 float3 ACES(float3 x){ float a=2.51,b=0.03,c=2.43,d=0.59,e=0.14; return saturate((x*(a*x+b))/(x*(c*x+d)+e)); }
 float3 Filmic(float3 x){ x=max(0,x-0.004); return (x*(6.2*x+0.5))/(x*(6.2*x+1.7)+0.06); } // 감마 내장
 float4 PSTonemap(VOut i) : SV_TARGET
@@ -596,6 +598,28 @@ float4 PSTonemap(VOut i) : SV_TARGET
         float3 nb = (gHDR.Sample(gS, i.uv + float2(tx.x,0)).rgb + gHDR.Sample(gS, i.uv - float2(tx.x,0)).rgb
                    + gHDR.Sample(gS, i.uv + float2(0,tx.y)).rgb + gHDR.Sample(gS, i.uv - float2(0,tx.y)).rgb) * 0.25;
         hdr += (hdr - nb) * gSharpen;
+    }
+    // 피사계심도 (깊이 기반 CoC 디스크 블러)
+    if (gDofOn > 0.5)
+    {
+        float zr = gDepth.Sample(gS, i.uv).r;
+        float vz = (0.1 * 200.0) / (200.0 - zr * (200.0 - 0.1));
+        float coc = saturate(abs(vz - gDofFocus) / max(gDofRange, 0.01));
+        if (coc > 0.02)
+        {
+            float2 tx = float2(gTexelX, gTexelY) * coc * 7.0;
+            float3 acc = hdr; float wsum = 1.0;
+            [unroll] for (int k = 0; k < 8; ++k) { float a = k * 0.7853982; float2 o = float2(cos(a), sin(a)) * tx; acc += gHDR.Sample(gS, i.uv + o).rgb; wsum += 1.0; }
+            hdr = acc / wsum;
+        }
+    }
+    // 볼류메트릭 갓레이 (스크린스페이스 방사형, 태양 화면위치로)
+    if (gVolOn > 0.5)
+    {
+        float2 dir = (float2(gSunSX, gSunSY) - i.uv) / 24.0;
+        float2 uv2 = i.uv; float dec = 1.0; float3 gr = 0;
+        [unroll] for (int k = 0; k < 24; ++k) { uv2 += dir; float3 sm = gHDR.Sample(gS, uv2).rgb; float l = max(dot(sm, float3(0.3,0.6,0.1)) - 1.0, 0.0); gr += sm * l * dec; dec *= 0.93; }
+        hdr += gr * (gVolStr / 24.0);
     }
     hdr *= gExposure * gExpScale; // 수동 × 자동노출
     float3 c;
@@ -673,10 +697,12 @@ void D3D12Device::CreatePostFX()
 	ThrowIfFailed(_device->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&_postSrvHeap)), "post srv heap");
 	_postSrvInc = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	// 루트시그: t0..t1 테이블 + b0 루트상수(4) + s0
+	// 루트시그: t0..t1 테이블 + b0/b1/b2 루트상수 + t2 depth 테이블(DOF) + s0
 	D3D12_DESCRIPTOR_RANGE range{}; range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	range.NumDescriptors = 2; range.BaseShaderRegister = 0; range.OffsetInDescriptorsFromTableStart = 0;
-	D3D12_ROOT_PARAMETER p[3]{};
+	D3D12_DESCRIPTOR_RANGE rangeD{}; rangeD.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	rangeD.NumDescriptors = 1; rangeD.BaseShaderRegister = 2; rangeD.OffsetInDescriptorsFromTableStart = 0;
+	D3D12_ROOT_PARAMETER p[5]{};
 	p[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 	p[0].DescriptorTable.NumDescriptorRanges = 1; p[0].DescriptorTable.pDescriptorRanges = &range;
 	p[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
@@ -684,12 +710,18 @@ void D3D12Device::CreatePostFX()
 	p[1].Constants.ShaderRegister = 0; p[1].Constants.Num32BitValues = 8;
 	p[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 	p[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-	p[2].Constants.ShaderRegister = 1; p[2].Constants.Num32BitValues = 8; // b1: 색수차/그레인/샤픈/시간/texel/노출스케일
+	p[2].Constants.ShaderRegister = 1; p[2].Constants.Num32BitValues = 8; // b1
 	p[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	p[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+	p[3].Constants.ShaderRegister = 2; p[3].Constants.Num32BitValues = 8; // b2: DOF/갓레이
+	p[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	p[4].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE; // t2 depth
+	p[4].DescriptorTable.NumDescriptorRanges = 1; p[4].DescriptorTable.pDescriptorRanges = &rangeD;
+	p[4].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 	D3D12_STATIC_SAMPLER_DESC s{}; s.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
 	s.AddressU = s.AddressV = s.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP; s.ShaderRegister = 0;
 	s.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL; s.MaxLOD = D3D12_FLOAT32_MAX;
-	D3D12_ROOT_SIGNATURE_DESC rs{}; rs.NumParameters = 3; rs.pParameters = p; rs.NumStaticSamplers = 1; rs.pStaticSamplers = &s;
+	D3D12_ROOT_SIGNATURE_DESC rs{}; rs.NumParameters = 5; rs.pParameters = p; rs.NumStaticSamplers = 1; rs.pStaticSamplers = &s;
 	rs.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
 	ComPtr<ID3DBlob> sig, err;
 	ThrowIfFailed(D3D12SerializeRootSignature(&rs, D3D_ROOT_SIGNATURE_VERSION_1, &sig, &err), "post rootsig");

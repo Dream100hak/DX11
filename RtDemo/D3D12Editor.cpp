@@ -6,6 +6,8 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <wincodec.h>
+#pragma comment(lib, "windowscodecs.lib")
 
 namespace fs = std::filesystem;
 
@@ -208,25 +210,17 @@ void D3D12Device::CreateSceneRT(UINT w, UINT h)
 	_device->CreateRenderTargetView(_bloomA.Get(), nullptr, brtv); brtv.ptr += rtvInc;
 	_device->CreateRenderTargetView(_bloomB.Get(), nullptr, brtv);
 
-	// 포스트 힙 SRV: 0=HDR씬 / 1=bloomA(최종·톤맵 t1) / 2=bloomB / 3=bloomB(더미)
-	D3D12_SHADER_RESOURCE_VIEW_DESC hsd{};
-	hsd.Format = _sceneFmt; hsd.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	hsd.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING; hsd.Texture2D.MipLevels = 1;
-	ID3D12Resource* srvSrc[4] = { _sceneRT.Get(), _bloomA.Get(), _bloomB.Get(), _bloomB.Get() };
-	D3D12_CPU_DESCRIPTOR_HANDLE ph = _postSrvHeap->GetCPUDescriptorHandleForHeapStart();
-	for (int k = 0; k < 4; ++k) { _device->CreateShaderResourceView(srvSrc[k], &hsd, ph); ph.ptr += _postSrvInc; }
-	_bloomReady = true;
-
-	// 깊이
+	// 깊이 (DOF 가 SRV 로 샘플 → 먼저 생성)
 	D3D12_RESOURCE_DESC dd{};
 	dd.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 	dd.Width = w; dd.Height = h; dd.DepthOrArraySize = 1; dd.MipLevels = 1;
-	dd.Format = DXGI_FORMAT_D32_FLOAT; dd.SampleDesc.Count = 1;
+	dd.Format = DXGI_FORMAT_R32_TYPELESS; dd.SampleDesc.Count = 1; // SRV(R32_FLOAT)+DSV(D32) 공용
 	dd.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
 	D3D12_CLEAR_VALUE cvd{}; cvd.Format = DXGI_FORMAT_D32_FLOAT; cvd.DepthStencil.Depth = 1.0f;
 	_sceneDepth.Reset();
 	ThrowIfFailed(_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &dd,
 		D3D12_RESOURCE_STATE_DEPTH_WRITE, &cvd, IID_PPV_ARGS(&_sceneDepth)), "scene depth");
+	_sceneDepthState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
 	if (!_sceneDsvHeap)
 	{
 		D3D12_DESCRIPTOR_HEAP_DESC hd{}; hd.NumDescriptors = 1; hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
@@ -234,6 +228,19 @@ void D3D12Device::CreateSceneRT(UINT w, UINT h)
 	}
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsv{}; dsv.Format = DXGI_FORMAT_D32_FLOAT; dsv.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
 	_device->CreateDepthStencilView(_sceneDepth.Get(), &dsv, _sceneDsvHeap->GetCPUDescriptorHandleForHeapStart());
+
+	// 포스트 힙 SRV: 0=HDR씬 / 1=bloomA(최종·톤맵 t1) / 2=depth(톤맵 t2 DOF) / 3=bloomB
+	D3D12_SHADER_RESOURCE_VIEW_DESC hsd{};
+	hsd.Format = _sceneFmt; hsd.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	hsd.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING; hsd.Texture2D.MipLevels = 1;
+	D3D12_CPU_DESCRIPTOR_HANDLE ph = _postSrvHeap->GetCPUDescriptorHandleForHeapStart();
+	_device->CreateShaderResourceView(_sceneRT.Get(), &hsd, ph); ph.ptr += _postSrvInc; // 0 HDR
+	_device->CreateShaderResourceView(_bloomA.Get(), &hsd, ph); ph.ptr += _postSrvInc; // 1 bloomA
+	D3D12_SHADER_RESOURCE_VIEW_DESC dsd{}; dsd.Format = DXGI_FORMAT_R32_FLOAT; // 2 depth
+	dsd.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D; dsd.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING; dsd.Texture2D.MipLevels = 1;
+	_device->CreateShaderResourceView(_sceneDepth.Get(), &dsd, ph); ph.ptr += _postSrvInc;
+	_device->CreateShaderResourceView(_bloomB.Get(), &hsd, ph); // 3 bloomB
+	_bloomReady = true;
 
 	_sceneTexId = _imgui.SetSceneTexture(_sceneLDR.Get()); // ImGui 는 톤맵된 LDR 표시
 }
@@ -446,29 +453,29 @@ void D3D12Device::SaveScreenshot()
 	uint8_t* data = nullptr; D3D12_RANGE rr{ 0, (SIZE_T)total };
 	if (FAILED(readback->Map(0, &rr, (void**)&data))) return;
 	UINT W = (UINT)td.Width, H = td.Height;
-	std::vector<uint8_t> bgr((size_t)W * H * 3);
+	std::vector<uint8_t> rgba((size_t)W * H * 4);
 	for (UINT y = 0; y < H; ++y)
-	{
-		const uint8_t* srcRow = data + fp.Offset + (size_t)(H - 1 - y) * fp.Footprint.RowPitch; // BMP 하단우선
-		uint8_t* dstRow = bgr.data() + (size_t)y * W * 3;
-		for (UINT x = 0; x < W; ++x) { dstRow[x*3+0] = srcRow[x*4+2]; dstRow[x*3+1] = srcRow[x*4+1]; dstRow[x*3+2] = srcRow[x*4+0]; }
-	}
+		memcpy(rgba.data() + (size_t)y * W * 4, data + fp.Offset + (size_t)y * fp.Footprint.RowPitch, (size_t)W * 4);
 	readback->Unmap(0, nullptr);
 
-	// BMP 작성
+	// PNG 작성 (WIC)
 	static int idx = 0;
 	wchar_t exe[MAX_PATH]{}; GetModuleFileNameW(nullptr, exe, MAX_PATH);
 	std::wstring dir(exe); dir = dir.substr(0, dir.find_last_of(L"\\/"));
-	std::wstring path = dir + L"\\screenshot_" + std::to_wstring(idx++) + L".bmp";
-	uint32_t rowBytes = W * 3, pad = (4 - (rowBytes % 4)) % 4, imgSize = (rowBytes + pad) * H, fileSize = 54 + imgSize;
-	std::ofstream o(path, std::ios::binary);
-	uint8_t hdr[54] = {}; hdr[0]='B'; hdr[1]='M';
-	*(uint32_t*)&hdr[2]=fileSize; *(uint32_t*)&hdr[10]=54; *(uint32_t*)&hdr[14]=40;
-	*(int32_t*)&hdr[18]=(int32_t)W; *(int32_t*)&hdr[22]=(int32_t)H; *(uint16_t*)&hdr[26]=1; *(uint16_t*)&hdr[28]=24;
-	*(uint32_t*)&hdr[34]=imgSize;
-	o.write((char*)hdr, 54);
-	uint8_t padb[3] = {0,0,0};
-	for (UINT y = 0; y < H; ++y) { o.write((char*)(bgr.data() + (size_t)y * W * 3), rowBytes); if (pad) o.write((char*)padb, pad); }
+	std::wstring path = dir + L"\\screenshot_" + std::to_wstring(idx++) + L".png";
+
+	ComPtr<IWICImagingFactory> wic;
+	if (FAILED(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&wic)))) return;
+	ComPtr<IWICStream> stream; wic->CreateStream(&stream);
+	if (FAILED(stream->InitializeFromFilename(path.c_str(), GENERIC_WRITE))) return;
+	ComPtr<IWICBitmapEncoder> enc; wic->CreateEncoder(GUID_ContainerFormatPng, nullptr, &enc);
+	enc->Initialize(stream.Get(), WICBitmapEncoderNoCache);
+	ComPtr<IWICBitmapFrameEncode> frame; ComPtr<IPropertyBag2> props;
+	enc->CreateNewFrame(&frame, &props); frame->Initialize(props.Get());
+	frame->SetSize(W, H);
+	WICPixelFormatGUID fmt = GUID_WICPixelFormat32bppRGBA; frame->SetPixelFormat(&fmt);
+	frame->WritePixels(H, W * 4, (UINT)rgba.size(), rgba.data());
+	frame->Commit(); enc->Commit();
 	Log("Screenshot saved: " + WToUtf8(fs::path(path).filename().wstring()));
 }
 
@@ -650,6 +657,14 @@ void D3D12Device::DrawInspector()
 		ImGui::SeparatorText("Tonemap / Exposure");
 		ImGui::Combo("Operator", &_tonemapOp, "ACES\0Reinhard\0Filmic\0");
 		ImGui::SliderFloat("Exposure", &_exposure, 0.1f, 4.0f);
+		ImGui::Checkbox("Auto Exposure", &_autoExp);
+		if (_autoExp) { ImGui::SliderFloat("Target", &_expTarget, 0.1f, 1.5f); ImGui::SameLine(); ImGui::TextDisabled("(x%.2f)", _expScale); }
+		ImGui::SeparatorText("Depth of Field / God Rays");
+		ImGui::Checkbox("DOF", &_dofOn);
+		ImGui::SliderFloat("Focus Dist", &_dofFocus, 1.0f, 30.0f);
+		ImGui::SliderFloat("Focus Range", &_dofRange, 0.5f, 15.0f);
+		ImGui::Checkbox("Volumetric Rays", &_volOn);
+		ImGui::SliderFloat("Ray Strength", &_volStrength, 0.0f, 2.0f);
 		ImGui::SeparatorText("Bloom");
 		ImGui::Checkbox("Bloom", &_bloomOn);
 		ImGui::SliderFloat("Threshold", &_bloomThreshold, 0.2f, 3.0f);

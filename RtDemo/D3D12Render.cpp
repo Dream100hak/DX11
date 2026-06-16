@@ -84,6 +84,16 @@ void D3D12Device::Render()
 	_time += 1.0f / 60.0f;
 	if (!_animPaused) _animTimeAcc += (1.0f / 60.0f) * _animSpeed; // 애니 재생/속도
 	if (_turntable) _turnAngle += (1.0f / 60.0f) * _turnSpeed;     // U14 턴테이블
+	// U4 자동 노출 — 씬 조명 추정 휘도에 눈 적응(프리셋 Day/Night 전환 시 부드럽게 밝기 보정)
+	if (_autoExp)
+	{
+		float sunL = 0.2126f * _sunColor.x + 0.7152f * _sunColor.y + 0.0722f * _sunColor.z;
+		float lum = _lightIntensity * sunL * 0.6f + _ambient * 3.0f + (_pointOn ? _pointIntensity * 0.04f : 0.0f) + (_spotOn ? _spotIntensity * 0.03f : 0.0f);
+		lum = max(lum, 0.04f);
+		float target = max(0.25f, min(4.0f, _expTarget / lum));
+		_expScale += (target - _expScale) * 0.04f;
+	}
+	else _expScale = 1.0f;
 	// U18 프레임타임 그래프 갱신
 	_frameTimes[_frameIdx % 120] = ImGui::GetIO().Framerate > 0 ? 1000.0f / ImGui::GetIO().Framerate : 0.0f;
 	_frameIdx++;
@@ -167,6 +177,7 @@ void D3D12Device::Render()
 
 	// ── 씬 3D → 오프스크린 RT (Scene 도킹 탭 이미지) ──
 	Transition(_sceneRT.Get(), _sceneRTState, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	Transition(_sceneDepth.Get(), _sceneDepthState, D3D12_RESOURCE_STATE_DEPTH_WRITE); // DOF 샘플 후 복귀
 
 	D3D12_CPU_DESCRIPTOR_HANDLE rtv = _sceneRtvHeap->GetCPUDescriptorHandleForHeapStart();
 	D3D12_CPU_DESCRIPTOR_HANDLE dsv = _sceneDsvHeap->GetCPUDescriptorHandleForHeapStart();
@@ -302,13 +313,14 @@ void D3D12Device::Render()
 		Transition(_bloomB.Get(), _bloomBState, D3D12_RESOURCE_STATE_RENDER_TARGET);
 		pass(_blurPSO.Get(), bB, 1, blurH);
 		Transition(_bloomB.Get(), _bloomBState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-		// BlurV: bloomB(slot2) → bloomA (최종)
+		// BlurV: bloomB(slot3) → bloomA (최종)
 		Transition(_bloomA.Get(), _bloomAState, D3D12_RESOURCE_STATE_RENDER_TARGET);
-		pass(_blurPSO.Get(), bA, 2, blurV);
+		pass(_blurPSO.Get(), bA, 3, blurV);
 		Transition(_bloomA.Get(), _bloomAState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	}
 
-	// ── 톤맵 (HDR 씬 RT → LDR RT, ACES + 노출 + 감마 + 블룸) ──
+	// ── 톤맵 (HDR 씬 RT → LDR RT, ACES + 노출 + 감마 + 블룸 + DOF/갓레이) ──
+	Transition(_sceneDepth.Get(), _sceneDepthState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE); // DOF 입력
 	Transition(_sceneLDR.Get(), _sceneLDRState, D3D12_RESOURCE_STATE_RENDER_TARGET);
 	{
 		UINT rtvInc = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
@@ -327,6 +339,16 @@ void D3D12Device::Render()
 		_cmdList->SetGraphicsRoot32BitConstants(1, 8, pc, 0);
 		float pc2[8] = { _chroma, _grain, _sharpen, _time * 60.0f, 1.0f / float(_sceneW), 1.0f / float(_sceneH), _expScale, 0.0f };
 		_cmdList->SetGraphicsRoot32BitConstants(2, 8, pc2, 0);
+		// 태양 화면 위치(갓레이) + DOF 파라미터 (b2)
+		XMVECTOR sunW = XMVectorAdd(eye, XMVectorScale(fwd, 0.0f)); // placeholder
+		sunW = XMVectorAdd(eye, XMVectorScale(XMVector3Normalize(XMVectorNegate(XMLoadFloat4(&cb.lightDir))), 500.0f));
+		XMVECTOR sc4 = XMVector4Transform(XMVectorSetW(sunW, 1.0f), view * proj);
+		float sw = XMVectorGetW(sc4); float sunSX = 0.5f, sunSY = 0.5f; bool sunVis = sw > 0.0f;
+		if (sunVis) { sunSX = XMVectorGetX(sc4) / sw * 0.5f + 0.5f; sunSY = -XMVectorGetY(sc4) / sw * 0.5f + 0.5f; }
+		float pc3[8] = { sunSX, sunSY, _volStrength, _dofFocus, _dofRange, _dofOn ? 1.0f : 0.0f, (_volOn && sunVis) ? 1.0f : 0.0f, 0.0f };
+		_cmdList->SetGraphicsRoot32BitConstants(3, 8, pc3, 0);
+		D3D12_GPU_DESCRIPTOR_HANDLE depthH = _postSrvHeap->GetGPUDescriptorHandleForHeapStart(); depthH.ptr += UINT64(2) * _postSrvInc; // slot2 depth
+		_cmdList->SetGraphicsRootDescriptorTable(4, depthH);
 		_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		_cmdList->DrawInstanced(3, 1, 0, 0);
 	}

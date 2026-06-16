@@ -39,6 +39,10 @@ void MeshRenderer::SetGeometry(const vector<Vtx>& verts, const vector<uint32>& i
 	_ib = MakeUpload(_dev->_device.Get(), ibSize);
 	void* p = nullptr; _ib->Map(0, &nr, &p); memcpy(p, indices.data(), ibSize); _ib->Unmap(0, nullptr);
 	_ibv.BufferLocation = _ib->GetGPUVirtualAddress(); _ibv.Format = DXGI_FORMAT_R32_UINT; _ibv.SizeInBytes = (UINT)ibSize;
+
+	// 정점 수가 바뀌면 BLAS 버퍼도 새 크기로 재생성해야 함(안 그러면 작은 버퍼에 빌드→GPU 손상/깜빡임)
+	_blas.Reset(); _blasScratch.Reset(); _blasDirty = true;
+	_baked = false;
 }
 
 void MeshRenderer::SetTexture(const std::wstring& path)
@@ -281,7 +285,7 @@ void MeshRenderer::Draw(const RenderContext& ctx)
 		cmd->SetGraphicsRootDescriptorTable(3, _srvHeap->GetGPUDescriptorHandleForHeapStart());
 	}
 	else
-		cmd->SetGraphicsRoot32BitConstant(4, 0u, 0); // useTex=0 (정점색)
+		cmd->SetGraphicsRoot32BitConstant(4, 2u, 0); // 정점색(머티리얼 틴트)
 	cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	cmd->IASetVertexBuffers(0, 1, &_vbv);
 	cmd->IASetIndexBuffer(&_ibv);

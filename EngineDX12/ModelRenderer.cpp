@@ -52,8 +52,8 @@ void ModelRenderer::Draw(const RenderContext& ctx)
 	}
 	else
 	{
-		cmd->SetGraphicsRoot32BitConstant(4, 0u, 0);
-		cmd->DrawIndexedInstanced(sc._modelIndexCount, 1, 0, 0, 0); // 모델(정점색 폴백)
+		cmd->SetGraphicsRoot32BitConstant(4, 2u, 0); // 모델 정점색 폴백
+		cmd->DrawIndexedInstanced(sc._modelIndexCount, 1, 0, 0, 0);
 	}
 
 	// 바닥(정점색)

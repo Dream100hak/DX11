@@ -175,8 +175,8 @@ float4 PSMain(VSOut i) : SV_TARGET
     float3 Ngeo = normalize(i.wnrm);
     float3 N = Ngeo;
 
-    // ── 노멀 매핑 (TBN, 모델만) — 탄젠트가 퇴화(0)면 지오메트릭 노멀 폴백(NaN 방지) ──
-    if (gUseTex != 0)
+    // ── 노멀 매핑 (TBN, 텍스처 모델만) — 탄젠트가 퇴화(0)면 지오메트릭 노멀 폴백(NaN 방지) ──
+    if (gUseTex == 1)
     {
         float3 T = i.wtan - Ngeo * dot(i.wtan, Ngeo); // Gram-Schmidt
         if (dot(T, T) > 1e-5)
@@ -193,11 +193,13 @@ float4 PSMain(VSOut i) : SV_TARGET
     float  ndl = saturate(dot(N, L));
     float3 V = normalize(gCamPos.xyz - i.wpos);
 
-    // 머티리얼 (모델 = gMatParams / 바닥 = gFloorMat)
-    float metallic  = (gUseTex != 0) ? gMatParams.x : gFloorMat.w;
-    float roughness = (gUseTex != 0) ? gMatParams.y : gTint.w;
-    float emissive  = (gUseTex != 0) ? gMatParams.z : 0.0;
-    float3 albedo   = (gUseTex != 0) ? gDiffuse.Sample(gSamp, i.uv).rgb * gTint.rgb : gFloorMat.rgb;
+    // 머티리얼 (1=텍스처 모델 gMatParams / 0=바닥 gFloorMat / 2=정점색 메시)
+    float metallic  = (gUseTex == 1) ? gMatParams.x : (gUseTex == 0) ? gFloorMat.w : 0.0;
+    float roughness = (gUseTex == 1) ? gMatParams.y : (gUseTex == 0) ? gTint.w : 0.5;
+    float emissive  = (gUseTex == 1) ? gMatParams.z : 0.0;
+    float3 albedo   = (gUseTex == 1) ? gDiffuse.Sample(gSamp, i.uv).rgb * gTint.rgb
+                    : (gUseTex == 2) ? i.col            // per-object 정점색(머티리얼 틴트 베이크됨)
+                    : gFloorMat.rgb;
     // V16 체커 바닥
     if (gUseTex == 0 && gShade.w > 0.5)
     {
@@ -212,7 +214,7 @@ float4 PSMain(VSOut i) : SV_TARGET
     }
     float power = lerp(8.0, 256.0, 1.0 - roughness);
     float3 specColor = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
-    float specMask = (gUseTex != 0) ? gSpecMap.Sample(gSamp, i.uv).r : 1.0;
+    float specMask = (gUseTex == 1) ? gSpecMap.Sample(gSamp, i.uv).r : 1.0;
 
     // ── 디버그 뷰 (1 albedo / 2 normal / 3 depth) ──
     int dv = (int)gDebug.x;

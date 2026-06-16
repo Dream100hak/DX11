@@ -395,7 +395,7 @@ void ModelAnimator::Draw(const RenderContext& ctx)
 	}
 	else
 	{
-		cmd->SetGraphicsRoot32BitConstant(4, 0u, 0); // useTex=0 (정점색 폴백)
+		cmd->SetGraphicsRoot32BitConstant(4, 2u, 0); // 정점색 폴백
 		cmd->DrawIndexedInstanced(_idxCount, 1, 0, 0, 0);
 	}
 }

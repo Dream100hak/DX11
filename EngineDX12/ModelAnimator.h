@@ -30,7 +30,8 @@ public:
 
 private:
 	void ScanClips();
-	void Skin(); // 현재 프레임 스키닝 → _world → VB
+	void Skin();             // 현재 프레임 스키닝 → _world → VB
+	void CreateMaterials();  // .mmat → 슬롯별 디퓨즈/노멀/스펙 SRV 힙
 
 	D3D12Device* _dev = nullptr;
 
@@ -60,4 +61,13 @@ private:
 	D3D12_INDEX_BUFFER_VIEW  _ibv{};
 	uint32                   _vtxCount = 0, _idxCount = 0;
 	DirectX::XMFLOAT3        _aabbMin{}, _aabbMax{};
+
+	// 머티리얼 (슬롯×3 디퓨즈/노멀/스펙 — 모델 셰이더 t2/t3/t4)
+	std::vector<ComPtr<ID3D12Resource>> _matResources;
+	ComPtr<ID3D12Resource>              _whiteTex;
+	ComPtr<ID3D12DescriptorHeap>        _srvHeap;
+	UINT                                _srvInc = 0;
+	uint32                              _matCount = 0;
+	std::vector<uint32>                 _subMatSlot;
+	bool                                _hasTexture = false;
 };

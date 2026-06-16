@@ -4,8 +4,10 @@
 #include "Transform.h"
 #include "Define.h"
 #include "TimeManager.h"
+#include "TextureLoader.h"
 #include "imgui.h"
 #include <filesystem>
+#include <unordered_map>
 
 using namespace DirectX;
 namespace fs = std::filesystem;
@@ -70,6 +72,8 @@ bool ModelAnimator::Load(const std::wstring& meshPath)
 	std::wstring clipPath = FindClipA(_modelDir, _modelStem);
 	if (!clipPath.empty()) _animated = LoadClip(clipPath, _clip);
 
+	CreateMaterials(); // .mmat → 슬롯 SRV (실패 시 정점색 폴백)
+
 	// 월드 VB (영속 매핑, 매 프레임 스키닝 갱신) + IB
 	const size_t vbSize = (size_t)_vtxCount * sizeof(Vtx);
 	const size_t ibSize = (size_t)_idxCount * sizeof(uint32);
@@ -82,6 +86,83 @@ bool ModelAnimator::Load(const std::wstring& meshPath)
 
 	Skin(); // 초기 포즈
 	return true;
+}
+
+// .mmat → 서브메시 슬롯별 디퓨즈/노멀/스펙 텍스처 + 연속 SRV 힙 (ModelScene 미러)
+void ModelAnimator::CreateMaterials()
+{
+	std::unordered_map<std::string, MatTex> matMap = LoadMaterials(_modelDir + _modelStem + L".mmat", _modelDir);
+	std::unordered_map<std::string, uint32> stemSlot; std::vector<std::string> slotStems;
+	_subMatSlot.assign(_submeshes.size(), 0);
+	for (size_t i = 0; i < _submeshes.size(); ++i)
+	{
+		const std::string& nm = _submeshes[i].materialName;
+		auto it = stemSlot.find(nm);
+		if (it == stemSlot.end()) { uint32 s = (uint32)slotStems.size(); stemSlot[nm] = s; slotStems.push_back(nm); _subMatSlot[i] = s; }
+		else _subMatSlot[i] = it->second;
+	}
+	_matCount = (uint32)slotStems.size();
+	if (_matCount == 0) { _hasTexture = false; return; }
+
+	std::vector<ComPtr<ID3D12Resource>> uploads;
+	ThrowIfFailed(_dev->_allocators[_dev->_frameIndex]->Reset(), "anim tex alloc reset");
+	ThrowIfFailed(_dev->_cmdList->Reset(_dev->_allocators[_dev->_frameIndex].Get(), nullptr), "anim tex cmd reset");
+
+	auto makeTex = [&](const std::vector<uint8_t>& px, uint32 tw, uint32 th) -> ComPtr<ID3D12Resource>
+	{
+		ComPtr<ID3D12Resource> outTex;
+		D3D12_HEAP_PROPERTIES hp{}; hp.Type = D3D12_HEAP_TYPE_DEFAULT;
+		D3D12_RESOURCE_DESC td{}; td.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+		td.Width = tw; td.Height = th; td.DepthOrArraySize = 1; td.MipLevels = 1;
+		td.Format = DXGI_FORMAT_R8G8B8A8_UNORM; td.SampleDesc.Count = 1;
+		ThrowIfFailed(_dev->_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &td,
+			D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&outTex)), "anim Create Tex");
+		D3D12_PLACED_SUBRESOURCE_FOOTPRINT fp{}; UINT rows = 0; UINT64 rowSize = 0, total = 0;
+		_dev->_device->GetCopyableFootprints(&td, 0, 1, 0, &fp, &rows, &rowSize, &total);
+		ComPtr<ID3D12Resource> up = _dev->CreateUploadBuffer(nullptr, (size_t)total);
+		uint8_t* m = nullptr; D3D12_RANGE nr{ 0, 0 }; up->Map(0, &nr, (void**)&m);
+		for (UINT y = 0; y < rows; ++y)
+			memcpy(m + fp.Offset + (size_t)y * fp.Footprint.RowPitch, px.data() + (size_t)y * tw * 4, (size_t)tw * 4);
+		up->Unmap(0, nullptr); uploads.push_back(up);
+		D3D12_TEXTURE_COPY_LOCATION dst{}; dst.pResource = outTex.Get(); dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX; dst.SubresourceIndex = 0;
+		D3D12_TEXTURE_COPY_LOCATION src{}; src.pResource = up.Get(); src.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT; src.PlacedFootprint = fp;
+		_dev->_cmdList->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+		D3D12_RESOURCE_BARRIER b{}; b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION; b.Transition.pResource = outTex.Get();
+		b.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST; b.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+		b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES; _dev->_cmdList->ResourceBarrier(1, &b);
+		return outTex;
+	};
+	{ std::vector<uint8_t> white(4, 255); _whiteTex = makeTex(white, 1, 1); }
+	auto loadOr = [&](const std::wstring& file) -> ComPtr<ID3D12Resource>
+	{
+		std::vector<uint8_t> px; uint32 tw = 0, th = 0;
+		if (!file.empty() && LoadImageRGBA(file, px, tw, th)) return makeTex(px, tw, th);
+		return _whiteTex;
+	};
+	_matResources.resize(_matCount * 3);
+	for (uint32 s = 0; s < _matCount; ++s)
+	{
+		MatTex mt; auto it = matMap.find(slotStems[s]); if (it != matMap.end()) mt = it->second;
+		_matResources[s * 3 + 0] = loadOr(mt.diffuse);
+		_matResources[s * 3 + 1] = loadOr(mt.normal);
+		_matResources[s * 3 + 2] = loadOr(mt.spec);
+	}
+	ThrowIfFailed(_dev->_cmdList->Close(), "anim tex cmd close");
+	ID3D12CommandList* lists[] = { _dev->_cmdList.Get() }; _dev->_queue->ExecuteCommandLists(1, lists);
+	_dev->WaitForGpu();
+
+	D3D12_DESCRIPTOR_HEAP_DESC hd{}; hd.NumDescriptors = _matCount * 3;
+	hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV; hd.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	ThrowIfFailed(_dev->_device->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&_srvHeap)), "anim srv heap");
+	_srvInc = _dev->_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	D3D12_CPU_DESCRIPTOR_HANDLE h = _srvHeap->GetCPUDescriptorHandleForHeapStart();
+	for (uint32 i = 0; i < _matCount * 3; ++i)
+	{
+		D3D12_SHADER_RESOURCE_VIEW_DESC sd{}; sd.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		sd.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D; sd.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING; sd.Texture2D.MipLevels = 1;
+		_dev->_device->CreateShaderResourceView(_matResources[i].Get(), &sd, h); h.ptr += _srvInc;
+	}
+	_hasTexture = true;
 }
 
 void ModelAnimator::SetClipIndex(int i)
@@ -185,11 +266,29 @@ void ModelAnimator::Draw(const RenderContext& ctx)
 	cmd->SetGraphicsRootShaderResourceView(1, d._scene._tlas->GetGPUVirtualAddress());
 	cmd->SetGraphicsRootShaderResourceView(2, d._ddgi.ProbesAddr());
 	cmd->SetGraphicsRootShaderResourceView(5, d._ddgi.ProbeDepthAddr());
-	cmd->SetGraphicsRoot32BitConstant(4, 0u, 0); // useTex=0 (정점색 — Stage 1b 에서 머티리얼)
 	cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	cmd->IASetVertexBuffers(0, 1, &_vbv);
 	cmd->IASetIndexBuffer(&_ibv);
-	cmd->DrawIndexedInstanced(_idxCount, 1, 0, 0, 0);
+
+	if (_hasTexture && !_submeshes.empty())
+	{
+		ID3D12DescriptorHeap* heaps[] = { _srvHeap.Get() };
+		cmd->SetDescriptorHeaps(1, heaps);
+		cmd->SetGraphicsRoot32BitConstant(4, 1u, 0); // useTex
+		D3D12_GPU_DESCRIPTOR_HANDLE base = _srvHeap->GetGPUDescriptorHandleForHeapStart();
+		for (size_t i = 0; i < _submeshes.size(); ++i)
+		{
+			D3D12_GPU_DESCRIPTOR_HANDLE hh = base;
+			hh.ptr += SIZE_T(_subMatSlot[i]) * 3 * _srvInc; // 슬롯×3 디스크립터
+			cmd->SetGraphicsRootDescriptorTable(3, hh);
+			cmd->DrawIndexedInstanced(_submeshes[i].indexCount, 1, _submeshes[i].indexStart, 0, 0);
+		}
+	}
+	else
+	{
+		cmd->SetGraphicsRoot32BitConstant(4, 0u, 0); // useTex=0 (정점색 폴백)
+		cmd->DrawIndexedInstanced(_idxCount, 1, 0, 0, 0);
+	}
 }
 
 void ModelAnimator::OnInspectorGUI()

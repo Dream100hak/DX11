@@ -3,6 +3,7 @@
 #include "Transform.h"
 #include "MeshRenderer.h"
 #include "ModelAnimator.h"
+#include "ParticleSystem.h"
 #include "RtBlas.h"
 #include "Camera.h"
 #include "Light.h"
@@ -59,6 +60,12 @@ void D3D12Device::Render()
 
 	// Play 중: 씬 그래프 컴포넌트 Update 틱 (스크립트/게임플레이) — 편집 중엔 정지
 	if (_playing && _gameScene) { _gameScene->Update(); _gameScene->LateUpdate(); }
+
+	// ParticleSystem 컴포넌트 시뮬레이션 (편집 중에도 동작 — 에디터 미리보기)
+	if (_gameScene)
+		for (auto& kv : _gameScene->GetCreatedObjects())
+			if (auto& o = kv.second; o && o->IsActive())
+				if (auto ps = std::dynamic_pointer_cast<ParticleSystem>(o->GetRenderer())) ps->Update(dt);
 
 	// 더블클릭/씬로드 모델 교체 (GPU 유휴 시점)
 	if (_wantReload && _pendingModel.empty()) { _wantReload = false; _pendingModel = _scene._modelDir + _scene._modelStem + L".mesh"; } // V1 터레인 토글 등 재생성

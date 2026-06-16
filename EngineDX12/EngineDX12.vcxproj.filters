@@ -86,6 +86,9 @@
     <ClInclude Include="Collider.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="ParticleSystem.h">
+      <Filter>Core</Filter>
+    </ClInclude>
     <ClInclude Include="ModelAnimator.h">
       <Filter>Core</Filter>
     </ClInclude>

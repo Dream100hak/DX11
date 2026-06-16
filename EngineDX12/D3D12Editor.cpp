@@ -6,6 +6,7 @@
 #include "MeshRenderer.h"
 #include "ModelAnimator.h"
 #include "Collider.h"
+#include "ParticleSystem.h"
 #include "GeometryHelper.h"
 #include "ResourceManager.h"
 #include "Camera.h"
@@ -157,6 +158,20 @@ void D3D12Device::DrawDebugLines()
 						XMVECTOR pw = XMVectorAdd(c, XMVectorAdd(XMVectorScale(a1, cosf(a) * r), XMVectorScale(a2, sinf(a) * r)));
 						XMFLOAT3 pp; XMStoreFloat3(&pp, pw); if (s > 0) _debugDraw.Line(prev, pp, gc); prev = pp; } };
 				circ(XMVectorSet(1,0,0,0), XMVectorSet(0,1,0,0)); circ(XMVectorSet(1,0,0,0), XMVectorSet(0,0,1,0)); circ(XMVectorSet(0,1,0,0), XMVectorSet(0,0,1,0));
+			}
+		}
+
+	// ── ParticleSystem 컴포넌트 입자 (크로스) ──
+	if (_gameScene)
+		for (auto& kv : _gameScene->GetCreatedObjects())
+		{
+			auto& o = kv.second; if (!o || !o->IsActive()) continue;
+			auto ps = std::dynamic_pointer_cast<ParticleSystem>(o->GetRenderer()); if (!ps) continue;
+			float sz = ps->Size();
+			for (auto& p : ps->Particles())
+			{
+				float fade = p.maxLife > 0 ? p.life / p.maxLife : 1.f;
+				_debugDraw.Cross(p.pos, XMFLOAT3(p.col.x * fade, p.col.y * fade, p.col.z * fade), sz);
 			}
 		}
 
@@ -373,6 +388,7 @@ void D3D12Device::DrawMainMenuBar()
 			if (ImGui::MenuItem("Directional Light")) { _sel = SelEntity::Sun; _selectedGO = nullptr; } // 디렉셔널=단일 sun(선택)
 			if (ImGui::MenuItem("Point Light"))       SpawnLight(1, L"Point Light", sp);
 			if (ImGui::MenuItem("Spot Light"))        SpawnLight(2, L"Spot Light", sp);
+			if (ImGui::MenuItem("Particle System"))   { auto o = SpawnEmpty(L"Particles", sp); if (o) o->AddComponent(make_shared<ParticleSystem>()); }
 			if (ImGui::MenuItem("Camera")) _sel = SelEntity::Camera;
 			ImGui::EndMenu();
 		}
@@ -525,6 +541,7 @@ void D3D12Device::DrawHierarchy()
 		if (ImGui::MenuItem("Directional Light")) { _sel = SelEntity::Sun; _selectedGO = nullptr; } // 디렉셔널=단일 sun(선택)
 		if (ImGui::MenuItem("Point Light"))       SpawnLight(1, L"Point Light", spawnAt);
 		if (ImGui::MenuItem("Spot Light"))        SpawnLight(2, L"Spot Light", spawnAt);
+		if (ImGui::MenuItem("Particle System"))   { auto o = SpawnEmpty(L"Particles", spawnAt); if (o) o->AddComponent(make_shared<ParticleSystem>()); }
 		if (ImGui::MenuItem("Camera")) _sel = SelEntity::Camera;
 		ImGui::Separator();
 		bool hasSel = _selectedGO != nullptr;
@@ -1023,6 +1040,23 @@ void D3D12Device::SaveSceneTo(const std::wstring& path)
 			f << "apar " << (parentName.empty() ? std::string("-") : WToUtf8(parentName)) << '\n';
 			++animCount;
 		}
+
+		// 파티클 시스템
+		for (auto& kv : _gameScene->GetCreatedObjects())
+		{
+			auto& obj = kv.second;
+			if (!obj || obj->IsEditorInternal()) continue;
+			auto ps = std::dynamic_pointer_cast<ParticleSystem>(obj->GetRenderer()); if (!ps) continue;
+			auto t = obj->GetTransform(); Vec3 p = t ? t->GetLocalPosition() : Vec3{ 0,0,0 };
+			std::wstring parentName;
+			if (t) if (auto pt = t->GetParent()) if (auto pgo = pt->GetGameObject()) parentName = pgo->GetObjectName();
+			f << "pobj " << WToUtf8(obj->GetObjectName()) << '\n';
+			f << "pprm " << ps->_mode << ' ' << (ps->_emitting ? 1 : 0) << ' ' << ps->_rate << ' ' << ps->_life
+			  << ' ' << ps->_speed << ' ' << ps->_gravity << ' ' << ps->_size
+			  << ' ' << ps->_color.x << ' ' << ps->_color.y << ' ' << ps->_color.z << '\n';
+			f << "pxf " << p.x << ' ' << p.y << ' ' << p.z << ' ' << (obj->IsActive() ? 1 : 0) << '\n';
+			f << "ppar " << (parentName.empty() ? std::string("-") : WToUtf8(parentName)) << '\n';
+		}
 	}
 	f.flush();
 	Log("Scene saved: " + WToUtf8(path) + "  (" + std::to_string(meshCount) + " mesh, "
@@ -1040,6 +1074,7 @@ void D3D12Device::LoadSceneFrom(const std::wstring& path)
 	shared_ptr<GameObject> curObj; // 현재 mobj 블록 대상
 	shared_ptr<GameObject> curLight; std::wstring curLightName; // 현재 lobj 블록 대상
 	shared_ptr<GameObject> curAnim;  std::wstring curAnimName;  // 현재 aobj 블록 대상
+	shared_ptr<GameObject> curPart;  std::wstring curPartName;  // 현재 pobj 블록 대상
 	std::wstring curName;          // 현재 블록 오브젝트 이름 (없으면 재생성용)
 	std::vector<std::pair<std::wstring, std::wstring>> parentLinks; // (child, parent) — 전부 파싱 후 링크
 	auto findByName = [&](const std::wstring& wname) -> shared_ptr<GameObject>
@@ -1158,6 +1193,30 @@ void D3D12Device::LoadSceneFrom(const std::wstring& path)
 		else if (tag == "apar" && curAnim) {
 			std::string pn; std::getline(s >> std::ws, pn);
 			if (pn != "-" && !pn.empty()) parentLinks.push_back({ curAnimName, Utf8ToW(pn) });
+		}
+		// ── 파티클 시스템 ──
+		else if (tag == "pobj") {
+			std::string nm; std::getline(s >> std::ws, nm); curPartName = Utf8ToW(nm);
+			curPart = findByName(curPartName);
+			if (!curPart) {
+				curPart = make_shared<GameObject>(); curPart->SetObjectName(curPartName); curPart->GetOrAddTransform();
+				curPart->AddComponent(make_shared<ParticleSystem>()); _gameScene->Add(curPart);
+			}
+			else if (!std::dynamic_pointer_cast<ParticleSystem>(curPart->GetRenderer())) curPart->AddComponent(make_shared<ParticleSystem>());
+		}
+		else if (tag == "pprm" && curPart) {
+			if (auto ps = std::dynamic_pointer_cast<ParticleSystem>(curPart->GetRenderer())) {
+				int em = 1; s >> ps->_mode >> em >> ps->_rate >> ps->_life >> ps->_speed >> ps->_gravity >> ps->_size
+					>> ps->_color.x >> ps->_color.y >> ps->_color.z; ps->_emitting = em != 0;
+			}
+		}
+		else if (tag == "pxf" && curPart) {
+			Vec3 p; s >> p.x >> p.y >> p.z; if (auto t = curPart->GetTransform()) t->SetLocalPosition(p);
+			int act = 1; if (s >> act) curPart->SetActive(act != 0);
+		}
+		else if (tag == "ppar" && curPart) {
+			std::string pn; std::getline(s >> std::ws, pn);
+			if (pn != "-" && !pn.empty()) parentLinks.push_back({ curPartName, Utf8ToW(pn) });
 		}
 	}
 	// 부모 링크 (모든 오브젝트 생성 후 — LOCAL 유지)
@@ -1628,6 +1687,8 @@ void D3D12Device::DrawGameObjectInspector(const shared_ptr<GameObject>& go)
 				go->AddComponent(l);
 				Log("Added Light to " + WToUtf8(go->GetObjectName()));
 			}
+			if (!go->GetRenderer() && ImGui::MenuItem("Particle System"))
+			{ auto ps = make_shared<ParticleSystem>(); go->AddComponent(ps); Log("Added ParticleSystem to " + WToUtf8(go->GetObjectName())); }
 			if (!go->GetComponent<BaseCollider>() && ImGui::MenuItem("Box Collider"))
 			{ go->AddComponent(make_shared<AABBBoxCollider>()); Log("Added Box Collider to " + WToUtf8(go->GetObjectName())); }
 			if (!go->GetComponent<BaseCollider>() && ImGui::MenuItem("Sphere Collider"))

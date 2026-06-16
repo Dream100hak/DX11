@@ -23,6 +23,7 @@
     <ClInclude Include="MeshRenderer.h" />
     <ClInclude Include="ModelAnimator.h" />
     <ClInclude Include="Collider.h" />
+    <ClInclude Include="ParticleSystem.h" />
     <ClInclude Include="RtBlas.h" />
     <ClInclude Include="SkyRenderer.h" />
     <ClInclude Include="GridRenderer.h" />

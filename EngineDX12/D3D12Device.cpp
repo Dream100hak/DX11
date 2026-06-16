@@ -74,7 +74,7 @@ Texture2D                       gNormalMap : register(t3); // 노멀맵
 Texture2D                       gSpecMap   : register(t4); // 스펙큘러
 StructuredBuffer<float2>        gProbeDepth : register(t5); // 옥타헤드럴 depth (mean, mean²)
 SamplerState                    gSamp    : register(s0);
-cbuffer UseTexCB : register(b1) { uint gUseTex; };       // 루트 상수 (1=텍스처)
+cbuffer UseTexCB : register(b1) { uint gUseTex; float gObjMetal; float gObjRough; float gObjEmis; float3 gObjTint; float _b1pad; }; // per-object 머티리얼 루트상수 (0 바닥/1 텍스처/2 정점색)
 
 // 단위벡터 → 옥타헤드럴 [0,1]² (depth 텍셀 인덱싱)
 float2 OctEncode(float3 d)
@@ -193,12 +193,12 @@ float4 PSMain(VSOut i) : SV_TARGET
     float  ndl = saturate(dot(N, L));
     float3 V = normalize(gCamPos.xyz - i.wpos);
 
-    // 머티리얼 (1=텍스처 모델 gMatParams / 0=바닥 gFloorMat / 2=정점색 메시)
-    float metallic  = (gUseTex == 1) ? gMatParams.x : (gUseTex == 0) ? gFloorMat.w : 0.0;
-    float roughness = (gUseTex == 1) ? gMatParams.y : (gUseTex == 0) ? gTint.w : 0.5;
-    float emissive  = (gUseTex == 1) ? gMatParams.z : 0.0;
-    float3 albedo   = (gUseTex == 1) ? gDiffuse.Sample(gSamp, i.uv).rgb * gTint.rgb
-                    : (gUseTex == 2) ? i.col            // per-object 정점색(머티리얼 틴트 베이크됨)
+    // 머티리얼 (0=바닥 gFloorMat / 1=텍스처×틴트 / 2=정점색×틴트) — 1·2 는 per-object 루트상수
+    float metallic  = (gUseTex == 0) ? gFloorMat.w : gObjMetal;
+    float roughness = (gUseTex == 0) ? gTint.w     : gObjRough;
+    float emissive  = (gUseTex == 0) ? 0.0          : gObjEmis;
+    float3 albedo   = (gUseTex == 1) ? gDiffuse.Sample(gSamp, i.uv).rgb * gObjTint
+                    : (gUseTex == 2) ? i.col * gObjTint   // per-object 정점색 × 틴트
                     : gFloorMat.rgb;
     // V16 체커 바닥
     if (gUseTex == 0 && gShade.w > 0.5)
@@ -959,7 +959,7 @@ void D3D12Device::CreateRootSignature()
 
 	params[4].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
 	params[4].Constants.ShaderRegister = 1; // b1
-	params[4].Constants.Num32BitValues = 1;
+	params[4].Constants.Num32BitValues = 8; // mode + metallic/roughness/emissive + tint.rgb + pad (per-object)
 	params[4].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
 	params[5].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; // 프로브 depth

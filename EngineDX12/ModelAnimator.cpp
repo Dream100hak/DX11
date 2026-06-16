@@ -379,11 +379,15 @@ void ModelAnimator::Draw(const RenderContext& ctx)
 	cmd->IASetVertexBuffers(0, 1, &_vbv);
 	cmd->IASetIndexBuffer(&_ibv);
 
+	// per-object 머티리얼 루트상수 (애니 모델은 기본값 — 메탈0/러프0.5/틴트 흰색)
+	struct { uint32 mode; float met, rough, emis, tr, tg, tb, pad; } mc{
+		(_hasTexture && !_submeshes.empty()) ? 1u : 2u, 0.f, 0.5f, 0.f, 1.f, 1.f, 1.f, 0.f };
+	cmd->SetGraphicsRoot32BitConstants(4, 8, &mc, 0);
+
 	if (_hasTexture && !_submeshes.empty())
 	{
 		ID3D12DescriptorHeap* heaps[] = { _srvHeap.Get() };
 		cmd->SetDescriptorHeaps(1, heaps);
-		cmd->SetGraphicsRoot32BitConstant(4, 1u, 0); // useTex
 		D3D12_GPU_DESCRIPTOR_HANDLE base = _srvHeap->GetGPUDescriptorHandleForHeapStart();
 		for (size_t i = 0; i < _submeshes.size(); ++i)
 		{
@@ -394,10 +398,7 @@ void ModelAnimator::Draw(const RenderContext& ctx)
 		}
 	}
 	else
-	{
-		cmd->SetGraphicsRoot32BitConstant(4, 2u, 0); // 정점색 폴백
 		cmd->DrawIndexedInstanced(_idxCount, 1, 0, 0, 0);
-	}
 }
 
 void ModelAnimator::OnInspectorGUI()

@@ -37,10 +37,15 @@ void ModelRenderer::Draw(const RenderContext& ctx)
 	cmd->IASetVertexBuffers(0, 1, &sc._vbv);
 	cmd->IASetIndexBuffer(&sc._ibv);
 
+	// 모델 per-object 머티리얼 루트상수 — 전역 인스펙터 값(기존 gMatParams/gTint 동등) 유지
+	struct MatC { uint32 mode; float met, rough, emis, tr, tg, tb, pad; };
+	MatC model{ (sc._hasTexture && !sc._submeshes.empty()) ? 1u : 2u, d._matMetallic, d._matRoughness, d._matEmissive,
+		d._diffuseTint.x * d._matTint, d._diffuseTint.y * d._matTint, d._diffuseTint.z * d._matTint, 0.f };
+	cmd->SetGraphicsRoot32BitConstants(4, 8, &model, 0);
+
 	// 모델: 서브메시별 머티리얼 텍스처 테이블 오프셋 후 드로우
 	if (sc._hasTexture && !sc._submeshes.empty())
 	{
-		cmd->SetGraphicsRoot32BitConstant(4, 1u, 0); // useTex
 		D3D12_GPU_DESCRIPTOR_HANDLE base = sc._srvHeap->GetGPUDescriptorHandleForHeapStart();
 		for (size_t i = 0; i < sc._submeshes.size(); ++i)
 		{
@@ -51,12 +56,10 @@ void ModelRenderer::Draw(const RenderContext& ctx)
 		}
 	}
 	else
-	{
-		cmd->SetGraphicsRoot32BitConstant(4, 2u, 0); // 모델 정점색 폴백
 		cmd->DrawIndexedInstanced(sc._modelIndexCount, 1, 0, 0, 0);
-	}
 
-	// 바닥(정점색)
-	cmd->SetGraphicsRoot32BitConstant(4, 0u, 0);
+	// 바닥 (mode 0 = gFloorMat)
+	MatC floor{ 0u, 0,0,0,0,0,0,0 };
+	cmd->SetGraphicsRoot32BitConstants(4, 8, &floor, 0);
 	cmd->DrawIndexedInstanced(sc._indexCount - sc._modelIndexCount, 1, sc._modelIndexCount, 0, 0);
 }

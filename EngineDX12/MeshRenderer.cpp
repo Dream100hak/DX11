@@ -7,6 +7,7 @@
 #include "RtBlas.h"
 #include "ResourceManager.h"
 #include "imgui.h"
+#include <filesystem>
 
 using namespace DirectX;
 
@@ -146,11 +147,8 @@ void MeshRenderer::Rebake()
 		XMStoreFloat3(&_world[i].pos, p);
 		XMStoreFloat3(&_world[i].nrm, n);
 		XMStoreFloat3(&_world[i].tan, tn);
-		_world[i].col = XMFLOAT3(_local[i].col.x * _material->_diffuse.x,
-		                         _local[i].col.y * _material->_diffuse.y,
-		                         _local[i].col.z * _material->_diffuse.z); // 머티리얼 틴트
+		_world[i].col = _local[i].col; // 틴트는 셰이더 gObjTint 로 (베이크 안 함)
 	}
-	_lastBakedDiffuse = _material->_diffuse;
 	memcpy(_vbMapped, _world.data(), _world.size() * sizeof(Vtx));
 }
 
@@ -217,6 +215,14 @@ void MeshRenderer::OnInspectorGUI()
 	if (ImGui::Button("Save .mat"))
 	{
 		std::wstring wp = bufToW();
+		// 디렉터리 구분자 없으면 Assets/Materials/<이름>.mat 로 (작업폴더 오염 방지)
+		if (!wp.empty() && wp.find(L'\\') == std::wstring::npos && wp.find(L'/') == std::wstring::npos && _dev)
+		{
+			std::wstring dir = _dev->_assetRoot + L"\\Materials";
+			std::error_code ec; std::filesystem::create_directories(dir, ec);
+			if (wp.size() < 5 || wp.substr(wp.size() - 4) != L".mat") wp += L".mat";
+			wp = dir + L"\\" + wp;
+		}
 		if (!wp.empty() && SaveMaterial(*_material, wp))
 		{
 			_material->_path = wp;
@@ -240,7 +246,7 @@ void MeshRenderer::OnInspectorGUI()
 		if (ImGui::Button("Make Unique")) { auto u = make_shared<Material>(*_material); u->_path.clear(); _material = u; _baked = false; }
 	}
 
-	if (tintChanged) _baked = false; // 틴트는 정점색에 베이크 → 재베이크 강제
+	(void)tintChanged; // 틴트는 셰이더 gObjTint 로 적용 — 재베이크 불필요
 }
 
 // RT 통합 — AS 패스에서 호출(Draw 전). 트랜스폼 변경 시에만 월드 정점 재생성.
@@ -249,9 +255,7 @@ void MeshRenderer::UpdateWorld()
 	if (!_dev || _local.empty()) return;
 	SyncMaterialTex();
 	uint32 ver = 0; if (auto t = GetTransform()) ver = t->Version();
-	const Vec3& d = _material->_diffuse;
-	bool tintChanged = d.x != _lastBakedDiffuse.x || d.y != _lastBakedDiffuse.y || d.z != _lastBakedDiffuse.z; // 공유 머티리얼 외부 편집 감지
-	if (!_baked || ver != _bakedVer || tintChanged) { Rebake(); _baked = true; _bakedVer = ver; _blasDirty = true; }
+	if (!_baked || ver != _bakedVer) { Rebake(); _baked = true; _bakedVer = ver; _blasDirty = true; }
 }
 
 void MeshRenderer::RecordBuildBLAS(ID3D12GraphicsCommandList4* cmd)
@@ -277,15 +281,17 @@ void MeshRenderer::Draw(const RenderContext& ctx)
 	cmd->SetGraphicsRootShaderResourceView(1, d._scene._tlas->GetGPUVirtualAddress());
 	cmd->SetGraphicsRootShaderResourceView(2, d._ddgi.ProbesAddr());
 	cmd->SetGraphicsRootShaderResourceView(5, d._ddgi.ProbeDepthAddr());
+	// per-object 머티리얼 루트상수 (mode, metallic, roughness, emissive, tint.rgb, pad)
+	struct { uint32 mode; float met, rough, emis, tr, tg, tb, pad; } mc{
+		_hasTex ? 1u : 2u, _material->_metallic, _material->_roughness, _material->_emissive,
+		_material->_diffuse.x, _material->_diffuse.y, _material->_diffuse.z, 0.f };
 	if (_hasTex)
 	{
 		ID3D12DescriptorHeap* heaps[] = { _srvHeap.Get() };
 		cmd->SetDescriptorHeaps(1, heaps);
-		cmd->SetGraphicsRoot32BitConstant(4, 1u, 0); // useTex=1
 		cmd->SetGraphicsRootDescriptorTable(3, _srvHeap->GetGPUDescriptorHandleForHeapStart());
 	}
-	else
-		cmd->SetGraphicsRoot32BitConstant(4, 2u, 0); // 정점색(머티리얼 틴트)
+	cmd->SetGraphicsRoot32BitConstants(4, 8, &mc, 0);
 	cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	cmd->IASetVertexBuffers(0, 1, &_vbv);
 	cmd->IASetIndexBuffer(&_ibv);

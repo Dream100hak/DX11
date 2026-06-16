@@ -1681,6 +1681,16 @@ void D3D12Device::DrawFolderContents()
 				if (isDir) _curDir = full;
 				else if (kind == AssetKind::Mesh) { _selectedAsset = full; Vec3 sp = SpawnPoint(); SpawnAnimatedModel(full, Vec3{ sp.x, 0, sp.z }); } // 씬에 추가 배치(정적/애니 공통)
 				else if (kind == AssetKind::Scene) { _selectedAsset = full; } // (씬 로드는 메뉴 Open Scene)
+				else if (kind == AssetKind::Material && p.extension() == L".mat") // .mat → 선택 메시에 공유 적용
+				{
+					_selectedAsset = full;
+					if (_selectedGO) if (auto mr = _selectedGO->GetMeshRenderer())
+					{
+						auto shared = GET_SINGLE(ResourceManager)->Get<Material>(full);
+						if (!shared) { shared = LoadMaterial(full); if (shared) GET_SINGLE(ResourceManager)->Add<Material>(full, shared); }
+						if (shared) { mr->SetMaterialRef(shared); Log("Assigned material: " + WToUtf8(p.filename().wstring())); }
+					}
+				}
 			}
 
 			// 중앙정렬 파일명

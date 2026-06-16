@@ -309,16 +309,17 @@ void D3D12Device::DrawMainMenuBar()
 		}
 		if (ImGui::BeginMenu("GameObject"))
 		{
-			if (ImGui::MenuItem("Create Empty", "Ctrl+B")) SpawnEmpty(L"GameObject", Vec3{ 0.f, 0.5f, 0.f });
+			Vec3 sp = SpawnPoint();
+			if (ImGui::MenuItem("Create Empty", "Ctrl+B")) SpawnEmpty(L"GameObject", sp);
 			if (ImGui::BeginMenu("3D Object"))
 			{
 				vector<Vtx> v; vector<uint32> idx;
-				if (ImGui::MenuItem("Cube"))   { BuildPrim(MeshPrim::Cube, v, idx);   SpawnMeshObject(L"Cube", v, idx, Vec3{ 0,0.5f,0 }, MeshPrim::Cube); }
-				if (ImGui::MenuItem("Sphere")) { BuildPrim(MeshPrim::Sphere, v, idx); SpawnMeshObject(L"Sphere", v, idx, Vec3{ 0,0.5f,0 }, MeshPrim::Sphere); }
-				if (ImGui::MenuItem("Plane"))  { BuildPrim(MeshPrim::Plane, v, idx);  SpawnMeshObject(L"Plane", v, idx, Vec3{ 0,0,0 }, MeshPrim::Plane); }
+				if (ImGui::MenuItem("Cube"))   { BuildPrim(MeshPrim::Cube, v, idx);   SpawnMeshObject(L"Cube", v, idx, sp, MeshPrim::Cube); }
+				if (ImGui::MenuItem("Sphere")) { BuildPrim(MeshPrim::Sphere, v, idx); SpawnMeshObject(L"Sphere", v, idx, sp, MeshPrim::Sphere); }
+				if (ImGui::MenuItem("Plane"))  { BuildPrim(MeshPrim::Plane, v, idx);  SpawnMeshObject(L"Plane", v, idx, Vec3{ sp.x,0,sp.z }, MeshPrim::Plane); }
 				ImGui::Separator();
 				if (ImGui::MenuItem("Animated Model (Archer)"))
-					SpawnAnimatedModel(_assetRoot + L"\\Models\\Archer\\Archer.mesh", Vec3{ -2.2f, 0, 0 });
+					SpawnAnimatedModel(_assetRoot + L"\\Models\\Archer\\Archer.mesh", Vec3{ sp.x, 0, sp.z });
 				ImGui::EndMenu();
 			}
 			ImGui::Separator();
@@ -460,17 +461,17 @@ void D3D12Device::DrawHierarchy()
 	// 우클릭 컨텍스트 메뉴 (EditorTool GameObject 생성 흐름)
 	if (ImGui::BeginPopupContextWindow("hctx", ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
 	{
-		Vec3 spawnAt{ 0.f, 0.5f, 0.f }; // 원점 근처
+		Vec3 spawnAt = SpawnPoint(); // 카메라 앞
 		if (ImGui::MenuItem("Create Empty")) SpawnEmpty(L"GameObject", spawnAt);
 		if (ImGui::BeginMenu("3D Object"))
 		{
 			vector<Vtx> v; vector<uint32> idx;
 			if (ImGui::MenuItem("Cube"))   { BuildPrim(MeshPrim::Cube, v, idx);   SpawnMeshObject(L"Cube", v, idx, spawnAt, MeshPrim::Cube); }
 			if (ImGui::MenuItem("Sphere")) { BuildPrim(MeshPrim::Sphere, v, idx); SpawnMeshObject(L"Sphere", v, idx, spawnAt, MeshPrim::Sphere); }
-			if (ImGui::MenuItem("Plane"))  { BuildPrim(MeshPrim::Plane, v, idx);  SpawnMeshObject(L"Plane", v, idx, Vec3{ 0,0,0 }, MeshPrim::Plane); }
+			if (ImGui::MenuItem("Plane"))  { BuildPrim(MeshPrim::Plane, v, idx);  SpawnMeshObject(L"Plane", v, idx, Vec3{ spawnAt.x, 0, spawnAt.z }, MeshPrim::Plane); }
 			ImGui::Separator();
 			if (ImGui::MenuItem("Animated Model (Archer)"))
-				SpawnAnimatedModel(_assetRoot + L"\\Models\\Archer\\Archer.mesh", Vec3{ -2.2f, 0, 0 });
+				SpawnAnimatedModel(_assetRoot + L"\\Models\\Archer\\Archer.mesh", Vec3{ spawnAt.x, 0, spawnAt.z });
 			ImGui::EndMenu();
 		}
 		ImGui::Separator();
@@ -681,6 +682,14 @@ static void BuildPrim(MeshPrim prim, vector<Vtx>& v, vector<uint32>& idx)
 	}
 }
 
+Vec3 D3D12Device::SpawnPoint()
+{
+	using namespace DirectX;
+	XMVECTOR p = XMVectorAdd(_camera.Eye(), XMVectorScale(_camera.Forward(), 4.0f));
+	Vec3 r; XMStoreFloat3(&r, p); r.y = max(r.y, 0.5f); // 바닥 아래로 안 가게
+	return r;
+}
+
 shared_ptr<GameObject> D3D12Device::SpawnAnimatedModel(const std::wstring& meshPath, const Vec3& pos)
 {
 	if (!_gameScene) return nullptr;
@@ -759,8 +768,23 @@ void D3D12Device::DuplicateSelectedObject()
 {
 	auto source = _selectedGO; // SpawnMeshObject 가 _selectedGO 를 재할당하므로 먼저 캡처
 	if (!source || !_gameScene) return;
+
+	// 애니메이션 모델 복제
+	if (auto sa = source->GetModelAnimator())
+	{
+		auto st = source->GetTransform();
+		Vec3 pos{ 0,0,0 }; if (st) { pos = st->GetLocalPosition(); pos.x += 1.0f; }
+		auto obj = SpawnAnimatedModel(sa->MeshDir() + sa->MeshStem() + L".mesh", pos);
+		if (obj)
+		{
+			if (auto da = obj->GetModelAnimator()) { da->SetClipIndex(sa->GetClipIndex()); da->SetSpeed(sa->GetSpeed()); da->SetPlaying(sa->IsPlaying()); }
+			if (auto dt = obj->GetTransform(); st && dt) { dt->SetLocalScale(st->GetLocalScale()); dt->SetLocalRotation(st->GetLocalRotation()); }
+		}
+		return;
+	}
+
 	auto src = source->GetMeshRenderer();
-	if (!src) { Log("Duplicate: only MeshRenderer objects supported"); return; }
+	if (!src) { Log("Duplicate: only Mesh/Animator objects supported"); return; }
 	auto st = source->GetTransform();
 	Vec3 pos{ 0,0,0 };
 	if (st) { pos = st->GetLocalPosition(); pos.x += 1.0f; }
@@ -1427,6 +1451,13 @@ void D3D12Device::DrawGameObjectInspector(const shared_ptr<GameObject>& go)
 				mr->SetGeometry(v, idx); mr->SetPrim(MeshPrim::Cube);
 				go->AddComponent(mr);
 				Log("Added MeshRenderer to " + WToUtf8(go->GetObjectName()));
+			}
+			if (!go->GetRenderer() && ImGui::MenuItem("Model Animator"))
+			{
+				auto an = make_shared<ModelAnimator>(); an->Bind(this);
+				if (an->Load(_assetRoot + L"\\Models\\Archer\\Archer.mesh"))
+				{ go->AddComponent(an); Log("Added ModelAnimator to " + WToUtf8(go->GetObjectName())); }
+				else Log("ModelAnimator load FAILED");
 			}
 			if (!go->GetLight() && ImGui::MenuItem("Light"))
 			{

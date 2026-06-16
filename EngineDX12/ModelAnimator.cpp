@@ -182,7 +182,9 @@ void ModelAnimator::Skin()
 	std::vector<XMMATRIX> global, skin;
 	if (anim)
 	{
-		uint32 frame = (uint32)(_animTime * _clip.frameRate) % _clip.frameCount;
+		uint32 raw = (uint32)(_animTime * _clip.frameRate);
+		uint32 frame = _loop ? (raw % _clip.frameCount)               // 루프
+		                     : (raw < _clip.frameCount ? raw : _clip.frameCount - 1); // 마지막 프레임 유지
 		global.resize(nb); skin.resize(nb);
 		for (size_t b = 0; b < nb; ++b)
 		{

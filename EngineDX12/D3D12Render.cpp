@@ -301,6 +301,9 @@ void D3D12Device::Render()
 	// ── 터레인 GPU 테셀레이션 (토글 ON 시) ──
 	RenderTessTerrain(ctx);
 
+	// ── 물 평면 (토글 ON 시) ──
+	RenderWater(ctx);
+
 	// ── 그리드 — GridRenderer (Transparent 큐, 컬링 제외) ──
 	if (sceneCam) drawBucket(sceneCam->GetVecTransparent(), false);
 
@@ -447,6 +450,20 @@ void D3D12Device::RenderGameView()
 	_gameTexId = _imgui.SetGameTexture(disp);
 }
 
+// 물 평면 — 절차적 그리드(VS) + 사인파 변위 + 프레넬 하늘반사. 반투명. ctx.cb=b0.
+void D3D12Device::RenderWater(const RenderContext& ctx)
+{
+	if (!_waterOn || !_waterPSO) return;
+	float wcb[8] = { _waterLevel, _waterSize, _waterGrid, _time, 0, 0, 0, 0 }; // level/size/grid/time
+	UINT G = (UINT)_waterGrid;
+	_cmdList->SetPipelineState(_waterPSO.Get());
+	_cmdList->SetGraphicsRootSignature(_rootSig.Get());
+	_cmdList->SetGraphicsRootConstantBufferView(0, ctx.cb);   // b0 VP/cam/sky/sun
+	_cmdList->SetGraphicsRoot32BitConstants(4, 8, wcb, 0);    // b1 water params
+	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	_cmdList->DrawInstanced(G * G * 6, 1, 0, 0);              // 절차 그리드(VB 없음)
+}
+
 // 선택/첫 Terrain 을 GPU 테셀레이션(코어스 패치+HS/DS 변위)으로 렌더. 메인 루트시그 재사용.
 void D3D12Device::RenderTessTerrain(const RenderContext& ctx)
 {
@@ -519,11 +536,16 @@ void D3D12Device::RenderParticles(const RenderContext& ctx)
 	{
 		auto& o = kv.second; if (!o || !o->IsActive()) continue;
 		auto ps = std::dynamic_pointer_cast<ParticleSystem>(o->GetRenderer()); if (!ps) continue;
-		float sz = ps->Size();
+		float sz0 = ps->Size(), sz1 = ps->SizeEnd(); const Vec3& ce = ps->ColorEnd();
 		for (auto& p : ps->Particles())
 		{
-			float fade = p.maxLife > 0.f ? p.life / p.maxLife : 1.f;
-			insts.push_back({ p.pos, sz, XMFLOAT3(p.col.x * fade, p.col.y * fade, p.col.z * fade), 0.f });
+			float life01 = p.maxLife > 0.f ? p.life / p.maxLife : 1.f; // 1=갓태어남 → 0=소멸
+			float t = 1.f - life01;                                     // 수명 진행도
+			float sz = sz0 + (sz1 - sz0) * t;                           // 크기 보간
+			// 색은 입자 자체색(p.col, 모드별 랜덤) → ColorEnd 로 보간, 알파 페이드(life01)
+			float fade = life01;
+			XMFLOAT3 c{ (p.col.x + (ce.x - p.col.x) * t) * fade, (p.col.y + (ce.y - p.col.y) * t) * fade, (p.col.z + (ce.z - p.col.z) * t) * fade };
+			insts.push_back({ p.pos, sz, c, 0.f });
 		}
 	}
 	if (insts.empty()) return;

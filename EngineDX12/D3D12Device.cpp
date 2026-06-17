@@ -701,6 +701,49 @@ float4 PSMain(DSOut i) : SV_TARGET
 }
 )";
 
+// 물 평면 — 절차적 그리드(SV_VertexID) + 사인파 합성 변위 + 프레넬 하늘반사. 반투명 블렌드.
+static const std::string kWaterShader = std::string(kSceneCB) + R"(
+cbuffer WaterCB : register(b1) { float gLevel; float gSize; float gGrid; float gTime; float4 _wpad; };
+float WaveY(float2 p, out float3 nrm)
+{
+    // 사인파 3개 합성 (방향/주파수/속도 다름)
+    float2 d1 = normalize(float2(1, 0.3)), d2 = normalize(float2(-0.6, 1)), d3 = normalize(float2(0.4, -0.8));
+    float a1 = 0.18, a2 = 0.10, a3 = 0.06; float f1 = 0.5, f2 = 0.9, f3 = 1.7; float s1 = 1.1, s2 = 1.7, s3 = 2.3;
+    float p1 = dot(p, d1) * f1 + gTime * s1, p2 = dot(p, d2) * f2 + gTime * s2, p3 = dot(p, d3) * f3 + gTime * s3;
+    float y = a1 * sin(p1) + a2 * sin(p2) + a3 * sin(p3);
+    float dx = a1 * f1 * cos(p1) * d1.x + a2 * f2 * cos(p2) * d2.x + a3 * f3 * cos(p3) * d3.x;
+    float dz = a1 * f1 * cos(p1) * d1.y + a2 * f2 * cos(p2) * d2.y + a3 * f3 * cos(p3) * d3.y;
+    nrm = normalize(float3(-dx, 1.0, -dz));
+    return y;
+}
+struct VOut { float4 pos:SV_POSITION; float3 wp:TEXCOORD0; float3 nrm:TEXCOORD1; };
+VOut VSMain(uint vid : SV_VertexID)
+{
+    uint q = vid / 6u, corner = vid % 6u;
+    uint G = (uint)gGrid; uint gx = q % G, gz = q / G;
+    float2 co[6] = { float2(0,0), float2(1,0), float2(1,1), float2(0,0), float2(1,1), float2(0,1) };
+    float2 c = co[corner];
+    float cell = gSize * 2.0 / gGrid;
+    float2 xz = float2(-gSize + (gx + c.x) * cell, -gSize + (gz + c.y) * cell);
+    float3 n; float y = WaveY(xz, n);
+    VOut o; o.wp = float3(xz.x, gLevel + y, xz.y); o.nrm = n; o.pos = mul(float4(o.wp, 1.0), gMVP); return o;
+}
+float4 PSMain(VOut i) : SV_TARGET
+{
+    float3 V = normalize(gCamPos.xyz - i.wp);
+    float3 N = normalize(i.nrm);
+    float fres = pow(saturate(1.0 - dot(N, V)), 5.0); fres = 0.02 + 0.98 * fres; // 슐릭 프레넬
+    float3 R = reflect(-V, N);
+    float3 skyCol = lerp(gSkyHorizon.rgb, gSkyZenith.rgb, saturate(R.y * 0.5 + 0.5)); // 하늘 반사
+    float3 deep = float3(0.02, 0.09, 0.13), shallow = float3(0.05, 0.22, 0.28);
+    float3 water = lerp(deep, shallow, saturate(N.y));
+    float3 L = normalize(-gLightDir.xyz);
+    float spec = pow(saturate(dot(R, L)), 120.0) * gLightDir.w;
+    float3 col = lerp(water, skyCol, fres) + spec * gSunColor.rgb;
+    return float4(col, 0.82); // 반투명
+}
+)";
+
 // 디버그 라인 (본/AABB/스팟콘/라이트 아이콘) — LINELIST, pos+color
 // 디버그 라인 셰이더는 DebugDraw.cpp 로 이동(자체 포함, kSceneCB 불필요)
 
@@ -1277,6 +1320,18 @@ void D3D12Device::CreatePipeline()
 		ThrowIfFailed(_device->CreateGraphicsPipelineState(&tp, IID_PPV_ARGS(&_tessPSO)), "CreateTessPSO");
 		tp.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME; // 와이어 변형(테셀 밀도 시각화)
 		ThrowIfFailed(_device->CreateGraphicsPipelineState(&tp, IID_PPV_ARGS(&_tessWirePSO)), "CreateTessWirePSO");
+	}
+
+	// ── 물 평면 PSO (절차 그리드, 알파 블렌드, 깊이 테스트/쓰기) — 그리드 PSO(gpso) 베이스 ──
+	{
+		ComPtr<IDxcBlob> wvs = CompileDxc(kWaterShader.c_str(), L"VSMain", L"vs_6_5");
+		ComPtr<IDxcBlob> wps = CompileDxc(kWaterShader.c_str(), L"PSMain", L"ps_6_5");
+		D3D12_GRAPHICS_PIPELINE_STATE_DESC wp = gpso; // 입력레이아웃 없음/TRIANGLE/알파블렌드 베이스
+		wp.VS = { wvs->GetBufferPointer(), wvs->GetBufferSize() };
+		wp.PS = { wps->GetBufferPointer(), wps->GetBufferSize() };
+		wp.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+		wp.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL; // 물 표면 깊이 기록(파티클/그리드가 가려지게)
+		ThrowIfFailed(_device->CreateGraphicsPipelineState(&wp, IID_PPV_ARGS(&_waterPSO)), "CreateWaterPSO");
 	}
 
 	// ── 아웃라인 PSO (앞면 컬링 = 뒷면 렌더, 깊이 LESS/쓰기, 입력레이아웃 = 메시) ──

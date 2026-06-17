@@ -39,6 +39,8 @@ public:
 
 	const std::vector<P>& Particles() const { return _parts; }
 	float Size() const { return _size; }
+	float SizeEnd() const { return _sizeEnd; }
+	const Vec3& ColorEnd() const { return _colorEnd; }
 
 	virtual void Draw(const RenderContext&) override {} // 렌더는 D3D12Device::DrawDebugLines 가 처리(크로스)
 	virtual void OnInspectorGUI() override
@@ -51,8 +53,10 @@ public:
 		ImGui::DragFloat("Lifetime", &_life, 0.05f, 0.1f, 20.f);
 		ImGui::DragFloat("Speed", &_speed, 0.05f, 0.f, 30.f);
 		ImGui::DragFloat("Gravity", &_gravity, 0.05f, -30.f, 30.f);
-		ImGui::DragFloat("Size", &_size, 0.005f, 0.005f, 1.f);
+		ImGui::DragFloat("Size", &_size, 0.005f, 0.005f, 2.f);
+		ImGui::DragFloat("Size End", &_sizeEnd, 0.005f, 0.f, 2.f);
 		ImGui::ColorEdit3("Color", &_color.x);
+		ImGui::ColorEdit3("Color End", &_colorEnd.x);
 		ImGui::Text("Alive: %d", (int)_parts.size());
 	}
 
@@ -60,7 +64,9 @@ public:
 	int   _mode = 0;
 	bool  _emitting = true;
 	float _rate = 60.f, _life = 1.5f, _speed = 3.f, _gravity = -4.f, _size = 0.05f;
+	float _sizeEnd = 0.02f;            // 수명 끝 크기(라이프 보간)
 	Vec3  _color{ 1.f, 0.7f, 0.2f };
+	Vec3  _colorEnd{ 1.f, 0.2f, 0.05f }; // 수명 끝 색(라이프 보간)
 
 private:
 	std::vector<P> _parts;

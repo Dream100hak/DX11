@@ -157,6 +157,11 @@ private:
 	void*                             _tessCPMapped = nullptr; void* _tessHeightsMapped = nullptr;
 	UINT                              _tessCPCap = 0, _tessHeightsCap = 0;
 	void                              RenderTessTerrain(const RenderContext& ctx); // 선택/첫 터레인을 테셀레이션으로
+	// 물 평면 (OFF 기본 — 토글)
+	ComPtr<ID3D12PipelineState>       _waterPSO;
+	bool                              _waterOn = false;
+	float                             _waterLevel = 0.2f, _waterSize = 60.f, _waterGrid = 80.f;
+	void                              RenderWater(const RenderContext& ctx);
 	DebugDraw                         _debugDraw;  // 디버그 라인 렌더러(본/AABB/콘/아이콘/파티클)
 	void                              DrawDebugLines(); // 에디터 상태 → 라인 빌드 → _debugDraw 드로우
 	DXGI_FORMAT                       _sceneFmt = DXGI_FORMAT_R16G16B16A16_FLOAT; // 씬 RT(HDR)

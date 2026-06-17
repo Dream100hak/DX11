@@ -537,6 +537,16 @@ void D3D12Device::DrawMainMenuBar()
 			if (ImGui::MenuItem("Directional Light")) { _sel = SelEntity::Sun; _selectedGO = nullptr; } // 디렉셔널=단일 sun(선택)
 			if (ImGui::MenuItem("Point Light"))       SpawnLight(1, L"Point Light", sp);
 			if (ImGui::MenuItem("Spot Light"))        SpawnLight(2, L"Spot Light", sp);
+			if (ImGui::MenuItem("Point Light x9 (demo)")) // 다중 라이트(최대16) 데모 — 색색 점광원 3x3 격자
+			{
+				const Vec3 cols[9] = { {1,0.3f,0.3f},{0.3f,1,0.3f},{0.3f,0.5f,1},{1,1,0.3f},{1,0.4f,1},{0.3f,1,1},{1,0.6f,0.2f},{0.6f,0.3f,1},{1,1,1} };
+				int k = 0;
+				for (int z = -1; z <= 1; ++z) for (int x = -1; x <= 1; ++x, ++k)
+				{
+					auto o = SpawnLight(1, L"PtGrid", Vec3{ x * 3.0f, 1.2f, z * 3.0f });
+					if (o) if (auto l = o->GetLight()) { l->_color = cols[k]; l->_intensity = 3.0f; l->_range = 4.5f; }
+				}
+			}
 			if (ImGui::MenuItem("Particle System"))   { auto o = SpawnEmpty(L"Particles", sp); if (o) o->AddComponent(make_shared<ParticleSystem>()); }
 			if (ImGui::MenuItem("Camera")) { auto o = SpawnEmpty(L"Camera", _camera.pos); if (o) { o->AddComponent(make_shared<Camera>()); if (auto t = o->GetTransform()) t->SetLocalRotation(Vec3{ _camera.pitch, _camera.yaw, 0.f }); } }
 			ImGui::Separator();

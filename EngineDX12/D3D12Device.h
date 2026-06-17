@@ -170,10 +170,11 @@ private:
 	shared_ptr<GameObject>            SpawnTerrain(int gridN, float cellSize); // Terrain + MeshRenderer GameObject
 	// 터레인 편집 (씬뷰 브러시) — Terrain 선택 + Edit 토글 시 좌드래그로 스컬프트
 	bool                              _terrainEdit = false;
-	int                               _terrainBrush = 0;     // 0 Raise/1 Lower/2 Smooth/3 Flatten
+	int                               _terrainBrush = 0;     // 0 Raise/1 Lower/2 Smooth/3 Flatten/4 Paint
 	float                             _terrainRadius = 6.f;
 	float                             _terrainStrength = 8.f; // 초당 변화량(m)
 	float                             _terrainFlatten = 0.f;
+	Vec3                              _terrainPaintColor{ 0.5f, 0.4f, 0.25f }; // Paint 브러시 색(흙)
 	Vec3                              _terrainCursor{};       // 마지막 브러시 월드 히트(기즈모/오버레이용)
 	bool                              _terrainCursorValid = false;
 	void                              TerrainBrushAt(float u, float v, bool apply); // 씬뷰 uv → 레이 → (apply 시)스컬프트

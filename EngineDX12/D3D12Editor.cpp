@@ -992,9 +992,14 @@ void D3D12Device::TerrainBrushAt(float u, float v, bool apply)
 	if (apply)
 	{
 		float dt = ImGui::GetIO().DeltaTime; if (dt <= 0.f || dt > 0.1f) dt = 1.f / 60.f;
-		float str = _terrainStrength * dt;
-		if (_terrainBrush == 2 || _terrainBrush == 3) str = _terrainStrength * dt * 0.5f; // smooth/flatten 은 비율
-		tr->Sculpt(hit.x, hit.z, _terrainRadius, str, (TerrainBrush)_terrainBrush, _terrainFlatten);
+		if (_terrainBrush == 4) // Paint
+			tr->Paint(hit.x, hit.z, _terrainRadius, _terrainStrength * dt, _terrainPaintColor);
+		else
+		{
+			float str = _terrainStrength * dt;
+			if (_terrainBrush == 2 || _terrainBrush == 3) str = _terrainStrength * dt * 0.5f; // smooth/flatten 은 비율
+			tr->Sculpt(hit.x, hit.z, _terrainRadius, str, (TerrainBrush)_terrainBrush, _terrainFlatten);
+		}
 	}
 }
 
@@ -1946,11 +1951,12 @@ void D3D12Device::DrawGameObjectInspector(const shared_ptr<GameObject>& go)
 	{
 		ImGui::SeparatorText("Terrain Sculpt");
 		ImGui::Checkbox("Edit Mode (좌드래그=스컬프트)", &_terrainEdit);
-		const char* brushes[] = { "Raise", "Lower", "Smooth", "Flatten" };
-		ImGui::Combo("Brush", &_terrainBrush, brushes, 4);
+		const char* brushes[] = { "Raise", "Lower", "Smooth", "Flatten", "Paint" };
+		ImGui::Combo("Brush", &_terrainBrush, brushes, 5);
 		ImGui::DragFloat("Radius", &_terrainRadius, 0.2f, 0.5f, terr->WorldSize() * 0.5f);
-		ImGui::DragFloat("Strength (m/s)", &_terrainStrength, 0.2f, 0.1f, 50.f);
+		ImGui::DragFloat("Strength", &_terrainStrength, 0.2f, 0.1f, 50.f);
 		if (_terrainBrush == 3) ImGui::DragFloat("Flatten Height", &_terrainFlatten, 0.1f, -50.f, 50.f);
+		if (_terrainBrush == 4) ImGui::ColorEdit3("Paint Color", &_terrainPaintColor.x);
 		ImGui::TextDisabled("Grid %dx%d  cell %.2fm  size %.0fm", terr->GridN(), terr->GridN(), terr->CellSize(), terr->WorldSize());
 
 		if (ImGui::Button("Save Heightmap..."))

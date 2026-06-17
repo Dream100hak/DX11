@@ -8,7 +8,7 @@ class D3D12Device;
 //   같은 GameObject 의 MeshRenderer 에 정점을 채워 메인 디퍼드 경로로 렌더(추가 PSO 불필요).
 //   GameObject 트랜스폼은 항등 유지(정점=월드). 브러시는 CPU 하이트맵 수정 → 노멀 재계산 → in-place 재업로드.
 //   Paint(블렌드맵)/Foliage 는 추후 증분.
-enum class TerrainBrush : int { Raise, Lower, Smooth, Flatten };
+enum class TerrainBrush : int { Raise, Lower, Smooth, Flatten, Paint };
 
 class Terrain : public Component
 {
@@ -21,6 +21,8 @@ public:
 
 	// 월드 (wx,wz) 중심 반경 radius 브러시. strength: 초당 변화량×dt 적용해 호출측에서 스케일.
 	void Sculpt(float wx, float wz, float radius, float strength, TerrainBrush mode, float flattenH);
+	// 정점 색 페인트 (셰이더 추가 없이 정점색 경로 활용). color 로 blend.
+	void Paint(float wx, float wz, float radius, float strength, const Vec3& color);
 
 	float GetHeight(float wx, float wz) const;             // bilinear 샘플 (그리드 밖이면 0)
 	bool  Raycast(const Vec3& ro, const Vec3& rd, Vec3& hit) const; // 높이필드 march + 이분탐색
@@ -44,5 +46,6 @@ private:
 	int                _gridN = 128;
 	float              _cellSize = 1.0f;
 	std::vector<float> _heightmap;   // (gridN+1)²
+	std::vector<Vec3>  _paint;       // 페인트 레이어(비어있으면 절차적 색 사용). (gridN+1)²
 	std::wstring       _hmPath;
 };

@@ -27,6 +27,7 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <algorithm>
 #include <functional>
 #include <wincodec.h>
 #pragma comment(lib, "windowscodecs.lib")
@@ -679,13 +680,31 @@ void D3D12Device::DrawHierarchy()
 			bool open = ImGui::TreeNodeEx((void*)(intptr_t)obj->GetId(), flags, "%s", label.c_str());
 			if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
 			{
-				if (ImGui::GetIO().KeyCtrl && _selectedGO && obj != _selectedGO)
+				ImGuiIO& gio = ImGui::GetIO();
+				if (gio.KeyShift && _anchorId >= 0)
+				{
+					// 범위 선택 — 생성순(id) 정렬 비-내부 목록에서 anchor~clicked 사이 전부 선택
+					std::vector<int64> ord;
+					for (auto& kv2 : _gameScene->GetCreatedObjects()) if (kv2.second && !kv2.second->IsEditorInternal()) ord.push_back(kv2.first);
+					std::sort(ord.begin(), ord.end());
+					int ia = -1, ib = -1;
+					for (int k = 0; k < (int)ord.size(); ++k) { if (ord[k] == _anchorId) ia = k; if (ord[k] == obj->GetId()) ib = k; }
+					if (ia >= 0 && ib >= 0)
+					{
+						if (ia > ib) std::swap(ia, ib);
+						_selIds.clear();
+						for (int k = ia; k <= ib; ++k) if (ord[k] != obj->GetId()) _selIds.push_back(ord[k]);
+						_selectedGO = obj; // primary = 마지막 클릭
+					}
+				}
+				else if (gio.KeyCtrl && _selectedGO && obj != _selectedGO)
 				{
 					int64 id = obj->GetId(); bool removed = false; // 멀티셀렉트 토글
 					for (size_t k = 0; k < _selIds.size(); ++k) if (_selIds[k] == id) { _selIds.erase(_selIds.begin() + k); removed = true; break; }
 					if (!removed) _selIds.push_back(id);
+					_anchorId = id;
 				}
-				else { _selIds.clear(); _selectedGO = obj; } // 단일 선택
+				else { _selIds.clear(); _selectedGO = obj; _anchorId = obj->GetId(); } // 단일 선택
 			}
 			// 우클릭 컨텍스트 메뉴
 			if (ImGui::BeginPopupContextItem())
@@ -1012,13 +1031,21 @@ void D3D12Device::DrawSceneView()
 				(float*)&wm, nullptr, _snapOn ? snap3 : nullptr))
 			{
 				t->SetWorldMatrix(wm); // 월드→로컬 역산 + 분해 (부모 회전/스케일 안전)
-				// 멀티셀렉트 그룹 이동 — primary 의 월드 이동 델타를 나머지 선택에 적용
-				float dx = wm._41 - oldWM._41, dy = wm._42 - oldWM._42, dz = wm._43 - oldWM._43;
-				if (!_selIds.empty() && (dx != 0.f || dy != 0.f || dz != 0.f))
+				// 멀티셀렉트 그룹 변환 — 월드 델타 W=inverse(old)·new 를 나머지 선택에 적용(이동/회전/스케일, 피벗=기즈모 중심)
+				if (!_selIds.empty())
+				{
+					using namespace DirectX;
+					XMMATRIX oldW = XMLoadFloat4x4(&oldWM), newW = XMLoadFloat4x4(&wm);
+					XMMATRIX W = XMMatrixMultiply(XMMatrixInverse(nullptr, oldW), newW);
 					for (int64 id : _selIds)
 						if (auto o = _gameScene->GetCreatedObject(id))
 							if (auto ot = o->GetTransform())
-							{ DirectX::XMFLOAT4X4 ow = ot->GetWorldMatrix(); ow._41 += dx; ow._42 += dy; ow._43 += dz; ot->SetWorldMatrix(ow); }
+							{
+								XMFLOAT4X4 ow = ot->GetWorldMatrix();
+								XMFLOAT4X4 nw; XMStoreFloat4x4(&nw, XMMatrixMultiply(XMLoadFloat4x4(&ow), W));
+								ot->SetWorldMatrix(nw);
+							}
+				}
 			}
 		}
 		else if (_sel == SelEntity::Model)

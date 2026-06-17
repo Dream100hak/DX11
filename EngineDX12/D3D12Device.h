@@ -218,6 +218,7 @@ private:
 	void                              NewScene();                // 씬그래프 비우기 + 파라미터 리셋
 	int                               _spawnCounter = 0;         // 고유 이름 접미사
 	std::vector<int64>                _selIds;                   // 추가 선택(멀티셀렉트) — primary=_selectedGO 제외 id 목록
+	int64                             _anchorId = -1;            // Shift 범위 선택 기준(마지막 단일 클릭)
 	bool                              IsMultiSelected(int64 id) const { for (int64 s : _selIds) if (s == id) return true; return false; }
 	// 모델 교체 예약 (더블클릭/씬로드 — 다음 프레임 GPU 유휴 시점에 처리)
 	std::wstring                      _pendingModel;

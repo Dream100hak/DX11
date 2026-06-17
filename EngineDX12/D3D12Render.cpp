@@ -285,14 +285,17 @@ void D3D12Device::Render()
 	// ── 선택 아웃라인 (인버티드 헐 → 이후 불투명 패스가 위를 덮어 림만 남음) ──
 	// 선택된 GameObject 의 렌더러를 우선 아웃라인. 없으면(레거시 단일 모델 선택 시) _scene 모델.
 	auto outlineR = (_selectedGO && !_selectedGO->IsEditorInternal()) ? _selectedGO->GetRenderer() : nullptr;
-	if (outlineR || (_sel == SelEntity::Model && !_selectedGO && _scene._modelIndexCount > 0))
+	if (outlineR || !_selIds.empty() || (_sel == SelEntity::Model && !_selectedGO && _scene._modelIndexCount > 0))
 	{
 		_cmdList->SetPipelineState(_outlinePSO.Get());
 		_cmdList->SetGraphicsRootSignature(_rootSig.Get());
 		_cmdList->SetGraphicsRootConstantBufferView(0, _cb[_frameIndex]->GetGPUVirtualAddress());
-		if (outlineR)
-			outlineR->RecordOutline(_cmdList.Get()); // 선택 오브젝트(메시/애니) 자기 VB/IB
-		else
+		if (outlineR) outlineR->RecordOutline(_cmdList.Get()); // primary
+		// 멀티셀렉트 — 추가 선택 전부 아웃라인
+		for (int64 id : _selIds)
+			if (auto o = _gameScene ? _gameScene->GetCreatedObject(id) : nullptr)
+				if (auto r = o->GetRenderer()) r->RecordOutline(_cmdList.Get());
+		if (!outlineR && _selIds.empty()) // 레거시 단일 모델 폴백
 		{
 			_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 			_cmdList->IASetVertexBuffers(0, 1, &_scene._vbv);

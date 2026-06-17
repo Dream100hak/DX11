@@ -14,6 +14,7 @@ enum class RendererType : uint8
 	Particle,
 	Grid,     // 에디터 씬 그리드 — Mesh 로 두면 GetMeshRenderer 가 잘못 캐스팅(UB)
 	Foliage,  // 터레인 식생(잔디/나무) — 자체 베이크 메시, GetMeshRenderer 회피 → RT TLAS 자동 제외
+	Billboard,// 카메라 정면 쿼드(스프라이트/마커) — 파티클 빌보드 파이프라인 재사용
 	End,
 };
 

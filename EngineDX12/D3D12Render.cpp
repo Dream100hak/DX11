@@ -4,6 +4,7 @@
 #include "MeshRenderer.h"
 #include "ModelAnimator.h"
 #include "Terrain.h"
+#include "Billboard.h"
 #include "ParticleSystem.h"
 #include "RtBlas.h"
 #include "Camera.h"
@@ -547,6 +548,14 @@ void D3D12Device::RenderParticles(const RenderContext& ctx)
 			XMFLOAT3 c{ (p.col.x + (ce.x - p.col.x) * t) * fade, (p.col.y + (ce.y - p.col.y) * t) * fade, (p.col.z + (ce.z - p.col.z) * t) * fade };
 			insts.push_back({ p.pos, sz, c, 0.f });
 		}
+	}
+	// Billboard 컴포넌트도 같은 빌보드 인스턴스로 수집 (1개 = 정적 쿼드)
+	for (auto& kv : _gameScene->GetCreatedObjects())
+	{
+		auto& o = kv.second; if (!o || !o->IsActive()) continue;
+		auto bb = std::dynamic_pointer_cast<Billboard>(o->GetRenderer()); if (!bb) continue;
+		auto t = o->GetTransform(); Vec3 p = t ? t->GetLocalPosition() : Vec3{ 0,0,0 };
+		insts.push_back({ p, bb->Size(), bb->Tint(), 0.f });
 	}
 	if (insts.empty()) return;
 

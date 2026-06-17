@@ -9,6 +9,7 @@
 #include "ParticleSystem.h"
 #include "Terrain.h"
 #include "Foliage.h"
+#include "Billboard.h"
 #include "Scripts.h"
 #include "GeometryHelper.h"
 #include "ResourceManager.h"
@@ -548,6 +549,7 @@ void D3D12Device::DrawMainMenuBar()
 				}
 			}
 			if (ImGui::MenuItem("Particle System"))   { auto o = SpawnEmpty(L"Particles", sp); if (o) o->AddComponent(make_shared<ParticleSystem>()); }
+			if (ImGui::MenuItem("Billboard"))         { auto o = SpawnEmpty(L"Billboard", sp); if (o) o->AddComponent(make_shared<Billboard>()); }
 			if (ImGui::MenuItem("Camera")) { auto o = SpawnEmpty(L"Camera", _camera.pos); if (o) { o->AddComponent(make_shared<Camera>()); if (auto t = o->GetTransform()) t->SetLocalRotation(Vec3{ _camera.pitch, _camera.yaw, 0.f }); } }
 			ImGui::Separator();
 			if (ImGui::MenuItem("Terrain")) SpawnTerrain(128, 1.0f);

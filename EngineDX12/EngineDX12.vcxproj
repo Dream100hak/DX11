@@ -56,6 +56,7 @@
     <ClInclude Include="EditorManager.h" />
     <ClInclude Include="FbxConverter.h" />
     <ClInclude Include="Foliage.h" />
+    <ClInclude Include="Billboard.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Component.cpp" />

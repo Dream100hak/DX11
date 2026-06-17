@@ -40,6 +40,7 @@ public:
 		case RendererType::Particle: return "ParticleSystem";
 		case RendererType::Grid:     return "Grid";
 		case RendererType::Foliage:  return "Foliage";
+		case RendererType::Billboard:return "Billboard";
 		default:                     return "Unknown";
 		}
 	}

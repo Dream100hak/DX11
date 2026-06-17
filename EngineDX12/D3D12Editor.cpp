@@ -176,6 +176,27 @@ void D3D12Device::DrawDebugLines()
 			}
 		}
 
+	// ── 게임 카메라 프러스텀 (노랑) ──
+	if (_gameScene)
+		for (auto& kv : _gameScene->GetCreatedObjects())
+		{
+			auto& o = kv.second; if (!o || !o->IsActive() || o->IsEditorInternal()) continue;
+			auto cam = o->GetCamera(); auto t = o->GetTransform(); if (!cam || !t) continue;
+			Matrix wm = t->GetWorldMatrix(); XMMATRIX W = XMLoadFloat4x4(&wm);
+			float nz = cam->_near, fz = min(cam->_far, 12.0f); // 멀리 잘라 화면에 들어오게
+			float aspect = float(_gameW) / float(_gameH);
+			float th = tanf(XMConvertToRadians(cam->_fov) * 0.5f);
+			auto corner = [&](float z, float sx, float sy) {
+				float h = th * z, w = h * aspect;
+				XMVECTOR lp = XMVectorSet(sx * w, sy * h, z, 1);
+				XMFLOAT3 p; XMStoreFloat3(&p, XMVector3TransformCoord(lp, W)); return p; };
+			XMFLOAT3 c[8] = { corner(nz,-1,-1), corner(nz,1,-1), corner(nz,1,1), corner(nz,-1,1),
+							  corner(fz,-1,-1), corner(fz,1,-1), corner(fz,1,1), corner(fz,-1,1) };
+			int e[24] = { 0,1,1,2,2,3,3,0, 4,5,5,6,6,7,7,4, 0,4,1,5,2,6,3,7 };
+			const XMFLOAT3 yc{ 1.0f, 0.9f, 0.2f };
+			for (int k = 0; k < 24; k += 2) _debugDraw.Line(c[e[k]], c[e[k + 1]], yc);
+		}
+
 	// 본 스켈레톤 — 오버레이(깊이 OFF) 배치에 추가해 메시 안에 묻혀도 보이게
 	if (_showBones)
 		for (size_t b = 0; b < _scene._boneWorld.size(); ++b)
@@ -1120,6 +1141,23 @@ void D3D12Device::SaveSceneTo(const std::wstring& path)
 			f << "ppar " << (parentName.empty() ? std::string("-") : WToUtf8(parentName)) << '\n';
 			WriteScripts(f, obj);
 		}
+
+		// 게임 카메라 (Camera 컴포넌트 GameObject)
+		for (auto& kv : _gameScene->GetCreatedObjects())
+		{
+			auto& obj = kv.second;
+			if (!obj || obj->IsEditorInternal()) continue;
+			auto cam = obj->GetCamera(); if (!cam) continue;
+			auto t = obj->GetTransform(); if (!t) continue;
+			Vec3 p = t->GetLocalPosition(), r = t->GetLocalRotation();
+			std::wstring parentName;
+			if (auto pt = t->GetParent()) if (auto pgo = pt->GetGameObject()) parentName = pgo->GetObjectName();
+			f << "cobj " << WToUtf8(obj->GetObjectName()) << '\n';
+			f << "cprm " << cam->_fov << ' ' << cam->_near << ' ' << cam->_far << ' ' << (int)cam->_projType << '\n';
+			f << "cxf " << p.x << ' ' << p.y << ' ' << p.z << ' ' << r.x << ' ' << r.y << ' ' << r.z << ' ' << (obj->IsActive() ? 1 : 0) << '\n';
+			f << "cpar " << (parentName.empty() ? std::string("-") : WToUtf8(parentName)) << '\n';
+			WriteScripts(f, obj);
+		}
 	}
 	f.flush();
 	Log("Scene saved: " + WToUtf8(path) + "  (" + std::to_string(meshCount) + " mesh, "
@@ -1285,6 +1323,26 @@ void D3D12Device::LoadSceneFrom(const std::wstring& path)
 		else if (tag == "ppar" && curPart) {
 			std::string pn; std::getline(s >> std::ws, pn);
 			if (pn != "-" && !pn.empty()) parentLinks.push_back({ curPartName, Utf8ToW(pn) });
+		}
+		// ── 게임 카메라 ──
+		else if (tag == "cobj") {
+			std::string nm; std::getline(s >> std::ws, nm); curName = Utf8ToW(nm);
+			curObj = findByName(curName);
+			if (!curObj) { curObj = SpawnEmpty(curName, Vec3{ 0,0,0 }); if (curObj) curObj->SetObjectName(curName); }
+			if (curObj && !curObj->GetCamera()) curObj->AddComponent(make_shared<Camera>());
+			curAny = curObj;
+		}
+		else if (tag == "cprm" && curObj) {
+			if (auto cam = curObj->GetCamera()) { int pt = 0; s >> cam->_fov >> cam->_near >> cam->_far >> pt; cam->_projType = (ProjectionType)pt; }
+		}
+		else if (tag == "cxf" && curObj) {
+			Vec3 p, r; s >> p.x >> p.y >> p.z >> r.x >> r.y >> r.z;
+			if (auto t = curObj->GetTransform()) { t->SetLocalRotation(r); t->SetLocalPosition(p); }
+			int act = 1; if (s >> act) curObj->SetActive(act != 0);
+		}
+		else if (tag == "cpar" && curObj) {
+			std::string pn; std::getline(s >> std::ws, pn);
+			if (pn != "-" && !pn.empty()) parentLinks.push_back({ curName, Utf8ToW(pn) });
 		}
 		// ── 스크립트(MonoBehaviour) — 직전 블록 오브젝트에 부착 ──
 		else if (tag == "mb" && curAny) {

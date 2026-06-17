@@ -184,6 +184,7 @@ private:
 	void                              TogglePlay();    // Play=스냅샷 저장 / Stop=스냅샷 복원
 	int                               ClearDynamicObjects(); // 스폰 오브젝트 제거 (NewScene/Stop 공용)
 	bool                              _playing = false;
+	DirectX::XMFLOAT3                 _playCamPos{}; float _playCamYaw = 0, _playCamPitch = 0; // Play 진입 시 에디터 카메라 포즈(Stop 복원)
 
 	// Phase 3 — DDGI 프로브 볼륨 (Ddgi 클래스가 프로브 버퍼 + 컴퓨트 GI 디스패치 소유)
 	Ddgi                              _ddgi;
@@ -229,6 +230,21 @@ private:
 	UINT                              _pendingSceneW = 0, _pendingSceneH = 0; // Scene 창 컨텐츠 크기
 	uint64                            _sceneTexId = 0;     // ImGui::Image 핸들
 	bool                              _sceneHovered = false, _sceneFocused = false;
+
+	// ── Game 뷰 — 게임 카메라(비-에디터 Camera GameObject) 시점 별도 RT ──
+	ComPtr<ID3D12Resource>            _gameCB; void* _gameCBMapped = nullptr;
+	ComPtr<ID3D12Resource>            _gameRT, _gameDepth;
+	ComPtr<ID3D12DescriptorHeap>      _gameRtvHeap, _gameDsvHeap;
+	D3D12_RESOURCE_STATES             _gameRTState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	D3D12_RESOURCE_STATES             _gameDepthState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+	UINT                              _gameW = 640, _gameH = 360, _pendingGameW = 0, _pendingGameH = 0;
+	uint64                            _gameTexId = 0;
+	SceneCB                           _cbCache{}; // 직전 에디터 CB (게임 패스 베이스)
+	PostFX                            _gamePostfx;
+	bool                              _gameWindowOpen = true;
+	void                              CreateGameRT(UINT w, UINT h);
+	void                              RenderGameView(); // 게임 카메라 → _gameRT (Scene 패스 후)
+	void                              DrawGameView();   // "Game" 도킹 창
 	DirectX::XMFLOAT4X4               _viewM, _projM;      // ImGuizmo 용 (Render 에서 갱신)
 	int                               _gizmoOp = 7;        // ImGuizmo::TRANSLATE (헤더에 ImGuizmo 미포함 → int)
 	void                              PickAt(float u, float v); // 씬뷰 클릭 → 레이 픽킹 (모델 AABB = _scene._modelMin/Max)

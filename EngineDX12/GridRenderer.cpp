@@ -11,7 +11,7 @@ void GridRenderer::Draw(const RenderContext& ctx)
 	auto* cmd = ctx.cmd;
 	cmd->SetPipelineState(d._gridPSO.Get());
 	cmd->SetGraphicsRootSignature(d._rootSig.Get());
-	cmd->SetGraphicsRootConstantBufferView(0, d._cb[d._frameIndex]->GetGPUVirtualAddress());
+	cmd->SetGraphicsRootConstantBufferView(0, ctx.cb); // 카메라별 CB (Scene/Game)
 	cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	cmd->DrawInstanced(3, 1, 0, 0);
 }

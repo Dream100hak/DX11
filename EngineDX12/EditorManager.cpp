@@ -69,6 +69,7 @@ void EditorManager::Update()
 		ImGui::DockBuilderDockWindow("FolderContents", bottom);
 		ImGui::DockBuilderDockWindow("Log", bottom);
 		ImGui::DockBuilderDockWindow("Scene", center);
+		ImGui::DockBuilderDockWindow("Game", center); // Scene 옆 탭
 		ImGui::DockBuilderFinish(dockId);
 	}
 	ImGui::DockSpace(dockId, ImVec2(0, 0));

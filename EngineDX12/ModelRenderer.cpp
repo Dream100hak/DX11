@@ -24,7 +24,7 @@ void ModelRenderer::Draw(const RenderContext& ctx)
 
 	cmd->SetPipelineState(d._wireframe ? d._wirePSO.Get() : d._pso.Get()); // 그래픽스 PSO (컴퓨트 후 복귀)
 	cmd->SetGraphicsRootSignature(d._rootSig.Get());
-	cmd->SetGraphicsRootConstantBufferView(0, d._cb[d._frameIndex]->GetGPUVirtualAddress());
+	cmd->SetGraphicsRootConstantBufferView(0, ctx.cb); // 카메라별 CB (Scene/Game)
 	cmd->SetGraphicsRootShaderResourceView(1, sc._tlas->GetGPUVirtualAddress()); // TLAS (RayQuery)
 	cmd->SetGraphicsRootShaderResourceView(2, d._ddgi.ProbesAddr());     // DDGI 프로브
 	cmd->SetGraphicsRootShaderResourceView(5, d._ddgi.ProbeDepthAddr()); // 프로브 depth

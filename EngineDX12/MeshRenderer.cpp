@@ -277,7 +277,7 @@ void MeshRenderer::Draw(const RenderContext& ctx)
 	auto* cmd = ctx.cmd;
 	cmd->SetPipelineState(d._wireframe ? d._wirePSO.Get() : d._pso.Get());
 	cmd->SetGraphicsRootSignature(d._rootSig.Get());
-	cmd->SetGraphicsRootConstantBufferView(0, d._cb[d._frameIndex]->GetGPUVirtualAddress());
+	cmd->SetGraphicsRootConstantBufferView(0, ctx.cb); // 카메라별 CB (Scene/Game)
 	cmd->SetGraphicsRootShaderResourceView(1, d._scene._tlas->GetGPUVirtualAddress());
 	cmd->SetGraphicsRootShaderResourceView(2, d._ddgi.ProbesAddr());
 	cmd->SetGraphicsRootShaderResourceView(5, d._ddgi.ProbeDepthAddr());

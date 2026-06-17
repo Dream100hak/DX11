@@ -199,6 +199,22 @@ uint64 ImGuiDx12::SetSceneTexture(ID3D12Resource* tex)
 	return gpu.ptr;
 }
 
+uint64 ImGuiDx12::SetGameTexture(ID3D12Resource* tex)
+{
+	const UINT slot = 2;
+	D3D12_CPU_DESCRIPTOR_HANDLE cpu = _srvHeap->GetCPUDescriptorHandleForHeapStart();
+	cpu.ptr += (SIZE_T)slot * _srvInc;
+	D3D12_SHADER_RESOURCE_VIEW_DESC sd{};
+	sd.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	sd.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	sd.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	sd.Texture2D.MipLevels = 1;
+	_dev->CreateShaderResourceView(tex, &sd, cpu);
+	D3D12_GPU_DESCRIPTOR_HANDLE gpu = _srvHeap->GetGPUDescriptorHandleForHeapStart();
+	gpu.ptr += (UINT64)slot * _srvInc;
+	return gpu.ptr;
+}
+
 uint64 ImGuiDx12::RegisterTexture(ID3D12Resource* tex, DXGI_FORMAT fmt)
 {
 	if (_nextSlot >= _srvCapacity) return 0; // 슬롯 풀 소진

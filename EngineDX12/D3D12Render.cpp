@@ -183,6 +183,7 @@ void D3D12Device::Render()
 	// 다중 점광원 — 씬에서 수집한 ptN 개 (셰이더 gPtPos/gPtCol[4])
 	for (int i = 0; i < 4; ++i) { cb.ptPos[i] = (i < ptN) ? ptPosA[i] : XMFLOAT4(0,0,0,0); cb.ptCol[i] = (i < ptN) ? ptColA[i] : XMFLOAT4(0,0,0,0); }
 	memcpy(_cbMapped[_frameIndex], &cb, sizeof(cb));
+	_cbCache = cb; // 게임 뷰 패스 베이스(카메라 필드만 교체)
 
 	// ── 모델 갱신: 스키닝(or 바인드) + 기즈모 트랜스폼 적용 → VB (GPU 유휴, 전체 플러시) ──
 	_scene.UpdateAnimation(_animTimeAcc, _turntable, _turnAngle);
@@ -243,6 +244,7 @@ void D3D12Device::Render()
 	// ── 카메라가 씬 렌더러를 큐별 분류 (1회) — Background/Opaque/Transparent 버킷 ──
 	RenderContext ctx{};
 	ctx.cmd = _cmdList.Get();
+	ctx.cb = _cb[_frameIndex]->GetGPUVirtualAddress(); // 에디터 카메라 CB
 	XMStoreFloat4x4(&ctx.view, view);
 	XMStoreFloat4x4(&ctx.proj, proj);
 	ctx.deferredPass = false;
@@ -327,6 +329,9 @@ void D3D12Device::Render()
 	ID3D12Resource* displayRes = _postfx.Fxaa(_cmdList.Get(), _fxaaOn);
 	_sceneTexId = _imgui.SetSceneTexture(displayRes); // FXAA on→LDR2, off→LDR
 
+	// ── Game 뷰: 게임 카메라 시점 별도 RT (DDGI/TLAS 재사용) ──
+	RenderGameView();
+
 	// ── 백버퍼: 에디터 UI(도킹+씬 이미지) ImGui 드로우 ──
 	D3D12_RESOURCE_BARRIER toRT{};
 	toRT.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -360,4 +365,65 @@ void D3D12Device::Render()
 	MoveToNextFrame();
 
 	if (_wantShot) { _wantShot = false; SaveScreenshot(); if (_hiresShot) { _renderScale = 1.0f; _hiresShot = false; } } // GPU 유휴 시점 리드백
+}
+
+// ── Game 뷰 — 배치된 게임 카메라(비-에디터 Camera) 시점을 별도 RT 에 렌더 (DDGI/TLAS 재사용) ──
+void D3D12Device::RenderGameView()
+{
+	using namespace DirectX;
+	if (!_gameWindowOpen || !_gameScene) return;
+
+	// 게임 카메라 = 비-에디터 내부 Camera GameObject (첫 번째)
+	shared_ptr<GameObject> camObj;
+	for (auto& kv : _gameScene->GetCreatedObjects())
+		if (auto& o = kv.second; o && o->IsActive() && !o->IsEditorInternal() && o->GetCamera()) { camObj = o; break; }
+
+	if (_pendingGameW && (_pendingGameW != _gameW || _pendingGameH != _gameH)) CreateGameRT(_pendingGameW, _pendingGameH);
+	if (!_gameRT) return;
+
+	Transition(_gameRT.Get(), _gameRTState, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	Transition(_gameDepth.Get(), _gameDepthState, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+	D3D12_CPU_DESCRIPTOR_HANDLE rtv = _gameRtvHeap->GetCPUDescriptorHandleForHeapStart();
+	D3D12_CPU_DESCRIPTOR_HANDLE dsv = _gameDsvHeap->GetCPUDescriptorHandleForHeapStart();
+	_cmdList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
+	float clr[4] = { 0.02f, 0.02f, 0.03f, 1.f };
+	_cmdList->ClearRenderTargetView(rtv, clr, 0, nullptr);
+	_cmdList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.f, 0, 0, nullptr);
+	D3D12_VIEWPORT vp{ 0, 0, float(_gameW), float(_gameH), 0, 1 }; D3D12_RECT scr{ 0, 0, (LONG)_gameW, (LONG)_gameH };
+	_cmdList->RSSetViewports(1, &vp); _cmdList->RSSetScissorRects(1, &scr);
+
+	if (camObj)
+	{
+		auto t = camObj->GetTransform(); auto cam = camObj->GetCamera();
+		Matrix wm = t->GetWorldMatrix(); XMMATRIX W = XMLoadFloat4x4(&wm);
+		XMMATRIX view = XMMatrixInverse(nullptr, W);
+		float aspect = float(_gameW) / float(_gameH);
+		XMMATRIX proj = XMMatrixPerspectiveFovLH(XMConvertToRadians(cam->_fov), aspect, cam->_near, cam->_far);
+
+		SceneCB g = _cbCache; // 에디터 CB 베이스 + 카메라 필드 교체
+		XMStoreFloat4x4(&g.mvp, view * proj);
+		XMVECTOR eye = W.r[3]; XMStoreFloat4(&g.camPos, eye);
+		XMStoreFloat4x4(&g.invVP, XMMatrixInverse(nullptr, view * proj));
+		memcpy(_gameCBMapped, &g, sizeof(g));
+
+		RenderContext ctx{}; ctx.cmd = _cmdList.Get(); ctx.cb = _gameCB->GetGPUVirtualAddress();
+		XMStoreFloat4x4(&ctx.view, view); XMStoreFloat4x4(&ctx.proj, proj);
+		cam->SetView(ctx.view); cam->SetProjection(ctx.proj); cam->SortGameObject();
+		auto draw = [&](vector<shared_ptr<GameObject>>& b) { for (auto& o : b) { if (!o || !o->IsActive()) continue; auto r = o->GetRenderer(); if (r) r->Draw(ctx); } };
+		draw(cam->GetVecBackground()); // 스카이
+		draw(cam->GetVecOpaque());     // 모델/메시/애니 (그리드=Transparent 생략)
+	}
+
+	// 포스트 (블룸/톤맵/FXAA — 게임 전용 PostFX)
+	Transition(_gameRT.Get(), _gameRTState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	bool bloomA = _bloomOn && _gamePostfx.Ready();
+	if (bloomA) _gamePostfx.Bloom(_cmdList.Get(), _bloomThreshold);
+	Transition(_gameDepth.Get(), _gameDepthState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	PostFX::TonemapParams tp{};
+	tp.exposure = _exposure * powf(2.f, _ev); tp.bloomIntensity = _bloomIntensity; tp.bloomEnabled = bloomA; tp.tonemapOp = _tonemapOp;
+	tp.contrast = _contrast; tp.saturation = _saturation; tp.temperature = _temperature; tp.vignette = _vignette;
+	tp.time = _time * 60.f; tp.expScale = _expScale;
+	_gamePostfx.Tonemap(_cmdList.Get(), tp);
+	ID3D12Resource* disp = _gamePostfx.Fxaa(_cmdList.Get(), _fxaaOn);
+	_gameTexId = _imgui.SetGameTexture(disp);
 }

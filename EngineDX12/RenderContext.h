@@ -11,6 +11,7 @@ struct RenderContext
 	Matrix proj{};
 
 	ID3D12GraphicsCommandList4* cmd = nullptr; // 드로우 기록 대상 (DX11 의 DCT 대응)
+	D3D12_GPU_VIRTUAL_ADDRESS   cb = 0;        // b0 SceneCB GVA (카메라별 CB — Scene/Game 뷰 구분)
 
 	bool deferredPass = false; // GBuffer 채우기 패스
 	bool shadowPass   = false; // ShadowMap depth-only 패스

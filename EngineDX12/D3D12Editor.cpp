@@ -336,6 +336,48 @@ void D3D12Device::CreateSceneRT(UINT w, UINT h)
 	_sceneTexId = _imgui.SetSceneTexture(_postfx.LdrResource()); // ImGui 는 톤맵된 LDR 표시
 }
 
+// Game 뷰 오프스크린 RT (게임 카메라 시점) — CreateSceneRT 미러
+void D3D12Device::CreateGameRT(UINT w, UINT h)
+{
+	_gameW = w; _gameH = h;
+	D3D12_HEAP_PROPERTIES hp{}; hp.Type = D3D12_HEAP_TYPE_DEFAULT;
+	D3D12_RESOURCE_DESC rd{}; rd.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	rd.Width = w; rd.Height = h; rd.DepthOrArraySize = 1; rd.MipLevels = 1; rd.Format = _sceneFmt; rd.SampleDesc.Count = 1;
+	rd.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+	D3D12_CLEAR_VALUE cvc{}; cvc.Format = rd.Format; cvc.Color[3] = 1.0f;
+	_gameRT.Reset();
+	ThrowIfFailed(_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &rd, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, &cvc, IID_PPV_ARGS(&_gameRT)), "game RT");
+	_gameRTState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	if (!_gameRtvHeap) { D3D12_DESCRIPTOR_HEAP_DESC hd{}; hd.NumDescriptors = 1; hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV; ThrowIfFailed(_device->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&_gameRtvHeap)), "game RTV heap"); }
+	_device->CreateRenderTargetView(_gameRT.Get(), nullptr, _gameRtvHeap->GetCPUDescriptorHandleForHeapStart());
+
+	D3D12_RESOURCE_DESC dd{}; dd.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	dd.Width = w; dd.Height = h; dd.DepthOrArraySize = 1; dd.MipLevels = 1; dd.Format = DXGI_FORMAT_R32_TYPELESS; dd.SampleDesc.Count = 1;
+	dd.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+	D3D12_CLEAR_VALUE cvd{}; cvd.Format = DXGI_FORMAT_D32_FLOAT; cvd.DepthStencil.Depth = 1.0f;
+	_gameDepth.Reset();
+	ThrowIfFailed(_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &dd, D3D12_RESOURCE_STATE_DEPTH_WRITE, &cvd, IID_PPV_ARGS(&_gameDepth)), "game depth");
+	_gameDepthState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+	if (!_gameDsvHeap) { D3D12_DESCRIPTOR_HEAP_DESC hd{}; hd.NumDescriptors = 1; hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV; ThrowIfFailed(_device->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&_gameDsvHeap)), "game DSV heap"); }
+	D3D12_DEPTH_STENCIL_VIEW_DESC dsv{}; dsv.Format = DXGI_FORMAT_D32_FLOAT; dsv.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+	_device->CreateDepthStencilView(_gameDepth.Get(), &dsv, _gameDsvHeap->GetCPUDescriptorHandleForHeapStart());
+
+	_gamePostfx.Resize(w, h, _gameRT.Get(), _gameDepth.Get());
+	_gameTexId = _imgui.SetGameTexture(_gamePostfx.LdrResource());
+}
+
+// "Game" 도킹 창 — 게임 카메라 렌더 결과 표시 (DrawSceneView 끝에서 호출)
+void D3D12Device::DrawGameView()
+{
+	ImGui::Begin("Game");
+	_gameWindowOpen = !ImGui::IsWindowCollapsed();
+	ImVec2 avail = ImGui::GetContentRegionAvail();
+	_pendingGameW = (UINT)max(8.0f, avail.x);
+	_pendingGameH = (UINT)max(8.0f, avail.y);
+	if (_gameTexId) ImGui::Image((ImTextureID)_gameTexId, avail);
+	ImGui::End();
+}
+
 // ImGui NewFrame ~ Render 는 EditorManager 가 담당 (메뉴바/도킹 호스트/패널 순회/Render)
 void D3D12Device::BuildUI()
 {
@@ -391,7 +433,7 @@ void D3D12Device::DrawMainMenuBar()
 			if (ImGui::MenuItem("Point Light"))       SpawnLight(1, L"Point Light", sp);
 			if (ImGui::MenuItem("Spot Light"))        SpawnLight(2, L"Spot Light", sp);
 			if (ImGui::MenuItem("Particle System"))   { auto o = SpawnEmpty(L"Particles", sp); if (o) o->AddComponent(make_shared<ParticleSystem>()); }
-			if (ImGui::MenuItem("Camera")) _sel = SelEntity::Camera;
+			if (ImGui::MenuItem("Camera")) { auto o = SpawnEmpty(L"Camera", _camera.pos); if (o) { o->AddComponent(make_shared<Camera>()); if (auto t = o->GetTransform()) t->SetLocalRotation(Vec3{ _camera.pitch, _camera.yaw, 0.f }); } }
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Component"))
@@ -544,7 +586,7 @@ void D3D12Device::DrawHierarchy()
 		if (ImGui::MenuItem("Point Light"))       SpawnLight(1, L"Point Light", spawnAt);
 		if (ImGui::MenuItem("Spot Light"))        SpawnLight(2, L"Spot Light", spawnAt);
 		if (ImGui::MenuItem("Particle System"))   { auto o = SpawnEmpty(L"Particles", spawnAt); if (o) o->AddComponent(make_shared<ParticleSystem>()); }
-		if (ImGui::MenuItem("Camera")) _sel = SelEntity::Camera;
+		if (ImGui::MenuItem("Camera")) { auto o = SpawnEmpty(L"Camera", _camera.pos); if (o) { o->AddComponent(make_shared<Camera>()); if (auto t = o->GetTransform()) t->SetLocalRotation(Vec3{ _camera.pitch, _camera.yaw, 0.f }); } }
 		ImGui::Separator();
 		bool hasSel = _selectedGO != nullptr;
 		if (ImGui::MenuItem("Duplicate", "Ctrl+D", false, hasSel)) DuplicateSelectedObject();
@@ -682,6 +724,8 @@ void D3D12Device::DrawSceneView()
 		dl->AddLine(ImVec2(ct.x, ct.y - 11), ImVec2(ct.x, ct.y + 11), IM_COL32(255, 255, 255, 170));
 	}
 	ImGui::End();
+
+	DrawGameView(); // "Game" 도킹 창 (게임 카메라 시점)
 }
 
 void D3D12Device::DrawLog()
@@ -890,6 +934,7 @@ void D3D12Device::TogglePlay()
 	std::wstring snap = (std::filesystem::path(_assetRoot) / L"Scenes" / L"__play_snapshot.rtscene").wstring();
 	if (!_playing)
 	{
+		_playCamPos = _camera.pos; _playCamYaw = _camera.yaw; _playCamPitch = _camera.pitch; // 에디터 카메라 포즈 캡처
 		std::error_code ec; std::filesystem::create_directories(std::filesystem::path(snap).parent_path(), ec);
 		SaveSceneTo(snap);
 		_playing = true;
@@ -900,6 +945,7 @@ void D3D12Device::TogglePlay()
 		_playing = false;
 		ClearDynamicObjects();           // 플레이 중 스폰된 것 제거
 		LoadSceneFrom(snap);             // 스냅샷 복원
+		_camera.pos = _playCamPos; _camera.yaw = _playCamYaw; _camera.pitch = _playCamPitch; // 에디터 카메라 플레이 전으로 복원
 		Log("■ Stop (snapshot restored)");
 	}
 }

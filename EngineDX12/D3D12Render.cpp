@@ -131,7 +131,7 @@ void D3D12Device::Render()
 	cb.giParams = XMFLOAT4(_giStrength, _time * 60.f, _ambient, 0.f); // GI세기 / frame / 앰비언트
 	XMStoreFloat4x4(&cb.invVP, XMMatrixInverse(nullptr, view * proj)); // 스카이 레이 복원
 	// ── 점/스팟 라이트: 씬의 모든 Light 컴포넌트에서 수집 (동적 추가 라이트 포함, 점=최대4 스팟=1) ──
-	int ptN = 0; XMFLOAT4 ptPosA[4] = {}, ptColA[4] = {};
+	int ptN = 0; XMFLOAT4 ptPosA[16] = {}, ptColA[16] = {};
 	bool haveSpot = false; XMFLOAT4 spotP{}, spotD{ 0,-1,0,0.5f }, spotC{};
 	if (_gameScene)
 		for (auto& kv : _gameScene->GetCreatedObjects())
@@ -140,7 +140,7 @@ void D3D12Device::Render()
 			auto l = o->GetLight(); if (!l || !l->_enabled) continue;
 			auto t = o->GetTransform();
 			Vec3 lp = t ? t->GetLocalPosition() : Vec3{ 0,0,0 };
-			if (l->_lightType == LightType::Point && ptN < 4)
+			if (l->_lightType == LightType::Point && ptN < 16)
 			{
 				float in = l->_intensity * _flickerV;
 				ptPosA[ptN] = XMFLOAT4(lp.x, lp.y, lp.z, l->_range);
@@ -182,7 +182,7 @@ void D3D12Device::Render()
 	cb.decalCol   = XMFLOAT4(_decalColor.x, _decalColor.y, _decalColor.z, _cloudAmt);                // W2/W3
 	cb.extra      = XMFLOAT4(_shadowStrength, _hemiAmbient, _stars ? 1.f : 0.f, 0.f);                // W6/W7/W8
 	// 다중 점광원 — 씬에서 수집한 ptN 개 (셰이더 gPtPos/gPtCol[4])
-	for (int i = 0; i < 4; ++i) { cb.ptPos[i] = (i < ptN) ? ptPosA[i] : XMFLOAT4(0,0,0,0); cb.ptCol[i] = (i < ptN) ? ptColA[i] : XMFLOAT4(0,0,0,0); }
+	for (int i = 0; i < 16; ++i) { cb.ptPos[i] = (i < ptN) ? ptPosA[i] : XMFLOAT4(0,0,0,0); cb.ptCol[i] = (i < ptN) ? ptColA[i] : XMFLOAT4(0,0,0,0); }
 	memcpy(_cbMapped[_frameIndex], &cb, sizeof(cb));
 	_cbCache = cb; // 게임 뷰 패스 베이스(카메라 필드만 교체)
 

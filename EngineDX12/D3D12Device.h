@@ -40,8 +40,8 @@ struct SceneCB
 	DirectX::XMFLOAT4   spotDir;
 	DirectX::XMFLOAT4   spotColor;
 	DirectX::XMFLOAT4   tint;
-	DirectX::XMFLOAT4   ptPos[4];
-	DirectX::XMFLOAT4   ptCol[4];
+	DirectX::XMFLOAT4   ptPos[16];
+	DirectX::XMFLOAT4   ptCol[16];
 	DirectX::XMFLOAT4   floorMat;
 	DirectX::XMFLOAT4   ao;
 	DirectX::XMFLOAT4   shade;
@@ -302,7 +302,7 @@ private:
 	bool                              _reflectOn = false; float _reflectStrength = 0.5f; // T12
 	bool                              _spotOn = false; DirectX::XMFLOAT3 _spotPos{ -1.6f, 2.4f, 0.0f }, _spotColor{ 0.5f, 0.7f, 1.0f }; // T13
 	float                             _spotIntensity = 6.0f, _spotRadius = 9.0f, _spotConeDeg = 28.0f; DirectX::XMFLOAT3 _spotDir{ 0.4f, -1.0f, 0.0f };
-	static const int                  MAX_PT = 4; // T14 다중 점광원
+	static const int                  MAX_PT = 16; // T14 다중 점광원 (러프 클러스터드 대체 — 캡 상향)
 	int                               _ptCount = 1; DirectX::XMFLOAT4 _ptPosArr[MAX_PT]{}; DirectX::XMFLOAT4 _ptColArr[MAX_PT]{};
 	bool                              _probeViz = false; // T15
 	int                               _debugView = 0;    // T16: 0 none/1 albedo/2 normal/3 depth/4 GI

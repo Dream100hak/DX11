@@ -49,8 +49,8 @@ cbuffer SceneCB : register(b0)
     float4 gSpotDir;    // xyz 스팟 방향, w cos(콘각)
     float4 gSpotColor;  // rgb 색×세기, w on
     float4 gTint;       // rgb 디퓨즈 틴트, w 바닥 거칠기
-    float4 gPtPos[4];   // 다중 점광원 위치+반경
-    float4 gPtCol[4];   // 다중 점광원 색×세기 (w on)
+    float4 gPtPos[16];  // 다중 점광원 위치+반경 (MAX_PT)
+    float4 gPtCol[16];  // 다중 점광원 색×세기 (w on)
     float4 gFloorMat;   // rgb 바닥 albedo, w 바닥 metallic
     float4 gAO;         // x on, y intensity, z radius
     float4 gShade;      // x toonLevels(0=off), y rimPower(0=off), z normalIntensity, w checker(0/1)
@@ -251,7 +251,7 @@ float4 PSMain(VSOut i) : SV_TARGET
     if (ndl > 0.0) { float3 H = normalize(L + V); spec += pow(saturate(dot(N, H)), power) * specMask * shadow * sunCol * specColor * (1.0 - roughness * 0.5); }
 
     // ── 다중 점광원 ──
-    [unroll] for (int p = 0; p < 4; ++p)
+    [loop] for (int p = 0; p < 16; ++p)
     {
         if (gPtCol[p].w < 0.5) continue;
         float3 toL = gPtPos[p].xyz - i.wpos; float d = length(toL);

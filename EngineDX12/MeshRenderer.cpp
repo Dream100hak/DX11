@@ -200,6 +200,13 @@ void MeshRenderer::OnInspectorGUI()
 	ImGui::DragFloat("Metallic", &_material->_metallic, 0.01f, 0.f, 1.f);
 	ImGui::DragFloat("Roughness", &_material->_roughness, 0.01f, 0.f, 1.f);
 	ImGui::DragFloat("Emissive", &_material->_emissive, 0.02f, 0.f, 16.f);
+	// PBR 프리셋 (빠른 머티리얼 세팅)
+	auto preset = [&](const char* n, Vec3 d, float m, float r) { if (ImGui::SmallButton(n)) { _material->_diffuse = d; _material->_metallic = m; _material->_roughness = r; } ImGui::SameLine(); };
+	preset("Metal", { 0.9f,0.9f,0.9f }, 1.f, 0.25f);
+	preset("Gold", { 1.0f,0.78f,0.34f }, 1.f, 0.2f);
+	preset("Plastic", { 0.8f,0.2f,0.2f }, 0.f, 0.4f);
+	preset("Rubber", { 0.15f,0.15f,0.15f }, 0.f, 0.9f);
+	if (ImGui::SmallButton("Mirror")) { _material->_diffuse = { 1,1,1 }; _material->_metallic = 1.f; _material->_roughness = 0.02f; }
 
 	// 디퓨즈 텍스처 경로 — 입력 후 Load 로 적용 (Draw 에서 SyncMaterialTex 가 SRV 생성)
 	if (_texPathBuf[0] == '\0' && !_material->_diffuseTex.empty())

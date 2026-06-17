@@ -119,6 +119,14 @@ void D3D12Device::DrawDebugLines()
 			wireCircle(c, XMVectorSet(1,0,0,0), XMVectorSet(0,1,0,0), 0.3f, col); // 전구 와이어 구(3축 원)
 			wireCircle(c, XMVectorSet(1,0,0,0), XMVectorSet(0,0,1,0), 0.3f, col);
 			wireCircle(c, XMVectorSet(0,1,0,0), XMVectorSet(0,0,1,0), 0.3f, col);
+			// 선택된 라이트면 영향 반경(range) 와이어 구 표시 (어둡게)
+			if (_selectedGO == o && l->_lightType == LightType::Point && l->_range > 0.f)
+			{
+				XMFLOAT3 dim{ col.x * 0.5f, col.y * 0.5f, col.z * 0.5f };
+				wireCircle(c, XMVectorSet(1,0,0,0), XMVectorSet(0,1,0,0), l->_range, dim);
+				wireCircle(c, XMVectorSet(1,0,0,0), XMVectorSet(0,0,1,0), l->_range, dim);
+				wireCircle(c, XMVectorSet(0,1,0,0), XMVectorSet(0,0,1,0), l->_range, dim);
+			}
 			if (l->_lightType == LightType::Spot && _showSpotCone)
 			{
 				XMVECTOR dir = XMVector3Normalize(XMLoadFloat3(&l->_direction));
@@ -652,6 +660,12 @@ void D3D12Device::DrawHierarchy()
 			ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_DefaultOpen;
 			if (!hasChildren) flags |= ImGuiTreeNodeFlags_Leaf;
 			if (_selectedGO == obj) flags |= ImGuiTreeNodeFlags_Selected;
+			// 행별 활성(가시성) 체크박스
+			ImGui::PushID((int)(intptr_t)obj->GetId());
+			bool act = obj->IsActive();
+			if (ImGui::Checkbox("##vis", &act)) obj->SetActive(act);
+			ImGui::PopID();
+			ImGui::SameLine(0.0f, 4.0f);
 			std::string label = std::string(typeIcon(obj)) + WToUtf8(obj->GetObjectName());
 			bool open = ImGui::TreeNodeEx((void*)(intptr_t)obj->GetId(), flags, "%s", label.c_str());
 			if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) _selectedGO = obj;
@@ -809,6 +823,7 @@ void D3D12Device::DrawSceneView()
 	toolBtn("Move", 7, "이동 (W)");
 	toolBtn("Rotate", 120, "회전 (E)");
 	toolBtn("Scale", 896, "스케일 (R)");
+	toolBtn("All", 7 | 120 | 896, "이동+회전+스케일 동시(유니버설)");
 	ImGui::TextDisabled("|"); ImGui::SameLine();
 	// Local/World 단일 토글 버튼
 	if (ImGui::Button(_gizmoLocal ? "Local" : "World")) _gizmoLocal = !_gizmoLocal;
@@ -2148,6 +2163,18 @@ void D3D12Device::DrawInspector()
 void D3D12Device::DrawProject()
 {
 	ImGui::Begin("Project");
+	// 현재 폴더에 새 폴더 생성
+	if (ImGui::SmallButton("New Folder"))
+	{
+		std::error_code fec;
+		std::wstring base = _curDir.empty() ? _assetRoot : _curDir;
+		for (int n = 0; n < 100; ++n)
+		{
+			std::wstring cand = base + L"\\NewFolder" + (n ? std::to_wstring(n) : L"");
+			if (!fs::exists(cand, fec)) { fs::create_directories(cand, fec); Log("Created folder: " + WToUtf8(cand)); break; }
+		}
+	}
+	ImGui::Separator();
 	std::error_code ec;
 	std::function<void(const fs::path&)> rec = [&](const fs::path& dir)
 	{

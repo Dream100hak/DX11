@@ -157,5 +157,14 @@ void Transform::OnInspectorGUI()
 		_localRotation = { XMConvertToRadians(deg.x), XMConvertToRadians(deg.y), XMConvertToRadians(deg.z) };
 
 	label("Scale"); ImGui::DragFloat3("##scale", (float*)&_localScale, 0.01f);
+
+	// Reset / Copy / Paste (정적 클립보드 — 오브젝트 간 트랜스폼 복사)
+	static Vec3 clipP{ 0,0,0 }, clipR{ 0,0,0 }, clipS{ 1,1,1 }; static bool hasClip = false;
+	if (ImGui::SmallButton("Reset")) { _localPosition = { 0,0,0 }; _localRotation = { 0,0,0 }; _localScale = { 1,1,1 }; }
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Copy")) { clipP = _localPosition; clipR = _localRotation; clipS = _localScale; hasClip = true; }
+	ImGui::SameLine();
+	if (hasClip && ImGui::SmallButton("Paste")) { _localPosition = clipP; _localRotation = clipR; _localScale = clipS; }
+
 	UpdateTransform();
 }

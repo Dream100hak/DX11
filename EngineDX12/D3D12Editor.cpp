@@ -454,8 +454,26 @@ void D3D12Device::DrawMainMenuBar()
 		if (ImGui::BeginMenu("File"))
 		{
 			if (ImGui::MenuItem("New Scene", "Ctrl+N")) NewScene();
-			if (ImGui::MenuItem("Open Scene...", "Ctrl+O")) LoadScene();
-			if (ImGui::MenuItem("Save Scene...", "Ctrl+S")) SaveScene();
+			if (ImGui::MenuItem("Open Scene (quick)", "Ctrl+O")) LoadScene();
+			if (ImGui::MenuItem("Save Scene (quick)", "Ctrl+S")) SaveScene();
+			if (ImGui::MenuItem("Open Scene As..."))
+			{
+				wchar_t file[MAX_PATH] = L"";
+				OPENFILENAMEW ofn{}; ofn.lStructSize = sizeof(ofn); ofn.hwndOwner = _hwnd;
+				ofn.lpstrFilter = L"Scene (*.rtscene)\0*.rtscene\0All\0*.*\0"; ofn.lpstrFile = file; ofn.nMaxFile = MAX_PATH;
+				ofn.lpstrInitialDir = nullptr; ofn.Flags = OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
+				std::wstring dir = _assetRoot + L"\\Scenes"; ofn.lpstrInitialDir = dir.c_str();
+				if (GetOpenFileNameW(&ofn)) LoadSceneFrom(file);
+			}
+			if (ImGui::MenuItem("Save Scene As..."))
+			{
+				wchar_t file[MAX_PATH] = L"untitled.rtscene";
+				OPENFILENAMEW ofn{}; ofn.lStructSize = sizeof(ofn); ofn.hwndOwner = _hwnd;
+				ofn.lpstrFilter = L"Scene (*.rtscene)\0*.rtscene\0"; ofn.lpstrDefExt = L"rtscene";
+				ofn.lpstrFile = file; ofn.nMaxFile = MAX_PATH; ofn.Flags = OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
+				std::wstring dir = _assetRoot + L"\\Scenes"; ofn.lpstrInitialDir = dir.c_str();
+				if (GetSaveFileNameW(&ofn)) SaveSceneTo(file);
+			}
 			ImGui::Separator();
 			if (ImGui::MenuItem("Convert FBX...")) ConvertFbxDialog(); // ufbx → .mesh/.clip/.mat 변환 후 스폰
 			ImGui::Separator();
@@ -603,6 +621,22 @@ void D3D12Device::DrawHierarchy()
 			std::string label = std::string(typeIcon(obj)) + WToUtf8(obj->GetObjectName());
 			bool open = ImGui::TreeNodeEx((void*)(intptr_t)obj->GetId(), flags, "%s", label.c_str());
 			if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) _selectedGO = obj;
+			// 우클릭 컨텍스트 메뉴
+			if (ImGui::BeginPopupContextItem())
+			{
+				_selectedGO = obj; // 메뉴 대상 선택
+				if (ImGui::MenuItem("Duplicate", "Ctrl+D")) DuplicateSelectedObject();
+				if (ImGui::MenuItem("Delete", "Del")) { DeleteSelectedObject(); ImGui::EndPopup(); return; }
+				if (ImGui::MenuItem("Create Empty Child"))
+				{
+					Matrix wm0 = obj->GetTransform() ? obj->GetTransform()->GetWorldMatrix() : Matrix{};
+					Vec3 wp{ wm0._41, wm0._42, wm0._43 };
+					auto child = SpawnEmpty(L"GameObject", wp);
+					if (child) if (auto ct = child->GetTransform(), pt = obj->GetTransform(); ct && pt) ct->SetParentKeepWorld(pt);
+				}
+				if (ImGui::MenuItem("Focus (F)")) { if (auto t = obj->GetTransform()) { Matrix wm0 = t->GetWorldMatrix(); _camera.pos = { wm0._41 + 4, wm0._42 + 3, wm0._43 - 4 }; } }
+				ImGui::EndPopup();
+			}
 			if (ImGui::BeginDragDropSource())
 			{
 				int64 id = obj->GetId();
@@ -767,6 +801,17 @@ void D3D12Device::DrawSceneView()
 	if (_sceneTexId)
 		ImGui::Image((ImTextureID)_sceneTexId, avail);
 
+	// 선택 오브젝트 이름 오버레이 (씬 이미지 좌상단)
+	if (_selectedGO && !_selectedGO->IsEditorInternal())
+	{
+		ImDrawList* dl = ImGui::GetWindowDrawList();
+		std::string nm = WToUtf8(_selectedGO->GetObjectName());
+		ImVec2 tp(imgPos.x + 8, imgPos.y + 6);
+		ImVec2 ts = ImGui::CalcTextSize(nm.c_str());
+		dl->AddRectFilled(ImVec2(tp.x - 4, tp.y - 2), ImVec2(tp.x + ts.x + 4, tp.y + ts.y + 2), IM_COL32(0, 0, 0, 140), 3.f);
+		dl->AddText(tp, IM_COL32(255, 230, 120, 255), nm.c_str());
+	}
+
 	// ── .mesh 드래그드롭 → 바닥 히트 지점에 배치 ──
 	if (ImGui::BeginDragDropTarget())
 	{
@@ -882,10 +927,29 @@ void D3D12Device::DrawLog()
 {
 	ImGui::Begin("Log");
 	if (ImGui::Button("Clear")) _log.clear();
+	ImGui::SameLine();
+	static bool autoScroll = true; ImGui::Checkbox("Auto-scroll", &autoScroll);
+	ImGui::SameLine(); ImGui::TextDisabled("(%d)", (int)_log.size());
+	static char logFilter[64] = "";
+	ImGui::SameLine(); ImGui::SetNextItemWidth(-1);
+	ImGui::InputTextWithHint("##logfilter", "Filter...", logFilter, sizeof(logFilter));
+	std::string flt = logFilter; for (char& c : flt) c = (char)tolower(c);
 	ImGui::Separator();
 	ImGui::BeginChild("logscroll");
-	for (auto& m : _log) ImGui::TextUnformatted(m.c_str());
-	if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 1.0f) ImGui::SetScrollHereY(1.0f);
+	auto contains = [](const std::string& s, const char* k) { return s.find(k) != std::string::npos; };
+	for (auto& m : _log)
+	{
+		if (!flt.empty()) { std::string low = m; for (char& c : low) c = (char)tolower(c); if (low.find(flt) == std::string::npos) continue; }
+		// 심각도별 색: 실패/에러=빨강, 성공(saved/loaded/created/converted/OK)=초록, 그 외=기본
+		ImVec4 col(0.85f, 0.86f, 0.88f, 1.f);
+		if (contains(m, "FAIL") || contains(m, "failed") || contains(m, "error") || contains(m, "ERROR")) col = ImVec4(1.f, 0.45f, 0.40f, 1.f);
+		else if (contains(m, "saved") || contains(m, "loaded") || contains(m, "Created") || contains(m, "converted") || contains(m, "generated"))
+			col = ImVec4(0.55f, 0.90f, 0.55f, 1.f);
+		ImGui::PushStyleColor(ImGuiCol_Text, col);
+		ImGui::TextUnformatted(m.c_str());
+		ImGui::PopStyleColor();
+	}
+	if (autoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 1.0f) ImGui::SetScrollHereY(1.0f);
 	ImGui::EndChild();
 	ImGui::End();
 }
@@ -2084,25 +2148,21 @@ void D3D12Device::DrawGameObjectInspector(const shared_ptr<GameObject>& go)
 		auto c = go->GetFixedComponent(ct);
 		if (!c) continue;
 
-		if (ct == ComponentType::Renderer)
-		{
-			if (auto r = go->GetRenderer())
-				ImGui::SeparatorText(ImGuiManager::EnumToString(r->GetRenderType()));
-		}
-		else
-			ImGui::SeparatorText(ImGuiManager::EnumToString(ct));
+		const char* compName = (ct == ComponentType::Renderer && go->GetRenderer())
+			? ImGuiManager::EnumToString(go->GetRenderer()->GetRenderType())
+			: ImGuiManager::EnumToString(ct);
 
-		// 컴포넌트 제거 (Transform/에디터내부/메인모델 렌더러 제외)
+		// 접을 수 있는 컴포넌트 헤더 + 우측 X 제거 버튼
+		ImGui::PushID(i);
+		bool open = ImGui::CollapsingHeader(compName, ImGuiTreeNodeFlags_DefaultOpen);
 		bool canRemove = ct != ComponentType::Transform && !internal && !(go == _modelObj && ct == ComponentType::Renderer);
 		if (canRemove)
 		{
-			ImGui::SameLine(ImGui::GetContentRegionAvail().x - 18.0f);
-			ImGui::PushID(i);
+			ImGui::SameLine(ImGui::GetContentRegionAvail().x - 6.0f);
 			if (ImGui::SmallButton("X")) { go->RemoveComponent(ct); ImGui::PopID(); continue; }
-			ImGui::PopID();
 		}
-
-		c->OnInspectorGUI();
+		if (open) c->OnInspectorGUI();
+		ImGui::PopID();
 	}
 
 	// ── Terrain 편집 패널 (Terrain 컴포넌트 보유 시) ──

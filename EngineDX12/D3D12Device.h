@@ -187,6 +187,7 @@ private:
 	Vec3                              _terrainCursor{};       // 마지막 브러시 월드 히트(기즈모/오버레이용)
 	bool                              _terrainCursorValid = false;
 	void                              TerrainBrushAt(float u, float v, bool apply); // 씬뷰 uv → 레이 → (apply 시)스컬프트
+	void                              FocusCameraOn(const Vec3& target); // 카메라를 대상 지점으로 이동 + 시선 정렬
 	Vec3                              SpawnPoint(); // 카메라 앞 4m 지점 (스폰 위치)
 	shared_ptr<GameObject>            SpawnLight(int type, const std::wstring& name, const Vec3& pos); // 0 Dir/1 Point/2 Spot
 	void                              DeleteSelectedObject();    // _selectedGO 삭제 (에디터 내부/모델 보호)

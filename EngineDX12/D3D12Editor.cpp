@@ -682,7 +682,17 @@ void D3D12Device::DrawHierarchy()
 					auto child = SpawnEmpty(L"GameObject", wp);
 					if (child) if (auto ct = child->GetTransform(), pt = obj->GetTransform(); ct && pt) ct->SetParentKeepWorld(pt);
 				}
-				if (ImGui::MenuItem("Focus (F)")) { if (auto t = obj->GetTransform()) { Matrix wm0 = t->GetWorldMatrix(); _camera.pos = { wm0._41 + 4, wm0._42 + 3, wm0._43 - 4 }; } }
+				if (ImGui::MenuItem("Focus (F)")) { if (auto t = obj->GetTransform()) { Matrix wm0 = t->GetWorldMatrix(); FocusCameraOn(Vec3{ wm0._41, wm0._42, wm0._43 }); } }
+				if (ImGui::MenuItem("Drop to Ground"))
+				{
+					if (auto t = obj->GetTransform())
+					{
+						Vec3 lp = t->GetLocalPosition(); float gy = 0.f;
+						for (auto& kv2 : _gameScene->GetCreatedObjects())
+							if (kv2.second) if (auto terr = kv2.second->GetTerrain()) { gy = terr->GetHeight(lp.x, lp.z); break; }
+						t->SetLocalPosition(Vec3{ lp.x, gy, lp.z });
+					}
+				}
 				ImGui::EndPopup();
 			}
 			if (ImGui::BeginDragDropSource())
@@ -850,9 +860,33 @@ void D3D12Device::DrawSceneView()
 	if (ImGui::Button("Frame") && _selectedGO && _selectedGO->GetTransform())
 	{
 		Matrix wm = _selectedGO->GetTransform()->GetWorldMatrix();
-		_camera.pos = { wm._41 + 4.f, wm._42 + 3.f, wm._43 - 4.f }; // 선택 오브젝트로 카메라 이동
+		FocusCameraOn(Vec3{ wm._41, wm._42, wm._43 }); // 선택 오브젝트로 이동 + 시선 정렬
 	}
-	if (ImGui::IsItemHovered()) ImGui::SetTooltip("선택 오브젝트로 카메라 이동");
+	if (ImGui::IsItemHovered()) ImGui::SetTooltip("선택 오브젝트로 카메라 이동+정렬 (F)");
+	ImGui::SameLine();
+	if (ImGui::Button("Frame All") && _gameScene)
+	{
+		// 모든 비-내부 오브젝트 월드 위치 AABB 중심으로 프레이밍
+		using namespace DirectX;
+		XMFLOAT3 mn(1e9f, 1e9f, 1e9f), mx(-1e9f, -1e9f, -1e9f); bool any = false;
+		for (auto& kv : _gameScene->GetCreatedObjects())
+		{
+			auto& o = kv.second; if (!o || o->IsEditorInternal() || !o->GetTransform()) continue;
+			Matrix wm = o->GetTransform()->GetWorldMatrix();
+			mn.x = min(mn.x, wm._41); mn.y = min(mn.y, wm._42); mn.z = min(mn.z, wm._43);
+			mx.x = max(mx.x, wm._41); mx.y = max(mx.y, wm._42); mx.z = max(mx.z, wm._43); any = true;
+		}
+		if (any)
+		{
+			Vec3 c{ (mn.x + mx.x) * 0.5f, (mn.y + mx.y) * 0.5f, (mn.z + mx.z) * 0.5f };
+			float ext = max(max(mx.x - mn.x, mx.y - mn.y), mx.z - mn.z) * 0.5f + 3.f;
+			_camera.pos = { c.x + ext, c.y + ext * 0.7f, c.z - ext };
+			XMVECTOR dir = XMVector3Normalize(XMVectorSet(c.x - _camera.pos.x, c.y - _camera.pos.y, c.z - _camera.pos.z, 0));
+			XMFLOAT3 d; XMStoreFloat3(&d, dir); _camera.yaw = atan2f(d.x, d.z); _camera.pitch = asinf(d.y);
+		}
+	}
+	ImGui::SameLine(); ImGui::SetNextItemWidth(90);
+	ImGui::SliderFloat("Grid", &_gridCell, 0.25f, 5.f, "%.2f");
 	ImVec2 avail = ImGui::GetContentRegionAvail();
 	_pendingSceneW = (UINT)max(8.0f, avail.x);
 	_pendingSceneH = (UINT)max(8.0f, avail.y);
@@ -869,6 +903,15 @@ void D3D12Device::DrawSceneView()
 		ImVec2 ts = ImGui::CalcTextSize(nm.c_str());
 		dl->AddRectFilled(ImVec2(tp.x - 4, tp.y - 2), ImVec2(tp.x + ts.x + 4, tp.y + ts.y + 2), IM_COL32(0, 0, 0, 140), 3.f);
 		dl->AddText(tp, IM_COL32(255, 230, 120, 255), nm.c_str());
+	}
+	// 씬 우상단 FPS/ms 오버레이
+	{
+		ImDrawList* dl = ImGui::GetWindowDrawList();
+		char fb[48]; snprintf(fb, sizeof(fb), "%.0f FPS  %.1f ms", ImGui::GetIO().Framerate, 1000.0f / max(1.0f, ImGui::GetIO().Framerate));
+		ImVec2 ts = ImGui::CalcTextSize(fb);
+		ImVec2 tp(imgPos.x + avail.x - ts.x - 10, imgPos.y + 6);
+		dl->AddRectFilled(ImVec2(tp.x - 4, tp.y - 2), ImVec2(tp.x + ts.x + 4, tp.y + ts.y + 2), IM_COL32(0, 0, 0, 120), 3.f);
+		dl->AddText(tp, IM_COL32(140, 230, 140, 255), fb);
 	}
 
 	// ── .mesh 드래그드롭 → 바닥 히트 지점에 배치 ──
@@ -986,6 +1029,12 @@ void D3D12Device::DrawLog()
 {
 	ImGui::Begin("Log");
 	if (ImGui::Button("Clear")) _log.clear();
+	ImGui::SameLine();
+	if (ImGui::Button("Save"))
+	{
+		std::ofstream lf(_assetRoot + L"\\..\\engine_log.txt");
+		if (lf) { for (auto& m : _log) lf << m << '\n'; Log("Log saved: engine_log.txt"); }
+	}
 	ImGui::SameLine();
 	static bool autoScroll = true; ImGui::Checkbox("Auto-scroll", &autoScroll);
 	ImGui::SameLine(); ImGui::TextDisabled("(%d)", (int)_log.size());
@@ -1215,6 +1264,17 @@ void D3D12Device::GenerateFoliage(const shared_ptr<GameObject>& terrainObj)
 	if (!fol) return;
 	fol->Generate(terr.get(), _folGrass, _folTree, _folSize, (uint32)_folSeed);
 	Log("Foliage generated: " + std::to_string(_folGrass) + " grass, " + std::to_string(_folTree) + " trees");
+}
+
+// 카메라를 대상 지점으로 이동 + 시선 정렬 (Frame/Focus 공용)
+void D3D12Device::FocusCameraOn(const Vec3& target)
+{
+	using namespace DirectX;
+	_camera.pos = { target.x + 4.f, target.y + 3.f, target.z - 4.f };
+	XMVECTOR dir = XMVector3Normalize(XMVectorSet(target.x - _camera.pos.x, target.y - _camera.pos.y, target.z - _camera.pos.z, 0));
+	XMFLOAT3 d; XMStoreFloat3(&d, dir);
+	_camera.yaw = atan2f(d.x, d.z);
+	_camera.pitch = asinf(d.y);
 }
 
 // 씬뷰 uv → 월드 레이 → 선택 Terrain 커서 갱신 + (apply 시) 스컬프트
@@ -2214,6 +2274,12 @@ void D3D12Device::DrawGameObjectInspector(const shared_ptr<GameObject>& go)
 		if (_gameScene) _gameScene->RegisterName(go);
 	}
 	ImGui::TextDisabled("ID %lld%s", (long long)go->GetId(), go->IsEditorInternal() ? "  (editor)" : "");
+	if (!go->IsEditorInternal())
+	{
+		if (ImGui::SmallButton("Duplicate")) DuplicateSelectedObject();
+		ImGui::SameLine();
+		if (ImGui::SmallButton("Delete")) { DeleteSelectedObject(); ImGui::Separator(); return; }
+	}
 	ImGui::Separator();
 
 	const bool internal = go->IsEditorInternal();

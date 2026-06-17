@@ -16,6 +16,7 @@ public:
 	MeshRenderer() : Renderer(RendererType::Mesh) {}
 	void Bind(D3D12Device* dev) { _dev = dev; }
 	void SetGeometry(const vector<Vtx>& verts, const vector<uint32>& indices); // 로컬 정점/인덱스
+	void UpdateVertices(const vector<Vtx>& verts); // 정점 수 동일 시 in-place 재업로드(터레인 스컬프트)
 	void SetTexture(const std::wstring& path);                                  // 파일 → 디퓨즈 SRV
 	void SetTexturePixels(const vector<uint8_t>& rgba, uint32 w, uint32 h);     // 픽셀 → 디퓨즈 SRV
 

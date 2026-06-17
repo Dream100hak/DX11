@@ -7,6 +7,7 @@
 #include "ModelAnimator.h"
 #include "Collider.h"
 #include "ParticleSystem.h"
+#include "Terrain.h"
 #include "Scripts.h"
 #include "GeometryHelper.h"
 #include "ResourceManager.h"
@@ -199,6 +200,25 @@ void D3D12Device::DrawDebugLines()
 			const XMFLOAT3 yc{ 1.0f, 0.9f, 0.2f };
 			for (int k = 0; k < 24; k += 2) _debugDraw.Line(c[e[k]], c[e[k + 1]], yc);
 		}
+
+	// ── 터레인 브러시 링 (편집 모드 + 유효 커서) ──
+	if (_terrainEdit && _terrainCursorValid && _selectedGO && _selectedGO->GetComponent<Terrain>())
+	{
+		auto terr = _selectedGO->GetComponent<Terrain>();
+		XMFLOAT3 col = (_terrainBrush == 1) ? XMFLOAT3{ 1.f, 0.4f, 0.2f } : XMFLOAT3{ 0.3f, 0.9f, 1.f };
+		XMFLOAT3 prev{};
+		const int seg = 32;
+		for (int s = 0; s <= seg; ++s)
+		{
+			float a = s / (float)seg * 6.2831853f;
+			float px = _terrainCursor.x + cosf(a) * _terrainRadius;
+			float pz = _terrainCursor.z + sinf(a) * _terrainRadius;
+			XMFLOAT3 p{ px, terr->GetHeight(px, pz) + 0.05f, pz };
+			if (s > 0) _debugDraw.Line(prev, p, col, /*overlay*/ true);
+			prev = p;
+		}
+		_debugDraw.Cross(XMFLOAT3{ _terrainCursor.x, _terrainCursor.y + 0.05f, _terrainCursor.z }, col, 0.3f);
+	}
 
 	// 본 스켈레톤 — 오버레이(깊이 OFF) 배치에 추가해 메시 안에 묻혀도 보이게
 	if (_showBones)
@@ -458,6 +478,8 @@ void D3D12Device::DrawMainMenuBar()
 			if (ImGui::MenuItem("Spot Light"))        SpawnLight(2, L"Spot Light", sp);
 			if (ImGui::MenuItem("Particle System"))   { auto o = SpawnEmpty(L"Particles", sp); if (o) o->AddComponent(make_shared<ParticleSystem>()); }
 			if (ImGui::MenuItem("Camera")) { auto o = SpawnEmpty(L"Camera", _camera.pos); if (o) { o->AddComponent(make_shared<Camera>()); if (auto t = o->GetTransform()) t->SetLocalRotation(Vec3{ _camera.pitch, _camera.yaw, 0.f }); } }
+			ImGui::Separator();
+			if (ImGui::MenuItem("Terrain")) SpawnTerrain(128, 1.0f);
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Component"))
@@ -678,8 +700,20 @@ void D3D12Device::DrawSceneView()
 	_sceneHovered = ImGui::IsWindowHovered();
 	_sceneFocused = ImGui::IsWindowFocused();
 
-	// ── 클릭 픽킹 (좌클릭, 기즈모 위 아닐 때) ──
-	if (_sceneHovered && ImGui::IsMouseClicked(0) && !ImGuizmo::IsOver() && !ImGuizmo::IsUsing())
+	// ── 터레인 편집 모드: 좌드래그 = 스컬프트 (선택 GameObject 에 Terrain 컴포넌트 있을 때) ──
+	bool terrainEditing = _terrainEdit && _selectedGO && _selectedGO->GetComponent<Terrain>();
+	if (terrainEditing && _sceneHovered)
+	{
+		ImVec2 mp = ImGui::GetMousePos();
+		float u = (mp.x - imgPos.x) / avail.x, v = (mp.y - imgPos.y) / avail.y;
+		if (u >= 0 && u <= 1 && v >= 0 && v <= 1)
+		{
+			bool down = ImGui::IsMouseDown(0);
+			TerrainBrushAt(u, v, down); // 다운 시 스컬프트, 아니면 커서만
+		}
+	}
+	// ── 클릭 픽킹 (좌클릭, 기즈모 위 아닐 때 — 터레인 편집 중엔 비활성) ──
+	else if (_sceneHovered && ImGui::IsMouseClicked(0) && !ImGuizmo::IsOver() && !ImGuizmo::IsUsing())
 	{
 		ImVec2 mp = ImGui::GetMousePos();
 		float u = (mp.x - imgPos.x) / avail.x, v = (mp.y - imgPos.y) / avail.y;
@@ -687,7 +721,7 @@ void D3D12Device::DrawSceneView()
 	}
 
 	// ── ImGuizmo: 선택 GameObject / 모델 / 점광원 트랜스폼 조작 (이미지 영역 오버레이) ──
-	bool goGizmo = _selectedGO && _selectedGO != _modelObj && _selectedGO->GetTransform() && !_selectedGO->IsEditorInternal();
+	bool goGizmo = _selectedGO && _selectedGO != _modelObj && _selectedGO->GetTransform() && !_selectedGO->IsEditorInternal() && !terrainEditing;
 	if (goGizmo || (_sel == SelEntity::Model && _scene._modelMatrixInit) || _sel == SelEntity::Point)
 	{
 		ImGuizmo::SetOrthographic(false);
@@ -917,6 +951,53 @@ void D3D12Device::ConvertFbxDialog()
 	SpawnAnimatedModel(r.meshPath, Vec3{ sp.x, 0, sp.z });
 }
 
+// Terrain GameObject — MeshRenderer(그리드 메시) + Terrain(하이트맵/스컬프트). 트랜스폼 항등(정점=월드).
+shared_ptr<GameObject> D3D12Device::SpawnTerrain(int gridN, float cellSize)
+{
+	if (!_gameScene) return nullptr;
+	auto obj = make_shared<GameObject>();
+	obj->SetObjectName(L"Terrain_" + std::to_wstring(++_spawnCounter));
+	obj->GetOrAddTransform();
+	auto mr = make_shared<MeshRenderer>(); mr->Bind(this);
+	obj->AddComponent(mr);
+	auto tr = make_shared<Terrain>(); tr->Bind(this);
+	obj->AddComponent(tr);
+	tr->Init(gridN, cellSize);   // MeshRenderer 지오메트리 설정 (Add 후 — GetMeshRenderer 동작)
+	_gameScene->Add(obj);
+	_selectedGO = obj; _sel = SelEntity::Model;
+	_terrainEdit = true;         // 생성 직후 편집 모드 진입
+	Log("Created Terrain: " + std::to_string(gridN) + "x" + std::to_string(gridN) + " cells");
+	return obj;
+}
+
+// 씬뷰 uv → 월드 레이 → 선택 Terrain 커서 갱신 + (apply 시) 스컬프트
+void D3D12Device::TerrainBrushAt(float u, float v, bool apply)
+{
+	using namespace DirectX;
+	if (!_selectedGO) { _terrainCursorValid = false; return; }
+	auto tr = _selectedGO->GetComponent<Terrain>();
+	if (!tr) { _terrainCursorValid = false; return; }
+
+	float nx = u * 2.f - 1.f, ny = (1.f - v) * 2.f - 1.f;
+	XMMATRIX invVP = XMMatrixInverse(nullptr, XMLoadFloat4x4(&_viewM) * XMLoadFloat4x4(&_projM));
+	XMVECTOR n = XMVector4Transform(XMVectorSet(nx, ny, 0, 1), invVP); n = XMVectorScale(n, 1.f / XMVectorGetW(n));
+	XMVECTOR f = XMVector4Transform(XMVectorSet(nx, ny, 1, 1), invVP); f = XMVectorScale(f, 1.f / XMVectorGetW(f));
+	Vec3 ro; XMStoreFloat3(&ro, n);
+	Vec3 rd; XMStoreFloat3(&rd, XMVector3Normalize(XMVectorSubtract(f, n)));
+
+	Vec3 hit;
+	if (!tr->Raycast(ro, rd, hit)) { _terrainCursorValid = false; return; }
+	_terrainCursor = hit; _terrainCursorValid = true;
+
+	if (apply)
+	{
+		float dt = ImGui::GetIO().DeltaTime; if (dt <= 0.f || dt > 0.1f) dt = 1.f / 60.f;
+		float str = _terrainStrength * dt;
+		if (_terrainBrush == 2 || _terrainBrush == 3) str = _terrainStrength * dt * 0.5f; // smooth/flatten 은 비율
+		tr->Sculpt(hit.x, hit.z, _terrainRadius, str, (TerrainBrush)_terrainBrush, _terrainFlatten);
+	}
+}
+
 shared_ptr<GameObject> D3D12Device::SpawnEmpty(const std::wstring& name, const Vec3& pos)
 {
 	if (!_gameScene) return nullptr;
@@ -1086,6 +1167,7 @@ void D3D12Device::SaveSceneTo(const std::wstring& path)
 			if (!obj || obj->IsEditorInternal()) continue;
 			auto mr = obj->GetMeshRenderer();
 			if (!mr) continue; // 라이트/모델은 위 스칼라 라인으로 영속
+			if (obj->GetComponent<Terrain>()) continue; // 터레인은 전용 tobj 블록으로 영속
 			auto t = obj->GetTransform(); if (!t) continue;
 			Vec3 p = t->GetLocalPosition(), r = t->GetLocalRotation(), sc = t->GetLocalScale();
 			Material& mat = mr->GetMaterial();
@@ -1189,6 +1271,27 @@ void D3D12Device::SaveSceneTo(const std::wstring& path)
 			f << "cpar " << (parentName.empty() ? std::string("-") : WToUtf8(parentName)) << '\n';
 			WriteScripts(f, obj);
 		}
+
+		// 터레인 (Terrain 컴포넌트 GameObject) — 하이트맵은 사이드카 .r32 로 자동 저장
+		{
+			fs::path scenePath(path);
+			std::wstring sceneDir = scenePath.has_parent_path() ? (scenePath.parent_path().wstring() + L"\\") : L"";
+			for (auto& kv : _gameScene->GetCreatedObjects())
+			{
+				auto& obj = kv.second;
+				if (!obj || obj->IsEditorInternal()) continue;
+				auto terr = obj->GetComponent<Terrain>(); if (!terr) continue;
+				auto t = obj->GetTransform(); Vec3 p = t ? t->GetLocalPosition() : Vec3{ 0,0,0 };
+				// 하이트맵 사이드카 경로: <sceneDir><terrainName>.r32
+				std::wstring hmPath = sceneDir + obj->GetObjectName() + L".r32";
+				terr->SaveHeightmap(hmPath);
+				f << "tobj " << WToUtf8(obj->GetObjectName()) << '\n';
+				f << "tprm " << terr->GridN() << ' ' << terr->CellSize() << '\n';
+				f << "thm " << WToUtf8(hmPath) << '\n';
+				f << "txf " << p.x << ' ' << p.y << ' ' << p.z << ' ' << (obj->IsActive() ? 1 : 0) << '\n';
+				WriteScripts(f, obj);
+			}
+		}
 	}
 	f.flush();
 	Log("Scene saved: " + WToUtf8(path) + "  (" + std::to_string(meshCount) + " mesh, "
@@ -1207,6 +1310,7 @@ void D3D12Device::LoadSceneFrom(const std::wstring& path)
 	shared_ptr<GameObject> curLight; std::wstring curLightName; // 현재 lobj 블록 대상
 	shared_ptr<GameObject> curAnim;  std::wstring curAnimName;  // 현재 aobj 블록 대상
 	shared_ptr<GameObject> curPart;  std::wstring curPartName;  // 현재 pobj 블록 대상
+	shared_ptr<GameObject> curTerrain; std::wstring curTerrainName; // 현재 tobj 블록 대상
 	shared_ptr<GameObject> curAny;   // 가장 최근 블록 오브젝트 (스크립트 mb 적용 대상)
 	std::wstring curName;          // 현재 블록 오브젝트 이름 (없으면 재생성용)
 	std::vector<std::pair<std::wstring, std::wstring>> parentLinks; // (child, parent) — 전부 파싱 후 링크
@@ -1374,6 +1478,30 @@ void D3D12Device::LoadSceneFrom(const std::wstring& path)
 		else if (tag == "cpar" && curObj) {
 			std::string pn; std::getline(s >> std::ws, pn);
 			if (pn != "-" && !pn.empty()) parentLinks.push_back({ curName, Utf8ToW(pn) });
+		}
+		// ── 터레인 ──
+		else if (tag == "tobj") {
+			std::string nm; std::getline(s >> std::ws, nm); curTerrainName = Utf8ToW(nm);
+			curTerrain = findByName(curTerrainName);
+			if (!curTerrain) {
+				curTerrain = make_shared<GameObject>(); curTerrain->SetObjectName(curTerrainName); curTerrain->GetOrAddTransform();
+				auto mr = make_shared<MeshRenderer>(); mr->Bind(this); curTerrain->AddComponent(mr);
+				auto tr = make_shared<Terrain>(); tr->Bind(this); curTerrain->AddComponent(tr);
+				_gameScene->Add(curTerrain);
+			}
+			curAny = curTerrain;
+		}
+		else if (tag == "tprm" && curTerrain) {
+			int gn = 128; float cs = 1.f; s >> gn >> cs;
+			if (auto tr = curTerrain->GetComponent<Terrain>()) tr->Init(gn, cs); // 평지 초기화(thm 가 덮어씀)
+		}
+		else if (tag == "thm" && curTerrain) {
+			std::string hp; std::getline(s >> std::ws, hp);
+			if (auto tr = curTerrain->GetComponent<Terrain>(); tr && !hp.empty()) tr->LoadHeightmap(Utf8ToW(hp));
+		}
+		else if (tag == "txf" && curTerrain) {
+			Vec3 p; s >> p.x >> p.y >> p.z; if (auto t = curTerrain->GetTransform()) t->SetLocalPosition(p);
+			int act = 1; if (s >> act) curTerrain->SetActive(act != 0);
 		}
 		// ── 스크립트(MonoBehaviour) — 직전 블록 오브젝트에 부착 ──
 		else if (tag == "mb" && curAny) {
@@ -1811,6 +1939,37 @@ void D3D12Device::DrawGameObjectInspector(const shared_ptr<GameObject>& go)
 		}
 
 		c->OnInspectorGUI();
+	}
+
+	// ── Terrain 편집 패널 (Terrain 컴포넌트 보유 시) ──
+	if (auto terr = go->GetComponent<Terrain>())
+	{
+		ImGui::SeparatorText("Terrain Sculpt");
+		ImGui::Checkbox("Edit Mode (좌드래그=스컬프트)", &_terrainEdit);
+		const char* brushes[] = { "Raise", "Lower", "Smooth", "Flatten" };
+		ImGui::Combo("Brush", &_terrainBrush, brushes, 4);
+		ImGui::DragFloat("Radius", &_terrainRadius, 0.2f, 0.5f, terr->WorldSize() * 0.5f);
+		ImGui::DragFloat("Strength (m/s)", &_terrainStrength, 0.2f, 0.1f, 50.f);
+		if (_terrainBrush == 3) ImGui::DragFloat("Flatten Height", &_terrainFlatten, 0.1f, -50.f, 50.f);
+		ImGui::TextDisabled("Grid %dx%d  cell %.2fm  size %.0fm", terr->GridN(), terr->GridN(), terr->CellSize(), terr->WorldSize());
+
+		if (ImGui::Button("Save Heightmap..."))
+		{
+			wchar_t file[MAX_PATH] = L"terrain_edit.r32";
+			OPENFILENAMEW ofn{}; ofn.lStructSize = sizeof(ofn); ofn.hwndOwner = _hwnd;
+			ofn.lpstrFilter = L"Heightmap (*.r32)\0*.r32\0"; ofn.lpstrDefExt = L"r32";
+			ofn.lpstrFile = file; ofn.nMaxFile = MAX_PATH; ofn.Flags = OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
+			if (GetSaveFileNameW(&ofn)) { if (terr->SaveHeightmap(file)) Log("Heightmap saved: " + WToUtf8(file)); }
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Load Heightmap..."))
+		{
+			wchar_t file[MAX_PATH] = L"";
+			OPENFILENAMEW ofn{}; ofn.lStructSize = sizeof(ofn); ofn.hwndOwner = _hwnd;
+			ofn.lpstrFilter = L"Heightmap (*.r32)\0*.r32\0"; ofn.lpstrFile = file; ofn.nMaxFile = MAX_PATH;
+			ofn.Flags = OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
+			if (GetOpenFileNameW(&ofn)) { if (terr->LoadHeightmap(file)) Log("Heightmap loaded: " + WToUtf8(file)); }
+		}
 	}
 
 	{

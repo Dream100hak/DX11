@@ -81,6 +81,7 @@
     <ClCompile Include="PostFX.cpp" />
     <ClCompile Include="FlyCamera.cpp" />
     <ClCompile Include="ImGuiDx12.cpp" />
+    <ClCompile Include="Terrain.cpp" />
     <ClCompile Include="FbxConverter.cpp" />
     <ClCompile Include="..\Libraries\Include\ufbx\ufbx.c" />
     <ClCompile Include="main.cpp" />

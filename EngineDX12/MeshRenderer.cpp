@@ -46,6 +46,15 @@ void MeshRenderer::SetGeometry(const vector<Vtx>& verts, const vector<uint32>& i
 	_baked = false;
 }
 
+// 정점 수가 같으면 버퍼 재생성 없이 _local 만 교체 → 다음 Draw 의 Rebake 가 in-place 업로드(스컬프트 효율)
+void MeshRenderer::UpdateVertices(const vector<Vtx>& verts)
+{
+	if (!_dev || verts.size() != _local.size() || !_vb) { SetGeometry(verts, _indices); return; }
+	_local = verts;
+	_baked = false;       // 다음 UpdateWorld 에서 Rebake(월드 정점 재생성 + memcpy)
+	_blasDirty = true;    // RT BLAS 재빌드
+}
+
 void MeshRenderer::SetTexture(const std::wstring& path)
 {
 	std::vector<uint8_t> px; uint32 w = 0, h = 0;

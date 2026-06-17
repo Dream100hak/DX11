@@ -167,6 +167,16 @@ private:
 	shared_ptr<GameObject>            SpawnEmpty(const std::wstring& name, const Vec3& pos);
 	shared_ptr<GameObject>            SpawnAnimatedModel(const std::wstring& meshPath, const Vec3& pos); // ModelAnimator
 	void                              ConvertFbxDialog(); // File > Convert FBX... (ufbx → .mesh/.clip/.mat 변환 후 스폰)
+	shared_ptr<GameObject>            SpawnTerrain(int gridN, float cellSize); // Terrain + MeshRenderer GameObject
+	// 터레인 편집 (씬뷰 브러시) — Terrain 선택 + Edit 토글 시 좌드래그로 스컬프트
+	bool                              _terrainEdit = false;
+	int                               _terrainBrush = 0;     // 0 Raise/1 Lower/2 Smooth/3 Flatten
+	float                             _terrainRadius = 6.f;
+	float                             _terrainStrength = 8.f; // 초당 변화량(m)
+	float                             _terrainFlatten = 0.f;
+	Vec3                              _terrainCursor{};       // 마지막 브러시 월드 히트(기즈모/오버레이용)
+	bool                              _terrainCursorValid = false;
+	void                              TerrainBrushAt(float u, float v, bool apply); // 씬뷰 uv → 레이 → (apply 시)스컬프트
 	Vec3                              SpawnPoint(); // 카메라 앞 4m 지점 (스폰 위치)
 	shared_ptr<GameObject>            SpawnLight(int type, const std::wstring& name, const Vec3& pos); // 0 Dir/1 Point/2 Spot
 	void                              DeleteSelectedObject();    // _selectedGO 삭제 (에디터 내부/모델 보호)

@@ -3,6 +3,7 @@
 #include "Transform.h"
 #include "MeshRenderer.h"
 #include "ModelAnimator.h"
+#include "Terrain.h"
 #include "ParticleSystem.h"
 #include "RtBlas.h"
 #include "Camera.h"
@@ -203,6 +204,10 @@ void D3D12Device::Render()
 				auto& o = kv.second;
 				if (!o || !o->IsActive() || o == _modelObj) continue;
 				if (rtInst.size() >= ModelScene::MAX_INSTANCES) break;
+				// 터레인은 TLAS 제외: RT 셰이더가 단일 글로벌 모델 VB/IB 로 히트 지오메트리를 페치해
+				// 대용량(수만 삼각형) 터레인 히트 시 프리미티브 인덱스가 범위를 크게 벗어나 GPU OOB → 디바이스 제거.
+				// (래스터 패스는 정상 렌더 — 디퍼드 라이팅 받음. RT 그림자/GI 표면에서만 빠짐.)
+				if (o->GetTerrain()) continue;
 				if (auto mr = o->GetMeshRenderer())
 				{
 					mr->UpdateWorld(); mr->RecordBuildBLAS(_cmdList.Get());

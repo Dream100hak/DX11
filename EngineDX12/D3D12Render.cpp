@@ -300,6 +300,9 @@ void D3D12Device::Render()
 	// ── 그리드 — GridRenderer (Transparent 큐, 컬링 제외) ──
 	if (sceneCam) drawBucket(sceneCam->GetVecTransparent(), false);
 
+	// ── GPU 인스턴스드 빌보드 파티클 (가산 블렌드) ──
+	RenderParticles(ctx);
+
 	// ── 디버그 라인 (본/AABB/콘/아이콘) ──
 	DrawDebugLines();
 
@@ -438,4 +441,56 @@ void D3D12Device::RenderGameView()
 	_gamePostfx.Tonemap(_cmdList.Get(), tp);
 	ID3D12Resource* disp = _gamePostfx.Fxaa(_cmdList.Get(), _fxaaOn);
 	_gameTexId = _imgui.SetGameTexture(disp);
+}
+
+// 씬의 ParticleSystem 입자들을 GPU 인스턴스드 빌보드 쿼드로 렌더 (가산 블렌드). ctx.cb = b0(VP).
+void D3D12Device::RenderParticles(const RenderContext& ctx)
+{
+	using namespace DirectX;
+	if (!_gameScene || !_particlePSO) return;
+
+	struct PInst { XMFLOAT3 pos; float size; XMFLOAT3 col; float pad; }; // 32B (셰이더 Particle 와 동일 stride)
+	static std::vector<PInst> insts; insts.clear();
+	for (auto& kv : _gameScene->GetCreatedObjects())
+	{
+		auto& o = kv.second; if (!o || !o->IsActive()) continue;
+		auto ps = std::dynamic_pointer_cast<ParticleSystem>(o->GetRenderer()); if (!ps) continue;
+		float sz = ps->Size();
+		for (auto& p : ps->Particles())
+		{
+			float fade = p.maxLife > 0.f ? p.life / p.maxLife : 1.f;
+			insts.push_back({ p.pos, sz, XMFLOAT3(p.col.x * fade, p.col.y * fade, p.col.z * fade), 0.f });
+		}
+	}
+	if (insts.empty()) return;
+
+	UINT bytes = (UINT)(insts.size() * sizeof(PInst));
+	if (_partInstCap < bytes)
+	{
+		_partInst.Reset();
+		D3D12_HEAP_PROPERTIES hp{}; hp.Type = D3D12_HEAP_TYPE_UPLOAD;
+		D3D12_RESOURCE_DESC rd{}; rd.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+		rd.Width = bytes + 8192; rd.Height = 1; rd.DepthOrArraySize = 1; rd.MipLevels = 1;
+		rd.Format = DXGI_FORMAT_UNKNOWN; rd.SampleDesc.Count = 1; rd.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+		ThrowIfFailed(_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &rd,
+			D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&_partInst)), "PartInst buffer");
+		_partInstCap = bytes + 8192;
+		D3D12_RANGE nr{ 0, 0 }; _partInst->Map(0, &nr, &_partInstMapped);
+	}
+	memcpy(_partInstMapped, insts.data(), bytes);
+
+	// 카메라 빌보드 기저 (right/up)
+	XMVECTOR fwd = _camera.Forward();
+	XMVECTOR right = XMVector3Normalize(XMVector3Cross(XMVectorSet(0, 1, 0, 0), fwd));
+	XMVECTOR up = XMVector3Cross(fwd, right);
+	XMFLOAT3 r3, u3; XMStoreFloat3(&r3, right); XMStoreFloat3(&u3, up);
+	float bill[8] = { r3.x, r3.y, r3.z, 0.f, u3.x, u3.y, u3.z, 0.f };
+
+	_cmdList->SetPipelineState(_particlePSO.Get());
+	_cmdList->SetGraphicsRootSignature(_rootSig.Get());
+	_cmdList->SetGraphicsRootConstantBufferView(0, ctx.cb);                              // b0 = VP
+	_cmdList->SetGraphicsRootShaderResourceView(2, _partInst->GetGPUVirtualAddress());   // t1 = 파티클 StructuredBuffer
+	_cmdList->SetGraphicsRoot32BitConstants(4, 8, bill, 0);                              // b1 = 빌보드 기저
+	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	_cmdList->DrawInstanced(6, (UINT)insts.size(), 0, 0);                                // VB 없음(절차적)
 }

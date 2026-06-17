@@ -175,19 +175,7 @@ void D3D12Device::DrawDebugLines()
 			}
 		}
 
-	// ── ParticleSystem 컴포넌트 입자 (크로스) ──
-	if (_gameScene)
-		for (auto& kv : _gameScene->GetCreatedObjects())
-		{
-			auto& o = kv.second; if (!o || !o->IsActive()) continue;
-			auto ps = std::dynamic_pointer_cast<ParticleSystem>(o->GetRenderer()); if (!ps) continue;
-			float sz = ps->Size();
-			for (auto& p : ps->Particles())
-			{
-				float fade = p.maxLife > 0 ? p.life / p.maxLife : 1.f;
-				_debugDraw.Cross(p.pos, XMFLOAT3(p.col.x * fade, p.col.y * fade, p.col.z * fade), sz);
-			}
-		}
+	// ParticleSystem 컴포넌트 입자는 GPU 인스턴스드 빌보드(RenderParticles)로 렌더 — 여기선 생략.
 
 	// ── 디렉셔널 라이트(태양) 방향 화살표 (씬 원점 위, 노랑) ──
 	if (_showLightIcons)

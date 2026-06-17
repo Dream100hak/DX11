@@ -144,6 +144,11 @@ private:
 	ComPtr<ID3D12PipelineState>       _outlinePSO; // 선택 아웃라인(인버티드 헐)
 	ComPtr<ID3D12PipelineState>       _wirePSO;    // 와이어프레임 토글
 	ComPtr<ID3D12PipelineState>       _probePSO;   // DDGI 프로브 점 시각화
+	ComPtr<ID3D12PipelineState>       _particlePSO; // GPU 인스턴스드 빌보드 파티클
+	ComPtr<ID3D12Resource>            _partInst;    // per-frame 인스턴스 업로드 버퍼
+	void*                             _partInstMapped = nullptr;
+	UINT                              _partInstCap = 0; // 바이트 용량
+	void                              RenderParticles(const RenderContext& ctx); // 씬의 ParticleSystem 입자를 빌보드로
 	DebugDraw                         _debugDraw;  // 디버그 라인 렌더러(본/AABB/콘/아이콘/파티클)
 	void                              DrawDebugLines(); // 에디터 상태 → 라인 빌드 → _debugDraw 드로우
 	DXGI_FORMAT                       _sceneFmt = DXGI_FORMAT_R16G16B16A16_FLOAT; // 씬 RT(HDR)

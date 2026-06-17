@@ -605,6 +605,28 @@ float4 VSMain(VIn i) : SV_POSITION
 float4 PSMain() : SV_TARGET { return float4(gOutline.rgb, 1.0); } // 아웃라인 색(HDR)
 )";
 
+// GPU 인스턴스드 빌보드 파티클 — 입자당 1 인스턴스(6정점 쿼드), 카메라 정면 빌보드 + 가산 블렌드.
+// CPU 시뮬(ParticleSystem) 결과를 인스턴스 버퍼로 올려 GPU 인스턴싱으로 렌더(디버그 크로스 대체).
+static const std::string kParticleShader = std::string(kSceneCB) + R"(
+struct Particle { float3 pos; float size; float3 col; float pad; }; // 32B (CPU PInst 와 동일)
+StructuredBuffer<Particle> gParts : register(t1); // 루트 SRV(param2)로 바인드 — 입력레이아웃/VB 불필요
+cbuffer BillCB : register(b1) { float3 gCamRight; float _p0; float3 gCamUp; float _p1; };
+struct VOut { float4 pos:SV_POSITION; float2 uv:TEXCOORD0; float3 col:COLOR; };
+VOut VSMain(uint vid : SV_VertexID, uint iid : SV_InstanceID)
+{
+    float2 cs[6] = { float2(-1,-1), float2(1,-1), float2(1,1), float2(-1,-1), float2(1,1), float2(-1,1) };
+    float2 c = cs[vid];
+    Particle p = gParts[iid];
+    float3 wp = p.pos + gCamRight * (c.x * p.size) + gCamUp * (c.y * p.size);
+    VOut o; o.pos = mul(float4(wp, 1.0), gMVP); o.uv = c; o.col = p.col; return o;
+}
+float4 PSMain(VOut i) : SV_TARGET
+{
+    float r = saturate(1.0 - dot(i.uv, i.uv)); // 소프트 원형 폴오프
+    return float4(i.col * r, r);               // 가산 블렌드 전제
+}
+)";
+
 // 디버그 라인 (본/AABB/스팟콘/라이트 아이콘) — LINELIST, pos+color
 // 디버그 라인 셰이더는 DebugDraw.cpp 로 이동(자체 포함, kSceneCB 불필요)
 
@@ -992,8 +1014,8 @@ void D3D12Device::CreateRootSignature()
 
 	params[4].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
 	params[4].Constants.ShaderRegister = 1; // b1
-	params[4].Constants.Num32BitValues = 8; // mode + metallic/roughness/emissive + tint.rgb + pad (per-object)
-	params[4].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	params[4].Constants.Num32BitValues = 8; // mode + metallic/roughness/emissive + tint.rgb + pad (per-object) / 파티클 빌보드 기저
+	params[4].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL; // 파티클 VS 도 b1(빌보드 기저) 읽음
 
 	params[5].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; // 프로브 depth
 	params[5].Descriptor.ShaderRegister = 5; // t5
@@ -1144,6 +1166,21 @@ void D3D12Device::CreatePipeline()
 	gpso.BlendState.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
 	gpso.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
 	ThrowIfFailed(_device->CreateGraphicsPipelineState(&gpso, IID_PPV_ARGS(&_gridPSO)), "CreateGridPSO");
+
+	// ── 파티클 빌보드 PSO (StructuredBuffer 인스턴싱, 가산 블렌드, 깊이 테스트/쓰기 없음) ──
+	{
+		ComPtr<IDxcBlob> pvs = CompileDxc(kParticleShader.c_str(), L"VSMain", L"vs_6_5");
+		ComPtr<IDxcBlob> pps = CompileDxc(kParticleShader.c_str(), L"PSMain", L"ps_6_5");
+		// 검증된 그리드 PSO(gpso)를 베이스로 — 입력레이아웃 없음/TRIANGLE/깊이테스트/DSV 동일, 차이만 오버라이드
+		D3D12_GRAPHICS_PIPELINE_STATE_DESC pp = gpso;
+		pp.VS = { pvs->GetBufferPointer(), pvs->GetBufferSize() };
+		pp.PS = { pps->GetBufferPointer(), pps->GetBufferSize() };
+		pp.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+		pp.BlendState.RenderTarget[0].SrcBlend = D3D12_BLEND_ONE;      // 가산 블렌드
+		pp.BlendState.RenderTarget[0].DestBlend = D3D12_BLEND_ONE;
+		pp.BlendState.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ONE;
+		ThrowIfFailed(_device->CreateGraphicsPipelineState(&pp, IID_PPV_ARGS(&_particlePSO)), "CreateParticlePSO");
+	}
 
 	// ── 아웃라인 PSO (앞면 컬링 = 뒷면 렌더, 깊이 LESS/쓰기, 입력레이아웃 = 메시) ──
 	ComPtr<IDxcBlob> ovs = CompileDxc(kOutlineShader.c_str(), L"VSMain", L"vs_6_5");

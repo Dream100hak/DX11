@@ -18,6 +18,9 @@
 #include "imgui_internal.h"   // DockBuilder
 #include "imgui_impl_win32.h"
 #include "ImGuizmo.h"
+#include "FbxConverter.h"
+#include <commdlg.h>
+#pragma comment(lib, "comdlg32.lib")
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -420,7 +423,7 @@ void D3D12Device::DrawMainMenuBar()
 			if (ImGui::MenuItem("Open Scene...", "Ctrl+O")) LoadScene();
 			if (ImGui::MenuItem("Save Scene...", "Ctrl+S")) SaveScene();
 			ImGui::Separator();
-			ImGui::MenuItem("Convert FBX...", nullptr, false, false); // RtDemo 는 .mesh 직접 로드
+			if (ImGui::MenuItem("Convert FBX...")) ConvertFbxDialog(); // ufbx → .mesh/.clip/.mat 변환 후 스폰
 			ImGui::Separator();
 			if (ImGui::MenuItem("Screenshot (PNG)")) _wantShot = true;
 			if (ImGui::MenuItem("Screenshot Hi-Res 2x")) { _renderScale = 2.0f; _wantShot = true; _hiresShot = true; }
@@ -884,6 +887,34 @@ shared_ptr<GameObject> D3D12Device::SpawnAnimatedModel(const std::wstring& meshP
 	_selectedGO = obj; _sel = SelEntity::Model;
 	Log("Created animated: " + WToUtf8(obj->GetObjectName()));
 	return obj;
+}
+
+// File > Convert FBX... — 파일 다이얼로그로 FBX 선택 → ufbx 변환(.mesh/.clip/.mat) → Models/<폴더>/ 에 저장 → 스폰
+void D3D12Device::ConvertFbxDialog()
+{
+	wchar_t file[MAX_PATH] = L"";
+	OPENFILENAMEW ofn{}; ofn.lStructSize = sizeof(ofn); ofn.hwndOwner = _hwnd;
+	ofn.lpstrFilter = L"FBX Files\0*.fbx\0All Files\0*.*\0"; ofn.lpstrFile = file; ofn.nMaxFile = MAX_PATH;
+	ofn.lpstrTitle = L"Convert FBX"; ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+	if (!GetOpenFileNameW(&ofn)) return; // 취소
+
+	fs::path fbx(file);
+	std::wstring stem = fbx.stem().wstring();
+	// 출력 폴더: Assets\Models\<FBX 부모 폴더명>\  (DX11 컨버터와 동일 규칙)
+	std::wstring parentName = fbx.has_parent_path() ? fbx.parent_path().filename().wstring() : L"Imported";
+	if (parentName.empty()) parentName = L"Imported";
+	std::wstring outDir = _assetRoot + L"\\Models\\" + parentName + L"\\";
+
+	Log("Converting FBX: " + WToUtf8(fbx.wstring()));
+	FbxConvertResult r = ConvertFbxToMesh(fbx.wstring(), outDir, stem);
+	if (!r.ok) { Log("FBX convert FAILED: " + r.error); return; }
+	Log("FBX converted: " + std::to_string(r.meshCount) + " mesh / " + std::to_string(r.boneCount) + " bone / "
+		+ std::to_string(r.materialCount) + " mat / " + std::to_string(r.animCount) + " anim ("
+		+ std::to_string(r.frameCount) + " frames) → " + WToUtf8(outDir));
+
+	// 변환 결과 스폰 (ModelAnimator — 애니 없으면 바인드포즈 정적 메시로 렌더)
+	Vec3 sp = SpawnPoint();
+	SpawnAnimatedModel(r.meshPath, Vec3{ sp.x, 0, sp.z });
 }
 
 shared_ptr<GameObject> D3D12Device::SpawnEmpty(const std::wstring& name, const Vec3& pos)

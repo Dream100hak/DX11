@@ -54,6 +54,7 @@
     <ClInclude Include="EditorWindow.h" />
     <ClInclude Include="EditorWindows.h" />
     <ClInclude Include="EditorManager.h" />
+    <ClInclude Include="FbxConverter.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Component.cpp" />
@@ -80,6 +81,8 @@
     <ClCompile Include="PostFX.cpp" />
     <ClCompile Include="FlyCamera.cpp" />
     <ClCompile Include="ImGuiDx12.cpp" />
+    <ClCompile Include="FbxConverter.cpp" />
+    <ClCompile Include="..\Libraries\Include\ufbx\ufbx.c" />
     <ClCompile Include="main.cpp" />
     <!-- ImGui 코어 + Win32 입력 백엔드 (Engine 과 소스 공유, DX12 렌더 백엔드는 ImGuiDx12.cpp) -->
     <ClCompile Include="..\Engine\imgui.cpp" />
@@ -138,7 +141,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>$(SolutionDir)Engine;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Engine;$(SolutionDir)Libraries\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -155,7 +158,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalIncludeDirectories>$(SolutionDir)Engine;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Engine;$(SolutionDir)Libraries\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

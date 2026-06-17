@@ -166,6 +166,7 @@ private:
 	shared_ptr<GameObject>            SpawnMeshObject(const std::wstring& name, const vector<Vtx>& v, const vector<uint32>& idx, const Vec3& pos, MeshPrim prim = MeshPrim::None, bool autoName = true);
 	shared_ptr<GameObject>            SpawnEmpty(const std::wstring& name, const Vec3& pos);
 	shared_ptr<GameObject>            SpawnAnimatedModel(const std::wstring& meshPath, const Vec3& pos); // ModelAnimator
+	void                              ConvertFbxDialog(); // File > Convert FBX... (ufbx → .mesh/.clip/.mat 변환 후 스폰)
 	Vec3                              SpawnPoint(); // 카메라 앞 4m 지점 (스폰 위치)
 	shared_ptr<GameObject>            SpawnLight(int type, const std::wstring& name, const Vec3& pos); // 0 Dir/1 Point/2 Spot
 	void                              DeleteSelectedObject();    // _selectedGO 삭제 (에디터 내부/모델 보호)

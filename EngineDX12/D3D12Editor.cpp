@@ -1486,6 +1486,19 @@ void D3D12Device::DuplicateSelectedObject()
 	auto source = _selectedGO; // SpawnMeshObject 가 _selectedGO 를 재할당하므로 먼저 캡처
 	if (!source || !_gameScene) return;
 
+	// 터레인 복제 — 일반 메시로 복제하면 사본에 Terrain 컴포넌트가 없어 TLAS OOB(동결) → 반드시 Terrain 으로 복제
+	if (auto sterr = source->GetComponent<Terrain>())
+	{
+		auto obj = SpawnTerrain(sterr->GridN(), sterr->CellSize());
+		if (obj) if (auto dterr = obj->GetComponent<Terrain>())
+		{
+			dterr->CopyFrom(*sterr);
+			if (auto st = source->GetTransform(), dt = obj->GetTransform(); st && dt)
+			{ Vec3 p = st->GetLocalPosition(); p.x += 2.0f; dt->SetLocalPosition(p); }
+		}
+		return;
+	}
+
 	// 애니메이션 모델 복제
 	if (auto sa = source->GetModelAnimator())
 	{

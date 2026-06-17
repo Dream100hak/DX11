@@ -215,6 +215,14 @@ bool Terrain::Raycast(const Vec3& ro, const Vec3& rd, Vec3& hit) const
 	return false;
 }
 
+void Terrain::CopyFrom(const Terrain& src)
+{
+	_gridN = src._gridN; _cellSize = src._cellSize;
+	_heightmap = src._heightmap; _paint = src._paint;
+	auto mr = GetGameObject() ? GetGameObject()->GetMeshRenderer() : nullptr;
+	if (mr) { vector<Vtx> v; vector<uint32> idx; BuildVerts(v); BuildIndices(idx); mr->SetGeometry(v, idx); }
+}
+
 bool Terrain::SaveHeightmap(const std::wstring& path)
 {
 	std::ofstream f(path, std::ios::binary | std::ios::trunc);

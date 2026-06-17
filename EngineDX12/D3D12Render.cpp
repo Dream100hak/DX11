@@ -209,13 +209,18 @@ void D3D12Device::Render()
 				// 대용량(수만 삼각형) 터레인 히트 시 프리미티브 인덱스가 범위를 크게 벗어나 GPU OOB → 디바이스 제거.
 				// (래스터 패스는 정상 렌더 — 디퍼드 라이팅 받음. RT 그림자/GI 표면에서만 빠짐.)
 				if (o->GetTerrain()) continue;
+				// 방어 가드: RT 히트 셰이더가 글로벌 모델 VB/IB(_scene._vb/_ib)로 어트리뷰트를 페치하므로,
+				// 글로벌 IB 보다 인덱스가 많은 메시가 TLAS 에 들어가면 프리미티브 인덱스 OOB → GPU 하드행/동결.
+				// (예: 터레인을 일반 MeshRenderer 로 복제한 사본 9만 삼각형). 그런 대용량 메시는 TLAS 에서 제외.
 				if (auto mr = o->GetMeshRenderer())
 				{
+					if (mr->GetLocalIndices().size() > _scene._modelIndexCount) continue; // OOB 방지(래스터는 정상)
 					mr->UpdateWorld(); mr->RecordBuildBLAS(_cmdList.Get());
 					if (mr->BlasAddr()) rtInst.push_back(RtBlas::IdentityInstance(mr->BlasAddr()));
 				}
 				else if (auto an = o->GetModelAnimator())
 				{
+					if (an->IndexCount() > _scene._modelIndexCount) continue;
 					an->UpdateWorld(); an->RecordBuildBLAS(_cmdList.Get());
 					if (an->BlasAddr()) rtInst.push_back(RtBlas::IdentityInstance(an->BlasAddr()));
 				}

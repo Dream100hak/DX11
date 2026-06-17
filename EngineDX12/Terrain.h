@@ -29,6 +29,7 @@ public:
 
 	bool SaveHeightmap(const std::wstring& path);          // .r32 (float32 raw) + 경로 기록
 	bool LoadHeightmap(const std::wstring& path);
+	void CopyFrom(const Terrain& src);                     // 하이트맵/페인트 복사 + 메시 재생성(Duplicate용)
 
 	int   GridN() const { return _gridN; }
 	float CellSize() const { return _cellSize; }

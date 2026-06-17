@@ -16,6 +16,7 @@ public:
 	void Bind(D3D12Device* dev) { _dev = dev; }
 	bool Load(const std::wstring& meshPath); // 메시+본+클립 로드, 월드 VB/IB 생성
 
+	uint32 IndexCount() const { return _idxCount; } // RT TLAS OOB 방어 가드용
 	virtual void Draw(const RenderContext& ctx) override;
 	virtual void RecordOutline(ID3D12GraphicsCommandList4* cmd) override;
 	virtual void TransformBoundingBox() override;

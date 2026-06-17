@@ -528,6 +528,10 @@ void D3D12Device::DrawMainMenuBar()
 				if (ImGui::MenuItem("Cube"))   { BuildPrim(MeshPrim::Cube, v, idx);   SpawnMeshObject(L"Cube", v, idx, sp, MeshPrim::Cube); }
 				if (ImGui::MenuItem("Sphere")) { BuildPrim(MeshPrim::Sphere, v, idx); SpawnMeshObject(L"Sphere", v, idx, sp, MeshPrim::Sphere); }
 				if (ImGui::MenuItem("Plane"))  { BuildPrim(MeshPrim::Plane, v, idx);  SpawnMeshObject(L"Plane", v, idx, Vec3{ sp.x,0,sp.z }, MeshPrim::Plane); }
+				if (ImGui::MenuItem("Cylinder")) { BuildPrim(MeshPrim::Cylinder, v, idx); SpawnMeshObject(L"Cylinder", v, idx, sp, MeshPrim::Cylinder); }
+				if (ImGui::MenuItem("Cone"))     { BuildPrim(MeshPrim::Cone, v, idx);     SpawnMeshObject(L"Cone", v, idx, sp, MeshPrim::Cone); }
+				if (ImGui::MenuItem("Torus"))    { BuildPrim(MeshPrim::Torus, v, idx);    SpawnMeshObject(L"Torus", v, idx, sp, MeshPrim::Torus); }
+				if (ImGui::MenuItem("Capsule"))  { BuildPrim(MeshPrim::Capsule, v, idx);  SpawnMeshObject(L"Capsule", v, idx, sp, MeshPrim::Capsule); }
 				ImGui::Separator();
 				if (ImGui::MenuItem("Animated Model (Archer)"))
 					SpawnAnimatedModel(_assetRoot + L"\\Models\\Archer\\Archer.mesh", Vec3{ sp.x, 0, sp.z });
@@ -747,6 +751,10 @@ void D3D12Device::DrawHierarchy()
 			if (ImGui::MenuItem("Cube"))   { BuildPrim(MeshPrim::Cube, v, idx);   SpawnMeshObject(L"Cube", v, idx, spawnAt, MeshPrim::Cube); }
 			if (ImGui::MenuItem("Sphere")) { BuildPrim(MeshPrim::Sphere, v, idx); SpawnMeshObject(L"Sphere", v, idx, spawnAt, MeshPrim::Sphere); }
 			if (ImGui::MenuItem("Plane"))  { BuildPrim(MeshPrim::Plane, v, idx);  SpawnMeshObject(L"Plane", v, idx, Vec3{ spawnAt.x, 0, spawnAt.z }, MeshPrim::Plane); }
+			if (ImGui::MenuItem("Cylinder")) { BuildPrim(MeshPrim::Cylinder, v, idx); SpawnMeshObject(L"Cylinder", v, idx, spawnAt, MeshPrim::Cylinder); }
+			if (ImGui::MenuItem("Cone"))     { BuildPrim(MeshPrim::Cone, v, idx);     SpawnMeshObject(L"Cone", v, idx, spawnAt, MeshPrim::Cone); }
+			if (ImGui::MenuItem("Torus"))    { BuildPrim(MeshPrim::Torus, v, idx);    SpawnMeshObject(L"Torus", v, idx, spawnAt, MeshPrim::Torus); }
+			if (ImGui::MenuItem("Capsule"))  { BuildPrim(MeshPrim::Capsule, v, idx);  SpawnMeshObject(L"Capsule", v, idx, spawnAt, MeshPrim::Capsule); }
 			ImGui::Separator();
 			if (ImGui::MenuItem("Animated Model (Archer)"))
 				SpawnAnimatedModel(_assetRoot + L"\\Models\\Archer\\Archer.mesh", Vec3{ spawnAt.x, 0, spawnAt.z });
@@ -1066,10 +1074,14 @@ shared_ptr<GameObject> D3D12Device::SpawnMeshObject(const std::wstring& name, co
 static void BuildPrim(MeshPrim prim, vector<Vtx>& v, vector<uint32>& idx)
 {
 	switch (prim) {
-	case MeshPrim::Sphere: GeometryHelper::CreateSphere(v, idx, 0.5f); break;
-	case MeshPrim::Plane:  GeometryHelper::CreatePlane(v, idx, 2.0f);  break;
+	case MeshPrim::Sphere:   GeometryHelper::CreateSphere(v, idx, 0.5f); break;
+	case MeshPrim::Plane:    GeometryHelper::CreatePlane(v, idx, 2.0f);  break;
+	case MeshPrim::Cylinder: GeometryHelper::CreateCylinder(v, idx, 0.5f, 1.0f); break;
+	case MeshPrim::Cone:     GeometryHelper::CreateCone(v, idx, 0.5f, 1.0f); break;
+	case MeshPrim::Torus:    GeometryHelper::CreateTorus(v, idx, 0.35f, 0.15f); break;
+	case MeshPrim::Capsule:  GeometryHelper::CreateCapsule(v, idx, 0.35f, 0.6f); break;
 	case MeshPrim::Cube:
-	default:               GeometryHelper::CreateCube(v, idx, 1.0f);   break;
+	default:                 GeometryHelper::CreateCube(v, idx, 1.0f);   break;
 	}
 }
 

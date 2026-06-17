@@ -178,16 +178,20 @@ void MeshRenderer::OnInspectorGUI()
 	ImGui::SeparatorText("MeshRenderer");
 
 	// 프리미티브 교체 (절차적 지오메트리 재생성)
-	const char* prims[] = { "(custom)", "Cube", "Sphere", "Plane" };
+	const char* prims[] = { "(custom)", "Cube", "Sphere", "Plane", "Cylinder", "Cone", "Torus", "Capsule" };
 	int pk = (int)_prim;
-	if (ImGui::Combo("Primitive", &pk, prims, 4) && pk != 0 && _dev)
+	if (ImGui::Combo("Primitive", &pk, prims, IM_ARRAYSIZE(prims)) && pk != 0 && _dev)
 	{
 		_prim = (MeshPrim)pk;
 		vector<Vtx> v; vector<uint32> idx;
 		switch (_prim) {
-		case MeshPrim::Sphere: GeometryHelper::CreateSphere(v, idx, 0.5f); break;
-		case MeshPrim::Plane:  GeometryHelper::CreatePlane(v, idx, 2.0f);  break;
-		default:               GeometryHelper::CreateCube(v, idx, 1.0f);   break;
+		case MeshPrim::Sphere:   GeometryHelper::CreateSphere(v, idx, 0.5f); break;
+		case MeshPrim::Plane:    GeometryHelper::CreatePlane(v, idx, 2.0f);  break;
+		case MeshPrim::Cylinder: GeometryHelper::CreateCylinder(v, idx, 0.5f, 1.0f); break;
+		case MeshPrim::Cone:     GeometryHelper::CreateCone(v, idx, 0.5f, 1.0f); break;
+		case MeshPrim::Torus:    GeometryHelper::CreateTorus(v, idx, 0.35f, 0.15f); break;
+		case MeshPrim::Capsule:  GeometryHelper::CreateCapsule(v, idx, 0.35f, 0.6f); break;
+		default:                 GeometryHelper::CreateCube(v, idx, 1.0f);   break;
 		}
 		SetGeometry(v, idx); _baked = false;
 	}

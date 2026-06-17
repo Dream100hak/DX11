@@ -5,7 +5,7 @@
 class D3D12Device;
 
 // 절차적 프리미티브 종류 (씬 직렬화 시 스폰 오브젝트 재생성용)
-enum class MeshPrim : uint8 { None, Cube, Sphere, Plane };
+enum class MeshPrim : uint8 { None, Cube, Sphere, Plane, Cylinder, Cone, Torus, Capsule };
 
 // DX11 Engine/MeshRenderer 이식 — 정적 메시 렌더러.
 // per-object 트랜스폼: ModelScene 과 동일하게 GameObject 월드행렬로 **CPU 정점 베이크**(gMVP=VP)

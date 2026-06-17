@@ -181,6 +181,35 @@ void D3D12Device::DrawDebugLines()
 			}
 		}
 
+	// ── 디렉셔널 라이트(태양) 방향 화살표 (씬 원점 위, 노랑) ──
+	if (_showLightIcons)
+	{
+		auto sunL = _sunObj ? _sunObj->GetLight() : nullptr;
+		XMVECTOR dir = sunL ? XMLoadFloat3(&sunL->_direction)
+		                    : XMVectorSet(cosf(_lightAngle) * 0.6f, -1.f, sinf(_lightAngle) * 0.6f, 0.f);
+		if (XMVectorGetX(XMVector3LengthSq(dir)) > 1e-6f)
+		{
+			dir = XMVector3Normalize(dir);
+			XMVECTOR origin = XMVectorSet(0, 5.f, 0, 0);          // 화살표 시작(씬 위)
+			XMVECTOR tip = XMVectorAdd(origin, XMVectorScale(dir, 2.5f));
+			const XMFLOAT3 yc{ 1.0f, 0.92f, 0.25f };
+			XMFLOAT3 o, t; XMStoreFloat3(&o, origin); XMStoreFloat3(&t, tip);
+			_debugDraw.Line(o, t, yc);
+			// 화살촉 (dir 에 수직한 두 벡터로)
+			XMVECTOR up = fabsf(XMVectorGetY(dir)) > 0.95f ? XMVectorSet(1, 0, 0, 0) : XMVectorSet(0, 1, 0, 0);
+			XMVECTOR rt = XMVector3Normalize(XMVector3Cross(up, dir));
+			XMVECTOR bt = XMVector3Cross(dir, rt);
+			XMVECTOR back = XMVectorAdd(tip, XMVectorScale(dir, -0.5f));
+			for (int s = 0; s < 4; ++s)
+			{
+				XMVECTOR off = (s == 0) ? rt : (s == 1) ? XMVectorNegate(rt) : (s == 2) ? bt : XMVectorNegate(bt);
+				XMVECTOR p = XMVectorAdd(back, XMVectorScale(off, 0.18f));
+				XMFLOAT3 pf; XMStoreFloat3(&pf, p);
+				_debugDraw.Line(t, pf, yc);
+			}
+		}
+	}
+
 	// ── 게임 카메라 프러스텀 (노랑) ──
 	if (_gameScene)
 		for (auto& kv : _gameScene->GetCreatedObjects())

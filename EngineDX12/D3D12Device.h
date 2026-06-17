@@ -212,10 +212,13 @@ private:
 	Vec3                              SpawnPoint(); // 카메라 앞 4m 지점 (스폰 위치)
 	shared_ptr<GameObject>            SpawnLight(int type, const std::wstring& name, const Vec3& pos); // 0 Dir/1 Point/2 Spot
 	void                              DeleteSelectedObject();    // _selectedGO 삭제 (에디터 내부/모델 보호)
-	void                              DuplicateSelectedObject(); // _selectedGO 복제
+	void                              DuplicateSelectedObject(); // _selectedGO(+멀티셀렉트) 복제
+	void                              DuplicateObject(const shared_ptr<GameObject>& source); // 단일 GO 복제
 	void                              RemoveObject(const shared_ptr<GameObject>& obj); // 부모분리+자식승격+씬제거
 	void                              NewScene();                // 씬그래프 비우기 + 파라미터 리셋
 	int                               _spawnCounter = 0;         // 고유 이름 접미사
+	std::vector<int64>                _selIds;                   // 추가 선택(멀티셀렉트) — primary=_selectedGO 제외 id 목록
+	bool                              IsMultiSelected(int64 id) const { for (int64 s : _selIds) if (s == id) return true; return false; }
 	// 모델 교체 예약 (더블클릭/씬로드 — 다음 프레임 GPU 유휴 시점에 처리)
 	std::wstring                      _pendingModel;
 	DirectX::XMFLOAT4X4               _pendingMatrix;

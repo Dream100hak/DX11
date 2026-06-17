@@ -628,7 +628,7 @@ void D3D12Device::DrawHierarchy()
 	for (const Entry& it : items)
 	{
 		if (ImGui::Selectable(it.label.c_str(), _sel == it.e && !_selectedGO))
-		{ _sel = it.e; _selectedGO = nullptr; } // 고정 엔티티 선택 시 GameObject 선택 해제
+		{ _sel = it.e; _selectedGO = nullptr; _selIds.clear(); } // 고정 엔티티 선택 시 GameObject 선택 해제
 	}
 
 	// ── 씬 그래프 GameObject 목록 (EditorTool Hierarchy 대응) ──
@@ -668,7 +668,7 @@ void D3D12Device::DrawHierarchy()
 			bool hasChildren = t && !t->GetChildren().empty();
 			ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_DefaultOpen;
 			if (!hasChildren) flags |= ImGuiTreeNodeFlags_Leaf;
-			if (_selectedGO == obj) flags |= ImGuiTreeNodeFlags_Selected;
+			if (_selectedGO == obj || IsMultiSelected(obj->GetId())) flags |= ImGuiTreeNodeFlags_Selected;
 			// 행별 활성(가시성) 체크박스
 			ImGui::PushID((int)(intptr_t)obj->GetId());
 			bool act = obj->IsActive();
@@ -677,7 +677,16 @@ void D3D12Device::DrawHierarchy()
 			ImGui::SameLine(0.0f, 4.0f);
 			std::string label = std::string(typeIcon(obj)) + WToUtf8(obj->GetObjectName());
 			bool open = ImGui::TreeNodeEx((void*)(intptr_t)obj->GetId(), flags, "%s", label.c_str());
-			if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) _selectedGO = obj;
+			if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
+			{
+				if (ImGui::GetIO().KeyCtrl && _selectedGO && obj != _selectedGO)
+				{
+					int64 id = obj->GetId(); bool removed = false; // 멀티셀렉트 토글
+					for (size_t k = 0; k < _selIds.size(); ++k) if (_selIds[k] == id) { _selIds.erase(_selIds.begin() + k); removed = true; break; }
+					if (!removed) _selIds.push_back(id);
+				}
+				else { _selIds.clear(); _selectedGO = obj; } // 단일 선택
+			}
 			// 우클릭 컨텍스트 메뉴
 			if (ImGui::BeginPopupContextItem())
 			{
@@ -1465,7 +1474,15 @@ void D3D12Device::RemoveObject(const shared_ptr<GameObject>& obj)
 
 void D3D12Device::DeleteSelectedObject()
 {
-	if (!_selectedGO || !_gameScene) return;
+	if (!_gameScene) return;
+	// 멀티셀렉트 추가분 먼저 제거
+	for (int64 id : _selIds)
+	{
+		auto o = _gameScene->GetCreatedObject(id);
+		if (o && !o->IsEditorInternal() && o != _modelObj) { Log("Deleted: " + WToUtf8(o->GetObjectName())); RemoveObject(o); }
+	}
+	_selIds.clear();
+	if (!_selectedGO) return;
 	if (_selectedGO->IsEditorInternal()) { Log("Cannot delete editor-internal object"); return; }
 	if (_selectedGO == _modelObj) { Log("Cannot delete the main Model"); return; }
 	Log("Deleted: " + WToUtf8(_selectedGO->GetObjectName()));
@@ -1522,9 +1539,19 @@ void D3D12Device::TogglePlay()
 	}
 }
 
+// 멀티셀렉트 포함 그룹 복제
 void D3D12Device::DuplicateSelectedObject()
 {
-	auto source = _selectedGO; // SpawnMeshObject 가 _selectedGO 를 재할당하므로 먼저 캡처
+	if (!_selectedGO || !_gameScene) return;
+	std::vector<shared_ptr<GameObject>> srcs;
+	srcs.push_back(_selectedGO);
+	for (int64 id : _selIds) if (auto o = _gameScene->GetCreatedObject(id)) srcs.push_back(o);
+	_selIds.clear();
+	for (auto& s : srcs) DuplicateObject(s);
+}
+
+void D3D12Device::DuplicateObject(const shared_ptr<GameObject>& source)
+{
 	if (!source || !_gameScene) return;
 
 	// 터레인 복제 — 일반 메시로 복제하면 사본에 Terrain 컴포넌트가 없어 TLAS OOB(동결) → 반드시 Terrain 으로 복제
@@ -2022,6 +2049,7 @@ void D3D12Device::LoadSceneFrom(const std::wstring& path)
 void D3D12Device::PickAt(float u, float v)
 {
 	using namespace DirectX;
+	_selIds.clear(); // 씬 클릭 = 단일 선택(멀티셀렉트 해제)
 	float nx = u * 2.0f - 1.0f, ny = (1.0f - v) * 2.0f - 1.0f;
 	XMMATRIX invVP = XMMatrixInverse(nullptr, XMLoadFloat4x4(&_viewM) * XMLoadFloat4x4(&_projM));
 	XMVECTOR n = XMVector4Transform(XMVectorSet(nx, ny, 0, 1), invVP);

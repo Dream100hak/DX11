@@ -105,6 +105,7 @@ private:
 	friend class ModelAnimator;
 	friend class SkyRenderer;
 	friend class GridRenderer;
+	friend class Foliage;
 
 	// Phase 3 (DDGI) — 프로브/컴퓨트는 Ddgi 클래스가 소유. CreateGI 는 셰이더 컴파일 후 위임
 	void CreateGI();
@@ -175,6 +176,12 @@ private:
 	float                             _terrainStrength = 8.f; // 초당 변화량(m)
 	float                             _terrainFlatten = 0.f;
 	Vec3                              _terrainPaintColor{ 0.5f, 0.4f, 0.25f }; // Paint 브러시 색(흙)
+	// 식생(Foliage) 생성 파라미터 (인스펙터 입력) — Generate 시 Foliage 렌더러 GameObject 생성/갱신
+	int                               _folGrass = 4000;
+	int                               _folTree = 60;
+	float                             _folSize = 0.4f;
+	int                               _folSeed = 1337;
+	void                              GenerateFoliage(const shared_ptr<GameObject>& terrainObj); // 터레인용 식생 GameObject 생성/재생성
 	Vec3                              _terrainCursor{};       // 마지막 브러시 월드 히트(기즈모/오버레이용)
 	bool                              _terrainCursorValid = false;
 	void                              TerrainBrushAt(float u, float v, bool apply); // 씬뷰 uv → 레이 → (apply 시)스컬프트

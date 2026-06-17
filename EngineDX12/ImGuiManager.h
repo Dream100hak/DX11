@@ -39,6 +39,7 @@ public:
 		case RendererType::Texture:  return "TextureRenderer";
 		case RendererType::Particle: return "ParticleSystem";
 		case RendererType::Grid:     return "Grid";
+		case RendererType::Foliage:  return "Foliage";
 		default:                     return "Unknown";
 		}
 	}

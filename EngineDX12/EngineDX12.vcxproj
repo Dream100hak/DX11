@@ -55,6 +55,7 @@
     <ClInclude Include="EditorWindows.h" />
     <ClInclude Include="EditorManager.h" />
     <ClInclude Include="FbxConverter.h" />
+    <ClInclude Include="Foliage.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Component.cpp" />
@@ -82,6 +83,7 @@
     <ClCompile Include="FlyCamera.cpp" />
     <ClCompile Include="ImGuiDx12.cpp" />
     <ClCompile Include="Terrain.cpp" />
+    <ClCompile Include="Foliage.cpp" />
     <ClCompile Include="FbxConverter.cpp" />
     <ClCompile Include="..\Libraries\Include\ufbx\ufbx.c" />
     <ClCompile Include="main.cpp" />

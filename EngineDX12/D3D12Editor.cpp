@@ -8,6 +8,7 @@
 #include "Collider.h"
 #include "ParticleSystem.h"
 #include "Terrain.h"
+#include "Foliage.h"
 #include "Scripts.h"
 #include "GeometryHelper.h"
 #include "ResourceManager.h"
@@ -970,6 +971,34 @@ shared_ptr<GameObject> D3D12Device::SpawnTerrain(int gridN, float cellSize)
 	return obj;
 }
 
+// 터레인용 식생 GameObject 생성/재생성 — Foliage 렌더러(터레인 표면에 잔디/나무 산포)
+void D3D12Device::GenerateFoliage(const shared_ptr<GameObject>& terrainObj)
+{
+	if (!_gameScene || !terrainObj) return;
+	auto terr = terrainObj->GetTerrain(); if (!terr) return;
+
+	std::wstring folName = terrainObj->GetObjectName() + L"_Foliage";
+	// 기존 식생 GameObject 재사용 (이름 매칭)
+	shared_ptr<GameObject> folObj;
+	for (auto& kv : _gameScene->GetCreatedObjects())
+		if (kv.second && kv.second->GetObjectName() == folName) { folObj = kv.second; break; }
+
+	shared_ptr<Foliage> fol;
+	if (folObj) fol = std::dynamic_pointer_cast<Foliage>(folObj->GetRenderer());
+	if (!folObj)
+	{
+		folObj = make_shared<GameObject>();
+		folObj->SetObjectName(folName);
+		folObj->GetOrAddTransform();
+		fol = make_shared<Foliage>(); fol->Bind(this);
+		folObj->AddComponent(fol);
+		_gameScene->Add(folObj);
+	}
+	if (!fol) return;
+	fol->Generate(terr.get(), _folGrass, _folTree, _folSize, (uint32)_folSeed);
+	Log("Foliage generated: " + std::to_string(_folGrass) + " grass, " + std::to_string(_folTree) + " trees");
+}
+
 // 씬뷰 uv → 월드 레이 → 선택 Terrain 커서 갱신 + (apply 시) 스컬프트
 void D3D12Device::TerrainBrushAt(float u, float v, bool apply)
 {
@@ -1163,7 +1192,7 @@ void D3D12Device::SaveSceneTo(const std::wstring& path)
 	f << '\n';
 
 	// ── 멀티 오브젝트: 씬그래프의 MeshRenderer GameObject 들 (트랜스폼 + 머티리얼 + 텍스처) ──
-	int meshCount = 0, lightCount = 0, animCount = 0;
+	int meshCount = 0, lightCount = 0, animCount = 0, foliageCount = 0;
 	if (_gameScene)
 	{
 		for (auto& kv : _gameScene->GetCreatedObjects())
@@ -1297,10 +1326,26 @@ void D3D12Device::SaveSceneTo(const std::wstring& path)
 				WriteScripts(f, obj);
 			}
 		}
+
+		// 식생 (Foliage 렌더러 GameObject) — 생성 파라미터만 저장(로드 시 결정적 재생성)
+		for (auto& kv : _gameScene->GetCreatedObjects())
+		{
+			auto& obj = kv.second;
+			if (!obj || obj->IsEditorInternal()) continue;
+			auto fol = std::dynamic_pointer_cast<Foliage>(obj->GetRenderer()); if (!fol) continue;
+			// 소유 터레인 이름 = "<terrainName>_Foliage" 에서 역산
+			std::wstring fname = obj->GetObjectName();
+			std::wstring owner = (fname.size() > 8 && fname.substr(fname.size() - 8) == L"_Foliage") ? fname.substr(0, fname.size() - 8) : L"";
+			f << "fobj " << WToUtf8(obj->GetObjectName()) << '\n';
+			f << "fown " << (owner.empty() ? std::string("-") : WToUtf8(owner)) << '\n';
+			f << "fprm " << fol->GrassCount() << ' ' << fol->TreeCount() << ' ' << fol->GrassSize() << ' ' << fol->Seed() << '\n';
+			++foliageCount;
+		}
 	}
 	f.flush();
 	Log("Scene saved: " + WToUtf8(path) + "  (" + std::to_string(meshCount) + " mesh, "
-		+ std::to_string(lightCount) + " light, " + std::to_string(animCount) + " anim)");
+		+ std::to_string(lightCount) + " light, " + std::to_string(animCount) + " anim, "
+		+ std::to_string(foliageCount) + " foliage)");
 }
 
 void D3D12Device::LoadScene() { LoadSceneFrom(QuickScenePath(_assetRoot)); }
@@ -1316,6 +1361,7 @@ void D3D12Device::LoadSceneFrom(const std::wstring& path)
 	shared_ptr<GameObject> curAnim;  std::wstring curAnimName;  // 현재 aobj 블록 대상
 	shared_ptr<GameObject> curPart;  std::wstring curPartName;  // 현재 pobj 블록 대상
 	shared_ptr<GameObject> curTerrain; std::wstring curTerrainName; // 현재 tobj 블록 대상
+	shared_ptr<GameObject> curFoliage; std::wstring curFoliageName, curFoliageOwner; // 현재 fobj 블록 대상
 	shared_ptr<GameObject> curAny;   // 가장 최근 블록 오브젝트 (스크립트 mb 적용 대상)
 	std::wstring curName;          // 현재 블록 오브젝트 이름 (없으면 재생성용)
 	std::vector<std::pair<std::wstring, std::wstring>> parentLinks; // (child, parent) — 전부 파싱 후 링크
@@ -1507,6 +1553,28 @@ void D3D12Device::LoadSceneFrom(const std::wstring& path)
 		else if (tag == "txf" && curTerrain) {
 			Vec3 p; s >> p.x >> p.y >> p.z; if (auto t = curTerrain->GetTransform()) t->SetLocalPosition(p);
 			int act = 1; if (s >> act) curTerrain->SetActive(act != 0);
+		}
+		// ── 식생 ──
+		else if (tag == "fobj") {
+			std::string nm; std::getline(s >> std::ws, nm); curFoliageName = Utf8ToW(nm);
+			curFoliage = findByName(curFoliageName);
+			if (!curFoliage) {
+				curFoliage = make_shared<GameObject>(); curFoliage->SetObjectName(curFoliageName); curFoliage->GetOrAddTransform();
+				auto fol = make_shared<Foliage>(); fol->Bind(this); curFoliage->AddComponent(fol);
+				_gameScene->Add(curFoliage);
+			}
+			curFoliageOwner.clear();
+		}
+		else if (tag == "fown" && curFoliage) {
+			std::string on; std::getline(s >> std::ws, on);
+			if (on != "-" && !on.empty()) curFoliageOwner = Utf8ToW(on);
+		}
+		else if (tag == "fprm" && curFoliage) {
+			int gc = 0, tc = 0; float gs = 0.4f; unsigned sd = 1337; s >> gc >> tc >> gs >> sd;
+			auto fol = std::dynamic_pointer_cast<Foliage>(curFoliage->GetRenderer());
+			auto ownerObj = curFoliageOwner.empty() ? nullptr : findByName(curFoliageOwner);
+			auto terr = ownerObj ? ownerObj->GetTerrain() : nullptr;
+			if (fol && terr) fol->Generate(terr.get(), gc, tc, gs, (uint32)sd); // 결정적 재생성
 		}
 		// ── 스크립트(MonoBehaviour) — 직전 블록 오브젝트에 부착 ──
 		else if (tag == "mb" && curAny) {
@@ -1974,8 +2042,25 @@ void D3D12Device::DrawGameObjectInspector(const shared_ptr<GameObject>& go)
 			OPENFILENAMEW ofn{}; ofn.lStructSize = sizeof(ofn); ofn.hwndOwner = _hwnd;
 			ofn.lpstrFilter = L"Heightmap (*.r32)\0*.r32\0"; ofn.lpstrFile = file; ofn.nMaxFile = MAX_PATH;
 			ofn.Flags = OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
-			if (GetOpenFileNameW(&ofn)) { if (terr->LoadHeightmap(file)) Log("Heightmap loaded: " + WToUtf8(file)); }
+			if (GetOpenFileNameW(&ofn) && terr->LoadHeightmap(file))
+			{
+				Log("Heightmap loaded: " + WToUtf8(file));
+				// 이 터레인에 식생이 있으면 새 지형 높이에 맞춰 자동 재배치
+				std::wstring folName = go->GetObjectName() + L"_Foliage";
+				for (auto& kv : _gameScene->GetCreatedObjects())
+					if (kv.second && kv.second->GetObjectName() == folName)
+						if (auto fol = std::dynamic_pointer_cast<Foliage>(kv.second->GetRenderer()))
+						{ fol->Regenerate(terr.get()); Log("Foliage re-scattered on loaded terrain"); }
+			}
 		}
+
+		// ── Foliage (잔디/나무) ──
+		ImGui::SeparatorText("Foliage");
+		ImGui::DragInt("Grass", &_folGrass, 50, 0, 50000);
+		ImGui::DragInt("Trees", &_folTree, 1, 0, 2000);
+		ImGui::DragFloat("Grass Size", &_folSize, 0.02f, 0.05f, 3.f);
+		ImGui::DragInt("Seed", &_folSeed, 1, 0, 1000000);
+		if (ImGui::Button("Generate Foliage", ImVec2(-1, 0))) GenerateFoliage(go);
 	}
 
 	{

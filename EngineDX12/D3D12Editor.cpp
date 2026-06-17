@@ -567,8 +567,9 @@ void D3D12Device::DrawMainMenuBar()
 			ImGui::EndMenu();
 		}
 		float fps = ImGui::GetIO().Framerate;
-		char stat[128];
-		snprintf(stat, sizeof(stat), "%.1f FPS  |  %u tris  |  %u probes  |  DXR RT", fps, _scene._indexCount / 3, Ddgi::PROBE_COUNT);
+		int objCount = _gameScene ? (int)_gameScene->GetCreatedObjects().size() : 0;
+		char stat[160];
+		snprintf(stat, sizeof(stat), "%.1f FPS  |  %d objs  |  %u tris  |  %u probes  |  DXR RT", fps, objCount, _scene._indexCount / 3, Ddgi::PROBE_COUNT);
 		float tw = ImGui::CalcTextSize(stat).x;
 		ImGui::SameLine(ImGui::GetWindowWidth() - tw - 16.0f);
 		ImGui::TextDisabled("%s", stat);
@@ -822,7 +823,13 @@ void D3D12Device::DrawSceneView()
 	// 그리드/스카이/와이어 빠른 토글 (씬뷰 우상단)
 	ImGui::Checkbox("Grid", &_showGrid); ImGui::SameLine();
 	ImGui::Checkbox("Sky", &_showSky); ImGui::SameLine();
-	ImGui::Checkbox("Wire", &_wireframe);
+	ImGui::Checkbox("Wire", &_wireframe); ImGui::SameLine();
+	if (ImGui::Button("Frame") && _selectedGO && _selectedGO->GetTransform())
+	{
+		Matrix wm = _selectedGO->GetTransform()->GetWorldMatrix();
+		_camera.pos = { wm._41 + 4.f, wm._42 + 3.f, wm._43 - 4.f }; // 선택 오브젝트로 카메라 이동
+	}
+	if (ImGui::IsItemHovered()) ImGui::SetTooltip("선택 오브젝트로 카메라 이동");
 	ImVec2 avail = ImGui::GetContentRegionAvail();
 	_pendingSceneW = (UINT)max(8.0f, avail.x);
 	_pendingSceneH = (UINT)max(8.0f, avail.y);

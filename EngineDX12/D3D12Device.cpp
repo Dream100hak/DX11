@@ -887,6 +887,36 @@ void D3D12Device::CreateRtvHeapAndTargets()
 	}
 }
 
+// 창 크기 변경 — GPU 유휴 후 백버퍼 해제 → ResizeBuffers → RTV 재생성.
+// 씬/게임 RT 는 ImGui 영역 기준으로 매 프레임 별도 리사이즈되므로 백버퍼만 처리.
+void D3D12Device::OnResize(UINT width, UINT height)
+{
+	if (!_swapChain || width == 0 || height == 0) return;        // 최소화/초기화 전 무시
+	if (width == _width && height == _height) return;
+
+	WaitForGpu(); // 모든 프레임 in-flight 명령 완료 대기
+
+	for (UINT i = 0; i < FRAME_COUNT; ++i) _renderTargets[i].Reset(); // 기존 백버퍼 참조 해제(ResizeBuffers 전제)
+
+	_width = width; _height = height;
+
+	DXGI_SWAP_CHAIN_DESC1 d{}; _swapChain->GetDesc1(&d);
+	ThrowIfFailed(_swapChain->ResizeBuffers(FRAME_COUNT, width, height, d.Format, d.Flags), "ResizeBuffers");
+	_frameIndex = _swapChain->GetCurrentBackBufferIndex();
+
+	// 백버퍼 RTV 재생성 (기존 _rtvHeap 슬롯 재사용)
+	D3D12_CPU_DESCRIPTOR_HANDLE rtv = _rtvHeap->GetCPUDescriptorHandleForHeapStart();
+	for (UINT i = 0; i < FRAME_COUNT; ++i)
+	{
+		ThrowIfFailed(_swapChain->GetBuffer(i, IID_PPV_ARGS(&_renderTargets[i])), "GetBuffer resize");
+		_device->CreateRenderTargetView(_renderTargets[i].Get(), nullptr, rtv);
+		rtv.ptr += _rtvDescSize;
+	}
+
+	// 프레임별 펜스값을 현재값으로 정렬 (MoveToNextFrame 일관성)
+	for (UINT i = 0; i < FRAME_COUNT; ++i) _fenceValues[i] = _fenceValues[_frameIndex];
+}
+
 void D3D12Device::CreateFrameResources()
 {
 	for (UINT i = 0; i < FRAME_COUNT; ++i)

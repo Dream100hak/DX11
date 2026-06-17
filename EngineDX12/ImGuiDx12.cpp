@@ -115,6 +115,16 @@ void ImGuiDx12::Init(ID3D12Device* dev, ID3D12CommandQueue* queue, DXGI_FORMAT r
 void ImGuiDx12::CreateFontTexture(ID3D12CommandQueue* queue)
 {
 	ImGuiIO& io = ImGui::GetIO();
+
+	// 기본 폰트(작고 한글 글리프 없음 → "????")를 Malgun Gothic 로 교체.
+	// 18px, 한글 음절 범위 포함 → 한글 라벨 정상 표시 + 가독성 향상. (오버샘플 1: 한글 11k 글리프 아틀라스 크기 억제)
+	if (io.Fonts->Fonts.Size == 0)
+	{
+		ImFontConfig cfg; cfg.OversampleH = 1; cfg.OversampleV = 1; cfg.PixelSnapH = true;
+		ImFont* f = io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\malgun.ttf", 18.0f, &cfg, io.Fonts->GetGlyphRangesKorean());
+		if (!f) io.Fonts->AddFontDefault(); // 폴백 (시스템 폰트 없으면 기본)
+	}
+
 	unsigned char* pixels = nullptr; int w = 0, h = 0;
 	io.Fonts->GetTexDataAsRGBA32(&pixels, &w, &h);
 

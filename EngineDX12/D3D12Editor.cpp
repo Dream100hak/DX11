@@ -300,6 +300,18 @@ static void ApplyEditorStyle()
 	c[ImGuiCol_ModalWindowDimBg] = ImVec4(0, 0, 0, 0.50f);
 }
 
+// UI 스케일 — 기본 스타일을 보존해 두고 스케일 변경 시 항상 기준에서 다시 적용(누적 방지).
+static ImGuiStyle g_baseStyle;
+static float      g_uiScale = 1.0f;
+static void ApplyUIScale(float s)
+{
+	g_uiScale = s;
+	ImGuiStyle& st = ImGui::GetStyle();
+	st = g_baseStyle;            // 기준 스타일 복원
+	st.ScaleAllSizes(s);        // 패딩/라운딩/스크롤바 등 전부 스케일
+	ImGui::GetIO().FontGlobalScale = s; // 폰트 스케일
+}
+
 void D3D12Device::InitEditor()
 {
 	RegisterBuiltinScripts(); // 스크립트 팩토리 등록 (Rotator/Bobber)
@@ -309,6 +321,7 @@ void D3D12Device::InitEditor()
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	io.IniFilename = nullptr; // imgui.ini 미저장 (런타임 아티팩트 방지)
 	ApplyEditorStyle(); // EditorTool 동일 스타일 (차콜 다크 + 블루 액센트)
+	g_baseStyle = ImGui::GetStyle(); // UI 스케일 기준 보존
 
 	ImGui_ImplWin32_Init(_hwnd);
 	_imgui.Init(_device.Get(), _queue.Get(), DXGI_FORMAT_R8G8B8A8_UNORM, FRAME_COUNT);
@@ -497,6 +510,13 @@ void D3D12Device::DrawMainMenuBar()
 			ImGui::MenuItem("Sky", nullptr, &_showSky);
 			ImGui::MenuItem("Bloom", nullptr, &_bloomOn);
 			ImGui::MenuItem("Wireframe", nullptr, &_wireframe);
+			ImGui::Separator();
+			// UI 스케일 (고해상도 대응 — 전체 폰트/위젯 크기)
+			float sc = g_uiScale;
+			ImGui::SetNextItemWidth(120);
+			if (ImGui::SliderFloat("UI Scale", &sc, 0.8f, 2.0f, "%.2fx")) ApplyUIScale(sc);
+			if (ImGui::MenuItem("Reset UI Scale")) ApplyUIScale(1.0f);
+			if (ImGui::MenuItem("Reset Layout")) _resetLayout = true; // 다음 프레임 도킹 레이아웃 재구성
 			ImGui::EndMenu();
 		}
 		float fps = ImGui::GetIO().Framerate;
@@ -661,14 +681,27 @@ void D3D12Device::DrawSceneView()
 		ImGui::PopStyleColor();
 		ImGui::SameLine(); ImGui::TextDisabled("|"); ImGui::SameLine();
 	}
-	// ── 기즈모 툴바 (EditorTool 씬뷰 스타일) ──
-	if (ImGui::RadioButton("Move(W)", _gizmoOp == 7)) _gizmoOp = 7; ImGui::SameLine();
-	if (ImGui::RadioButton("Rotate(E)", _gizmoOp == 120)) _gizmoOp = 120; ImGui::SameLine();
-	if (ImGui::RadioButton("Scale(R)", _gizmoOp == 896)) _gizmoOp = 896; ImGui::SameLine();
+	// ── 기즈모 툴바 — 활성 모드를 액센트 버튼으로 강조(라디오보다 직관적) ──
+	auto toolBtn = [&](const char* label, int op, const char* tip)
+	{
+		bool active = (_gizmoOp == op);
+		if (active) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.26f, 0.56f, 0.96f, 1.f));
+		bool clicked = ImGui::Button(label);
+		if (active) ImGui::PopStyleColor();
+		if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tip);
+		if (clicked) _gizmoOp = op;
+		ImGui::SameLine();
+	};
+	toolBtn("Move", 7, "이동 (W)");
+	toolBtn("Rotate", 120, "회전 (E)");
+	toolBtn("Scale", 896, "스케일 (R)");
 	ImGui::TextDisabled("|"); ImGui::SameLine();
-	if (ImGui::RadioButton("Local", _gizmoLocal)) _gizmoLocal = true; ImGui::SameLine();
-	if (ImGui::RadioButton("World", !_gizmoLocal)) _gizmoLocal = false; ImGui::SameLine();
+	// Local/World 단일 토글 버튼
+	if (ImGui::Button(_gizmoLocal ? "Local" : "World")) _gizmoLocal = !_gizmoLocal;
+	if (ImGui::IsItemHovered()) ImGui::SetTooltip("기즈모 좌표계 (클릭 전환)");
+	ImGui::SameLine();
 	ImGui::Checkbox("Snap", &_snapOn);
+	if (ImGui::IsItemHovered()) ImGui::SetTooltip("그리드 스냅 (이동 %.1f / 회전 %.0f° / 스케일 %.1f)", _snapT, _snapR, _snapS);
 	ImVec2 avail = ImGui::GetContentRegionAvail();
 	_pendingSceneW = (UINT)max(8.0f, avail.x);
 	_pendingSceneH = (UINT)max(8.0f, avail.y);

@@ -65,6 +65,7 @@ public:
 	void Init(HWND hwnd, UINT width, UINT height);
 	void Render();
 	void Destroy();
+	void OnResize(UINT width, UINT height); // 창 크기 변경 → 스왑체인 백버퍼 재생성 (WM_SIZE)
 
 	static D3D12Device* Get() { return s_main; } // 전역 접근(컴포넌트가 백포인터 없이 디바이스 도달) — DX12판 GRAPHICS
 
@@ -106,6 +107,7 @@ private:
 	friend class SkyRenderer;
 	friend class GridRenderer;
 	friend class Foliage;
+	friend class EditorManager;
 
 	// Phase 3 (DDGI) — 프로브/컴퓨트는 Ddgi 클래스가 소유. CreateGI 는 셰이더 컴파일 후 위임
 	void CreateGI();
@@ -283,6 +285,7 @@ private:
 	float                             _matMetallic = 0.0f, _matRoughness = 0.5f, _matEmissive = 0.0f, _matTint = 1.0f;
 	// 뷰포트 토글 (S10)
 	bool                              _showGrid = true, _showSky = true, _bloomOn = true, _wireframe = false;
+	bool                              _resetLayout = false; // View > Reset Layout (EditorManager 가 다음 프레임 도킹 재구성)
 	bool                              _frustumCull = false; // 절두체 컬링(Opaque) — 기본 off(안전), 인스펙터 토글
 	static D3D12Device*               s_main;               // Get() 전역 접근용
 

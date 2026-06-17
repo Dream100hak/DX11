@@ -29,6 +29,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 	case WM_KEYDOWN:
 		if (wp == VK_ESCAPE) PostQuitMessage(0);
 		return 0;
+	case WM_SIZE:
+		// 최소화(SIZE_MINIMIZED)는 무시, 그 외 클라이언트 크기로 스왑체인 재생성
+		if (wp != SIZE_MINIMIZED)
+			g_device.OnResize((UINT)LOWORD(lp), (UINT)HIWORD(lp));
+		return 0;
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		return 0;

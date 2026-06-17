@@ -50,19 +50,20 @@ void EditorManager::Update()
 
 	ImGuiID dockId = ImGui::GetID("EngineDX12Dock");
 
-	// 최초 1회 기본 레이아웃 — Hierarchy 좌측 / Inspector 우측 / FolderContents·Log 하단 / 중앙 = 씬뷰
+	// 최초 1회(또는 View>Reset Layout) 기본 레이아웃 — Hierarchy 좌 / Inspector 우 / Project·Log 하단 / 중앙 = 씬뷰
 	static bool built = false;
-	if (!built)
+	if (!built || (_dev && _dev->_resetLayout))
 	{
 		built = true;
+		if (_dev) _dev->_resetLayout = false;
 		ImGui::DockBuilderRemoveNode(dockId);
 		ImGui::DockBuilderAddNode(dockId, ImGuiDockNodeFlags_DockSpace | ImGuiDockNodeFlags_PassthruCentralNode);
 		ImGui::DockBuilderSetNodeSize(dockId, vp->WorkSize);
 		ImGuiID center = dockId;
-		ImGuiID left = ImGui::DockBuilderSplitNode(center, ImGuiDir_Left, 0.17f, nullptr, &center);
-		ImGuiID right = ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, 0.30f, nullptr, &center);
-		ImGuiID bottom = ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, 0.30f, nullptr, &center);
-		ImGuiID bleft = ImGui::DockBuilderSplitNode(bottom, ImGuiDir_Left, 0.22f, nullptr, &bottom);
+		ImGuiID left = ImGui::DockBuilderSplitNode(center, ImGuiDir_Left, 0.18f, nullptr, &center);
+		ImGuiID right = ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, 0.24f, nullptr, &center);
+		ImGuiID bottom = ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, 0.26f, nullptr, &center);
+		ImGuiID bleft = ImGui::DockBuilderSplitNode(bottom, ImGuiDir_Left, 0.28f, nullptr, &bottom);
 		ImGui::DockBuilderDockWindow("Hierarchy", left);
 		ImGui::DockBuilderDockWindow("Inspector", right);
 		ImGui::DockBuilderDockWindow("Project", bleft);

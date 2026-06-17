@@ -144,12 +144,18 @@ void Transform::SetParentKeepLocal(shared_ptr<Transform> newParent)
 
 void Transform::OnInspectorGUI()
 {
-	const ImVec4 col(0.85f, 0.94f, 0.f, 1.f);
-	ImGui::TextColored(col, "Position"); ImGui::SameLine();
-	ImGui::DragFloat3("##pos", (float*)&_localPosition, 0.01f);
-	ImGui::TextColored(col, "Rotation"); ImGui::SameLine();
-	ImGui::DragFloat3("##rot", (float*)&_localRotation, 0.01f);
-	ImGui::TextColored(col, "Scale   "); ImGui::SameLine();
-	ImGui::DragFloat3("##scale", (float*)&_localScale, 0.01f);
+	const ImVec4 col(0.85f, 0.94f, 0.4f, 1.f);
+	const float lblW = 72.f * ImGui::GetIO().FontGlobalScale; // 라벨 컬럼 폭(스케일 대응)
+	auto label = [&](const char* t) { ImGui::TextColored(col, "%s", t); ImGui::SameLine(lblW); ImGui::SetNextItemWidth(-1); };
+
+	label("Position"); ImGui::DragFloat3("##pos", (float*)&_localPosition, 0.01f);
+
+	// 회전은 라디안 저장 → 도(°)로 표시·편집 (라디안 직접 편집은 비직관적)
+	Vec3 deg{ XMConvertToDegrees(_localRotation.x), XMConvertToDegrees(_localRotation.y), XMConvertToDegrees(_localRotation.z) };
+	label("Rotation");
+	if (ImGui::DragFloat3("##rot", (float*)&deg, 0.5f, 0, 0, "%.1f°"))
+		_localRotation = { XMConvertToRadians(deg.x), XMConvertToRadians(deg.y), XMConvertToRadians(deg.z) };
+
+	label("Scale"); ImGui::DragFloat3("##scale", (float*)&_localScale, 0.01f);
 	UpdateTransform();
 }

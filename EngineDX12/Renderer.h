@@ -33,6 +33,9 @@ public:
 
 	virtual void Draw(const RenderContext& ctx) {}
 	virtual bool Pick(int32 screenX, int32 screenY, Vec3& pickPos, float& distance) { return false; }
+	// 선택 아웃라인 — PSO/루트시그/CB 는 호출측이 세팅, 여기선 자기 VB/IB 바인드 + 드로우만.
+	// 기본 no-op(아웃라인 대상 아님 — 그리드/파티클/식생 등). MeshRenderer/ModelAnimator 만 오버라이드.
+	virtual void RecordOutline(ID3D12GraphicsCommandList4* cmd) {}
 
 	virtual void TransformBoundingBox();        // 기본: 트랜스폼 월드 중심 1×1×1
 	virtual InstanceID GetInstanceID();          // 기본: (0,0)

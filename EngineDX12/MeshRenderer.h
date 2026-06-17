@@ -21,6 +21,7 @@ public:
 	void SetTexturePixels(const vector<uint8_t>& rgba, uint32 w, uint32 h);     // 픽셀 → 디퓨즈 SRV
 
 	virtual void Draw(const RenderContext& ctx) override;
+	virtual void RecordOutline(ID3D12GraphicsCommandList4* cmd) override;
 	virtual void TransformBoundingBox() override;
 	virtual void OnInspectorGUI() override; // 머티리얼/텍스처 편집
 

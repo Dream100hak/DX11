@@ -401,6 +401,16 @@ void ModelAnimator::Draw(const RenderContext& ctx)
 		cmd->DrawIndexedInstanced(_idxCount, 1, 0, 0, 0);
 }
 
+// 선택 아웃라인 — 현재 스킨 포즈의 월드 VB/IB 를 그대로 드로우 (PSO/CB 는 호출측)
+void ModelAnimator::RecordOutline(ID3D12GraphicsCommandList4* cmd)
+{
+	if (!_vb || _idxCount == 0) return;
+	cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	cmd->IASetVertexBuffers(0, 1, &_vbv);
+	cmd->IASetIndexBuffer(&_ibv);
+	cmd->DrawIndexedInstanced(_idxCount, 1, 0, 0, 0);
+}
+
 void ModelAnimator::OnInspectorGUI()
 {
 	ImGui::SeparatorText("ModelAnimator");

@@ -275,16 +275,23 @@ void D3D12Device::Render()
 	// ── 배경(스카이박스) — SkyRenderer (Background 큐, 컬링 제외) ──
 	if (sceneCam) drawBucket(sceneCam->GetVecBackground(), false);
 
-	// ── 선택 아웃라인 (모델 선택 시, 인버티드 헐 → 모델이 위에 덮어 림만 남음) ──
-	if (_sel == SelEntity::Model && _scene._modelIndexCount > 0)
+	// ── 선택 아웃라인 (인버티드 헐 → 이후 불투명 패스가 위를 덮어 림만 남음) ──
+	// 선택된 GameObject 의 렌더러를 우선 아웃라인. 없으면(레거시 단일 모델 선택 시) _scene 모델.
+	auto outlineR = (_selectedGO && !_selectedGO->IsEditorInternal()) ? _selectedGO->GetRenderer() : nullptr;
+	if (outlineR || (_sel == SelEntity::Model && !_selectedGO && _scene._modelIndexCount > 0))
 	{
 		_cmdList->SetPipelineState(_outlinePSO.Get());
 		_cmdList->SetGraphicsRootSignature(_rootSig.Get());
 		_cmdList->SetGraphicsRootConstantBufferView(0, _cb[_frameIndex]->GetGPUVirtualAddress());
-		_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		_cmdList->IASetVertexBuffers(0, 1, &_scene._vbv);
-		_cmdList->IASetIndexBuffer(&_scene._ibv);
-		_cmdList->DrawIndexedInstanced(_scene._modelIndexCount, 1, 0, 0, 0);
+		if (outlineR)
+			outlineR->RecordOutline(_cmdList.Get()); // 선택 오브젝트(메시/애니) 자기 VB/IB
+		else
+		{
+			_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			_cmdList->IASetVertexBuffers(0, 1, &_scene._vbv);
+			_cmdList->IASetIndexBuffer(&_scene._ibv);
+			_cmdList->DrawIndexedInstanced(_scene._modelIndexCount, 1, 0, 0, 0);
+		}
 	}
 
 	// ── 불투명 (모델+바닥+정적메시) — Opaque 큐 (절두체 컬링 옵션) ──

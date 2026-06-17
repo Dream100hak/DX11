@@ -287,6 +287,16 @@ void MeshRenderer::RecordBuildBLAS(ID3D12GraphicsCommandList4* cmd)
 	_blasDirty = false;
 }
 
+// 선택 아웃라인 — 월드 베이크 정점을 그대로(인버티드 헐은 셰이더가 노멀 팽창) 드로우.
+void MeshRenderer::RecordOutline(ID3D12GraphicsCommandList4* cmd)
+{
+	if (!_dev || _local.empty() || !_vb) return;
+	cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	cmd->IASetVertexBuffers(0, 1, &_vbv);
+	cmd->IASetIndexBuffer(&_ibv);
+	cmd->DrawIndexedInstanced((UINT)_indices.size(), 1, 0, 0, 0);
+}
+
 void MeshRenderer::Draw(const RenderContext& ctx)
 {
 	if (!_dev || _local.empty()) return;

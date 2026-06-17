@@ -17,6 +17,7 @@ public:
 	bool Load(const std::wstring& meshPath); // 메시+본+클립 로드, 월드 VB/IB 생성
 
 	virtual void Draw(const RenderContext& ctx) override;
+	virtual void RecordOutline(ID3D12GraphicsCommandList4* cmd) override;
 	virtual void TransformBoundingBox() override;
 	virtual void OnInspectorGUI() override;
 

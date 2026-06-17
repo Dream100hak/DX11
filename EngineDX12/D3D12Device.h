@@ -188,6 +188,8 @@ private:
 	shared_ptr<GameObject>            SpawnEmpty(const std::wstring& name, const Vec3& pos);
 	shared_ptr<GameObject>            SpawnAnimatedModel(const std::wstring& meshPath, const Vec3& pos); // ModelAnimator
 	void                              ConvertFbxDialog(); // File > Convert FBX... (ufbx → .mesh/.clip/.mat 변환 후 스폰)
+	void                              SaveSelectedAsPrefab(); // 선택 GO → .prefab 파일
+	void                              InstantiatePrefab();    // .prefab 파일 → 씬에 스폰
 	shared_ptr<GameObject>            SpawnTerrain(int gridN, float cellSize); // Terrain + MeshRenderer GameObject
 	// 터레인 편집 (씬뷰 브러시) — Terrain 선택 + Edit 토글 시 좌드래그로 스컬프트
 	bool                              _terrainEdit = false;

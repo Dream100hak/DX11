@@ -553,6 +553,9 @@ void D3D12Device::DrawMainMenuBar()
 			if (ImGui::MenuItem("Camera")) { auto o = SpawnEmpty(L"Camera", _camera.pos); if (o) { o->AddComponent(make_shared<Camera>()); if (auto t = o->GetTransform()) t->SetLocalRotation(Vec3{ _camera.pitch, _camera.yaw, 0.f }); } }
 			ImGui::Separator();
 			if (ImGui::MenuItem("Terrain")) SpawnTerrain(128, 1.0f);
+			ImGui::Separator();
+			if (ImGui::MenuItem("Instantiate Prefab...")) InstantiatePrefab();
+			if (ImGui::MenuItem("Save Selected as Prefab...", nullptr, false, _selectedGO != nullptr)) SaveSelectedAsPrefab();
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Component"))
@@ -679,6 +682,7 @@ void D3D12Device::DrawHierarchy()
 				_selectedGO = obj; // 메뉴 대상 선택
 				if (ImGui::MenuItem("Duplicate", "Ctrl+D")) DuplicateSelectedObject();
 				if (ImGui::MenuItem("Delete", "Del")) { DeleteSelectedObject(); ImGui::EndPopup(); return; }
+				if (ImGui::MenuItem("Save as Prefab...")) SaveSelectedAsPrefab();
 				if (ImGui::MenuItem("Create Empty Child"))
 				{
 					Matrix wm0 = obj->GetTransform() ? obj->GetTransform()->GetWorldMatrix() : Matrix{};
@@ -1221,6 +1225,84 @@ void D3D12Device::ConvertFbxDialog()
 	// 변환 결과 스폰 (ModelAnimator — 애니 없으면 바인드포즈 정적 메시로 렌더)
 	Vec3 sp = SpawnPoint();
 	SpawnAnimatedModel(r.meshPath, Vec3{ sp.x, 0, sp.z });
+}
+
+// 선택 GameObject → .prefab (Mesh/Animator). 텍스트 포맷: type/prim|mesh/mat/xform.
+void D3D12Device::SaveSelectedAsPrefab()
+{
+	auto go = _selectedGO; if (!go) { Log("Prefab: no selection"); return; }
+	auto t = go->GetTransform(); if (!t) return;
+	wchar_t file[MAX_PATH] = L"prefab.prefab";
+	OPENFILENAMEW ofn{}; ofn.lStructSize = sizeof(ofn); ofn.hwndOwner = _hwnd;
+	ofn.lpstrFilter = L"Prefab (*.prefab)\0*.prefab\0"; ofn.lpstrDefExt = L"prefab";
+	ofn.lpstrFile = file; ofn.nMaxFile = MAX_PATH; ofn.Flags = OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
+	std::wstring dir = _assetRoot + L"\\Prefabs"; std::error_code ec; fs::create_directories(dir, ec); ofn.lpstrInitialDir = dir.c_str();
+	if (!GetSaveFileNameW(&ofn)) return;
+
+	std::ofstream f(file); if (!f) { Log("Prefab save FAILED"); return; }
+	f << "name " << WToUtf8(go->GetObjectName()) << '\n';
+	if (auto an = go->GetModelAnimator())
+	{
+		f << "type anim\n";
+		f << "mesh " << WToUtf8(an->MeshDir() + an->MeshStem() + L".mesh") << '\n';
+		f << "clip " << an->GetClipIndex() << ' ' << an->GetSpeed() << ' ' << (an->IsPlaying() ? 1 : 0) << '\n';
+	}
+	else if (auto mr = go->GetMeshRenderer())
+	{
+		f << "type mesh\n";
+		f << "prim " << (int)mr->GetPrim() << '\n';
+		Material& m = mr->GetMaterial();
+		if (!m._path.empty()) f << "matref " << WToUtf8(m._path) << '\n';
+		else f << "mat " << m._diffuse.x << ' ' << m._diffuse.y << ' ' << m._diffuse.z << ' ' << m._metallic << ' ' << m._roughness << ' ' << m._emissive
+		       << ' ' << (m._diffuseTex.empty() ? std::string("-") : WToUtf8(m._diffuseTex)) << '\n';
+	}
+	else { Log("Prefab: only Mesh/Animator supported"); return; }
+	Vec3 p = t->GetLocalPosition(), r = t->GetLocalRotation(), s = t->GetLocalScale();
+	f << "xform " << p.x << ' ' << p.y << ' ' << p.z << ' ' << r.x << ' ' << r.y << ' ' << r.z << ' ' << s.x << ' ' << s.y << ' ' << s.z << '\n';
+	Log("Prefab saved: " + WToUtf8(file));
+}
+
+// .prefab → 씬에 새 인스턴스 스폰 (카메라 앞).
+void D3D12Device::InstantiatePrefab()
+{
+	wchar_t file[MAX_PATH] = L"";
+	OPENFILENAMEW ofn{}; ofn.lStructSize = sizeof(ofn); ofn.hwndOwner = _hwnd;
+	ofn.lpstrFilter = L"Prefab (*.prefab)\0*.prefab\0"; ofn.lpstrFile = file; ofn.nMaxFile = MAX_PATH;
+	ofn.Flags = OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
+	std::wstring dir = _assetRoot + L"\\Prefabs"; ofn.lpstrInitialDir = dir.c_str();
+	if (!GetOpenFileNameW(&ofn)) return;
+
+	std::ifstream f(file); if (!f) { Log("Prefab open FAILED"); return; }
+	std::string line, type, meshPath, matTex; int prim = 1, clipIdx = 0, playing = 1;
+	float spd = 1.f; Vec3 diff{ 1,1,1 }; float met = 0, rough = 0.5f, emis = 0; std::wstring matRef;
+	Vec3 p{ 0,0,0 }, r{ 0,0,0 }, sc{ 1,1,1 }; bool hasXf = false;
+	while (std::getline(f, line))
+	{
+		std::istringstream s(line); std::string tag; s >> tag;
+		if (tag == "type") s >> type;
+		else if (tag == "prim") s >> prim;
+		else if (tag == "mesh") { std::getline(s >> std::ws, meshPath); }
+		else if (tag == "clip") s >> clipIdx >> spd >> playing;
+		else if (tag == "matref") { std::string mp; std::getline(s >> std::ws, mp); matRef = Utf8ToW(mp); }
+		else if (tag == "mat") { s >> diff.x >> diff.y >> diff.z >> met >> rough >> emis; std::getline(s >> std::ws, matTex); }
+		else if (tag == "xform") { s >> p.x >> p.y >> p.z >> r.x >> r.y >> r.z >> sc.x >> sc.y >> sc.z; hasXf = true; }
+	}
+	Vec3 at = SpawnPoint();
+	shared_ptr<GameObject> obj;
+	if (type == "anim") obj = SpawnAnimatedModel(Utf8ToW(meshPath), at);
+	else
+	{
+		vector<Vtx> v; vector<uint32> idx; MeshPrim mp = (MeshPrim)prim; BuildPrim(mp, v, idx);
+		obj = SpawnMeshObject(L"Prefab", v, idx, at, mp);
+		if (obj) if (auto mr = obj->GetMeshRenderer())
+		{
+			if (!matRef.empty()) { auto sh = GET_SINGLE(ResourceManager)->Get<Material>(matRef); if (!sh) { sh = LoadMaterial(matRef); if (sh) GET_SINGLE(ResourceManager)->Add<Material>(matRef, sh); } if (sh) mr->SetMaterialRef(sh); }
+			else { Material& m = mr->GetMaterial(); m._diffuse = diff; m._metallic = met; m._roughness = rough; m._emissive = emis; if (matTex != "-" && !matTex.empty()) m._diffuseTex = Utf8ToW(matTex); }
+		}
+	}
+	if (obj && hasXf) if (auto t = obj->GetTransform()) { t->SetLocalScale(sc); t->SetLocalRotation(r); /*위치는 SpawnPoint 유지*/ }
+	if (obj && type == "anim") if (auto an = obj->GetModelAnimator()) { an->SetClipIndex(clipIdx); an->SetSpeed(spd); an->SetPlaying(playing != 0); }
+	Log("Prefab instantiated: " + WToUtf8(file));
 }
 
 // Terrain GameObject — MeshRenderer(그리드 메시) + Terrain(하이트맵/스컬프트). 트랜스폼 항등(정점=월드).

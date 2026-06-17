@@ -740,7 +740,10 @@ float4 PSMain(VOut i) : SV_TARGET
     float3 L = normalize(-gLightDir.xyz);
     float spec = pow(saturate(dot(R, L)), 120.0) * gLightDir.w;
     float3 col = lerp(water, skyCol, fres) + spec * gSunColor.rgb;
-    return float4(col, 0.82); // 반투명
+    // 파도 마루 거품(화이트캡) — 높이가 높고 경사가 큰 곳
+    float crest = saturate((i.wp.y - gLevel - 0.12) * 4.0) * saturate((1.0 - N.y) * 6.0);
+    col = lerp(col, float3(0.9, 0.95, 1.0), crest * 0.7);
+    return float4(col, lerp(0.82, 1.0, crest)); // 거품은 더 불투명
 }
 )";
 

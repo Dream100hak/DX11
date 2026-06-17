@@ -1004,12 +1004,22 @@ void D3D12Device::DrawSceneView()
 		{
 			auto t = _selectedGO->GetTransform();
 			DirectX::XMFLOAT4X4 wm = t->GetWorldMatrix();
+			DirectX::XMFLOAT4X4 oldWM = wm; // 그룹 이동 델타 계산용
 			float snapVal = (_gizmoOp == 7) ? _snapT : (_gizmoOp == 120) ? _snapR : _snapS;
 			float snap3[3] = { snapVal, snapVal, snapVal };
 			if (ImGuizmo::Manipulate((const float*)&_viewM, (const float*)&_projM,
 				(ImGuizmo::OPERATION)_gizmoOp, _gizmoLocal ? ImGuizmo::LOCAL : ImGuizmo::WORLD,
 				(float*)&wm, nullptr, _snapOn ? snap3 : nullptr))
+			{
 				t->SetWorldMatrix(wm); // 월드→로컬 역산 + 분해 (부모 회전/스케일 안전)
+				// 멀티셀렉트 그룹 이동 — primary 의 월드 이동 델타를 나머지 선택에 적용
+				float dx = wm._41 - oldWM._41, dy = wm._42 - oldWM._42, dz = wm._43 - oldWM._43;
+				if (!_selIds.empty() && (dx != 0.f || dy != 0.f || dz != 0.f))
+					for (int64 id : _selIds)
+						if (auto o = _gameScene->GetCreatedObject(id))
+							if (auto ot = o->GetTransform())
+							{ DirectX::XMFLOAT4X4 ow = ot->GetWorldMatrix(); ow._41 += dx; ow._42 += dy; ow._43 += dz; ot->SetWorldMatrix(ow); }
+			}
 		}
 		else if (_sel == SelEntity::Model)
 		{

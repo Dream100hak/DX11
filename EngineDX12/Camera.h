@@ -1,6 +1,7 @@
 #pragma once
 #include "Component.h"
 #include "Frustum.h"
+#include "imgui.h"
 
 class GameObject;
 
@@ -16,6 +17,17 @@ public:
 
 	void   SetView(const Matrix& v) { _matView = v; }
 	void   SetProjection(const Matrix& p) { _matProjection = p; }
+
+	virtual void OnInspectorGUI() override
+	{
+		const char* proj[] = { "Perspective", "Orthographic" };
+		int p = (int)_projType;
+		if (ImGui::Combo("Projection", &p, proj, 2)) _projType = (ProjectionType)p;
+		ImGui::DragFloat("FOV", &_fov, 0.5f, 10.f, 120.f, "%.0f");
+		ImGui::DragFloat("Near", &_near, 0.01f, 0.01f, 10.f, "%.2f");
+		ImGui::DragFloat("Far", &_far, 1.f, 1.f, 5000.f, "%.0f");
+		ImGui::TextDisabled("게임 카메라 — Play/Game 뷰 시점");
+	}
 	Matrix GetViewMatrix() { return _matView; }
 	Matrix GetProjectionMatrix() { return _matProjection; }
 

@@ -69,8 +69,8 @@ void EditorManager::Update()
 		ImGui::DockBuilderDockWindow("Project", bleft);
 		ImGui::DockBuilderDockWindow("FolderContents", bottom);
 		ImGui::DockBuilderDockWindow("Log", bottom);
-		ImGui::DockBuilderDockWindow("Scene", center);
-		ImGui::DockBuilderDockWindow("Game", center); // Scene 옆 탭
+		ImGui::DockBuilderDockWindow("Game", center); // 먼저 도킹(비활성 탭)
+		ImGui::DockBuilderDockWindow("Scene", center); // 나중 도킹 → 기본 활성 탭
 		ImGui::DockBuilderFinish(dockId);
 	}
 	ImGui::DockSpace(dockId, ImVec2(0, 0));

@@ -565,6 +565,30 @@ void D3D12Device::DrawHierarchy()
 	// ── 씬 그래프 GameObject 목록 (EditorTool Hierarchy 대응) ──
 	ImGui::Separator();
 	ImGui::TextDisabled("GameObjects  (drag = reparent)");
+	static char hierFilter[64] = "";
+	ImGui::SetNextItemWidth(-1);
+	ImGui::InputTextWithHint("##hierfilter", "Search...", hierFilter, sizeof(hierFilter));
+	std::string filterLow = hierFilter;
+	for (char& c : filterLow) c = (char)tolower(c);
+	// GameObject 타입 아이콘(컴포넌트 기반 접두)
+	auto typeIcon = [](const shared_ptr<GameObject>& o) -> const char*
+	{
+		if (o->GetCamera()) return "[Cam] ";
+		if (o->GetLight()) return "[Lit] ";
+		if (o->GetTerrain()) return "[Ter] ";
+		if (auto r = o->GetRenderer())
+		{
+			switch (r->GetRenderType())
+			{
+			case RendererType::Foliage:  return "[Fol] ";
+			case RendererType::Particle: return "[Psy] ";
+			case RendererType::Animator: return "[Anm] ";
+			case RendererType::Mesh:     return "[Msh] ";
+			default: break;
+			}
+		}
+		return "[Obj] ";
+	};
 	if (_gameScene)
 	{
 		// 재귀 트리 (루트 = 부모 없음) + 드래그드롭 부모지정
@@ -576,7 +600,7 @@ void D3D12Device::DrawHierarchy()
 			ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_DefaultOpen;
 			if (!hasChildren) flags |= ImGuiTreeNodeFlags_Leaf;
 			if (_selectedGO == obj) flags |= ImGuiTreeNodeFlags_Selected;
-			std::string label = WToUtf8(obj->GetObjectName());
+			std::string label = std::string(typeIcon(obj)) + WToUtf8(obj->GetObjectName());
 			bool open = ImGui::TreeNodeEx((void*)(intptr_t)obj->GetId(), flags, "%s", label.c_str());
 			if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) _selectedGO = obj;
 			if (ImGui::BeginDragDropSource())
@@ -609,14 +633,30 @@ void D3D12Device::DrawHierarchy()
 				ImGui::TreePop();
 			}
 		};
-		std::vector<shared_ptr<GameObject>> roots;
-		for (auto& kv : _gameScene->GetCreatedObjects())
+		if (!filterLow.empty())
 		{
-			auto& obj = kv.second; if (!obj) continue;
-			auto t = obj->GetTransform();
-			if (!t || !t->GetParent()) roots.push_back(obj);
+			// 검색 모드: 트리 무시, 이름 매칭 평면 목록 (에디터 내부 제외)
+			for (auto& kv : _gameScene->GetCreatedObjects())
+			{
+				auto& obj = kv.second; if (!obj || obj->IsEditorInternal()) continue;
+				std::string nm = WToUtf8(obj->GetObjectName()), low = nm;
+				for (char& c : low) c = (char)tolower(c);
+				if (low.find(filterLow) == std::string::npos) continue;
+				std::string label = std::string(typeIcon(obj)) + nm;
+				if (ImGui::Selectable(label.c_str(), _selectedGO == obj)) _selectedGO = obj;
+			}
 		}
-		for (auto& r : roots) drawNode(r);
+		else
+		{
+			std::vector<shared_ptr<GameObject>> roots;
+			for (auto& kv : _gameScene->GetCreatedObjects())
+			{
+				auto& obj = kv.second; if (!obj) continue;
+				auto t = obj->GetTransform();
+				if (!t || !t->GetParent()) roots.push_back(obj);
+			}
+			for (auto& r : roots) drawNode(r);
+		}
 
 		// 빈 공간 = 부모 해제 (루트로)
 		ImGui::Dummy(ImVec2(ImGui::GetContentRegionAvail().x, 24));
@@ -673,6 +713,8 @@ void D3D12Device::DrawHierarchy()
 void D3D12Device::DrawSceneView()
 {
 	ImGui::Begin("Scene");
+	static int s_focusScene = 4; // 시작 시 몇 프레임 Scene 탭을 활성화(기본이 Game 으로 떠 빈 화면으로 보이던 문제)
+	if (s_focusScene > 0) { ImGui::SetWindowFocus(); --s_focusScene; }
 	// ── Play/Stop ──
 	{
 		ImVec4 pc = _playing ? ImVec4(0.8f, 0.3f, 0.2f, 1.f) : ImVec4(0.2f, 0.6f, 0.3f, 1.f);
@@ -702,6 +744,22 @@ void D3D12Device::DrawSceneView()
 	ImGui::SameLine();
 	ImGui::Checkbox("Snap", &_snapOn);
 	if (ImGui::IsItemHovered()) ImGui::SetTooltip("그리드 스냅 (이동 %.1f / 회전 %.0f° / 스케일 %.1f)", _snapT, _snapR, _snapS);
+	ImGui::SameLine();
+	if (ImGui::Button("Gizmo")) ImGui::OpenPopup("gizmoSettings");
+	if (ImGui::BeginPopup("gizmoSettings"))
+	{
+		ImGui::TextDisabled("Gizmo / Snap");
+		ImGui::SetNextItemWidth(140); ImGui::SliderFloat("Size", &_gizmoSize, 0.05f, 0.4f, "%.2f");
+		ImGui::SetNextItemWidth(140); ImGui::DragFloat("Move Snap", &_snapT, 0.05f, 0.05f, 10.f);
+		ImGui::SetNextItemWidth(140); ImGui::DragFloat("Rotate Snap", &_snapR, 1.f, 1.f, 90.f, "%.0f°");
+		ImGui::SetNextItemWidth(140); ImGui::DragFloat("Scale Snap", &_snapS, 0.05f, 0.05f, 5.f);
+		ImGui::EndPopup();
+	}
+	ImGui::SameLine();
+	// 그리드/스카이/와이어 빠른 토글 (씬뷰 우상단)
+	ImGui::Checkbox("Grid", &_showGrid); ImGui::SameLine();
+	ImGui::Checkbox("Sky", &_showSky); ImGui::SameLine();
+	ImGui::Checkbox("Wire", &_wireframe);
 	ImVec2 avail = ImGui::GetContentRegionAvail();
 	_pendingSceneW = (UINT)max(8.0f, avail.x);
 	_pendingSceneH = (UINT)max(8.0f, avail.y);
@@ -2151,6 +2209,14 @@ void D3D12Device::DrawGameObjectInspector(const shared_ptr<GameObject>& go)
 			{ go->AddComponent(make_shared<AABBBoxCollider>()); Log("Added Box Collider to " + WToUtf8(go->GetObjectName())); }
 			if (!go->GetComponent<BaseCollider>() && ImGui::MenuItem("Sphere Collider"))
 			{ go->AddComponent(make_shared<SphereCollider>()); Log("Added Sphere Collider to " + WToUtf8(go->GetObjectName())); }
+			if (!go->GetCamera() && ImGui::MenuItem("Camera"))
+			{ go->AddComponent(make_shared<Camera>()); Log("Added Camera to " + WToUtf8(go->GetObjectName())); }
+			if (!go->GetRenderer() && !go->GetTerrain() && ImGui::MenuItem("Terrain"))
+			{
+				auto mr = make_shared<MeshRenderer>(); mr->Bind(this); go->AddComponent(mr);
+				auto tr = make_shared<Terrain>(); tr->Bind(this); go->AddComponent(tr); tr->Init(128, 1.0f);
+				Log("Added Terrain to " + WToUtf8(go->GetObjectName()));
+			}
 			if (ImGui::BeginMenu("Script"))
 			{
 				for (auto& kv : ScriptRegistry::Map())

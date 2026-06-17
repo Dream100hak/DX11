@@ -556,6 +556,8 @@ void D3D12Device::DrawMainMenuBar()
 			ImGui::Separator();
 			if (ImGui::MenuItem("Instantiate Prefab...")) InstantiatePrefab();
 			if (ImGui::MenuItem("Save Selected as Prefab...", nullptr, false, _selectedGO != nullptr)) SaveSelectedAsPrefab();
+			ImGui::Separator();
+			if (ImGui::MenuItem("Spawn Showcase Scene")) SpawnShowcase();
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Component"))
@@ -941,6 +943,20 @@ void D3D12Device::DrawSceneView()
 			if (fabsf(rd.y) > 1e-6f) { float t = -ro.y / rd.y; if (t > 0) pos = Vec3{ ro.x + rd.x * t, 0.f, ro.z + rd.z * t }; }
 			SpawnAnimatedModel(meshPath, pos);
 		}
+		// .mat 드롭 → 커서 아래 오브젝트(픽킹)에 공유 머티리얼 할당
+		if (const ImGuiPayload* pl = ImGui::AcceptDragDropPayload("MAT_PATH"))
+		{
+			std::wstring matPath = Utf8ToW(std::string((const char*)pl->Data));
+			ImVec2 mp = ImGui::GetMousePos();
+			float u = (mp.x - imgPos.x) / avail.x, v = (mp.y - imgPos.y) / avail.y;
+			if (u >= 0 && u <= 1 && v >= 0 && v <= 1) PickAt(u, v); // 커서 아래 오브젝트 선택
+			if (_selectedGO) if (auto mr = _selectedGO->GetMeshRenderer())
+			{
+				auto shared = GET_SINGLE(ResourceManager)->Get<Material>(matPath);
+				if (!shared) { shared = LoadMaterial(matPath); if (shared) GET_SINGLE(ResourceManager)->Add<Material>(matPath, shared); }
+				if (shared) { mr->SetMaterialRef(shared); Log("Assigned material (drop): " + WToUtf8(fs::path(matPath).filename().wstring())); }
+			}
+		}
 		ImGui::EndDragDropTarget();
 	}
 
@@ -1225,6 +1241,31 @@ void D3D12Device::ConvertFbxDialog()
 	// 변환 결과 스폰 (ModelAnimator — 애니 없으면 바인드포즈 정적 메시로 렌더)
 	Vec3 sp = SpawnPoint();
 	SpawnAnimatedModel(r.meshPath, Vec3{ sp.x, 0, sp.z });
+}
+
+// 데모 씬 일괄 생성 — 터레인(언덕)+물+식생+불 파티클+색색 라이트. (전체 기능 코존재 검증/데모용)
+void D3D12Device::SpawnShowcase()
+{
+	if (!_gameScene) return;
+	auto terrObj = SpawnTerrain(96, 1.0f);
+	if (terrObj) if (auto tr = terrObj->GetComponent<Terrain>())
+	{
+		for (int i = 0; i < 24; ++i) tr->Sculpt(-14, -10, 12.f, 0.5f, TerrainBrush::Raise, 0); // 언덕1
+		for (int i = 0; i < 16; ++i) tr->Sculpt(16, 12, 9.f, 0.5f, TerrainBrush::Raise, 0);     // 언덕2
+		_folGrass = 5000; _folTree = 50; _folSize = 0.4f;
+		GenerateFoliage(terrObj);
+	}
+	_terrainEdit = false;
+	_waterOn = true; _waterLevel = 0.4f; _tessTerrain = true; _tessFactor = 20.f;
+
+	// 불 파티클
+	{ auto o = SpawnEmpty(L"Fire", Vec3{ 0, 0.5f, 0 }); if (o) { auto ps = make_shared<ParticleSystem>(); ps->_mode = 2; ps->_rate = 180.f; ps->_size = 0.18f; ps->_sizeEnd = 0.02f; ps->_speed = 2.4f; o->AddComponent(ps); } }
+	// 색색 점광원
+	const Vec3 cols[4] = { {1,0.4f,0.2f},{0.3f,0.6f,1},{0.4f,1,0.5f},{1,0.3f,0.8f} };
+	for (int i = 0; i < 4; ++i) { float a = i * 1.5708f; auto o = SpawnLight(1, L"ShowLight", Vec3{ cosf(a) * 6.f, 2.5f, sinf(a) * 6.f }); if (o) if (auto l = o->GetLight()) { l->_color = cols[i]; l->_intensity = 3.f; l->_range = 7.f; } }
+
+	_camera.pos = { 30, 22, -30 }; _camera.yaw = -0.78f; _camera.pitch = -0.45f;
+	Log("Showcase scene spawned (terrain+water+foliage+fire+lights)");
 }
 
 // 선택 GameObject → .prefab (Mesh/Animator). 텍스트 포맷: type/prim|mesh/mat/xform.
@@ -2648,6 +2689,14 @@ void D3D12Device::DrawFolderContents()
 			{
 				std::string up = WToUtf8(full);
 				ImGui::SetDragDropPayload("MESH_PATH", up.c_str(), up.size() + 1);
+				ImGui::TextUnformatted(WToUtf8(p.filename().wstring()).c_str());
+				ImGui::EndDragDropSource();
+			}
+			// .mat 드래그 → Scene 뷰 오브젝트에 드롭하면 머티리얼 할당
+			if (!isDir && kind == AssetKind::Material && p.extension() == L".mat" && ImGui::BeginDragDropSource())
+			{
+				std::string up = WToUtf8(full);
+				ImGui::SetDragDropPayload("MAT_PATH", up.c_str(), up.size() + 1);
 				ImGui::TextUnformatted(WToUtf8(p.filename().wstring()).c_str());
 				ImGui::EndDragDropSource();
 			}

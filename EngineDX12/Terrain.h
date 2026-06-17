@@ -35,6 +35,7 @@ public:
 	float WorldSize() const { return _gridN * _cellSize; }
 	float HalfSize() const { return _gridN * _cellSize * 0.5f; }
 	const std::wstring& HeightmapPath() const { return _hmPath; }
+	const std::vector<float>& Heightmap() const { return _heightmap; } // GPU 테셀레이션 변위용
 
 private:
 	void BuildVerts(vector<Vtx>& out) const;     // 하이트맵 → 정점(위치/노멀/색/uv)

@@ -627,6 +627,67 @@ float4 PSMain(VOut i) : SV_TARGET
 }
 )";
 
+// 터레인 GPU 테셀레이션 — 코어스 쿼드 패치를 HS/DS 로 세분 + 하이트맵(StructuredBuffer) 변위.
+// 메인 루트시그 재사용: b0(VP/빛), t1(하이트맵 float[]), b1(테셀 상수). PS=간단 람베르트(높이/경사 색).
+static const std::string kTessShader = std::string(kSceneCB) + R"(
+StructuredBuffer<float> gHeights : register(t1);            // (N+1)^2 하이트맵
+cbuffer TessCB : register(b1) { float gN; float gCell; float gHalf; float gTess; float4 _tpad; };
+
+struct CP { float3 pos : POSITION; float2 uv : TEXCOORD0; };
+CP VSMain(CP i) { return i; } // 컨트롤포인트 패스스루
+
+struct PatchConst { float edges[4] : SV_TessFactor; float inside[2] : SV_InsideTessFactor; };
+PatchConst HSConst(InputPatch<CP, 4> ip)
+{
+    PatchConst p;
+    p.edges[0] = gTess; p.edges[1] = gTess; p.edges[2] = gTess; p.edges[3] = gTess;
+    p.inside[0] = gTess; p.inside[1] = gTess;
+    return p;
+}
+[domain("quad")][partitioning("integer")][outputtopology("triangle_cw")][outputcontrolpoints(4)][patchconstantfunc("HSConst")]
+CP HSMain(InputPatch<CP, 4> ip, uint i : SV_OutputControlPointID) { return ip[i]; }
+
+float SampleH(float2 uv)
+{
+    float N = gN; float fx = saturate(uv.x) * N, fz = saturate(uv.y) * N;
+    int x0 = (int)floor(fx), z0 = (int)floor(fz);
+    int x1 = min(x0 + 1, (int)N), z1 = min(z0 + 1, (int)N);
+    float tx = fx - x0, tz = fz - z0; int row = (int)N + 1;
+    float h00 = gHeights[z0 * row + x0], h10 = gHeights[z0 * row + x1];
+    float h01 = gHeights[z1 * row + x0], h11 = gHeights[z1 * row + x1];
+    return lerp(lerp(h00, h10, tx), lerp(h01, h11, tx), tz);
+}
+
+struct DSOut { float4 pos : SV_POSITION; float3 wp : TEXCOORD0; float3 nrm : TEXCOORD1; };
+[domain("quad")]
+DSOut DSMain(PatchConst pc, float2 d : SV_DomainLocation, OutputPatch<CP, 4> ip)
+{
+    float3 b = lerp(ip[0].pos, ip[1].pos, d.x);   // 하단 엣지(BL→BR)
+    float3 t = lerp(ip[3].pos, ip[2].pos, d.x);   // 상단 엣지(TL→TR)
+    float3 wp = lerp(b, t, d.y);
+    float2 ub = lerp(ip[0].uv, ip[1].uv, d.x), ut = lerp(ip[3].uv, ip[2].uv, d.x);
+    float2 uv = lerp(ub, ut, d.y);
+    wp.y = SampleH(uv);
+    float e = 1.0 / gN;
+    float hl = SampleH(uv - float2(e, 0)), hr = SampleH(uv + float2(e, 0));
+    float hd = SampleH(uv - float2(0, e)), hu = SampleH(uv + float2(0, e));
+    float3 n = normalize(float3(hl - hr, 2.0 * gCell, hd - hu));
+    DSOut o; o.pos = mul(float4(wp, 1.0), gMVP); o.wp = wp; o.nrm = n; return o;
+}
+
+float4 PSMain(DSOut i) : SV_TARGET
+{
+    float3 L = normalize(-gLightDir.xyz);
+    float ndl = saturate(dot(i.nrm, L));
+    float slope = 1.0 - i.nrm.y;
+    float3 grass = float3(0.28, 0.42, 0.18), rock = float3(0.34, 0.30, 0.26), snow = float3(0.92, 0.94, 0.97);
+    float3 col = lerp(grass, rock, saturate(slope * 2.2));
+    col = lerp(col, snow, saturate((i.wp.y - 6.0) / 6.0));
+    float3 lit = col * (ndl * gLightDir.w + 0.28);
+    return float4(lit, 1.0);
+}
+)";
+
 // 디버그 라인 (본/AABB/스팟콘/라이트 아이콘) — LINELIST, pos+color
 // 디버그 라인 셰이더는 DebugDraw.cpp 로 이동(자체 포함, kSceneCB 불필요)
 
@@ -1180,6 +1241,27 @@ void D3D12Device::CreatePipeline()
 		pp.BlendState.RenderTarget[0].DestBlend = D3D12_BLEND_ONE;
 		pp.BlendState.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ONE;
 		ThrowIfFailed(_device->CreateGraphicsPipelineState(&pp, IID_PPV_ARGS(&_particlePSO)), "CreateParticlePSO");
+	}
+
+	// ── 터레인 테셀레이션 PSO (VS/HS/DS/PS, PATCH 토폴로지) — 메인 opaque pso 베이스 ──
+	{
+		ComPtr<IDxcBlob> tvs = CompileDxc(kTessShader.c_str(), L"VSMain", L"vs_6_5");
+		ComPtr<IDxcBlob> ths = CompileDxc(kTessShader.c_str(), L"HSMain", L"hs_6_5");
+		ComPtr<IDxcBlob> tds = CompileDxc(kTessShader.c_str(), L"DSMain", L"ds_6_5");
+		ComPtr<IDxcBlob> tps = CompileDxc(kTessShader.c_str(), L"PSMain", L"ps_6_5");
+		D3D12_INPUT_ELEMENT_DESC til[] = {
+			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		};
+		D3D12_GRAPHICS_PIPELINE_STATE_DESC tp = pso; // 메인 opaque(깊이 쓰기/테스트, RTV/DSV) 베이스
+		tp.VS = { tvs->GetBufferPointer(), tvs->GetBufferSize() };
+		tp.HS = { ths->GetBufferPointer(), ths->GetBufferSize() };
+		tp.DS = { tds->GetBufferPointer(), tds->GetBufferSize() };
+		tp.PS = { tps->GetBufferPointer(), tps->GetBufferSize() };
+		tp.InputLayout = { til, _countof(til) };
+		tp.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+		tp.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH; // 테셀레이션
+		ThrowIfFailed(_device->CreateGraphicsPipelineState(&tp, IID_PPV_ARGS(&_tessPSO)), "CreateTessPSO");
 	}
 
 	// ── 아웃라인 PSO (앞면 컬링 = 뒷면 렌더, 깊이 LESS/쓰기, 입력레이아웃 = 메시) ──

@@ -567,6 +567,8 @@ void D3D12Device::DrawMainMenuBar()
 			ImGui::MenuItem("Sky", nullptr, &_showSky);
 			ImGui::MenuItem("Bloom", nullptr, &_bloomOn);
 			ImGui::MenuItem("Wireframe", nullptr, &_wireframe);
+			ImGui::MenuItem("Terrain Tessellation (GPU)", nullptr, &_tessTerrain);
+			if (_tessTerrain) { ImGui::SetNextItemWidth(120); ImGui::SliderFloat("Tess Factor", &_tessFactor, 1.f, 64.f, "%.0f"); }
 			ImGui::Separator();
 			// UI 스케일 (고해상도 대응 — 전체 폰트/위젯 크기)
 			float sc = g_uiScale;

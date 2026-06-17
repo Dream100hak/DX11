@@ -267,6 +267,7 @@ void D3D12Device::Render()
 		{
 			if (!obj || !obj->IsActive()) continue;
 			auto r = obj->GetRenderer(); if (!r) continue;
+			if (_tessTerrain && obj->GetTerrain()) continue; // 테셀레이션 ON 시 터레인 메시 드로우 생략(테셀 패스가 대체)
 			if (cull && sceneCam && !sceneCam->GetFrustum().Contains(r->GetBoundingBox())) continue;
 			r->Draw(ctx);
 		}
@@ -296,6 +297,9 @@ void D3D12Device::Render()
 
 	// ── 불투명 (모델+바닥+정적메시) — Opaque 큐 (절두체 컬링 옵션) ──
 	if (sceneCam) drawBucket(sceneCam->GetVecOpaque(), _frustumCull);
+
+	// ── 터레인 GPU 테셀레이션 (토글 ON 시) ──
+	RenderTessTerrain(ctx);
 
 	// ── 그리드 — GridRenderer (Transparent 큐, 컬링 제외) ──
 	if (sceneCam) drawBucket(sceneCam->GetVecTransparent(), false);
@@ -441,6 +445,66 @@ void D3D12Device::RenderGameView()
 	_gamePostfx.Tonemap(_cmdList.Get(), tp);
 	ID3D12Resource* disp = _gamePostfx.Fxaa(_cmdList.Get(), _fxaaOn);
 	_gameTexId = _imgui.SetGameTexture(disp);
+}
+
+// 선택/첫 Terrain 을 GPU 테셀레이션(코어스 패치+HS/DS 변위)으로 렌더. 메인 루트시그 재사용.
+void D3D12Device::RenderTessTerrain(const RenderContext& ctx)
+{
+	using namespace DirectX;
+	if (!_tessTerrain || !_tessPSO || !_gameScene) return;
+
+	shared_ptr<Terrain> terr;
+	if (_selectedGO) terr = _selectedGO->GetTerrain();
+	if (!terr) for (auto& kv : _gameScene->GetCreatedObjects()) { if (kv.second) if (auto t = kv.second->GetTerrain()) { terr = t; break; } }
+	if (!terr) return;
+
+	const int N = terr->GridN();
+	const float cell = terr->CellSize(), half = terr->HalfSize(), worldSize = N * cell;
+	const auto& heights = terr->Heightmap();
+	if (heights.empty()) return;
+
+	auto ensure = [&](ComPtr<ID3D12Resource>& buf, void*& mapped, UINT& cap, UINT bytes)
+	{
+		if (cap >= bytes) return;
+		buf.Reset();
+		D3D12_HEAP_PROPERTIES hp{}; hp.Type = D3D12_HEAP_TYPE_UPLOAD;
+		D3D12_RESOURCE_DESC rd{}; rd.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+		rd.Width = bytes + 4096; rd.Height = 1; rd.DepthOrArraySize = 1; rd.MipLevels = 1;
+		rd.Format = DXGI_FORMAT_UNKNOWN; rd.SampleDesc.Count = 1; rd.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+		ThrowIfFailed(_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &rd,
+			D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&buf)), "Tess buffer");
+		cap = bytes + 4096; D3D12_RANGE nr{ 0, 0 }; buf->Map(0, &nr, &mapped);
+	};
+
+	// 하이트맵 StructuredBuffer 업로드
+	UINT hBytes = (UINT)(heights.size() * sizeof(float));
+	ensure(_tessHeights, _tessHeightsMapped, _tessHeightsCap, hBytes);
+	memcpy(_tessHeightsMapped, heights.data(), hBytes);
+
+	// 코어스 쿼드 패치 컨트롤포인트 (P×P 패치, 패치당 4CP). uv[0,1], world XZ 중심 원점.
+	struct CP { XMFLOAT3 pos; XMFLOAT2 uv; }; // 20B
+	const int P = 16;
+	static std::vector<CP> cps; cps.clear(); cps.reserve(P * P * 4);
+	auto mk = [&](float u, float v) { CP c; c.pos = XMFLOAT3((u - 0.5f) * worldSize, 0.f, (v - 0.5f) * worldSize); c.uv = XMFLOAT2(u, v); return c; };
+	for (int pz = 0; pz < P; ++pz) for (int px = 0; px < P; ++px)
+	{
+		float u0 = (float)px / P, u1 = (float)(px + 1) / P, v0 = (float)pz / P, v1 = (float)(pz + 1) / P;
+		cps.push_back(mk(u0, v0)); cps.push_back(mk(u1, v0)); cps.push_back(mk(u1, v1)); cps.push_back(mk(u0, v1)); // BL,BR,TR,TL
+	}
+	UINT cpBytes = (UINT)(cps.size() * sizeof(CP));
+	ensure(_tessCP, _tessCPMapped, _tessCPCap, cpBytes);
+	memcpy(_tessCPMapped, cps.data(), cpBytes);
+
+	float tcb[8] = { (float)N, cell, half, _tessFactor, 0, 0, 0, 0 };
+	D3D12_VERTEX_BUFFER_VIEW vbv{ _tessCP->GetGPUVirtualAddress(), cpBytes, sizeof(CP) };
+	_cmdList->SetPipelineState(_tessPSO.Get());
+	_cmdList->SetGraphicsRootSignature(_rootSig.Get());
+	_cmdList->SetGraphicsRootConstantBufferView(0, ctx.cb);                                // b0
+	_cmdList->SetGraphicsRootShaderResourceView(2, _tessHeights->GetGPUVirtualAddress());   // t1 = 하이트맵
+	_cmdList->SetGraphicsRoot32BitConstants(4, 8, tcb, 0);                                  // b1 = 테셀 상수
+	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_4_CONTROL_POINT_PATCHLIST);
+	_cmdList->IASetVertexBuffers(0, 1, &vbv);
+	_cmdList->DrawInstanced((UINT)cps.size(), 1, 0, 0);
 }
 
 // 씬의 ParticleSystem 입자들을 GPU 인스턴스드 빌보드 쿼드로 렌더 (가산 블렌드). ctx.cb = b0(VP).

@@ -149,6 +149,14 @@ private:
 	void*                             _partInstMapped = nullptr;
 	UINT                              _partInstCap = 0; // 바이트 용량
 	void                              RenderParticles(const RenderContext& ctx); // 씬의 ParticleSystem 입자를 빌보드로
+	// 터레인 GPU 테셀레이션 (OFF 기본 — 토글)
+	ComPtr<ID3D12PipelineState>       _tessPSO;
+	bool                              _tessTerrain = false;
+	float                             _tessFactor = 16.f;
+	ComPtr<ID3D12Resource>            _tessCP, _tessHeights; // 컨트롤포인트 VB / 하이트맵 StructuredBuffer (per-frame 업로드)
+	void*                             _tessCPMapped = nullptr; void* _tessHeightsMapped = nullptr;
+	UINT                              _tessCPCap = 0, _tessHeightsCap = 0;
+	void                              RenderTessTerrain(const RenderContext& ctx); // 선택/첫 터레인을 테셀레이션으로
 	DebugDraw                         _debugDraw;  // 디버그 라인 렌더러(본/AABB/콘/아이콘/파티클)
 	void                              DrawDebugLines(); // 에디터 상태 → 라인 빌드 → _debugDraw 드로우
 	DXGI_FORMAT                       _sceneFmt = DXGI_FORMAT_R16G16B16A16_FLOAT; // 씬 RT(HDR)

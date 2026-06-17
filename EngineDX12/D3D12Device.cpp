@@ -637,11 +637,24 @@ struct CP { float3 pos : POSITION; float2 uv : TEXCOORD0; };
 CP VSMain(CP i) { return i; } // 컨트롤포인트 패스스루
 
 struct PatchConst { float edges[4] : SV_TessFactor; float inside[2] : SV_InsideTessFactor; };
+// 카메라 거리 기반 적응형 테셀(LOD) — 가까운 패치는 조밀, 먼 패치는 성기게. 엣지별 중점 거리로 산출(인접 패치 크랙 완화).
+float EdgeTess(float3 a, float3 b)
+{
+    float3 mid = (a + b) * 0.5;
+    float d = distance(gCamPos.xyz, mid);
+    float f = gTess * (16.0 / max(d, 1.0)); // 16m 기준
+    return clamp(f, 1.0, 64.0);
+}
 PatchConst HSConst(InputPatch<CP, 4> ip)
 {
     PatchConst p;
-    p.edges[0] = gTess; p.edges[1] = gTess; p.edges[2] = gTess; p.edges[3] = gTess;
-    p.inside[0] = gTess; p.inside[1] = gTess;
+    // ip 순서 BL(0) BR(1) TR(2) TL(3) — 엣지: 0=좌(BL-TL),1=하(BL-BR),2=우(BR-TR),3=상(TL-TR)
+    p.edges[0] = EdgeTess(ip[0].pos, ip[3].pos);
+    p.edges[1] = EdgeTess(ip[0].pos, ip[1].pos);
+    p.edges[2] = EdgeTess(ip[1].pos, ip[2].pos);
+    p.edges[3] = EdgeTess(ip[3].pos, ip[2].pos);
+    p.inside[0] = max(p.edges[0], p.edges[2]);
+    p.inside[1] = max(p.edges[1], p.edges[3]);
     return p;
 }
 [domain("quad")][partitioning("integer")][outputtopology("triangle_cw")][outputcontrolpoints(4)][patchconstantfunc("HSConst")]
@@ -1262,6 +1275,8 @@ void D3D12Device::CreatePipeline()
 		tp.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 		tp.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_PATCH; // 테셀레이션
 		ThrowIfFailed(_device->CreateGraphicsPipelineState(&tp, IID_PPV_ARGS(&_tessPSO)), "CreateTessPSO");
+		tp.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME; // 와이어 변형(테셀 밀도 시각화)
+		ThrowIfFailed(_device->CreateGraphicsPipelineState(&tp, IID_PPV_ARGS(&_tessWirePSO)), "CreateTessWirePSO");
 	}
 
 	// ── 아웃라인 PSO (앞면 컬링 = 뒷면 렌더, 깊이 LESS/쓰기, 입력레이아웃 = 메시) ──

@@ -497,7 +497,7 @@ void D3D12Device::RenderTessTerrain(const RenderContext& ctx)
 
 	float tcb[8] = { (float)N, cell, half, _tessFactor, 0, 0, 0, 0 };
 	D3D12_VERTEX_BUFFER_VIEW vbv{ _tessCP->GetGPUVirtualAddress(), cpBytes, sizeof(CP) };
-	_cmdList->SetPipelineState(_tessPSO.Get());
+	_cmdList->SetPipelineState((_wireframe && _tessWirePSO) ? _tessWirePSO.Get() : _tessPSO.Get());
 	_cmdList->SetGraphicsRootSignature(_rootSig.Get());
 	_cmdList->SetGraphicsRootConstantBufferView(0, ctx.cb);                                // b0
 	_cmdList->SetGraphicsRootShaderResourceView(2, _tessHeights->GetGPUVirtualAddress());   // t1 = 하이트맵

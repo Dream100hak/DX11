@@ -150,7 +150,7 @@ private:
 	UINT                              _partInstCap = 0; // 바이트 용량
 	void                              RenderParticles(const RenderContext& ctx); // 씬의 ParticleSystem 입자를 빌보드로
 	// 터레인 GPU 테셀레이션 (OFF 기본 — 토글)
-	ComPtr<ID3D12PipelineState>       _tessPSO;
+	ComPtr<ID3D12PipelineState>       _tessPSO, _tessWirePSO;
 	bool                              _tessTerrain = false;
 	float                             _tessFactor = 16.f;
 	ComPtr<ID3D12Resource>            _tessCP, _tessHeights; // 컨트롤포인트 VB / 하이트맵 StructuredBuffer (per-frame 업로드)

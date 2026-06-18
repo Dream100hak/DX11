@@ -77,6 +77,7 @@
     <ClCompile Include="D3D12Device.cpp" />
     <ClCompile Include="D3D12Shaders.cpp" />
     <ClCompile Include="D3D12Render.cpp" />
+    <ClCompile Include="D3D12Passes.cpp" />
     <ClCompile Include="D3D12Scene.cpp" />
     <ClCompile Include="D3D12Editor.cpp" />
     <ClCompile Include="D3D12Spawn.cpp" />

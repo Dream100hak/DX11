@@ -55,7 +55,11 @@ void D3D12Device::DrawInspector()
 		ImGui::SeparatorText("Editor Camera");
 		ImGui::Text("Pos   %.2f  %.2f  %.2f", _camera.pos.x, _camera.pos.y, _camera.pos.z);
 		ImGui::Text("Yaw %.2f   Pitch %.2f", _camera.yaw, _camera.pitch);
-		ImGui::SliderFloat("FOV", &_camera.fov, 25.0f, 100.0f);              // T1
+		ImGui::SliderFloat("FOV", &_camera.fov, 20.0f, 100.0f);              // T1
+		ImGui::TextDisabled("Lens:"); ImGui::SameLine();
+		if (ImGui::SmallButton("Wide 24mm")) _camera.fov = 73.7f;  ImGui::SameLine();
+		if (ImGui::SmallButton("50mm"))      _camera.fov = 39.6f;  ImGui::SameLine();
+		if (ImGui::SmallButton("Tele 85mm")) _camera.fov = 23.9f;
 		ImGui::SliderFloat("Move Speed", &_camera.moveSpeed, 0.5f, 20.0f);   // T1
 		if (ImGui::Button("Reset Camera"))                              // T1
 		{ _camera.pos = { 3.4f, 2.4f, -4.6f }; _camera.yaw = -0.637f; _camera.pitch = -0.232f; _camera.fov = 55.0f; }
@@ -98,6 +102,8 @@ void D3D12Device::DrawInspector()
 		ImGui::SameLine(); if (ImGui::Button("Day"))    { _skyZenith = {0.13f,0.22f,0.44f}; _skyHorizon = {0.52f,0.60f,0.72f}; _sunColor = {1,0.96f,0.88f}; _lightIntensity = 1.6f; _lightAngle = 0.6f; }
 		ImGui::SameLine(); if (ImGui::Button("Sunset")) { _skyZenith = {0.22f,0.15f,0.32f}; _skyHorizon = {0.95f,0.5f,0.22f}; _sunColor = {1.0f,0.55f,0.28f}; _lightIntensity = 1.3f; _lightAngle = 1.45f; _lightAnimate = false; }
 		ImGui::SameLine(); if (ImGui::Button("Night"))  { _skyZenith = {0.02f,0.03f,0.09f}; _skyHorizon = {0.06f,0.08f,0.14f}; _sunColor = {0.4f,0.5f,0.7f}; _lightIntensity = 0.25f; }
+		ImGui::SameLine(); if (ImGui::Button("Overcast")) { _skyZenith = {0.55f,0.57f,0.60f}; _skyHorizon = {0.70f,0.72f,0.75f}; _sunColor = {0.85f,0.86f,0.88f}; _lightIntensity = 0.7f; _shadowStrength = 0.4f; _hemiAmbient = 0.5f; }
+		ImGui::SameLine(); if (ImGui::Button("Dawn"))     { _skyZenith = {0.18f,0.20f,0.40f}; _skyHorizon = {0.92f,0.62f,0.45f}; _sunColor = {1.0f,0.72f,0.5f}; _lightIntensity = 0.9f; _lightAngle = 1.25f; _lightAnimate = false; }
 		break;
 
 	case SelEntity::DDGI:
@@ -165,6 +171,12 @@ void D3D12Device::DrawInspector()
 		ImGui::SliderFloat("Threshold", &_bloomThreshold, 0.2f, 3.0f);
 		ImGui::SliderFloat("Bloom Intensity", &_bloomIntensity, 0.0f, 2.0f);
 		ImGui::SeparatorText("Color Grading");
+		ImGui::TextDisabled("Presets:"); ImGui::SameLine();
+		if (ImGui::SmallButton("Neutral"))   { _contrast = 1.0f; _saturation = 1.0f; _temperature = 0.0f; _vignette = 0.25f; } ImGui::SameLine();
+		if (ImGui::SmallButton("Warm"))      { _contrast = 1.08f; _saturation = 1.12f; _temperature = 0.35f; _vignette = 0.3f; } ImGui::SameLine();
+		if (ImGui::SmallButton("Cool"))      { _contrast = 1.06f; _saturation = 0.95f; _temperature = -0.35f; _vignette = 0.3f; } ImGui::SameLine();
+		if (ImGui::SmallButton("Cinematic")) { _contrast = 1.25f; _saturation = 0.85f; _temperature = -0.12f; _vignette = 0.55f; } ImGui::SameLine();
+		if (ImGui::SmallButton("B&W"))       { _contrast = 1.2f; _saturation = 0.0f; _temperature = 0.0f; _vignette = 0.45f; }
 		ImGui::SliderFloat("Contrast", &_contrast, 0.5f, 2.0f);
 		ImGui::SliderFloat("Saturation", &_saturation, 0.0f, 2.0f);
 		ImGui::SliderFloat("Temperature", &_temperature, -1.0f, 1.0f); HelpMarker("색온도 — 음수=차갑게(파랑), 양수=따뜻하게(주황).");
@@ -251,6 +263,10 @@ void D3D12Device::DrawInspector()
 		ImGui::SameLine(); if (ImGui::Button("Gold")) { _matMetallic = 1; _matRoughness = 0.25f; _diffuseTint = { 1.0f, 0.78f, 0.34f }; }
 		ImGui::SameLine(); if (ImGui::Button("Chrome")) { _matMetallic = 1; _matRoughness = 0.08f; _diffuseTint = { 1,1,1 }; }
 		ImGui::SameLine(); if (ImGui::Button("Plastic")) { _matMetallic = 0; _matRoughness = 0.35f; _diffuseTint = { 1,1,1 }; }
+		if (ImGui::Button("Copper"))   { _matMetallic = 1; _matRoughness = 0.30f; _diffuseTint = { 0.95f, 0.64f, 0.54f }; _matEmissive = 0; }
+		ImGui::SameLine(); if (ImGui::Button("Rubber"))    { _matMetallic = 0; _matRoughness = 0.85f; _diffuseTint = { 0.10f, 0.10f, 0.11f }; _matEmissive = 0; }
+		ImGui::SameLine(); if (ImGui::Button("Emissive"))  { _matMetallic = 0; _matRoughness = 0.5f; _matEmissive = 3.0f; _matTint = 1.0f; }
+		ImGui::SameLine(); if (ImGui::Button("Glass"))     { _matMetallic = 0; _matRoughness = 0.02f; _diffuseTint = { 0.85f, 0.92f, 0.95f }; }
 		ImGui::ColorEdit3("Diffuse Tint", &_diffuseTint.x);
 		ImGui::SliderFloat("Metallic", &_matMetallic, 0.0f, 1.0f);
 		ImGui::SliderFloat("Roughness", &_matRoughness, 0.02f, 1.0f);

@@ -228,6 +228,44 @@ void MeshRenderer::OnInspectorGUI()
 	// ── .mat 자산(공유) ── 같은 .mat 로드 시 인스턴스끼리 공유 → 편집 일괄 반영
 	ImGui::Separator();
 	ImGui::TextDisabled(_material->_path.empty() ? "Material: (inline)" : "Material asset (shared)");
+
+	// 유니티/언리얼식 머티리얼 슬롯 — 이름 표시 + 드롭 타겟(MAT_PATH) + 피커 팝업
+	{
+		auto wToU = [](const std::wstring& w) { if (w.empty()) return std::string(); int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), nullptr, 0, nullptr, nullptr); std::string s(n, 0); WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), s.data(), n, nullptr, nullptr); return s; };
+		auto uToW = [](const char* u) { int n = MultiByteToWideChar(CP_UTF8, 0, u, -1, nullptr, 0); std::wstring w(n > 0 ? n - 1 : 0, L'\0'); if (n > 0) MultiByteToWideChar(CP_UTF8, 0, u, -1, w.data(), n); return w; };
+		auto assign = [&](const std::wstring& wp) { if (wp.empty()) return; auto sh = GET_SINGLE(ResourceManager)->Get<Material>(wp); if (!sh) { sh = LoadMaterial(wp); if (sh) GET_SINGLE(ResourceManager)->Add<Material>(wp, sh); } if (sh) SetMaterialRef(sh); };
+
+		std::string slot = _material->_path.empty() ? "(inline material)" : wToU(std::filesystem::path(_material->_path).stem().wstring());
+		ImGui::Button(("Mat: " + slot).c_str(), ImVec2(-72, 0)); // 슬롯(드롭 타겟)
+		if (ImGui::BeginDragDropTarget())
+		{
+			if (const ImGuiPayload* pl = ImGui::AcceptDragDropPayload("MAT_PATH")) assign(uToW((const char*)pl->Data));
+			ImGui::EndDragDropTarget();
+		}
+		if (ImGui::IsItemHovered()) ImGui::SetTooltip(".mat 을 여기로 드래그하거나 Pick 으로 선택");
+		ImGui::SameLine();
+		if (ImGui::Button("Pick##matslot")) ImGui::OpenPopup("matpick");
+		if (ImGui::BeginPopup("matpick"))
+		{
+			ImGui::TextDisabled("Materials"); ImGui::Separator();
+			int shown = 0;
+			if (_dev)
+			{
+				namespace fs = std::filesystem; std::error_code ec;
+				for (auto it = fs::recursive_directory_iterator(_dev->_assetRoot, ec); !ec && it != fs::recursive_directory_iterator(); it.increment(ec))
+				{
+					if (!it->is_regular_file(ec) || it->path().extension() != L".mat") continue;
+					std::string nm = wToU(it->path().filename().wstring());
+					bool sel = (it->path().wstring() == _material->_path);
+					if (ImGui::Selectable(nm.c_str(), sel)) { assign(it->path().wstring()); ImGui::CloseCurrentPopup(); }
+					++shown;
+				}
+			}
+			if (shown == 0) ImGui::TextDisabled("(no .mat assets found)");
+			ImGui::EndPopup();
+		}
+	}
+
 	if (_matPathBuf[0] == '\0' && !_material->_path.empty())
 		WideCharToMultiByte(CP_UTF8, 0, _material->_path.c_str(), -1, _matPathBuf, sizeof(_matPathBuf), nullptr, nullptr);
 	ImGui::InputText(".mat path", _matPathBuf, sizeof(_matPathBuf));

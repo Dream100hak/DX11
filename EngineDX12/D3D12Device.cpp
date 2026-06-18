@@ -16,6 +16,12 @@
 #include "imgui_impl_win32.h"
 #include <dxcapi.h>
 #pragma comment(lib, "dxcompiler.lib")
+#include <DirectXTex/DirectXTex.h>
+#ifdef _DEBUG
+#pragma comment(lib, "DirectXTex/DirectXTex_debug.lib")
+#else
+#pragma comment(lib, "DirectXTex/DirectXTex.lib")
+#endif
 
 D3D12Device* D3D12Device::s_main = nullptr;
 
@@ -517,6 +523,8 @@ void CSMain(uint3 tid : SV_DispatchThreadID)
 
 // 절차적 스카이박스 — 풀스크린 삼각형, invVP 로 월드 레이 복원 → 그라데이션 + 태양
 static const std::string kSkyShader = std::string(kSceneCB) + R"(
+TextureCube gEnv : register(t2);   // 스카이박스 큐브맵(gExtra.w>0.5 시)
+SamplerState gSky : register(s0);
 struct VOut { float4 pos:SV_POSITION; float2 clip:TEXCOORD0; };
 VOut VSMain(uint id : SV_VertexID)
 {
@@ -536,6 +544,12 @@ float4 PSMain(VOut i) : SV_TARGET
     float4 wn = mul(float4(i.clip, 0.0, 1.0), gInvVP); wn /= wn.w;
     float4 wf = mul(float4(i.clip, 1.0, 1.0), gInvVP); wf /= wf.w;
     float3 dir = normalize(wf.xyz - wn.xyz);
+
+    if (gExtra.w > 0.5) // 큐브맵 스카이박스 — 방향으로 환경맵 샘플
+    {
+        float3 env = gEnv.SampleLevel(gSky, dir, 0).rgb;
+        return float4(env, 1.0);
+    }
 
     float3 horizon = gSkyHorizon.rgb;
     float3 zenith  = gSkyZenith.rgb;
@@ -1212,6 +1226,79 @@ ComPtr<IDxcBlob> CompileDxc(const char* src, const wchar_t* entry, const wchar_t
 	ComPtr<IDxcBlob> code;
 	ThrowIfFailed(result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&code), nullptr), "DXC GetOutput");
 	return code;
+}
+
+// DDS 큐브맵 로드 → TextureCube DEFAULT 리소스(수동 멀티 서브리소스 업로드) + SRV 힙(t2~t4).
+bool D3D12Device::LoadSkyCubemap(const std::wstring& ddsPath)
+{
+	using namespace DirectX;
+	TexMetadata meta{}; ScratchImage scratch;
+	if (FAILED(LoadFromDDSFile(ddsPath.c_str(), DDS_FLAGS_NONE, &meta, scratch))) { Log("SkyCubemap load FAILED (DDS)"); return false; }
+	if (meta.arraySize < 6) { Log("SkyCubemap: not a cubemap (arraySize<6)"); return false; }
+	const UINT mips = (UINT)meta.mipLevels;
+
+	D3D12_HEAP_PROPERTIES hpD{}; hpD.Type = D3D12_HEAP_TYPE_DEFAULT;
+	D3D12_RESOURCE_DESC td{};
+	td.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	td.Width = (UINT)meta.width; td.Height = (UINT)meta.height;
+	td.DepthOrArraySize = 6; td.MipLevels = (UINT16)mips;
+	td.Format = meta.format; td.SampleDesc.Count = 1;
+	_skyCube.Reset();
+	if (FAILED(_device->CreateCommittedResource(&hpD, D3D12_HEAP_FLAG_NONE, &td, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&_skyCube)))) { Log("SkyCubemap: CreateResource FAILED"); return false; }
+
+	const UINT numSub = 6 * mips;
+	std::vector<D3D12_PLACED_SUBRESOURCE_FOOTPRINT> fps(numSub);
+	std::vector<UINT> rowCnt(numSub); std::vector<UINT64> rowSz(numSub);
+	UINT64 total = 0;
+	_device->GetCopyableFootprints(&td, 0, numSub, 0, fps.data(), rowCnt.data(), rowSz.data(), &total);
+
+	// 업로드 버퍼
+	D3D12_HEAP_PROPERTIES hpU{}; hpU.Type = D3D12_HEAP_TYPE_UPLOAD;
+	D3D12_RESOURCE_DESC bd{}; bd.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER; bd.Width = total; bd.Height = 1;
+	bd.DepthOrArraySize = 1; bd.MipLevels = 1; bd.Format = DXGI_FORMAT_UNKNOWN; bd.SampleDesc.Count = 1; bd.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+	ComPtr<ID3D12Resource> upload;
+	if (FAILED(_device->CreateCommittedResource(&hpU, D3D12_HEAP_FLAG_NONE, &bd, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&upload)))) return false;
+	uint8_t* mapped = nullptr; D3D12_RANGE nr{ 0, 0 }; upload->Map(0, &nr, (void**)&mapped);
+	for (UINT face = 0; face < 6; ++face)
+		for (UINT mip = 0; mip < mips; ++mip)
+		{
+			const Image* img = scratch.GetImage(mip, face, 0); if (!img) continue;
+			UINT sub = face * mips + mip; auto& fp = fps[sub];
+			for (UINT y = 0; y < rowCnt[sub]; ++y)
+				memcpy(mapped + fp.Offset + (size_t)y * fp.Footprint.RowPitch, img->pixels + (size_t)y * img->rowPitch, (size_t)rowSz[sub]);
+		}
+	upload->Unmap(0, nullptr);
+
+	// 임시 커맨드리스트로 복사 + 배리어
+	ComPtr<ID3D12CommandAllocator> al; ComPtr<ID3D12GraphicsCommandList> cl;
+	_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&al));
+	_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, al.Get(), nullptr, IID_PPV_ARGS(&cl));
+	for (UINT sub = 0; sub < numSub; ++sub)
+	{
+		D3D12_TEXTURE_COPY_LOCATION dst{}; dst.pResource = _skyCube.Get(); dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX; dst.SubresourceIndex = sub;
+		D3D12_TEXTURE_COPY_LOCATION src{}; src.pResource = upload.Get(); src.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT; src.PlacedFootprint = fps[sub];
+		cl->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+	}
+	D3D12_RESOURCE_BARRIER b{}; b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION; b.Transition.pResource = _skyCube.Get();
+	b.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST; b.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES; cl->ResourceBarrier(1, &b);
+	cl->Close();
+	ID3D12CommandList* lists[] = { cl.Get() }; _queue->ExecuteCommandLists(1, lists);
+	ComPtr<ID3D12Fence> fence; _device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
+	HANDLE ev = CreateEvent(nullptr, FALSE, FALSE, nullptr); _queue->Signal(fence.Get(), 1);
+	if (fence->GetCompletedValue() < 1) { fence->SetEventOnCompletion(1, ev); WaitForSingleObject(ev, INFINITE); } CloseHandle(ev);
+
+	// SRV (TextureCube) — 3 디스크립터(t2~t4) 모두 큐브로(셰이더는 t2만 사용)
+	D3D12_DESCRIPTOR_HEAP_DESC hd{}; hd.NumDescriptors = 3; hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV; hd.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	_skyCubeHeap.Reset();
+	if (FAILED(_device->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&_skyCubeHeap)))) return false;
+	UINT inc = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	D3D12_SHADER_RESOURCE_VIEW_DESC sd{}; sd.Format = meta.format; sd.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+	sd.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING; sd.TextureCube.MipLevels = mips;
+	D3D12_CPU_DESCRIPTOR_HANDLE h = _skyCubeHeap->GetCPUDescriptorHandleForHeapStart();
+	for (int i = 0; i < 3; ++i) { _device->CreateShaderResourceView(_skyCube.Get(), &sd, h); h.ptr += inc; }
+	Log("SkyCubemap loaded (cube SRV ready)");
+	return true;
 }
 
 void D3D12Device::CreatePipeline()

@@ -181,7 +181,7 @@ void D3D12Device::Render()
 	cb.outline    = XMFLOAT4(_outlineColor.x, _outlineColor.y, _outlineColor.z, _outlineThick);
 	cb.decal      = XMFLOAT4(_decalPos.x, _decalPos.y, _decalPos.z, _decalOn ? _decalRadius : 0.f); // W2
 	cb.decalCol   = XMFLOAT4(_decalColor.x, _decalColor.y, _decalColor.z, _cloudAmt);                // W2/W3
-	cb.extra      = XMFLOAT4(_shadowStrength, _hemiAmbient, _stars ? 1.f : 0.f, 0.f);                // W6/W7/W8
+	cb.extra      = XMFLOAT4(_shadowStrength, _hemiAmbient, _stars ? 1.f : 0.f, (_skyCubemapOn && _skyCube) ? 1.f : 0.f); // W6/W7/W8 + w=큐브맵 스카이
 	// 다중 점광원 — 씬에서 수집한 ptN 개 (셰이더 gPtPos/gPtCol[4])
 	for (int i = 0; i < 16; ++i) { cb.ptPos[i] = (i < ptN) ? ptPosA[i] : XMFLOAT4(0,0,0,0); cb.ptCol[i] = (i < ptN) ? ptColA[i] : XMFLOAT4(0,0,0,0); }
 	cb.fog2 = XMFLOAT4(_fogHeight, _fogFalloff, _heightFog ? 1.f : 0.f, 0.f);

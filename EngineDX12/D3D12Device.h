@@ -143,6 +143,11 @@ private:
 	ComPtr<ID3D12RootSignature>       _rootSig;
 	ComPtr<ID3D12PipelineState>       _pso;
 	ComPtr<ID3D12PipelineState>       _skyPSO;     // 절차적 스카이박스
+	// 스카이박스 큐브맵 (.dds) — 절차 하늘 대체(토글)
+	ComPtr<ID3D12Resource>            _skyCube;
+	ComPtr<ID3D12DescriptorHeap>      _skyCubeHeap; // t2~t4 테이블용(큐브 SRV)
+	bool                              _skyCubemapOn = false;
+	bool                              LoadSkyCubemap(const std::wstring& ddsPath); // DDS 큐브맵 로드 + SRV
 	ComPtr<ID3D12PipelineState>       _gridPSO;    // 무한 씬 그리드
 	ComPtr<ID3D12PipelineState>       _outlinePSO; // 선택 아웃라인(인버티드 헐)
 	ComPtr<ID3D12PipelineState>       _wirePSO;    // 와이어프레임 토글

@@ -366,6 +366,7 @@ void D3D12Device::InitEditor()
 	CreateSceneRT(_width, _height); // 씬 오프스크린 RT 초기 생성
 	_editor.Init(this);             // 에디터 윈도우 등록 (EditorTool 패턴)
 	_editorReady = true;
+	LoadSkyCubemap(_assetRoot + L"\\Textures\\desertcube1024.dds"); // 큐브맵 사전 로드(토글 OFF 기본)
 }
 
 // 씬 오프스크린 RT + 깊이 (재)생성 — Scene 창 리사이즈 시 호출 (전체 플러시로 GPU 유휴 보장)
@@ -573,6 +574,7 @@ void D3D12Device::DrawMainMenuBar()
 		{
 			ImGui::MenuItem("Grid", nullptr, &_showGrid);
 			ImGui::MenuItem("Sky", nullptr, &_showSky);
+			if (_skyCube) ImGui::MenuItem("Skybox Cubemap", nullptr, &_skyCubemapOn);
 			ImGui::MenuItem("Bloom", nullptr, &_bloomOn);
 			ImGui::MenuItem("Wireframe", nullptr, &_wireframe);
 			ImGui::MenuItem("Terrain Tessellation (GPU)", nullptr, &_tessTerrain);

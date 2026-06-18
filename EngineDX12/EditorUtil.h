@@ -10,3 +10,5 @@ std::string WToUtf8(const std::wstring& w);
 void BuildPrim(MeshPrim prim, vector<Vtx>& v, vector<uint32>& idx);
 // 직전 위젯 옆에 "(?)" 를 그리고 호버 시 설명 툴팁 (인스펙터 난해 파라미터 설명)
 void HelpMarker(const char* desc);
+// 색온도(Kelvin) → 정규화 RGB (라이트 색 — 1500K 촛불~12000K 한낮 그늘)
+Vec3 KelvinToRGB(float kelvin);

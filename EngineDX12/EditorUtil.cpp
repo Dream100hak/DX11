@@ -1,6 +1,23 @@
 #include "EditorUtil.h"
 #include "GeometryHelper.h"
 #include "imgui.h"
+#include <cmath>
+
+// 색온도(Kelvin) → 정규화 RGB (Tanner Helland 근사). 1000~40000K 클램프.
+Vec3 KelvinToRGB(float kelvin)
+{
+	float t = (kelvin < 1000.f ? 1000.f : (kelvin > 40000.f ? 40000.f : kelvin)) / 100.f;
+	float r, g, b;
+	if (t <= 66.f) r = 255.f;
+	else          r = 329.698727446f * powf(t - 60.f, -0.1332047592f);
+	if (t <= 66.f) g = 99.4708025861f * logf(t) - 161.1195681661f;
+	else           g = 288.1221695283f * powf(t - 60.f, -0.0755148492f);
+	if (t >= 66.f) b = 255.f;
+	else if (t <= 19.f) b = 0.f;
+	else           b = 138.5177312231f * logf(t - 10.f) - 305.0447927307f;
+	auto cl = [](float x) { return x < 0.f ? 0.f : (x > 255.f ? 255.f : x); };
+	return Vec3{ cl(r) / 255.f, cl(g) / 255.f, cl(b) / 255.f };
+}
 
 // "(?)" 호버 툴팁 — 직전 위젯과 같은 줄에 표시
 void HelpMarker(const char* desc)

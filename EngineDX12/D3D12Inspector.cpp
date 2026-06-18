@@ -84,6 +84,7 @@ void D3D12Device::DrawInspector()
 		ImGui::SeparatorText("Directional Light");                      // T5
 		ImGui::SliderFloat("Intensity", &_lightIntensity, 0.0f, 4.0f);
 		ImGui::ColorEdit3("Sun Color", &_sunColor.x);
+		{ static float sunK = 6500.f; ImGui::SetNextItemWidth(-60); if (ImGui::SliderFloat("Temp (K)##sun", &sunK, 1500.f, 12000.f, "%.0fK")) _sunColor = KelvinToRGB(sunK); HelpMarker("색온도로 태양색 설정 — 2700K 백열등(주황), 5500K 한낮, 8000K+ 그늘(파랑)."); }
 		ImGui::SliderFloat("Env Intensity", &_envIntensity, 0.0f, 3.0f);
 		ImGui::Checkbox("Animate Sun", &_lightAnimate);
 		if (!_lightAnimate) ImGui::SliderFloat("Sun Angle", &_lightAngle, -3.14159f, 3.14159f);
@@ -125,6 +126,7 @@ void D3D12Device::DrawInspector()
 		ImGui::TextDisabled("Light 0 (gizmo-movable)");
 		ImGui::DragFloat3("Position##0", &_pointPos.x, 0.05f);
 		ImGui::ColorEdit3("Color##0", &_pointColor.x);
+		{ static float ptK = 3200.f; ImGui::SetNextItemWidth(-60); if (ImGui::SliderFloat("Temp (K)##pt0", &ptK, 1500.f, 12000.f, "%.0fK")) _pointColor = KelvinToRGB(ptK); }
 		ImGui::SliderFloat("Intensity##0", &_pointIntensity, 0.0f, 12.0f);
 		ImGui::SliderFloat("Radius##0", &_pointRadius, 0.5f, 20.0f);
 		ImGui::Checkbox("Orbit##0", &_ptOrbit); ImGui::SameLine(); ImGui::SliderFloat("Orbit Spd", &_ptOrbitSpeed, 0.1f, 3.0f); // V14

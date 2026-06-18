@@ -60,6 +60,8 @@ cbuffer SceneCB : register(b0)
     float4 gDecal;      // xyz 데칼 위치, w 반경(0=off)
     float4 gDecalCol;   // rgb 데칼 색, w 구름량(0=off)
     float4 gExtra;      // x shadowStrength, y hemiAmbient, z stars(0/1), w _
+    float4 gDecalArr[8];    // xyz 위치, w 반경(0=off) — 다중 데칼(상향 투영)
+    float4 gDecalColArr[8]; // rgb 색, w on
 };
 )";
 
@@ -206,11 +208,21 @@ float4 PSMain(VSOut i) : SV_TARGET
         float c = (fmod(floor(i.wpos.x) + floor(i.wpos.z), 2.0) < 1.0) ? 0.75 : 0.35;
         albedo = gFloorMat.rgb * c;
     }
-    // W2 데칼 (바닥 투영)
+    // W2 데칼 (바닥 투영, 단일 — 레거시)
     if (gUseTex == 0 && gDecal.w > 0.001)
     {
         float m = saturate(1.0 - distance(i.wpos.xz, gDecal.xz) / gDecal.w);
         albedo = lerp(albedo, gDecalCol.rgb, smoothstep(0.0, 1.0, m));
+    }
+    // 다중 데칼 (상향 XZ 투영) — 텍스처 없는 표면(바닥/터레인/프리미티브)에 적용
+    if (gUseTex != 1)
+    {
+        [loop] for (int di = 0; di < 8; ++di)
+        {
+            if (gDecalColArr[di].w < 0.5 || gDecalArr[di].w < 0.001) continue;
+            float m = saturate(1.0 - distance(i.wpos.xz, gDecalArr[di].xz) / gDecalArr[di].w);
+            albedo = lerp(albedo, gDecalColArr[di].rgb, smoothstep(0.0, 1.0, m) * 0.95);
+        }
     }
     float power = lerp(8.0, 256.0, 1.0 - roughness);
     float3 specColor = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);

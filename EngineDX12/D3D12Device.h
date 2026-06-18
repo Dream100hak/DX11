@@ -322,6 +322,7 @@ private:
 	float                             _matMetallic = 0.0f, _matRoughness = 0.5f, _matEmissive = 0.0f, _matTint = 1.0f;
 	// 뷰포트 토글 (S10)
 	bool                              _showGrid = true, _showSky = true, _bloomOn = true, _wireframe = false;
+	bool                              _showStats = false;   // 씬뷰 통계 오버레이(FPS 그래프 + 카운트)
 	bool                              _resetLayout = false; // View > Reset Layout (EditorManager 가 다음 프레임 도킹 재구성)
 	bool                              _frustumCull = false; // 절두체 컬링(Opaque) — 기본 off(안전), 인스펙터 토글
 	static D3D12Device*               s_main;               // Get() 전역 접근용

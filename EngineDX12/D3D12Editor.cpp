@@ -923,6 +923,7 @@ void D3D12Device::DrawSceneView()
 	ImGui::Checkbox("Grid", &_showGrid); ImGui::SameLine();
 	ImGui::Checkbox("Sky", &_showSky); ImGui::SameLine();
 	ImGui::Checkbox("Wire", &_wireframe); ImGui::SameLine();
+	ImGui::Checkbox("Stats", &_showStats); ImGui::SameLine();
 	if (ImGui::Button("Frame") && _selectedGO && _selectedGO->GetTransform())
 	{
 		Matrix wm = _selectedGO->GetTransform()->GetWorldMatrix();
@@ -978,6 +979,32 @@ void D3D12Device::DrawSceneView()
 		ImVec2 tp(imgPos.x + avail.x - ts.x - 10, imgPos.y + 6);
 		dl->AddRectFilled(ImVec2(tp.x - 4, tp.y - 2), ImVec2(tp.x + ts.x + 4, tp.y + ts.y + 2), IM_COL32(0, 0, 0, 120), 3.f);
 		dl->AddText(tp, IM_COL32(140, 230, 140, 255), fb);
+	}
+	// 씬 통계 오버레이 (Stats 토글) — 프레임타임 그래프 + 카운트 (우상단 FPS 아래)
+	if (_showStats)
+	{
+		ImDrawList* dl = ImGui::GetWindowDrawList();
+		const float pw = 168.f, gph = 38.f;
+		ImVec2 o(imgPos.x + avail.x - pw - 10, imgPos.y + 30);
+		int objCount = _gameScene ? (int)_gameScene->GetCreatedObjects().size() : 0;
+		char l1[64], l2[64];
+		snprintf(l1, sizeof(l1), "objs %d   tris %u", objCount, _scene._indexCount / 3);
+		snprintf(l2, sizeof(l2), "probes %u   DXR", Ddgi::PROBE_COUNT);
+		float panelH = gph + 8 + ImGui::GetTextLineHeight() * 2 + 10;
+		dl->AddRectFilled(o, ImVec2(o.x + pw, o.y + panelH), IM_COL32(0, 0, 0, 130), 4.f);
+		// 프레임타임 막대 그래프 (_frameTimes, 0~40ms 정규화)
+		float gx = o.x + 4, gy = o.y + 4, gw = pw - 8;
+		dl->AddRectFilled(ImVec2(gx, gy), ImVec2(gx + gw, gy + gph), IM_COL32(20, 22, 28, 160), 2.f);
+		for (int k = 0; k < 120; ++k)
+		{
+			float ms = _frameTimes[(_frameIdx + k) % 120];
+			float h = gph * min(1.0f, ms / 40.0f);
+			float x = gx + gw * k / 120.0f;
+			ImU32 c = ms > 33.3f ? IM_COL32(230, 90, 80, 220) : ms > 20.f ? IM_COL32(230, 200, 90, 220) : IM_COL32(110, 200, 120, 220);
+			dl->AddLine(ImVec2(x, gy + gph), ImVec2(x, gy + gph - h), c);
+		}
+		dl->AddText(ImVec2(o.x + 6, gy + gph + 4), IM_COL32(200, 210, 220, 255), l1);
+		dl->AddText(ImVec2(o.x + 6, gy + gph + 4 + ImGui::GetTextLineHeight()), IM_COL32(160, 180, 200, 255), l2);
 	}
 
 	// ── .mesh 드래그드롭 → 바닥 히트 지점에 배치 ──

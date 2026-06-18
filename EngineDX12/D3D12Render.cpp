@@ -184,6 +184,7 @@ void D3D12Device::Render()
 	cb.extra      = XMFLOAT4(_shadowStrength, _hemiAmbient, _stars ? 1.f : 0.f, 0.f);                // W6/W7/W8
 	// 다중 점광원 — 씬에서 수집한 ptN 개 (셰이더 gPtPos/gPtCol[4])
 	for (int i = 0; i < 16; ++i) { cb.ptPos[i] = (i < ptN) ? ptPosA[i] : XMFLOAT4(0,0,0,0); cb.ptCol[i] = (i < ptN) ? ptColA[i] : XMFLOAT4(0,0,0,0); }
+	cb.fog2 = XMFLOAT4(_fogHeight, _fogFalloff, _heightFog ? 1.f : 0.f, 0.f);
 	for (int i = 0; i < 8; ++i)
 	{
 		bool on = i < (int)_decals.size();

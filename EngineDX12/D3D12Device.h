@@ -51,6 +51,7 @@ struct SceneCB
 	DirectX::XMFLOAT4   decal;
 	DirectX::XMFLOAT4   decalCol;
 	DirectX::XMFLOAT4   extra;
+	DirectX::XMFLOAT4   fog2;       // 높이 안개 (시작Y/낙폭/on)
 	DirectX::XMFLOAT4   decalArr[8];
 	DirectX::XMFLOAT4   decalColArr[8];
 };
@@ -221,6 +222,7 @@ private:
 	int                               _spawnCounter = 0;         // 고유 이름 접미사
 	struct DecalItem { Vec3 pos{ 0,0,0 }; float radius = 2.f; Vec3 color{ 0.8f,0.1f,0.1f }; }; // 다중 데칼(상향 투영)
 	std::vector<DecalItem>            _decals;
+	bool                              _heightFog = false; float _fogHeight = 3.f, _fogFalloff = 0.3f; // 높이 안개
 	std::vector<int64>                _selIds;                   // 추가 선택(멀티셀렉트) — primary=_selectedGO 제외 id 목록
 	int64                             _anchorId = -1;            // Shift 범위 선택 기준(마지막 단일 클릭)
 	bool                              IsMultiSelected(int64 id) const { for (int64 s : _selIds) if (s == id) return true; return false; }

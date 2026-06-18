@@ -60,6 +60,7 @@ cbuffer SceneCB : register(b0)
     float4 gDecal;      // xyz 데칼 위치, w 반경(0=off)
     float4 gDecalCol;   // rgb 데칼 색, w 구름량(0=off)
     float4 gExtra;      // x shadowStrength, y hemiAmbient, z stars(0/1), w _
+    float4 gFog2;       // x 높이안개 시작Y, y 낙폭, z on(0/1), w _ — 높이 기반 안개
     float4 gDecalArr[8];    // xyz 위치, w 반경(0=off) — 다중 데칼(상향 투영)
     float4 gDecalColArr[8]; // rgb 색, w on
 };
@@ -360,6 +361,8 @@ float4 PSMain(VSOut i) : SV_TARGET
     if (gFog.w > 1e-5)
     {
         float fogF = 1.0 - exp(-distance(gCamPos.xyz, i.wpos) * gFog.w);
+        if (gFog2.z > 0.5) // 높이 안개 — 시작Y 위로 갈수록 옅어짐
+            fogF *= saturate(exp(-max(0.0, i.wpos.y - gFog2.x) * gFog2.y));
         col = lerp(col, gFog.rgb, saturate(fogF));
     }
     return float4(col, 1.0);

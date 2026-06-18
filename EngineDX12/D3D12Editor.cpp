@@ -2294,6 +2294,8 @@ void D3D12Device::DrawInspector()
 		ImGui::SeparatorText("Fog / AA / Reflection");
 		ImGui::ColorEdit3("Fog Color", &_fogColor.x);
 		ImGui::SliderFloat("Fog Density", &_fogDensity, 0.0f, 0.08f);
+		ImGui::Checkbox("Height Fog", &_heightFog);
+		if (_heightFog) { ImGui::SliderFloat("Fog Height", &_fogHeight, -5.f, 20.f); ImGui::SliderFloat("Fog Falloff", &_fogFalloff, 0.02f, 2.f); }
 		ImGui::Checkbox("FXAA", &_fxaaOn);
 		ImGui::Checkbox("RT Reflection", &_reflectOn);
 		ImGui::SliderFloat("Reflect Strength", &_reflectStrength, 0.0f, 1.0f);

@@ -57,6 +57,8 @@
     <ClInclude Include="FbxConverter.h" />
     <ClInclude Include="Foliage.h" />
     <ClInclude Include="Billboard.h" />
+    <ClInclude Include="EditorUtil.h" />
+    <ClInclude Include="D3D12Shaders.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Component.cpp" />
@@ -73,9 +75,14 @@
     <ClCompile Include="Frustum.cpp" />
     <ClCompile Include="Mesh.cpp" />
     <ClCompile Include="D3D12Device.cpp" />
+    <ClCompile Include="D3D12Shaders.cpp" />
     <ClCompile Include="D3D12Render.cpp" />
     <ClCompile Include="D3D12Scene.cpp" />
     <ClCompile Include="D3D12Editor.cpp" />
+    <ClCompile Include="D3D12Spawn.cpp" />
+    <ClCompile Include="D3D12Serialize.cpp" />
+    <ClCompile Include="D3D12Inspector.cpp" />
+    <ClCompile Include="EditorUtil.cpp" />
     <ClCompile Include="EditorManager.cpp" />
     <ClCompile Include="DebugDraw.cpp" />
     <ClCompile Include="Thumbnail.cpp" />

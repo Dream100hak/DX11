@@ -1,0 +1,10 @@
+#pragma once
+// 에디터 공용 헬퍼 — D3D12Editor/Spawn/Serialize/Inspector 가 공유.
+//   WToUtf8  : wstring → UTF-8 (ImGui 텍스트용)
+//   BuildPrim: 프리미티브 종류 → 지오메트리 생성 (재생성/스폰 공용)
+// (기존엔 D3D12Editor.cpp 의 file-static 이었으나 파일 분리로 외부 linkage 로 승격)
+#include "Common.h"
+#include "MeshRenderer.h"   // MeshPrim
+
+std::string WToUtf8(const std::wstring& w);
+void BuildPrim(MeshPrim prim, vector<Vtx>& v, vector<uint32>& idx);

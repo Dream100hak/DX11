@@ -281,6 +281,27 @@ void D3D12Device::FocusCameraOn(const Vec3& target)
 	_camera.pitch = asinf(d.y);
 }
 
+// 모든 비-내부 오브젝트의 월드 위치 AABB 중심으로 카메라 프레이밍 (Home / "Frame All")
+void D3D12Device::FrameAll()
+{
+	if (!_gameScene) return;
+	using namespace DirectX;
+	XMFLOAT3 mn(1e9f, 1e9f, 1e9f), mx(-1e9f, -1e9f, -1e9f); bool any = false;
+	for (auto& kv : _gameScene->GetCreatedObjects())
+	{
+		auto& o = kv.second; if (!o || o->IsEditorInternal() || !o->GetTransform()) continue;
+		Matrix wm = o->GetTransform()->GetWorldMatrix();
+		mn.x = min(mn.x, wm._41); mn.y = min(mn.y, wm._42); mn.z = min(mn.z, wm._43);
+		mx.x = max(mx.x, wm._41); mx.y = max(mx.y, wm._42); mx.z = max(mx.z, wm._43); any = true;
+	}
+	if (!any) return;
+	Vec3 c{ (mn.x + mx.x) * 0.5f, (mn.y + mx.y) * 0.5f, (mn.z + mx.z) * 0.5f };
+	float ext = max(max(mx.x - mn.x, mx.y - mn.y), mx.z - mn.z) * 0.5f + 3.f;
+	_camera.pos = { c.x + ext, c.y + ext * 0.7f, c.z - ext };
+	XMVECTOR dir = XMVector3Normalize(XMVectorSet(c.x - _camera.pos.x, c.y - _camera.pos.y, c.z - _camera.pos.z, 0));
+	XMFLOAT3 d; XMStoreFloat3(&d, dir); _camera.yaw = atan2f(d.x, d.z); _camera.pitch = asinf(d.y);
+}
+
 // 씬뷰 uv → 월드 레이 → 선택 Terrain 커서 갱신 + (apply 시) 스컬프트
 void D3D12Device::TerrainBrushAt(float u, float v, bool apply)
 {

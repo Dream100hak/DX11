@@ -940,27 +940,8 @@ void D3D12Device::DrawSceneView()
 	}
 	if (ImGui::IsItemHovered()) ImGui::SetTooltip("선택 오브젝트로 카메라 이동+정렬 (F)");
 	ImGui::SameLine();
-	if (ImGui::Button("Frame All") && _gameScene)
-	{
-		// 모든 비-내부 오브젝트 월드 위치 AABB 중심으로 프레이밍
-		using namespace DirectX;
-		XMFLOAT3 mn(1e9f, 1e9f, 1e9f), mx(-1e9f, -1e9f, -1e9f); bool any = false;
-		for (auto& kv : _gameScene->GetCreatedObjects())
-		{
-			auto& o = kv.second; if (!o || o->IsEditorInternal() || !o->GetTransform()) continue;
-			Matrix wm = o->GetTransform()->GetWorldMatrix();
-			mn.x = min(mn.x, wm._41); mn.y = min(mn.y, wm._42); mn.z = min(mn.z, wm._43);
-			mx.x = max(mx.x, wm._41); mx.y = max(mx.y, wm._42); mx.z = max(mx.z, wm._43); any = true;
-		}
-		if (any)
-		{
-			Vec3 c{ (mn.x + mx.x) * 0.5f, (mn.y + mx.y) * 0.5f, (mn.z + mx.z) * 0.5f };
-			float ext = max(max(mx.x - mn.x, mx.y - mn.y), mx.z - mn.z) * 0.5f + 3.f;
-			_camera.pos = { c.x + ext, c.y + ext * 0.7f, c.z - ext };
-			XMVECTOR dir = XMVector3Normalize(XMVectorSet(c.x - _camera.pos.x, c.y - _camera.pos.y, c.z - _camera.pos.z, 0));
-			XMFLOAT3 d; XMStoreFloat3(&d, dir); _camera.yaw = atan2f(d.x, d.z); _camera.pitch = asinf(d.y);
-		}
-	}
+	if (ImGui::Button("Frame All")) FrameAll();
+	if (ImGui::IsItemHovered()) ImGui::SetTooltip("전체 오브젝트가 보이도록 프레이밍 (Home)");
 	ImGui::SameLine(); ImGui::SetNextItemWidth(90);
 	ImGui::SliderFloat("Grid", &_gridCell, 0.25f, 5.f, "%.2f");
 	ImVec2 avail = ImGui::GetContentRegionAvail();
@@ -1169,6 +1150,13 @@ void D3D12Device::DrawSceneView()
 		if (ImGui::IsKeyPressed(ImGuiKey_H, false) && _selectedGO && !_selectedGO->IsEditorInternal())
 			_selectedGO->SetActive(!_selectedGO->IsActive());            // 숨김 토글
 		if (ImGui::IsKeyPressed(ImGuiKey_Escape, false)) { _selectedGO = nullptr; _selIds.clear(); _anchorId = -1; } // 선택 해제
+		if (ImGui::IsKeyPressed(ImGuiKey_Home, false)) FrameAll();        // 전체 프레이밍
+	}
+	// RMB 비행 중 마우스 휠 = 이동 속도 조절 (Unity 풍)
+	if ((_sceneHovered || _sceneFocused) && ImGui::IsMouseDown(1))
+	{
+		float wheel = ImGui::GetIO().MouseWheel;
+		if (wheel != 0.0f) _camera.moveSpeed = max(0.5f, min(50.0f, _camera.moveSpeed * (1.0f + wheel * 0.12f)));
 	}
 	ImGui::End();
 

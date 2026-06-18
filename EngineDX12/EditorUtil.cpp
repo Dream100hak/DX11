@@ -1,5 +1,21 @@
 #include "EditorUtil.h"
 #include "GeometryHelper.h"
+#include "imgui.h"
+
+// "(?)" 호버 툴팁 — 직전 위젯과 같은 줄에 표시
+void HelpMarker(const char* desc)
+{
+	ImGui::SameLine();
+	ImGui::TextDisabled("(?)");
+	if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+	{
+		ImGui::BeginTooltip();
+		ImGui::PushTextWrapPos(ImGui::GetFontSize() * 28.0f);
+		ImGui::TextUnformatted(desc);
+		ImGui::PopTextWrapPos();
+		ImGui::EndTooltip();
+	}
+}
 
 // wstring → UTF-8 (ImGui 텍스트용)
 std::string WToUtf8(const std::wstring& w)

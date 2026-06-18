@@ -152,13 +152,13 @@ void D3D12Device::DrawInspector()
 		ImGui::SeparatorText("Tonemap / Exposure");
 		ImGui::Combo("Operator", &_tonemapOp, "ACES\0Reinhard\0Filmic\0");
 		ImGui::SliderFloat("Exposure", &_exposure, 0.1f, 4.0f);
-		ImGui::Checkbox("Auto Exposure", &_autoExp);
+		ImGui::Checkbox("Auto Exposure", &_autoExp); HelpMarker("화면 평균 휘도에 맞춰 노출을 자동 조절. Target=목표 밝기, x값=현재 적용 배율.");
 		if (_autoExp) { ImGui::SliderFloat("Target", &_expTarget, 0.1f, 1.5f); ImGui::SameLine(); ImGui::TextDisabled("(x%.2f)", _expScale); }
 		ImGui::SeparatorText("Depth of Field / God Rays");
-		ImGui::Checkbox("DOF", &_dofOn);
+		ImGui::Checkbox("DOF", &_dofOn); HelpMarker("피사계 심도 — Focus Dist 거리에 초점, 그 밖은 블러. Focus Range=선명 유지 범위.");
 		ImGui::SliderFloat("Focus Dist", &_dofFocus, 1.0f, 30.0f);
 		ImGui::SliderFloat("Focus Range", &_dofRange, 0.5f, 15.0f);
-		ImGui::Checkbox("Volumetric Rays", &_volOn);
+		ImGui::Checkbox("Volumetric Rays", &_volOn); HelpMarker("갓레이(빛 산란) — 그림자 사이로 빛줄기. Ray Strength=세기.");
 		ImGui::SliderFloat("Ray Strength", &_volStrength, 0.0f, 2.0f);
 		ImGui::SeparatorText("Bloom");
 		ImGui::Checkbox("Bloom", &_bloomOn);
@@ -167,7 +167,7 @@ void D3D12Device::DrawInspector()
 		ImGui::SeparatorText("Color Grading");
 		ImGui::SliderFloat("Contrast", &_contrast, 0.5f, 2.0f);
 		ImGui::SliderFloat("Saturation", &_saturation, 0.0f, 2.0f);
-		ImGui::SliderFloat("Temperature", &_temperature, -1.0f, 1.0f);
+		ImGui::SliderFloat("Temperature", &_temperature, -1.0f, 1.0f); HelpMarker("색온도 — 음수=차갑게(파랑), 양수=따뜻하게(주황).");
 		ImGui::SliderFloat("Vignette", &_vignette, 0.0f, 1.0f);
 		ImGui::SeparatorText("Fog / AA / Reflection");
 		ImGui::ColorEdit3("Fog Color", &_fogColor.x);
@@ -175,10 +175,10 @@ void D3D12Device::DrawInspector()
 		ImGui::Checkbox("Height Fog", &_heightFog);
 		if (_heightFog) { ImGui::SliderFloat("Fog Height", &_fogHeight, -5.f, 20.f); ImGui::SliderFloat("Fog Falloff", &_fogFalloff, 0.02f, 2.f); }
 		ImGui::Checkbox("FXAA", &_fxaaOn);
-		ImGui::Checkbox("RT Reflection", &_reflectOn);
+		ImGui::Checkbox("RT Reflection", &_reflectOn); HelpMarker("레이트레이싱 반사 — 거울/금속 표면에 씬 반사. Strength=혼합 비율.");
 		ImGui::SliderFloat("Reflect Strength", &_reflectStrength, 0.0f, 1.0f);
 		ImGui::SeparatorText("Ambient Occlusion (RT)");
-		ImGui::Checkbox("RT AO", &_aoOn);
+		ImGui::Checkbox("RT AO", &_aoOn); HelpMarker("레이트레이싱 앰비언트 오클루전 — 틈/접합부 음영. Radius=샘플 반경.");
 		ImGui::SliderFloat("AO Intensity", &_aoIntensity, 0.0f, 2.0f);
 		ImGui::SliderFloat("AO Radius", &_aoRadius, 0.1f, 2.0f);
 		ImGui::SeparatorText("Lens FX");
@@ -187,9 +187,12 @@ void D3D12Device::DrawInspector()
 		ImGui::SliderFloat("Sharpen", &_sharpen, 0.0f, 1.5f);
 		ImGui::SliderFloat("Lens Distort", &_lensDistort, -0.5f, 0.5f);   // V10
 		ImGui::SliderFloat("Posterize", &_posterize, 0.0f, 16.0f);       // V11 (0=off)
+		HelpMarker("색 계조 수 제한(만화풍). 0=끔, 낮을수록 단계가 거칠어짐.");
 		ImGui::Combo("Filter", &_filterMode, "None\0Sepia\0Grayscale\0Invert\0"); // V12
 		ImGui::Checkbox("Anamorphic Bloom", &_anamorphic);               // V19
+		HelpMarker("가로로 늘어진 시네마틱 블룸(아나모픽 렌즈 느낌).");
 		ImGui::SliderFloat("Render Scale", &_renderScale, 0.5f, 2.0f);
+		HelpMarker("내부 렌더 해상도 배율. <1=성능↑(저해상), >1=슈퍼샘플링(고품질·느림).");
 		ImGui::SeparatorText("Grid / Background");
 		ImGui::SliderFloat("Grid Cell", &_gridCell, 0.25f, 5.0f);        // V15
 		ImGui::SliderFloat("Grid Fade", &_gridFade, 10.0f, 150.0f);
@@ -203,6 +206,7 @@ void D3D12Device::DrawInspector()
 		ImGui::SeparatorText("Debug View / Gizmos");
 		ImGui::Combo("View", &_debugView, "Lit\0Albedo\0Normal\0Depth\0GI\0");
 		ImGui::Checkbox("Wireframe", &_wireframe); ImGui::SameLine(); ImGui::Checkbox("Frustum Cull", &_frustumCull);
+		HelpMarker("절두체 컬링 — 화면 밖 오브젝트 드로우 생략(성능). 컬링 버그 의심 시 끄고 확인.");
 		ImGui::Checkbox("Show Bones", &_showBones); ImGui::SameLine(); ImGui::Checkbox("AABB", &_showAABB);
 		ImGui::Checkbox("Light Icons", &_showLightIcons); ImGui::SameLine(); ImGui::Checkbox("Spot Cone", &_showSpotCone);
 		ImGui::SeparatorText("Frame Time");

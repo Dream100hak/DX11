@@ -506,6 +506,12 @@ void D3D12Device::DrawMainMenuBar()
 		{
 			if (ImGui::MenuItem("Undo", "Ctrl+Z", false, !_undo.empty())) DoUndo();
 			if (ImGui::MenuItem("Redo", "Ctrl+Y", false, !_redo.empty())) DoRedo();
+			ImGui::Separator();
+			bool hasSel = _selectedGO && !_selectedGO->IsEditorInternal();
+			if (ImGui::MenuItem("Duplicate", "Ctrl+D", false, hasSel)) DuplicateSelectedObject();
+			if (ImGui::MenuItem("Delete", "Del", false, hasSel)) DeleteSelectedObject();
+			if (ImGui::MenuItem("Group Selected", "Ctrl+G", false, hasSel)) GroupSelected();
+			if (ImGui::MenuItem("Snap Selected to Grid", nullptr, false, hasSel)) SnapSelectedToGrid();
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("GameObject"))
@@ -734,6 +740,8 @@ void D3D12Device::DrawHierarchy()
 				_selectedGO = obj; // 메뉴 대상 선택
 				if (ImGui::MenuItem("Duplicate", "Ctrl+D")) DuplicateSelectedObject();
 				if (ImGui::MenuItem("Delete", "Del")) { DeleteSelectedObject(); ImGui::EndPopup(); return; }
+				if (ImGui::MenuItem("Group Selected", "Ctrl+G")) GroupSelected();
+				if (ImGui::MenuItem("Snap to Grid")) SnapSelectedToGrid();
 				if (ImGui::MenuItem("Save as Prefab...")) SaveSelectedAsPrefab();
 				if (ImGui::MenuItem("Create Empty Child"))
 				{
@@ -862,6 +870,7 @@ void D3D12Device::DrawHierarchy()
 	{
 		if (ImGui::IsKeyPressed(ImGuiKey_Delete)) DeleteSelectedObject();
 		else if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_D)) DuplicateSelectedObject();
+		else if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_G)) GroupSelected();
 		else if (ImGui::IsKeyPressed(ImGuiKey_F2, false) && !_selectedGO->IsEditorInternal())
 		{
 			s_renameId = _selectedGO->GetId(); s_renameInit = true;

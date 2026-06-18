@@ -385,6 +385,49 @@ void D3D12Device::NewScene()
 	ResetDefaults(); // 포스트/라이팅 파라미터 + 모델 트랜스폼 리셋
 }
 
+// 선택(primary + 멀티셀렉트) 을 무게중심에 생성한 빈 GameObject 아래로 그룹화 (Ctrl+G)
+void D3D12Device::GroupSelected()
+{
+	if (!_gameScene || !_selectedGO || _selectedGO->IsEditorInternal()) return;
+	// 대상 수집 (primary + _selIds, 에디터 내부 제외)
+	std::vector<shared_ptr<GameObject>> targets;
+	if (_selectedGO) targets.push_back(_selectedGO);
+	for (int64 id : _selIds)
+		if (auto o = _gameScene->GetCreatedObject(id); o && !o->IsEditorInternal()) targets.push_back(o);
+	if (targets.empty()) return;
+	// 무게중심(월드)
+	using namespace DirectX;
+	XMFLOAT3 c{ 0,0,0 }; int cnt = 0;
+	for (auto& o : targets) if (auto t = o->GetTransform()) { XMFLOAT4X4 wm = t->GetWorldMatrix(); c.x += wm._41; c.y += wm._42; c.z += wm._43; ++cnt; }
+	if (cnt > 0) { c.x /= cnt; c.y /= cnt; c.z /= cnt; }
+	auto group = SpawnEmpty(L"Group", Vec3{ c.x, c.y, c.z });
+	if (!group) return;
+	auto gt = group->GetTransform();
+	for (auto& o : targets)
+		if (auto ot = o->GetTransform(); ot && gt) ot->SetParentKeepWorld(gt); // 월드 유지 재부모
+	_selIds.clear(); _selectedGO = group; _anchorId = group->GetId();
+	Log("Grouped " + std::to_string(cnt) + " object(s)");
+}
+
+// 선택(primary + 멀티) 위치를 이동 스냅(_snapT) 격자에 반올림 정렬
+void D3D12Device::SnapSelectedToGrid()
+{
+	if (!_gameScene) return;
+	float g = _snapT > 0.001f ? _snapT : 0.5f;
+	auto snap = [&](const shared_ptr<GameObject>& o)
+	{
+		if (!o || o->IsEditorInternal()) return;
+		if (auto t = o->GetTransform())
+		{
+			Vec3 p = t->GetLocalPosition();
+			p.x = roundf(p.x / g) * g; p.y = roundf(p.y / g) * g; p.z = roundf(p.z / g) * g;
+			t->SetLocalPosition(p);
+		}
+	};
+	snap(_selectedGO);
+	for (int64 id : _selIds) snap(_gameScene->GetCreatedObject(id));
+}
+
 // Play=현재 씬 스냅샷 저장 / Stop=스냅샷 복원 (플레이 중 편집 롤백, Unity 식)
 void D3D12Device::TogglePlay()
 {

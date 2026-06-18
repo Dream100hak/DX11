@@ -224,6 +224,8 @@ private:
 	void                              DuplicateObject(const shared_ptr<GameObject>& source); // 단일 GO 복제
 	void                              RemoveObject(const shared_ptr<GameObject>& obj); // 부모분리+자식승격+씬제거
 	void                              NewScene();                // 씬그래프 비우기 + 파라미터 리셋
+	void                              GroupSelected();           // 선택(+멀티) → 무게중심 빈 부모 아래로 그룹화 (Ctrl+G)
+	void                              SnapSelectedToGrid();      // 선택(+멀티) 위치를 이동 스냅(_snapT) 격자에 정렬
 	int                               _spawnCounter = 0;         // 고유 이름 접미사
 	struct DecalItem { Vec3 pos{ 0,0,0 }; float radius = 2.f; Vec3 color{ 0.8f,0.1f,0.1f }; }; // 다중 데칼(상향 투영)
 	std::vector<DecalItem>            _decals;

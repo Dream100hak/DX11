@@ -2328,6 +2328,19 @@ void D3D12Device::DrawInspector()
 		ImGui::SeparatorText("Frame Time");
 		ImGui::PlotLines("ms", _frameTimes, 120, _frameIdx % 120, nullptr, 0.0f, 40.0f, ImVec2(0, 60));
 		ImGui::Text("%.2f ms  /  %.0f FPS", _frameTimes[(_frameIdx + 119) % 120], ImGui::GetIO().Framerate);
+		// 다중 데칼 (상향 투영, 최대 8) — 바닥/터레인/프리미티브에 적용
+		ImGui::SeparatorText("Decals (multi, max 8)");
+		if ((int)_decals.size() < 8 && ImGui::Button("+ Add Decal"))
+			_decals.push_back({ SpawnPoint(), 2.f, Vec3{ 0.8f, 0.1f, 0.1f } });
+		for (int di = 0; di < (int)_decals.size(); ++di)
+		{
+			ImGui::PushID(2000 + di);
+			ImGui::DragFloat3("Pos", &_decals[di].pos.x, 0.05f);
+			ImGui::ColorEdit3("Col", &_decals[di].color.x); ImGui::SameLine();
+			ImGui::SetNextItemWidth(80); ImGui::DragFloat("R", &_decals[di].radius, 0.05f, 0.2f, 20.f);
+			ImGui::SameLine(); if (ImGui::SmallButton("X")) { _decals.erase(_decals.begin() + di); ImGui::PopID(); break; }
+			ImGui::PopID();
+		}
 		break;
 
 	case SelEntity::Model:
@@ -2406,19 +2419,6 @@ void D3D12Device::DrawInspector()
 		ImGui::DragFloat3("Decal Pos", &_decalPos.x, 0.05f);
 		ImGui::ColorEdit3("Decal Color", &_decalColor.x);
 		ImGui::SliderFloat("Decal Radius", &_decalRadius, 0.2f, 5.0f);
-		// 다중 데칼 (상향 투영, 최대 8) — 바닥/터레인/프리미티브에 적용
-		ImGui::SeparatorText("Decals (multi, max 8)");
-		if ((int)_decals.size() < 8 && ImGui::Button("+ Add Decal"))
-			_decals.push_back({ SpawnPoint(), 2.f, Vec3{ 0.8f, 0.1f, 0.1f } });
-		for (int di = 0; di < (int)_decals.size(); ++di)
-		{
-			ImGui::PushID(2000 + di);
-			ImGui::DragFloat3("Pos", &_decals[di].pos.x, 0.05f);
-			ImGui::ColorEdit3("Col", &_decals[di].color.x); ImGui::SameLine();
-			ImGui::SetNextItemWidth(80); ImGui::DragFloat("R", &_decals[di].radius, 0.05f, 0.2f, 20.f);
-			ImGui::SameLine(); if (ImGui::SmallButton("X")) { _decals.erase(_decals.begin() + di); ImGui::PopID(); break; }
-			ImGui::PopID();
-		}
 		break;
 	}
 

@@ -607,6 +607,9 @@ void D3D12Device::DrawHierarchy()
 	ImGui::TextDisabled("Scene");
 	ImGui::Separator();
 
+	// 인라인 리네임 상태 (더블클릭/F2 진입 → InputText, Enter/포커스아웃 커밋, Esc 취소) — 함수 스코프(트리 람다 + F2 키 공용)
+	static int64 s_renameId = -1; static char s_renameBuf[128] = {}; static bool s_renameInit = false;
+
 	std::string modelItem = "[Mdl] " + WToUtf8(_scene._modelLabel);
 	struct Entry { std::string label; SelEntity e; };
 	const Entry items[] = {
@@ -670,8 +673,34 @@ void D3D12Device::DrawHierarchy()
 			ImGui::PopID();
 			ImGui::SameLine(0.0f, 4.0f);
 			std::string label = std::string(typeIcon(obj)) + WToUtf8(obj->GetObjectName());
-			bool open = ImGui::TreeNodeEx((void*)(intptr_t)obj->GetId(), flags, "%s", label.c_str());
-			if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
+			bool renaming = (s_renameId == obj->GetId());
+			bool open = false;
+			if (renaming)
+			{
+				// 트리 펼침 없이 한 줄 이름 편집
+				ImGui::SetNextItemWidth(-1.0f);
+				if (s_renameInit) { ImGui::SetKeyboardFocusHere(); s_renameInit = false; }
+				bool commit = ImGui::InputText("##rename", s_renameBuf, sizeof(s_renameBuf),
+					ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
+				bool esc = ImGui::IsKeyPressed(ImGuiKey_Escape, false);
+				if (commit || ImGui::IsItemDeactivated() || esc)
+				{
+					if (!esc && s_renameBuf[0]) obj->SetObjectName(Utf8ToW(s_renameBuf));
+					s_renameId = -1;
+				}
+			}
+			else
+			{
+				open = ImGui::TreeNodeEx((void*)(intptr_t)obj->GetId(), flags, "%s", label.c_str());
+				// 더블클릭(토글 아님) → 리네임 진입
+				if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0) && !ImGui::IsItemToggledOpen())
+				{
+					s_renameId = obj->GetId(); s_renameInit = true;
+					std::string cur = WToUtf8(obj->GetObjectName());
+					strncpy_s(s_renameBuf, cur.c_str(), _TRUNCATE);
+				}
+			}
+			if (!renaming && ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen() && !ImGui::IsMouseDoubleClicked(0))
 			{
 				ImGuiIO& gio = ImGui::GetIO();
 				if (gio.KeyShift && _anchorId >= 0)
@@ -700,7 +729,7 @@ void D3D12Device::DrawHierarchy()
 				else { _selIds.clear(); _selectedGO = obj; _anchorId = obj->GetId(); } // 단일 선택
 			}
 			// 우클릭 컨텍스트 메뉴
-			if (ImGui::BeginPopupContextItem())
+			if (!renaming && ImGui::BeginPopupContextItem())
 			{
 				_selectedGO = obj; // 메뉴 대상 선택
 				if (ImGui::MenuItem("Duplicate", "Ctrl+D")) DuplicateSelectedObject();
@@ -726,7 +755,7 @@ void D3D12Device::DrawHierarchy()
 				}
 				ImGui::EndPopup();
 			}
-			if (ImGui::BeginDragDropSource())
+			if (!renaming && ImGui::BeginDragDropSource())
 			{
 				int64 id = obj->GetId();
 				ImGui::SetDragDropPayload("GO_ID", &id, sizeof(id));
@@ -828,11 +857,17 @@ void D3D12Device::DrawHierarchy()
 		ImGui::EndPopup();
 	}
 
-	// 단축키: Delete = 삭제, Ctrl+D = 복제 (씬뷰/하이어라키 포커스 시)
+	// 단축키: Delete = 삭제, Ctrl+D = 복제, F2 = 리네임 (씬뷰/하이어라키 포커스 시)
 	if (_selectedGO && !ImGui::GetIO().WantTextInput)
 	{
 		if (ImGui::IsKeyPressed(ImGuiKey_Delete)) DeleteSelectedObject();
 		else if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_D)) DuplicateSelectedObject();
+		else if (ImGui::IsKeyPressed(ImGuiKey_F2, false) && !_selectedGO->IsEditorInternal())
+		{
+			s_renameId = _selectedGO->GetId(); s_renameInit = true;
+			std::string cur = WToUtf8(_selectedGO->GetObjectName());
+			strncpy_s(s_renameBuf, cur.c_str(), _TRUNCATE);
+		}
 	}
 	ImGui::End();
 }
@@ -1082,6 +1117,22 @@ void D3D12Device::DrawSceneView()
 		ImVec2 ct((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f);
 		dl->AddLine(ImVec2(ct.x - 11, ct.y), ImVec2(ct.x + 11, ct.y), IM_COL32(255, 255, 255, 170));
 		dl->AddLine(ImVec2(ct.x, ct.y - 11), ImVec2(ct.x, ct.y + 11), IM_COL32(255, 255, 255, 170));
+	}
+
+	// ── 씬뷰 단축키 (Unity 풍): 호버/포커스 + 텍스트 입력 아님 + RMB 카메라 비행 중 아님 ──
+	//   W 이동 / E 회전 / R 스케일 / Q 전체  · F 포커스 · X 로컬↔월드 · H 숨김 · Esc 선택해제
+	if ((_sceneHovered || _sceneFocused) && !ImGui::GetIO().WantTextInput && !ImGui::IsMouseDown(1) && !ImGuizmo::IsUsing())
+	{
+		if (ImGui::IsKeyPressed(ImGuiKey_W, false)) _gizmoOp = 7;          // TRANSLATE
+		else if (ImGui::IsKeyPressed(ImGuiKey_E, false)) _gizmoOp = 120;   // ROTATE
+		else if (ImGui::IsKeyPressed(ImGuiKey_R, false)) _gizmoOp = 896;   // SCALE
+		else if (ImGui::IsKeyPressed(ImGuiKey_Q, false)) _gizmoOp = 7 | 120 | 896; // UNIVERSAL
+		if (ImGui::IsKeyPressed(ImGuiKey_X, false)) _gizmoLocal = !_gizmoLocal; // 로컬↔월드
+		if (ImGui::IsKeyPressed(ImGuiKey_F, false) && _selectedGO)         // 선택으로 포커스
+			if (auto t = _selectedGO->GetTransform()) { Matrix wm = t->GetWorldMatrix(); FocusCameraOn(Vec3{ wm._41, wm._42, wm._43 }); }
+		if (ImGui::IsKeyPressed(ImGuiKey_H, false) && _selectedGO && !_selectedGO->IsEditorInternal())
+			_selectedGO->SetActive(!_selectedGO->IsActive());            // 숨김 토글
+		if (ImGui::IsKeyPressed(ImGuiKey_Escape, false)) { _selectedGO = nullptr; _selIds.clear(); _anchorId = -1; } // 선택 해제
 	}
 	ImGui::End();
 

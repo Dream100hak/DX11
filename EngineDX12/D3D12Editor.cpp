@@ -879,6 +879,19 @@ void D3D12Device::DrawHierarchy()
 			strncpy_s(s_renameBuf, cur.c_str(), _TRUNCATE);
 		}
 	}
+	// Ctrl+A = 전체 선택 (비-내부, 현재 선택 유무 무관)
+	if (_gameScene && !ImGui::GetIO().WantTextInput && ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_A, false))
+	{
+		std::vector<int64> ord;
+		for (auto& kv : _gameScene->GetCreatedObjects()) if (kv.second && !kv.second->IsEditorInternal()) ord.push_back(kv.first);
+		std::sort(ord.begin(), ord.end());
+		_selIds.clear();
+		if (!ord.empty())
+		{
+			_selectedGO = _gameScene->GetCreatedObject(ord[0]); _anchorId = ord[0];
+			for (size_t k = 1; k < ord.size(); ++k) _selIds.push_back(ord[k]);
+		}
+	}
 	ImGui::End();
 }
 

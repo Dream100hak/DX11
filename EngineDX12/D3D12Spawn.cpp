@@ -248,22 +248,23 @@ void D3D12Device::GenerateFoliage(const shared_ptr<GameObject>& terrainObj)
 	if (!_gameScene || !terrainObj) return;
 	auto terr = terrainObj->GetTerrain(); if (!terr) return;
 
-	std::wstring folName = terrainObj->GetObjectName() + L"_Foliage";
-	// 기존 식생 GameObject 재사용 (이름 매칭)
+	// 기존 식생 재사용 — 터레인의 자식 중 Foliage 렌더러를 가진 GameObject (이름 매칭 대신 부모-자식 링크: 리네임/세이브에 견고)
 	shared_ptr<GameObject> folObj;
-	for (auto& kv : _gameScene->GetCreatedObjects())
-		if (kv.second && kv.second->GetObjectName() == folName) { folObj = kv.second; break; }
-
 	shared_ptr<Foliage> fol;
-	if (folObj) fol = std::dynamic_pointer_cast<Foliage>(folObj->GetRenderer());
+	if (auto tt = terrainObj->GetTransform())
+		for (auto& ct : tt->GetChildren())
+			if (ct) if (auto cgo = ct->GetGameObject())
+				if (auto f = std::dynamic_pointer_cast<Foliage>(cgo->GetRenderer())) { folObj = cgo; fol = f; break; }
 	if (!folObj)
 	{
 		folObj = make_shared<GameObject>();
-		folObj->SetObjectName(folName);
+		folObj->SetObjectName(terrainObj->GetObjectName() + L"_Foliage");
 		folObj->GetOrAddTransform();
 		fol = make_shared<Foliage>(); fol->Bind(this);
 		folObj->AddComponent(fol);
 		_gameScene->Add(folObj);
+		// 터레인 자식으로 연결 (Foliage 는 자체 트랜스폼 미사용 — 렌더링 영향 없음)
+		if (auto ft = folObj->GetTransform(), tt = terrainObj->GetTransform(); ft && tt) ft->SetParentKeepWorld(tt);
 	}
 	if (!fol) return;
 	fol->Generate(terr.get(), _folGrass, _folTree, _folSize, (uint32)_folSeed);

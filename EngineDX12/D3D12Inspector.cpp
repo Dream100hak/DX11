@@ -455,12 +455,12 @@ void D3D12Device::DrawGameObjectInspector(const shared_ptr<GameObject>& go)
 			if (GetOpenFileNameW(&ofn) && terr->LoadHeightmap(file))
 			{
 				Log("Heightmap loaded: " + WToUtf8(file));
-				// 이 터레인에 식생이 있으면 새 지형 높이에 맞춰 자동 재배치
-				std::wstring folName = go->GetObjectName() + L"_Foliage";
-				for (auto& kv : _gameScene->GetCreatedObjects())
-					if (kv.second && kv.second->GetObjectName() == folName)
-						if (auto fol = std::dynamic_pointer_cast<Foliage>(kv.second->GetRenderer()))
-						{ fol->Regenerate(terr.get()); Log("Foliage re-scattered on loaded terrain"); }
+				// 이 터레인에 식생이 있으면 새 지형 높이에 맞춰 자동 재배치 (자식 링크로 조회 — 리네임 무관)
+				if (auto tt = go->GetTransform())
+					for (auto& ct : tt->GetChildren())
+						if (ct) if (auto cgo = ct->GetGameObject())
+							if (auto fol = std::dynamic_pointer_cast<Foliage>(cgo->GetRenderer()))
+							{ fol->Regenerate(terr.get()); Log("Foliage re-scattered on loaded terrain"); break; }
 			}
 		}
 
@@ -479,7 +479,7 @@ void D3D12Device::DrawGameObjectInspector(const shared_ptr<GameObject>& go)
 		for (auto& s : go->GetMonoBehaviours())
 		{
 			if (!s) continue;
-			ImGui::SeparatorText(s->TypeName());
+			const char* tn = s->TypeName(); ImGui::SeparatorText(tn ? tn : "Script"); // 널 가드
 			if (!internal)
 			{
 				ImGui::SameLine(ImGui::GetContentRegionAvail().x - 18.0f);

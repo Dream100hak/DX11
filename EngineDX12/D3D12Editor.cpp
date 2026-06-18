@@ -323,6 +323,7 @@ static ImGuiStyle g_baseStyle;
 static float      g_uiScale = 1.0f;
 static void ApplyUIScale(float s)
 {
+	s = s < 0.5f ? 0.5f : (s > 3.0f ? 3.0f : s); // 방어적 클램프 (폰트/위젯 깨짐 방지)
 	g_uiScale = s;
 	ImGuiStyle& st = ImGui::GetStyle();
 	st = g_baseStyle;            // 기준 스타일 복원

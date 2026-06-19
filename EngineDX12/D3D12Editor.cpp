@@ -611,57 +611,64 @@ void D3D12Device::DrawMainMenuBar()
 void D3D12Device::DrawHierarchy()
 {
 	ImGui::Begin("Hierarchy");
-	ImGui::TextDisabled("Scene");
+	ImGui::TextDisabled("ENVIRONMENT");
 	ImGui::Separator();
 
 	// 인라인 리네임 상태 (더블클릭/F2 진입 → InputText, Enter/포커스아웃 커밋, Esc 취소) — 함수 스코프(트리 람다 + F2 키 공용)
 	static int64 s_renameId = -1; static char s_renameBuf[128] = {}; static bool s_renameInit = false;
 
-	std::string modelItem = "[Mdl] " + WToUtf8(_scene._modelLabel);
-	struct Entry { std::string label; SelEntity e; };
-	const Entry items[] = {
-		{ "[Cam] Editor Camera", SelEntity::Camera },
-		{ "[Sun] Directional Light", SelEntity::Sun },
-		{ "[GI]  DDGI Volume", SelEntity::DDGI },
-		{ "[Pt]  Point Light", SelEntity::Point },
-		{ "[Spt] Spot Light", SelEntity::Spot },
-		{ "[FX]  Post / Render", SelEntity::Post },
-		{ modelItem, SelEntity::Model },
-		{ "[Geo] Floor", SelEntity::Floor },
+	// 고정 환경/렌더 설정 엔티티 — 색상 코딩 태그 + 정렬
+	struct Fixed { const char* tag; ImVec4 col; std::string name; SelEntity e; };
+	const Fixed fixed[] = {
+		{ "CAM", ImVec4(0.40f,0.78f,0.92f,1), "Editor Camera",     SelEntity::Camera },
+		{ "SUN", ImVec4(0.96f,0.80f,0.32f,1), "Directional Light", SelEntity::Sun },
+		{ "GI",  ImVec4(0.66f,0.52f,0.86f,1), "DDGI Volume",       SelEntity::DDGI },
+		{ "PT",  ImVec4(0.95f,0.62f,0.32f,1), "Point Light",       SelEntity::Point },
+		{ "SPT", ImVec4(0.52f,0.70f,1.00f,1), "Spot Light",        SelEntity::Spot },
+		{ "FX",  ImVec4(0.42f,0.82f,0.70f,1), "Post / Render",     SelEntity::Post },
+		{ "MDL", ImVec4(0.58f,0.68f,0.82f,1), WToUtf8(_scene._modelLabel), SelEntity::Model },
+		{ "GEO", ImVec4(0.74f,0.58f,0.36f,1), "Floor",             SelEntity::Floor },
 	};
-	for (const Entry& it : items)
+	for (const Fixed& f : fixed)
 	{
-		if (ImGui::Selectable(it.label.c_str(), _sel == it.e && !_selectedGO))
-		{ _sel = it.e; _selectedGO = nullptr; _selIds.clear(); } // 고정 엔티티 선택 시 GameObject 선택 해제
+		ImGui::TextColored(f.col, "%s", f.tag); ImGui::SameLine(46.0f);
+		ImGui::PushID((int)f.e);
+		if (ImGui::Selectable(f.name.c_str(), _sel == f.e && !_selectedGO))
+		{ _sel = f.e; _selectedGO = nullptr; _selIds.clear(); } // 고정 엔티티 선택 시 GameObject 선택 해제
+		ImGui::PopID();
 	}
 
 	// ── 씬 그래프 GameObject 목록 (EditorTool Hierarchy 대응) ──
+	ImGui::Spacing();
+	ImGui::TextDisabled("SCENE OBJECTS  (drag = reparent)");
 	ImGui::Separator();
-	ImGui::TextDisabled("GameObjects  (drag = reparent)");
 	static char hierFilter[64] = "";
 	ImGui::SetNextItemWidth(-1);
 	ImGui::InputTextWithHint("##hierfilter", "Search...", hierFilter, sizeof(hierFilter));
 	std::string filterLow = hierFilter;
 	for (char& c : filterLow) c = (char)tolower(c);
-	// GameObject 타입 아이콘(컴포넌트 기반 접두)
-	auto typeIcon = [](const shared_ptr<GameObject>& o) -> const char*
+	// GameObject 타입 태그 + 색상 (컴포넌트 기반) — 색상 코딩으로 한눈에 종류 식별
+	struct TypeStyle { const char* tag; ImVec4 col; };
+	auto typeStyle = [](const shared_ptr<GameObject>& o) -> TypeStyle
 	{
-		if (o->GetCamera()) return "[Cam] ";
-		if (o->GetLight()) return "[Lit] ";
-		if (o->GetTerrain()) return "[Ter] ";
+		if (o->GetCamera())  return { "CAM", ImVec4(0.40f, 0.78f, 0.92f, 1.f) }; // 시안
+		if (o->GetLight())   return { "LIT", ImVec4(0.96f, 0.80f, 0.32f, 1.f) }; // 앰버
+		if (o->GetTerrain()) return { "TER", ImVec4(0.74f, 0.58f, 0.36f, 1.f) }; // 갈색
 		if (auto r = o->GetRenderer())
 		{
 			switch (r->GetRenderType())
 			{
-			case RendererType::Foliage:  return "[Fol] ";
-			case RendererType::Particle: return "[Psy] ";
-			case RendererType::Animator: return "[Anm] ";
-			case RendererType::Mesh:     return "[Msh] ";
+			case RendererType::Foliage:   return { "FOL", ImVec4(0.48f, 0.78f, 0.42f, 1.f) }; // 초록
+			case RendererType::Particle:  return { "PSY", ImVec4(0.72f, 0.52f, 0.88f, 1.f) }; // 보라
+			case RendererType::Animator:  return { "ANM", ImVec4(0.52f, 0.82f, 0.66f, 1.f) }; // 청록
+			case RendererType::Mesh:      return { "MSH", ImVec4(0.58f, 0.68f, 0.82f, 1.f) }; // 청회
+			case RendererType::Billboard: return { "BBD", ImVec4(0.88f, 0.66f, 0.52f, 1.f) }; // 살구
 			default: break;
 			}
 		}
-		return "[Obj] ";
+		return { "OBJ", ImVec4(0.62f, 0.62f, 0.68f, 1.f) }; // 회색
 	};
+	auto drawTag = [](const TypeStyle& ts) { ImGui::TextColored(ts.col, "%s", ts.tag); ImGui::SameLine(0.0f, 6.0f); };
 	if (_gameScene)
 	{
 		// 재귀 트리 (루트 = 부모 없음) + 드래그드롭 부모지정
@@ -679,7 +686,8 @@ void D3D12Device::DrawHierarchy()
 			if (ImGui::Checkbox("##vis", &act)) obj->SetActive(act);
 			ImGui::PopID();
 			ImGui::SameLine(0.0f, 4.0f);
-			std::string label = std::string(typeIcon(obj)) + WToUtf8(obj->GetObjectName());
+			drawTag(typeStyle(obj)); // 색상 타입 태그
+			std::string label = WToUtf8(obj->GetObjectName());
 			bool renaming = (s_renameId == obj->GetId());
 			bool open = false;
 			if (renaming)
@@ -803,8 +811,10 @@ void D3D12Device::DrawHierarchy()
 				std::string nm = WToUtf8(obj->GetObjectName()), low = nm;
 				for (char& c : low) c = (char)tolower(c);
 				if (low.find(filterLow) == std::string::npos) continue;
-				std::string label = std::string(typeIcon(obj)) + nm;
-				if (ImGui::Selectable(label.c_str(), _selectedGO == obj)) _selectedGO = obj;
+				ImGui::PushID((int)(intptr_t)obj->GetId());
+				drawTag(typeStyle(obj));
+				if (ImGui::Selectable(nm.c_str(), _selectedGO == obj)) _selectedGO = obj;
+				ImGui::PopID();
 			}
 		}
 		else

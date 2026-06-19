@@ -144,6 +144,13 @@ bool ModelAnimator::Load(const std::wstring& meshPath)
 }
 
 // .mmat → 서브메시 슬롯별 디퓨즈/노멀/스펙 텍스처 + 연속 SRV 힙 (ModelScene 미러)
+// _slotMats 를 머티리얼 슬롯 수(max(1,_matCount))만큼 기본 머티리얼로 채움 (부족분만 추가)
+void ModelAnimator::EnsureSlotMats()
+{
+	uint32 n = _matCount ? _matCount : 1;
+	while (_slotMats.size() < n) _slotMats.push_back(make_shared<Material>());
+}
+
 void ModelAnimator::CreateMaterials()
 {
 	std::unordered_map<std::string, MatTex> matMap = LoadMaterials(_modelDir + _modelStem + L".mmat", _modelDir);
@@ -157,6 +164,7 @@ void ModelAnimator::CreateMaterials()
 		else _subMatSlot[i] = it->second;
 	}
 	_matCount = (uint32)slotStems.size();
+	EnsureSlotMats(); // 슬롯별 머티리얼 오버라이드 준비
 	if (_matCount == 0) { _hasTexture = false; return; }
 
 	// 전용 업로드 커맨드리스트+펜스 (메인 렌더 파이프라인/공유 cmdList 미사용 — 전체 플러시 회피)
@@ -383,12 +391,15 @@ void ModelAnimator::Draw(const RenderContext& ctx)
 	cmd->IASetVertexBuffers(0, 1, &_vbv);
 	cmd->IASetIndexBuffer(&_ibv);
 
-	// per-object 머티리얼 루트상수 — PBR/틴트는 _material 오버라이드(인스펙터 편집), 텍스처는 .mmat 슬롯
-	struct { uint32 mode; float met, rough, emis, tr, tg, tb, pad; } mc{
-		(_hasTexture && !_submeshes.empty()) ? 1u : 2u,
-		_material->_metallic, _material->_roughness, _material->_emissive,
-		_material->_diffuse.x, _material->_diffuse.y, _material->_diffuse.z, 0.f };
-	cmd->SetGraphicsRoot32BitConstants(4, 8, &mc, 0);
+	// per-submesh 머티리얼 루트상수 — 슬롯별 _slotMats 의 PBR/틴트(인스펙터 편집), 텍스처는 .mmat 슬롯
+	EnsureSlotMats();
+	auto setMC = [&](uint32 slot, uint32 mode)
+	{
+		const Material& m = *_slotMats[slot < _slotMats.size() ? slot : 0];
+		struct { uint32 mode; float met, rough, emis, tr, tg, tb, pad; } mc{
+			mode, m._metallic, m._roughness, m._emissive, m._diffuse.x, m._diffuse.y, m._diffuse.z, 0.f };
+		cmd->SetGraphicsRoot32BitConstants(4, 8, &mc, 0);
+	};
 
 	if (_hasTexture && !_submeshes.empty())
 	{
@@ -397,6 +408,7 @@ void ModelAnimator::Draw(const RenderContext& ctx)
 		D3D12_GPU_DESCRIPTOR_HANDLE base = _srvHeap->GetGPUDescriptorHandleForHeapStart();
 		for (size_t i = 0; i < _submeshes.size(); ++i)
 		{
+			setMC(_subMatSlot[i], 1u); // 서브메시 슬롯 머티리얼
 			D3D12_GPU_DESCRIPTOR_HANDLE hh = base;
 			hh.ptr += SIZE_T(_subMatSlot[i]) * 3 * _srvInc; // 슬롯×3 디스크립터
 			cmd->SetGraphicsRootDescriptorTable(3, hh);
@@ -404,7 +416,10 @@ void ModelAnimator::Draw(const RenderContext& ctx)
 		}
 	}
 	else
+	{
+		setMC(0, 2u); // 텍스처 없음 → 정점색 × 틴트 (슬롯 0)
 		cmd->DrawIndexedInstanced(_idxCount, 1, 0, 0, 0);
+	}
 }
 
 // 선택 아웃라인 — 현재 스킨 포즈의 월드 VB/IB 를 그대로 드로우 (PSO/CB 는 호출측)
@@ -435,18 +450,29 @@ void ModelAnimator::OnInspectorGUI()
 	ImGui::Checkbox("Loop", &_loop);
 	ImGui::DragFloat("Speed", &_speed, 0.02f, 0.f, 4.f);
 
-	// ── 머티리얼 (모델 전체 오버라이드 — 틴트는 .mmat 텍스처에 곱해짐) ──
-	ImGui::SeparatorText("Material");
-	ImGui::ColorEdit3("Tint", &_material->_diffuse.x);
-	ImGui::DragFloat("Metallic", &_material->_metallic, 0.01f, 0.f, 1.f);
-	ImGui::DragFloat("Roughness", &_material->_roughness, 0.01f, 0.f, 1.f);
-	ImGui::DragFloat("Emissive", &_material->_emissive, 0.02f, 0.f, 16.f);
-	auto preset = [&](const char* n, Vec3 d, float m, float r) { if (ImGui::SmallButton(n)) { _material->_diffuse = d; _material->_metallic = m; _material->_roughness = r; } ImGui::SameLine(); };
-	preset("Default", { 1,1,1 }, 0.f, 0.5f);
-	preset("Metal", { 0.9f,0.9f,0.9f }, 1.f, 0.25f);
-	preset("Gold", { 1.0f,0.78f,0.34f }, 1.f, 0.2f);
-	if (ImGui::SmallButton("Plastic")) { _material->_diffuse = { 1,1,1 }; _material->_metallic = 0.f; _material->_roughness = 0.4f; }
-	// 공유 .mat 슬롯 (PBR/틴트 일괄 — 텍스처 슬롯은 .mmat 유지)
-	if (_dev) MaterialSlotGUI(_dev->_assetRoot, _material, [this](shared_ptr<Material> m) { SetMaterialRef(m); });
+	// ── 머티리얼 (서브메시 슬롯별 Element — 틴트는 .mmat 텍스처에 곱해짐) ──
+	EnsureSlotMats();
+	ImGui::SeparatorText("Materials");
+	ImGui::TextDisabled("Elements: %u (서브메시 머티리얼별 PBR/틴트)", MaterialSlotCount());
+	for (uint32 e = 0; e < (uint32)_slotMats.size(); ++e)
+	{
+		auto& mat = _slotMats[e];
+		ImGui::PushID((int)e);
+		char hdr[32]; snprintf(hdr, sizeof(hdr), "Element %u", e);
+		if (ImGui::CollapsingHeader(hdr, e == 0 ? ImGuiTreeNodeFlags_DefaultOpen : 0))
+		{
+			ImGui::ColorEdit3("Tint", &mat->_diffuse.x);
+			ImGui::DragFloat("Metallic", &mat->_metallic, 0.01f, 0.f, 1.f);
+			ImGui::DragFloat("Roughness", &mat->_roughness, 0.01f, 0.f, 1.f);
+			ImGui::DragFloat("Emissive", &mat->_emissive, 0.02f, 0.f, 16.f);
+			auto preset = [&](const char* n, Vec3 d, float m, float r) { if (ImGui::SmallButton(n)) { mat->_diffuse = d; mat->_metallic = m; mat->_roughness = r; } ImGui::SameLine(); };
+			preset("Default", { 1,1,1 }, 0.f, 0.5f);
+			preset("Metal", { 0.9f,0.9f,0.9f }, 1.f, 0.25f);
+			preset("Gold", { 1.0f,0.78f,0.34f }, 1.f, 0.2f);
+			if (ImGui::SmallButton("Plastic")) { mat->_diffuse = { 1,1,1 }; mat->_metallic = 0.f; mat->_roughness = 0.4f; }
+			if (_dev) MaterialSlotGUI(_dev->_assetRoot, mat, [this, e](shared_ptr<Material> m) { SetSlotMaterial(e, m); });
+		}
+		ImGui::PopID();
+	}
 	ImGui::TextDisabled("(텍스처는 .mmat 슬롯, 여기선 PBR/틴트만)");
 }

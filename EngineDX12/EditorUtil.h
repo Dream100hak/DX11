@@ -20,7 +20,8 @@ class Material;
 void MaterialSlotGUI(const std::wstring& assetRoot, const std::shared_ptr<Material>& cur,
                      const std::function<void(std::shared_ptr<Material>)>& onAssign);
 
-// 텍스처 슬롯 — 라벨 + 현재 파일명 + 드롭(TEX_PATH) + Pick(이미지 목록) + Clear.
-// 경로 변경 시 onSet(새 경로) 콜백. (디퓨즈/노멀/스펙 공용)
+// 텍스처 슬롯 — 라벨 + 썸네일 + 현재 파일명 + 드롭(TEX_PATH) + Pick(이미지 목록) + Clear.
+// 경로 변경 시 onSet(새 경로) 콜백. getThumb(경로)→ImTextureID 주면 미리보기 표시(옵션).
 void TextureSlotGUI(const char* label, const std::wstring& assetRoot, const std::wstring& cur,
-                    const std::function<void(std::wstring)>& onSet);
+                    const std::function<void(std::wstring)>& onSet,
+                    const std::function<uint64(const std::wstring&)>& getThumb = {});

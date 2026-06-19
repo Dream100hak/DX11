@@ -235,9 +235,10 @@ void MeshRenderer::OnInspectorGUI()
 	if (_dev)
 	{
 		const std::wstring& root = _dev->_assetRoot;
-		TextureSlotGUI("Diffuse", root, _material->_diffuseTex, [this](std::wstring p) { _material->_diffuseTex = p; });
-		TextureSlotGUI("Normal", root, _material->_normalTex, [this](std::wstring p) { _material->_normalTex = p; });
-		TextureSlotGUI("Specular", root, _material->_specTex, [this](std::wstring p) { _material->_specTex = p; });
+		auto thumb = [this](const std::wstring& p) { return _dev->_thumbnail.GetImage(p); };
+		TextureSlotGUI("Diffuse", root, _material->_diffuseTex, [this](std::wstring p) { _material->_diffuseTex = p; }, thumb);
+		TextureSlotGUI("Normal", root, _material->_normalTex, [this](std::wstring p) { _material->_normalTex = p; }, thumb);
+		TextureSlotGUI("Specular", root, _material->_specTex, [this](std::wstring p) { _material->_specTex = p; }, thumb);
 	}
 
 	// ── .mat 자산(공유) ── 같은 .mat 로드 시 인스턴스끼리 공유 → 편집 일괄 반영

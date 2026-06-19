@@ -30,6 +30,13 @@ void MaterialSlotGUI(const std::wstring& assetRoot, const std::shared_ptr<Materi
 	auto uToW = [](const char* u) { int n = MultiByteToWideChar(CP_UTF8, 0, u, -1, nullptr, 0); std::wstring w(n > 0 ? n - 1 : 0, L'\0'); if (n > 0) MultiByteToWideChar(CP_UTF8, 0, u, -1, w.data(), n); return w; };
 	auto assign = [&](const std::wstring& wp) { if (wp.empty()) return; auto sh = GET_SINGLE(ResourceManager)->Get<Material>(wp); if (!sh) { sh = LoadMaterial(wp); if (sh) GET_SINGLE(ResourceManager)->Add<Material>(wp, sh); } if (sh) onAssign(sh); };
 
+	// 디퓨즈 틴트 색 스웨치 (프리뷰)
+	if (cur)
+	{
+		ImVec4 sw(cur->_diffuse.x, cur->_diffuse.y, cur->_diffuse.z, 1.0f);
+		ImGui::ColorButton("##matsw", sw, ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoPicker, ImVec2(18, 18));
+		ImGui::SameLine();
+	}
 	std::string slot = (cur && !cur->_path.empty()) ? wToU(std::filesystem::path(cur->_path).stem().wstring()) : "(inline material)";
 	ImGui::Button(("Mat: " + slot).c_str(), ImVec2(-72, 0)); // 슬롯(드롭 타겟)
 	if (ImGui::BeginDragDropTarget())
@@ -60,7 +67,8 @@ void MaterialSlotGUI(const std::wstring& assetRoot, const std::shared_ptr<Materi
 
 // 텍스처 슬롯 — 라벨 + 파일명 버튼(드롭 타겟) + Pick(이미지 목록) + Clear
 void TextureSlotGUI(const char* label, const std::wstring& assetRoot, const std::wstring& cur,
-                    const std::function<void(std::wstring)>& onSet)
+                    const std::function<void(std::wstring)>& onSet,
+                    const std::function<uint64(const std::wstring&)>& getThumb)
 {
 	auto wToU = [](const std::wstring& w) { if (w.empty()) return std::string(); int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), nullptr, 0, nullptr, nullptr); std::string s(n, 0); WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), s.data(), n, nullptr, nullptr); return s; };
 	auto uToW = [](const char* u) { int n = MultiByteToWideChar(CP_UTF8, 0, u, -1, nullptr, 0); std::wstring w(n > 0 ? n - 1 : 0, L'\0'); if (n > 0) MultiByteToWideChar(CP_UTF8, 0, u, -1, w.data(), n); return w; };
@@ -68,6 +76,12 @@ void TextureSlotGUI(const char* label, const std::wstring& assetRoot, const std:
 
 	ImGui::PushID(label);
 	ImGui::TextDisabled("%s", label); ImGui::SameLine(72.0f);
+	// 썸네일 미리보기 (옵션)
+	if (!cur.empty() && getThumb)
+	{
+		uint64 tid = getThumb(cur);
+		if (tid) { ImGui::Image((ImTextureID)tid, ImVec2(20, 20)); ImGui::SameLine(); }
+	}
 	std::string name = cur.empty() ? "(none)" : wToU(std::filesystem::path(cur).filename().wstring());
 	ImGui::Button(name.c_str(), ImVec2(-92, 0));
 	if (ImGui::BeginDragDropTarget())

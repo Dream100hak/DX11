@@ -426,6 +426,28 @@ void D3D12Device::DrawGameObjectInspector(const shared_ptr<GameObject>& go)
 	ImGui::Separator();
 
 	const bool internal = go->IsEditorInternal();
+	// 컴포넌트 타입별 색 (계층 색 언어와 통일)
+	auto compColor = [&](ComponentType ct) -> ImVec4
+	{
+		switch (ct)
+		{
+		case ComponentType::Camera:   return ImVec4(0.40f,0.78f,0.92f,1);
+		case ComponentType::Light:    return ImVec4(0.96f,0.80f,0.32f,1);
+		case ComponentType::Terrain:  return ImVec4(0.74f,0.58f,0.36f,1);
+		case ComponentType::Collider: return ImVec4(0.50f,0.82f,0.52f,1);
+		case ComponentType::Renderer:
+			if (go->GetRenderer()) switch (go->GetRenderer()->GetRenderType())
+			{
+			case RendererType::Animator:  return ImVec4(0.52f,0.82f,0.66f,1);
+			case RendererType::Particle:  return ImVec4(0.72f,0.52f,0.88f,1);
+			case RendererType::Foliage:   return ImVec4(0.48f,0.78f,0.42f,1);
+			case RendererType::Billboard: return ImVec4(0.88f,0.66f,0.52f,1);
+			default: return ImVec4(0.58f,0.68f,0.82f,1);
+			}
+			return ImVec4(0.58f,0.68f,0.82f,1);
+		default: return ImVec4(0.62f,0.62f,0.68f,1); // Transform 등 중립
+		}
+	};
 	for (uint8 i = 0; i < static_cast<uint8>(ComponentType::End); ++i)
 	{
 		ComponentType ct = static_cast<ComponentType>(i);
@@ -436,9 +458,11 @@ void D3D12Device::DrawGameObjectInspector(const shared_ptr<GameObject>& go)
 			? ImGuiManager::EnumToString(go->GetRenderer()->GetRenderType())
 			: ImGuiManager::EnumToString(ct);
 
-		// 접을 수 있는 컴포넌트 헤더 + 우측 X 제거 버튼
+		// 접을 수 있는 컴포넌트 헤더 + 좌측 색 바 + 우측 X 제거 버튼
 		ImGui::PushID(i);
 		bool open = ImGui::CollapsingHeader(compName, ImGuiTreeNodeFlags_DefaultOpen);
+		{ ImVec2 mn = ImGui::GetItemRectMin(), mx = ImGui::GetItemRectMax();
+		  ImGui::GetWindowDrawList()->AddRectFilled(mn, ImVec2(mn.x + 3, mx.y), ImGui::GetColorU32(compColor(ct)), 1.f); }
 		bool canRemove = ct != ComponentType::Transform && !internal && !(go == _modelObj && ct == ComponentType::Renderer);
 		if (canRemove)
 		{

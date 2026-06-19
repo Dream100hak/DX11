@@ -190,6 +190,7 @@ void ModelAnimator::CreateMaterials()
 		return outTex;
 	};
 	{ std::vector<uint8_t> white(4, 255); _whiteTex = makeTex(white, 1, 1); }
+	{ std::vector<uint8_t> flat = { 128,128,255,255 }; _flatNormalTex = makeTex(flat, 1, 1); } // 노멀 슬롯 폴백
 
 	// 텍스처 파일 경로 수집 (슬롯×3)
 	const uint32 nTex = _matCount * 3;
@@ -213,7 +214,8 @@ void ModelAnimator::CreateMaterials()
 	// GPU 텍스처 생성 (직렬, cl 기록)
 	_matResources.resize(nTex);
 	for (uint32 i = 0; i < nTex; ++i)
-		_matResources[i] = dec[i].ok ? makeTex(dec[i].px, dec[i].w, dec[i].h) : _whiteTex;
+		_matResources[i] = dec[i].ok ? makeTex(dec[i].px, dec[i].w, dec[i].h)
+			: ((i % 3) == 1 ? _flatNormalTex : _whiteTex); // 노멀 슬롯은 평평노멀, 그 외 흰색
 	cl->Close();
 	ID3D12CommandList* lists[] = { cl.Get() }; _dev->_queue->ExecuteCommandLists(1, lists);
 	// 전용 펜스 대기 (업로드만 — 렌더 프레임 펜스 미교란)

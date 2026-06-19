@@ -230,22 +230,15 @@ void MeshRenderer::OnInspectorGUI()
 	preset("Rubber", { 0.15f,0.15f,0.15f }, 0.f, 0.9f);
 	if (ImGui::SmallButton("Mirror")) { _material->_diffuse = { 1,1,1 }; _material->_metallic = 1.f; _material->_roughness = 0.02f; }
 
-	// 디퓨즈 텍스처 경로 — 입력 후 Load 로 적용 (Draw 에서 SyncMaterialTex 가 SRV 생성)
-	if (_texPathBuf[0] == '\0' && !_material->_diffuseTex.empty())
+	// 텍스처 슬롯 (디퓨즈/노멀/스펙) — 이미지 드롭 / Pick / Clear. Draw 의 SyncMaterialTex 가 SRV 재생성.
+	ImGui::TextDisabled("Textures"); HelpMarker("이미지를 슬롯에 드래그하거나 Pick. 노멀맵은 TBN, 스펙은 반사 강도에 사용.");
+	if (_dev)
 	{
-		int n = WideCharToMultiByte(CP_UTF8, 0, _material->_diffuseTex.c_str(), -1, _texPathBuf, sizeof(_texPathBuf), nullptr, nullptr);
-		(void)n;
+		const std::wstring& root = _dev->_assetRoot;
+		TextureSlotGUI("Diffuse", root, _material->_diffuseTex, [this](std::wstring p) { _material->_diffuseTex = p; });
+		TextureSlotGUI("Normal", root, _material->_normalTex, [this](std::wstring p) { _material->_normalTex = p; });
+		TextureSlotGUI("Specular", root, _material->_specTex, [this](std::wstring p) { _material->_specTex = p; });
 	}
-	ImGui::InputText("Diffuse Tex", _texPathBuf, sizeof(_texPathBuf));
-	ImGui::SameLine();
-	if (ImGui::Button("Load##tex"))
-	{
-		int n = MultiByteToWideChar(CP_UTF8, 0, _texPathBuf, -1, nullptr, 0);
-		std::wstring wp(n > 0 ? n - 1 : 0, L'\0');
-		if (n > 0) MultiByteToWideChar(CP_UTF8, 0, _texPathBuf, -1, wp.data(), n);
-		_material->_diffuseTex = wp; // 다음 Draw 의 SyncMaterialTex 가 SRV 로드
-	}
-	if (_hasTex) { ImGui::SameLine(); if (ImGui::Button("Clear Tex")) { _material->_diffuseTex.clear(); _texPathBuf[0] = '\0'; } }
 
 	// ── .mat 자산(공유) ── 같은 .mat 로드 시 인스턴스끼리 공유 → 편집 일괄 반영
 	ImGui::Separator();

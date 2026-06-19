@@ -58,6 +58,49 @@ void MaterialSlotGUI(const std::wstring& assetRoot, const std::shared_ptr<Materi
 	}
 }
 
+// 텍스처 슬롯 — 라벨 + 파일명 버튼(드롭 타겟) + Pick(이미지 목록) + Clear
+void TextureSlotGUI(const char* label, const std::wstring& assetRoot, const std::wstring& cur,
+                    const std::function<void(std::wstring)>& onSet)
+{
+	auto wToU = [](const std::wstring& w) { if (w.empty()) return std::string(); int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), nullptr, 0, nullptr, nullptr); std::string s(n, 0); WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), s.data(), n, nullptr, nullptr); return s; };
+	auto uToW = [](const char* u) { int n = MultiByteToWideChar(CP_UTF8, 0, u, -1, nullptr, 0); std::wstring w(n > 0 ? n - 1 : 0, L'\0'); if (n > 0) MultiByteToWideChar(CP_UTF8, 0, u, -1, w.data(), n); return w; };
+	auto isImg = [](const std::wstring& e) { return e == L".png" || e == L".jpg" || e == L".jpeg" || e == L".dds" || e == L".tga" || e == L".bmp"; };
+
+	ImGui::PushID(label);
+	ImGui::TextDisabled("%s", label); ImGui::SameLine(72.0f);
+	std::string name = cur.empty() ? "(none)" : wToU(std::filesystem::path(cur).filename().wstring());
+	ImGui::Button(name.c_str(), ImVec2(-92, 0));
+	if (ImGui::BeginDragDropTarget())
+	{
+		if (const ImGuiPayload* pl = ImGui::AcceptDragDropPayload("TEX_PATH")) onSet(uToW((const char*)pl->Data));
+		ImGui::EndDragDropTarget();
+	}
+	if (ImGui::IsItemHovered() && !cur.empty()) ImGui::SetTooltip("%s", wToU(cur).c_str());
+	ImGui::SameLine();
+	if (ImGui::SmallButton("Pick")) ImGui::OpenPopup("texpick");
+	ImGui::SameLine();
+	if (ImGui::SmallButton("X")) onSet(std::wstring());
+	if (ImGui::BeginPopup("texpick"))
+	{
+		ImGui::TextDisabled("Images"); ImGui::Separator();
+		int shown = 0;
+		namespace fs = std::filesystem; std::error_code ec;
+		for (auto it = fs::recursive_directory_iterator(assetRoot, ec); !ec && it != fs::recursive_directory_iterator(); it.increment(ec))
+		{
+			if (!it->is_regular_file(ec)) continue;
+			std::wstring ext = it->path().extension().wstring();
+			for (auto& c : ext) c = (wchar_t)towlower(c);
+			if (!isImg(ext)) continue;
+			std::string nm = wToU(it->path().filename().wstring());
+			if (ImGui::Selectable(nm.c_str())) { onSet(it->path().wstring()); ImGui::CloseCurrentPopup(); }
+			if (++shown >= 200) break; // 과다 방지
+		}
+		if (shown == 0) ImGui::TextDisabled("(no images found)");
+		ImGui::EndPopup();
+	}
+	ImGui::PopID();
+}
+
 // "(?)" 호버 툴팁 — 직전 위젯과 같은 줄에 표시
 void HelpMarker(const char* desc)
 {

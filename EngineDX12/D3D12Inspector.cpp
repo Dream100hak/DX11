@@ -680,6 +680,14 @@ void D3D12Device::DrawFolderContents()
 				ImGui::TextUnformatted(WToUtf8(p.filename().wstring()).c_str());
 				ImGui::EndDragDropSource();
 			}
+			// 이미지 드래그 → 인스펙터 텍스처 슬롯(디퓨즈/노멀/스펙)에 드롭
+			if (!isDir && kind == AssetKind::Image && ImGui::BeginDragDropSource())
+			{
+				std::string up = WToUtf8(full);
+				ImGui::SetDragDropPayload("TEX_PATH", up.c_str(), up.size() + 1);
+				ImGui::TextUnformatted(WToUtf8(p.filename().wstring()).c_str());
+				ImGui::EndDragDropSource();
+			}
 
 			if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) dbl = true;
 

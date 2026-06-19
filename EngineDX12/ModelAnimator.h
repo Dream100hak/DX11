@@ -79,6 +79,7 @@ private:
 	// 머티리얼 (슬롯×3 디퓨즈/노멀/스펙 — 모델 셰이더 t2/t3/t4)
 	std::vector<ComPtr<ID3D12Resource>> _matResources;
 	ComPtr<ID3D12Resource>              _whiteTex;
+	ComPtr<ID3D12Resource>              _flatNormalTex; // 노멀맵 없는 슬롯 폴백 (128,128,255=(0,0,1))
 	ComPtr<ID3D12DescriptorHeap>        _srvHeap;
 	UINT                                _srvInc = 0;
 	uint32                              _matCount = 0;

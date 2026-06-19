@@ -6,6 +6,8 @@
 #include "TimeManager.h"
 #include "TextureLoader.h"
 #include "RtBlas.h"
+#include "ResourceManager.h"
+#include "EditorUtil.h"   // MaterialSlotGUI (공용 머티리얼 슬롯)
 #include "imgui.h"
 #include <filesystem>
 #include <unordered_map>
@@ -379,9 +381,11 @@ void ModelAnimator::Draw(const RenderContext& ctx)
 	cmd->IASetVertexBuffers(0, 1, &_vbv);
 	cmd->IASetIndexBuffer(&_ibv);
 
-	// per-object 머티리얼 루트상수 (애니 모델은 기본값 — 메탈0/러프0.5/틴트 흰색)
+	// per-object 머티리얼 루트상수 — PBR/틴트는 _material 오버라이드(인스펙터 편집), 텍스처는 .mmat 슬롯
 	struct { uint32 mode; float met, rough, emis, tr, tg, tb, pad; } mc{
-		(_hasTexture && !_submeshes.empty()) ? 1u : 2u, 0.f, 0.5f, 0.f, 1.f, 1.f, 1.f, 0.f };
+		(_hasTexture && !_submeshes.empty()) ? 1u : 2u,
+		_material->_metallic, _material->_roughness, _material->_emissive,
+		_material->_diffuse.x, _material->_diffuse.y, _material->_diffuse.z, 0.f };
 	cmd->SetGraphicsRoot32BitConstants(4, 8, &mc, 0);
 
 	if (_hasTexture && !_submeshes.empty())
@@ -428,4 +432,19 @@ void ModelAnimator::OnInspectorGUI()
 	ImGui::Checkbox("Playing", &_playing); ImGui::SameLine();
 	ImGui::Checkbox("Loop", &_loop);
 	ImGui::DragFloat("Speed", &_speed, 0.02f, 0.f, 4.f);
+
+	// ── 머티리얼 (모델 전체 오버라이드 — 틴트는 .mmat 텍스처에 곱해짐) ──
+	ImGui::SeparatorText("Material");
+	ImGui::ColorEdit3("Tint", &_material->_diffuse.x);
+	ImGui::DragFloat("Metallic", &_material->_metallic, 0.01f, 0.f, 1.f);
+	ImGui::DragFloat("Roughness", &_material->_roughness, 0.01f, 0.f, 1.f);
+	ImGui::DragFloat("Emissive", &_material->_emissive, 0.02f, 0.f, 16.f);
+	auto preset = [&](const char* n, Vec3 d, float m, float r) { if (ImGui::SmallButton(n)) { _material->_diffuse = d; _material->_metallic = m; _material->_roughness = r; } ImGui::SameLine(); };
+	preset("Default", { 1,1,1 }, 0.f, 0.5f);
+	preset("Metal", { 0.9f,0.9f,0.9f }, 1.f, 0.25f);
+	preset("Gold", { 1.0f,0.78f,0.34f }, 1.f, 0.2f);
+	if (ImGui::SmallButton("Plastic")) { _material->_diffuse = { 1,1,1 }; _material->_metallic = 0.f; _material->_roughness = 0.4f; }
+	// 공유 .mat 슬롯 (PBR/틴트 일괄 — 텍스처 슬롯은 .mmat 유지)
+	if (_dev) MaterialSlotGUI(_dev->_assetRoot, _material, [this](shared_ptr<Material> m) { SetMaterialRef(m); });
+	ImGui::TextDisabled("(텍스처는 .mmat 슬롯, 여기선 PBR/틴트만)");
 }

@@ -12,3 +12,10 @@ void BuildPrim(MeshPrim prim, vector<Vtx>& v, vector<uint32>& idx);
 void HelpMarker(const char* desc);
 // 색온도(Kelvin) → 정규화 RGB (라이트 색 — 1500K 촛불~12000K 한낮 그늘)
 Vec3 KelvinToRGB(float kelvin);
+
+#include <functional>
+class Material;
+// 유니티/언리얼식 머티리얼 슬롯 — 이름 표시 + 드롭(MAT_PATH) + Pick 팝업.
+// 할당 시 로드된 공유 머티리얼로 onAssign 콜백. (MeshRenderer/ModelAnimator 공용)
+void MaterialSlotGUI(const std::wstring& assetRoot, const std::shared_ptr<Material>& cur,
+                     const std::function<void(std::shared_ptr<Material>)>& onAssign);

@@ -1,6 +1,7 @@
 #pragma once
 #include "Renderer.h"
 #include "MeshLoader.h"
+#include "Material.h"
 #include <string>
 
 class D3D12Device;
@@ -35,6 +36,11 @@ public:
 	void  SetSpeed(float s) { _speed = s; }
 	bool  IsPlaying() const { return _playing; }
 	void  SetPlaying(bool p) { _playing = p; }
+
+	// 머티리얼 오버라이드 (모델 전체 — 텍스처는 .mmat 슬롯 유지, PBR/틴트는 이 머티리얼)
+	Material& GetMaterial() { return *_material; }
+	shared_ptr<Material> GetMaterialRef() const { return _material; }
+	void SetMaterialRef(shared_ptr<Material> m) { if (m) _material = m; }
 
 private:
 	void ScanClips();
@@ -78,6 +84,7 @@ private:
 	uint32                              _matCount = 0;
 	std::vector<uint32>                 _subMatSlot;
 	bool                                _hasTexture = false;
+	shared_ptr<Material>                _material = make_shared<Material>(); // 모델 PBR/틴트 오버라이드
 
 	ComPtr<ID3D12Resource>              _blas, _blasScratch; // RT 통합 TLAS 인스턴스용
 	bool                                _blasDirty = true;   // 스키닝 변경 시에만 BLAS 재빌드

@@ -1,7 +1,10 @@
 #include "EditorUtil.h"
 #include "GeometryHelper.h"
+#include "Material.h"
+#include "ResourceManager.h"
 #include "imgui.h"
 #include <cmath>
+#include <filesystem>
 
 // 색온도(Kelvin) → 정규화 RGB (Tanner Helland 근사). 1000~40000K 클램프.
 Vec3 KelvinToRGB(float kelvin)
@@ -17,6 +20,42 @@ Vec3 KelvinToRGB(float kelvin)
 	else           b = 138.5177312231f * logf(t - 10.f) - 305.0447927307f;
 	auto cl = [](float x) { return x < 0.f ? 0.f : (x > 255.f ? 255.f : x); };
 	return Vec3{ cl(r) / 255.f, cl(g) / 255.f, cl(b) / 255.f };
+}
+
+// 유니티/언리얼식 머티리얼 슬롯 — 이름 + 드롭 타겟 + Pick 팝업 (MeshRenderer/ModelAnimator 공용)
+void MaterialSlotGUI(const std::wstring& assetRoot, const std::shared_ptr<Material>& cur,
+                     const std::function<void(std::shared_ptr<Material>)>& onAssign)
+{
+	auto wToU = [](const std::wstring& w) { if (w.empty()) return std::string(); int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), nullptr, 0, nullptr, nullptr); std::string s(n, 0); WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), s.data(), n, nullptr, nullptr); return s; };
+	auto uToW = [](const char* u) { int n = MultiByteToWideChar(CP_UTF8, 0, u, -1, nullptr, 0); std::wstring w(n > 0 ? n - 1 : 0, L'\0'); if (n > 0) MultiByteToWideChar(CP_UTF8, 0, u, -1, w.data(), n); return w; };
+	auto assign = [&](const std::wstring& wp) { if (wp.empty()) return; auto sh = GET_SINGLE(ResourceManager)->Get<Material>(wp); if (!sh) { sh = LoadMaterial(wp); if (sh) GET_SINGLE(ResourceManager)->Add<Material>(wp, sh); } if (sh) onAssign(sh); };
+
+	std::string slot = (cur && !cur->_path.empty()) ? wToU(std::filesystem::path(cur->_path).stem().wstring()) : "(inline material)";
+	ImGui::Button(("Mat: " + slot).c_str(), ImVec2(-72, 0)); // 슬롯(드롭 타겟)
+	if (ImGui::BeginDragDropTarget())
+	{
+		if (const ImGuiPayload* pl = ImGui::AcceptDragDropPayload("MAT_PATH")) assign(uToW((const char*)pl->Data));
+		ImGui::EndDragDropTarget();
+	}
+	if (ImGui::IsItemHovered()) ImGui::SetTooltip(".mat 을 여기로 드래그하거나 Pick 으로 선택");
+	ImGui::SameLine();
+	if (ImGui::Button("Pick##matslot")) ImGui::OpenPopup("matpick");
+	if (ImGui::BeginPopup("matpick"))
+	{
+		ImGui::TextDisabled("Materials"); ImGui::Separator();
+		int shown = 0;
+		namespace fs = std::filesystem; std::error_code ec;
+		for (auto it = fs::recursive_directory_iterator(assetRoot, ec); !ec && it != fs::recursive_directory_iterator(); it.increment(ec))
+		{
+			if (!it->is_regular_file(ec) || it->path().extension() != L".mat") continue;
+			std::string nm = wToU(it->path().filename().wstring());
+			bool sel = cur && it->path().wstring() == cur->_path;
+			if (ImGui::Selectable(nm.c_str(), sel)) { assign(it->path().wstring()); ImGui::CloseCurrentPopup(); }
+			++shown;
+		}
+		if (shown == 0) ImGui::TextDisabled("(no .mat assets found)");
+		ImGui::EndPopup();
+	}
 }
 
 // "(?)" 호버 툴팁 — 직전 위젯과 같은 줄에 표시

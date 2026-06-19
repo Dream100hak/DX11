@@ -62,11 +62,24 @@ void MeshRenderer::SetTexture(const std::wstring& path)
 	if (LoadImageRGBA(path, px, w, h) && w && h) SetTexturePixels(px, w, h);
 }
 
-// 디퓨즈 텍스처 + 흰색 폴백(노멀/스펙) → 3-SRV 힙. 임시 커맨드리스트 업로드 + 펜스 대기.
+// 디퓨즈만(절차적 바닥 등) — 노멀=평평/스펙=흰색 폴백
 void MeshRenderer::SetTexturePixels(const vector<uint8_t>& rgba, uint32 w, uint32 h)
 {
-	if (!_dev || rgba.empty()) return;
+	if (rgba.empty()) return;
+	BuildSrvHeap3(rgba.data(), w, h, nullptr, 0, 0, nullptr, 0, 0);
+}
+
+// 디퓨즈/노멀/스펙 RGBA → 3-SRV 힙(t2/t3/t4). npx/spx=null 이면 평평노멀(0,0,1)/흰색 폴백.
+// 임시 커맨드리스트 업로드 + 펜스 대기 (에디터 1회성).
+void MeshRenderer::BuildSrvHeap3(const uint8_t* dpx, uint32 dw, uint32 dh,
+	const uint8_t* npx, uint32 nw, uint32 nh, const uint8_t* spx, uint32 sw, uint32 sh)
+{
+	if (!_dev || !dpx) return;
 	ID3D12Device5* dev = _dev->_device.Get();
+	const uint8_t flatN[4] = { 128,128,255,255 }; // 평평 노멀 = 탄젠트공간 (0,0,1)
+	const uint8_t white[4] = { 255,255,255,255 };
+	if (!npx) { npx = flatN; nw = nh = 1; }
+	if (!spx) { spx = white; sw = sh = 1; }
 
 	auto makeTex = [&](uint32 tw, uint32 th)
 	{
@@ -79,8 +92,9 @@ void MeshRenderer::SetTexturePixels(const vector<uint8_t>& rgba, uint32 w, uint3
 			D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&t)), "MeshRenderer tex");
 		return t;
 	};
-	_tex = makeTex(w, h);
-	_white = makeTex(1, 1);
+	_tex  = makeTex(dw, dh);
+	_texN = makeTex(nw, nh);
+	_texS = makeTex(sw, sh);
 
 	ComPtr<ID3D12CommandAllocator> al; ComPtr<ID3D12GraphicsCommandList> cl;
 	dev->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&al));
@@ -105,9 +119,9 @@ void MeshRenderer::SetTexturePixels(const vector<uint8_t>& rgba, uint32 w, uint3
 		b.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST; b.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 		b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES; cl->ResourceBarrier(1, &b);
 	};
-	const uint8_t wpx[4] = { 255,255,255,255 };
-	upload(_tex, rgba.data(), w, h);
-	upload(_white, wpx, 1, 1);
+	upload(_tex,  dpx, dw, dh);
+	upload(_texN, npx, nw, nh);
+	upload(_texS, spx, sw, sh);
 	cl->Close();
 	ID3D12CommandList* lists[] = { cl.Get() };
 	_dev->_queue->ExecuteCommandLists(1, lists);
@@ -118,7 +132,7 @@ void MeshRenderer::SetTexturePixels(const vector<uint8_t>& rgba, uint32 w, uint3
 	if (fence->GetCompletedValue() < 1) { fence->SetEventOnCompletion(1, ev); WaitForSingleObject(ev, INFINITE); }
 	CloseHandle(ev);
 
-	// 3-SRV 힙 (디퓨즈 / 노멀(흰) / 스펙(흰)) — 메인 셰이더 테이블 t2/t3/t4 레이아웃
+	// 3-SRV 힙 (디퓨즈 / 노멀 / 스펙) — 메인 셰이더 테이블 t2/t3/t4 레이아웃
 	D3D12_DESCRIPTOR_HEAP_DESC hd{}; hd.NumDescriptors = 3; hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	hd.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	ThrowIfFailed(dev->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&_srvHeap)), "MeshRenderer srv heap");
@@ -126,9 +140,9 @@ void MeshRenderer::SetTexturePixels(const vector<uint8_t>& rgba, uint32 w, uint3
 	D3D12_SHADER_RESOURCE_VIEW_DESC sd{}; sd.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	sd.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D; sd.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING; sd.Texture2D.MipLevels = 1;
 	D3D12_CPU_DESCRIPTOR_HANDLE hcpu = _srvHeap->GetCPUDescriptorHandleForHeapStart();
-	dev->CreateShaderResourceView(_tex.Get(), &sd, hcpu);   hcpu.ptr += _srvInc;
-	dev->CreateShaderResourceView(_white.Get(), &sd, hcpu); hcpu.ptr += _srvInc;
-	dev->CreateShaderResourceView(_white.Get(), &sd, hcpu);
+	dev->CreateShaderResourceView(_tex.Get(),  &sd, hcpu); hcpu.ptr += _srvInc;
+	dev->CreateShaderResourceView(_texN.Get(), &sd, hcpu); hcpu.ptr += _srvInc;
+	dev->CreateShaderResourceView(_texS.Get(), &sd, hcpu);
 	_hasTex = true;
 }
 
@@ -162,15 +176,22 @@ void MeshRenderer::Rebake()
 	memcpy(_vbMapped, _world.data(), _world.size() * sizeof(Vtx));
 }
 
-// 머티리얼 디퓨즈 텍스처 경로가 바뀌면 자동으로 SRV 재로드 (인스펙터 편집/씬 로드 반영)
+// 머티리얼의 diffuse/normal/spec 경로가 바뀌면 3종 텍스처를 한 번에 재로드 (인스펙터 편집/씬 로드 반영)
 void MeshRenderer::SyncMaterialTex()
 {
-	if (_material->_diffuseTex == _loadedTexPath) return;
+	if (_material->_diffuseTex == _loadedTexPath
+		&& _material->_normalTex == _loadedNormalPath
+		&& _material->_specTex == _loadedSpecPath) return;
 	_loadedTexPath = _material->_diffuseTex; // 실패해도 갱신(재시도 폭주 방지)
-	if (!_material->_diffuseTex.empty())
-		SetTexture(_material->_diffuseTex);
-	else
-		_hasTex = false; // 경로 비우면 정점색으로 복귀
+	_loadedNormalPath = _material->_normalTex;
+	_loadedSpecPath = _material->_specTex;
+	if (_material->_diffuseTex.empty()) { _hasTex = false; return; } // 디퓨즈 없으면 정점색으로 복귀
+
+	vector<uint8_t> d, n, s; uint32 dw = 0, dh = 0, nw = 0, nh = 0, sw = 0, sh = 0;
+	if (!LoadImageRGBA(_material->_diffuseTex, d, dw, dh) || !dw) { _hasTex = false; return; }
+	bool hasN = !_material->_normalTex.empty() && LoadImageRGBA(_material->_normalTex, n, nw, nh) && nw;
+	bool hasS = !_material->_specTex.empty() && LoadImageRGBA(_material->_specTex, s, sw, sh) && sw;
+	BuildSrvHeap3(d.data(), dw, dh, hasN ? n.data() : nullptr, nw, nh, hasS ? s.data() : nullptr, sw, sh);
 }
 
 void MeshRenderer::OnInspectorGUI()

@@ -40,7 +40,11 @@ public:
 
 private:
 	void Rebake();         // 트랜스폼/머티리얼 변경 시에만 월드 정점 재생성
-	void SyncMaterialTex(); // _material._diffuseTex 경로 변경 시 자동 SRV 로드
+	void SyncMaterialTex(); // _material 의 diffuse/normal/spec 경로 변경 시 자동 SRV 재로드
+	// 디퓨즈/노멀/스펙 RGBA → 3-SRV 힙 (t2/t3/t4). npx/spx=null 이면 평평노멀/흰색 폴백.
+	void BuildSrvHeap3(const uint8_t* dpx, uint32 dw, uint32 dh,
+	                   const uint8_t* npx, uint32 nw, uint32 nh,
+	                   const uint8_t* spx, uint32 sw, uint32 sh);
 
 	D3D12Device*             _dev = nullptr;
 	shared_ptr<Material>     _material = make_shared<Material>(); // 공유 가능(.mat 자산)
@@ -57,11 +61,11 @@ private:
 	D3D12_INDEX_BUFFER_VIEW  _ibv{};
 
 	// 텍스처 (슬롯당 디퓨즈/노멀/스펙 3 SRV — 메인 셰이더 t2/t3/t4 와 동일 레이아웃)
-	ComPtr<ID3D12Resource>       _tex, _white;
+	ComPtr<ID3D12Resource>       _tex, _texN, _texS;
 	ComPtr<ID3D12DescriptorHeap> _srvHeap;
 	UINT                         _srvInc = 0;
 	bool                         _hasTex = false;
-	std::wstring                 _loadedTexPath; // 현재 SRV 에 올라간 경로 (변경 감지)
+	std::wstring                 _loadedTexPath, _loadedNormalPath, _loadedSpecPath; // 현재 SRV 경로 (변경 감지)
 	char                         _texPathBuf[260] = {}; // 인스펙터 입력 버퍼
 	MeshPrim                     _prim = MeshPrim::None; // 절차적 프리미티브 종류
 	ComPtr<ID3D12Resource>       _blas, _blasScratch;   // RT 통합 TLAS 인스턴스용

@@ -48,6 +48,29 @@ void D3D12Device::DrawInspector()
 		return;
 	}
 
+	// 선택 엔티티 색상 헤더 (계층 태그 색과 일치 — 무엇을 편집 중인지 즉시 인지)
+	{
+		struct H { const char* name; ImVec4 col; };
+		H h{ "Settings", ImVec4(0.70f,0.70f,0.75f,1) };
+		switch (_sel)
+		{
+		case SelEntity::Camera: h = { "Editor Camera",     ImVec4(0.40f,0.78f,0.92f,1) }; break;
+		case SelEntity::Sun:    h = { "Directional Light", ImVec4(0.96f,0.80f,0.32f,1) }; break;
+		case SelEntity::DDGI:   h = { "DDGI Volume",        ImVec4(0.66f,0.52f,0.86f,1) }; break;
+		case SelEntity::Point:  h = { "Point Light",        ImVec4(0.95f,0.62f,0.32f,1) }; break;
+		case SelEntity::Spot:   h = { "Spot Light",         ImVec4(0.52f,0.70f,1.00f,1) }; break;
+		case SelEntity::Post:   h = { "Post / Render",      ImVec4(0.42f,0.82f,0.70f,1) }; break;
+		case SelEntity::Model:  h = { "Model",              ImVec4(0.58f,0.68f,0.82f,1) }; break;
+		case SelEntity::Floor:  h = { "Floor / Ground",     ImVec4(0.74f,0.58f,0.36f,1) }; break;
+		}
+		ImDrawList* dl = ImGui::GetWindowDrawList();
+		ImVec2 p = ImGui::GetCursorScreenPos();
+		float fh = ImGui::GetTextLineHeight();
+		dl->AddRectFilled(p, ImVec2(p.x + 4, p.y + fh), ImGui::GetColorU32(h.col), 2.f); // 좌측 색 바
+		ImGui::Indent(10.0f); ImGui::TextColored(h.col, "%s", h.name); ImGui::Unindent(10.0f);
+		ImGui::Separator();
+	}
+
 	// 하이어라키 선택 대상별 프로퍼티 (고정 엔티티)
 	switch (_sel)
 	{

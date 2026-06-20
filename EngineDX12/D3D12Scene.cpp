@@ -143,6 +143,7 @@ void ModelScene::CreateCubeGeometry()
 
 	_vertexCount = (UINT)_cpuVerts.size();
 	_indexCount = (UINT)indices.size();
+	_cpuIndices = indices; // RT 집계 페치용 CPU 미러 (모델+바닥, 정적)
 	const size_t vbSize = _cpuVerts.size() * sizeof(Vtx);
 	const size_t ibSize = indices.size() * sizeof(uint32_t);
 

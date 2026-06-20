@@ -15,6 +15,36 @@
 
 using namespace DirectX;
 
+// RT 집계 지오메트리 — TLAS 인스턴스 순서대로 (월드정점, 인덱스) 를 한 버퍼로 모으고
+// 인스턴스별 {vbBase, ibBase} 를 _rtMeta 에 기록. gather 셰이더가 InstanceID 로 자기 지오메트리 페치.
+void D3D12Device::BuildRtGeometry(const std::vector<std::pair<const std::vector<Vtx>*, const std::vector<uint32>*>>& geom)
+{
+	uint32 totV = 0, totI = 0;
+	for (auto& g : geom) { totV += (uint32)g.first->size(); totI += (uint32)g.second->size(); }
+	if (totV == 0 || totI == 0) return;
+	auto ensure = [&](ComPtr<ID3D12Resource>& buf, void*& mapped, UINT& cap, UINT need)
+	{
+		if (buf && cap >= need) return;
+		UINT n = max(need, cap ? cap * 2 : need);
+		buf = CreateUploadBuffer(nullptr, n);
+		D3D12_RANGE nr{ 0, 0 }; buf->Map(0, &nr, &mapped);
+		cap = n;
+	};
+	ensure(_rtVB, _rtVBMapped, _rtVBCap, totV * (UINT)sizeof(Vtx));
+	ensure(_rtIB, _rtIBMapped, _rtIBCap, totI * (UINT)sizeof(uint32));
+	ensure(_rtMeta, _rtMetaMapped, _rtMetaCap, (UINT)geom.size() * 2 * (UINT)sizeof(uint32));
+	Vtx* vdst = (Vtx*)_rtVBMapped; uint32* idst = (uint32*)_rtIBMapped; uint32* mdst = (uint32*)_rtMetaMapped;
+	uint32 vbBase = 0, ibBase = 0;
+	for (size_t k = 0; k < geom.size(); ++k)
+	{
+		const auto& V = *geom[k].first; const auto& I = *geom[k].second;
+		mdst[k * 2 + 0] = vbBase; mdst[k * 2 + 1] = ibBase;
+		if (!V.empty()) memcpy(vdst + vbBase, V.data(), V.size() * sizeof(Vtx));
+		if (!I.empty()) memcpy(idst + ibBase, I.data(), I.size() * sizeof(uint32));
+		vbBase += (uint32)V.size(); ibBase += (uint32)I.size();
+	}
+}
+
 // ───────────────────────────────────────────────────────────
 // 프레임 렌더 루프 — 입력 → 스키닝 → AS 재빌드 → DDGI 디스패치 → 라스터(모델/바닥) → Present
 // (D3D12Device.cpp 에서 분리)
@@ -202,54 +232,51 @@ void D3D12Device::Render()
 	ThrowIfFailed(_cmdList->Reset(alloc.Get(), nullptr), "CmdList Reset");
 
 	// ── RT 가속구조: 모든 렌더러 BLAS + 통합 TLAS (모델/바닥 + 스폰 메시 + 애니) ──
+	// 인스턴스별 지오메트리 페치(per-instance geometry) — 각 인스턴스가 자기 월드 정점/인덱스를 가지므로
+	// 더 이상 전역 모델 VB 와 인덱스 수가 맞을 필요 없음(OOB 가드 제거). geomList 는 rtInst 와 동순서.
 	{
 		std::vector<D3D12_RAYTRACING_INSTANCE_DESC> rtInst;
-		_scene.RecordBuildModelBLAS(_cmdList.Get()); // 모델+바닥 BLAS
-		rtInst.push_back(RtBlas::IdentityInstance(_scene._blas->GetGPUVirtualAddress()));
+		std::vector<std::pair<const std::vector<Vtx>*, const std::vector<uint32>*>> geomList;
+		auto addInst = [&](D3D12_GPU_VIRTUAL_ADDRESS blas, const std::vector<Vtx>* v, const std::vector<uint32>* i)
+		{
+			auto d = RtBlas::IdentityInstance(blas);
+			d.InstanceID = (UINT)rtInst.size(); // gather 셰이더가 이 ID 로 geomList 메타 조회
+			rtInst.push_back(d); geomList.push_back({ v, i });
+		};
+		_scene.RecordBuildModelBLAS(_cmdList.Get()); // 모델+바닥 BLAS (인스턴스 0)
+		addInst(_scene._blas->GetGPUVirtualAddress(), &_scene._cpuVerts, &_scene._cpuIndices);
 		if (_gameScene)
 			for (auto& kv : _gameScene->GetCreatedObjects())
 			{
 				auto& o = kv.second;
 				if (!o || !o->IsActive() || o == _modelObj) continue;
 				if (rtInst.size() >= ModelScene::MAX_INSTANCES) break;
-				// 터레인은 TLAS 제외: RT 셰이더가 단일 글로벌 모델 VB/IB 로 히트 지오메트리를 페치해
-				// 대용량(수만 삼각형) 터레인 히트 시 프리미티브 인덱스가 범위를 크게 벗어나 GPU OOB → 디바이스 제거.
-				// (래스터 패스는 정상 렌더 — 디퍼드 라이팅 받음. RT 그림자/GI 표면에서만 빠짐.)
+				// 터레인은 여전히 RT 제외(수만 삼각형 — 매 프레임 집계 비용/메모리). 래스터는 정상.
 				if (o->GetTerrain()) continue;
-				// 방어 가드: RT 히트 셰이더가 글로벌 모델 VB/IB(_scene._vb/_ib)로 어트리뷰트를 페치하므로,
-				// 글로벌 IB 보다 인덱스가 많은 메시가 TLAS 에 들어가면 프리미티브 인덱스 OOB → GPU 하드행/동결.
-				// (예: 터레인을 일반 MeshRenderer 로 복제한 사본 9만 삼각형). 그런 대용량 메시는 TLAS 에서 제외.
 				if (auto mr = o->GetMeshRenderer())
 				{
-					if (mr->GetLocalIndices().size() > _scene._modelIndexCount) continue; // OOB 방지(래스터는 정상)
 					mr->UpdateWorld(); mr->RecordBuildBLAS(_cmdList.Get());
-					if (mr->BlasAddr()) rtInst.push_back(RtBlas::IdentityInstance(mr->BlasAddr()));
+					if (mr->BlasAddr()) addInst(mr->BlasAddr(), &mr->GetWorldVerts(), &mr->GetLocalIndices());
 				}
 				else if (auto an = o->GetModelAnimator())
 				{
-					if (an->IndexCount() > _scene._modelIndexCount) continue;
 					an->UpdateWorld(); an->RecordBuildBLAS(_cmdList.Get());
-					if (an->BlasAddr()) rtInst.push_back(RtBlas::IdentityInstance(an->BlasAddr()));
+					if (an->BlasAddr()) addInst(an->BlasAddr(), &an->GetWorldVerts(), &an->GetIndices());
 				}
 			}
+		BuildRtGeometry(geomList); // 집계 정점/인덱스/메타 채움 (rtInst 동순서)
 		// 모든 BLAS 빌드 완료 후 UAV 배리어(전체) → 통합 TLAS
 		D3D12_RESOURCE_BARRIER uav{}; uav.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV; uav.UAV.pResource = nullptr;
 		_cmdList->ResourceBarrier(1, &uav);
 		_scene.BuildTLAS(_cmdList.Get(), rtInst);
 	}
 
-	// RT 인스턴스 메타 {vbBase, ibBase} — Step1: 전부 {0,0}(모델 지오메트리). InstanceID 미설정이라 전부 [0] 참조 → 현행 동일.
-	if (!_rtMeta)
-	{
-		_rtMetaCap = ModelScene::MAX_INSTANCES;
-		std::vector<uint32> zeros(_rtMetaCap * 2, 0u);
-		_rtMeta = CreateUploadBuffer(zeros.data(), zeros.size() * sizeof(uint32));
-	}
-
-	// ── DDGI: 프로브 irradiance 갱신 (컴퓨트 RT) — 라스터 전에 ──
+	// ── DDGI: 프로브 irradiance 갱신 (컴퓨트 RT) — 집계 VB/IB + 인스턴스 메타로 per-instance 페치 ──
 	_ddgi.Dispatch(_cmdList.Get(), _cb[_frameIndex]->GetGPUVirtualAddress(),
-	               _scene._tlas->GetGPUVirtualAddress(), _scene._vb->GetGPUVirtualAddress(), _scene._ib->GetGPUVirtualAddress(),
-	               _rtMeta->GetGPUVirtualAddress());
+	               _scene._tlas->GetGPUVirtualAddress(),
+	               (_rtVB ? _rtVB->GetGPUVirtualAddress() : _scene._vb->GetGPUVirtualAddress()),
+	               (_rtIB ? _rtIB->GetGPUVirtualAddress() : _scene._ib->GetGPUVirtualAddress()),
+	               (_rtMeta ? _rtMeta->GetGPUVirtualAddress() : _scene._vb->GetGPUVirtualAddress()));
 
 	// ── 씬 3D → 오프스크린 RT (Scene 도킹 탭 이미지) ──
 	Transition(_sceneRT.Get(), _sceneRTState, D3D12_RESOURCE_STATE_RENDER_TARGET);

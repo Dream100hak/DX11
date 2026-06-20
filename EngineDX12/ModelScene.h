@@ -40,6 +40,7 @@ public:
 	uint32                            _modelVtxCount = 0;
 	uint32                            _modelIndexCount = 0;  // 모델 인덱스 수(바닥 제외)
 	std::vector<Vtx>                  _cpuVerts;             // 합본(모델+바닥) CPU 미러
+	std::vector<uint32>               _cpuIndices;           // 합본(모델+바닥) 인덱스 CPU 미러 (RT 집계 페치용)
 
 	// ── 가속구조 (BLAS/TLAS) ──
 	ComPtr<ID3D12Resource>            _blas, _blasScratch, _tlas, _tlasScratch, _instanceBuffer;

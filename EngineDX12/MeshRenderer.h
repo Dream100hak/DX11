@@ -35,6 +35,7 @@ public:
 	void SetMaterialRef(shared_ptr<Material> m) { if (m) { _material = m; _baked = false; } } // 공유 머티리얼 지정
 	const vector<Vtx>&    GetLocalVerts() const { return _local; }   // 복제용
 	const vector<uint32>& GetLocalIndices() const { return _indices; }
+	const vector<Vtx>&    GetWorldVerts() const { return _world; }   // RT 집계 페치용 (월드 베이크)
 	void     SetPrim(MeshPrim p) { _prim = p; } // 직렬화/재생성용 프리미티브 종류
 	MeshPrim GetPrim() const { return _prim; }
 

@@ -249,8 +249,12 @@ private:
 
 	// Phase 3 — DDGI 프로브 볼륨 (Ddgi 클래스가 프로브 버퍼 + 컴퓨트 GI 디스패치 소유)
 	Ddgi                              _ddgi;
-	// RT 인스턴스별 지오메트리 메타 {vbBase, ibBase} (gather 셰이더 t3) — 집계 버퍼 페치용
-	ComPtr<ID3D12Resource>            _rtMeta; void* _rtMetaMapped = nullptr; UINT _rtMetaCap = 0;
+	// RT 집계 지오메트리 — 모든 TLAS 인스턴스의 월드 정점/인덱스를 한 버퍼로 모아
+	// gather 셰이더가 InstanceID+{vbBase,ibBase}(t3 _rtMeta)로 자기 인스턴스 지오메트리를 페치.
+	ComPtr<ID3D12Resource>            _rtVB; void* _rtVBMapped = nullptr; UINT _rtVBCap = 0;     // 정점(Vtx)
+	ComPtr<ID3D12Resource>            _rtIB; void* _rtIBMapped = nullptr; UINT _rtIBCap = 0;     // 인덱스(uint32)
+	ComPtr<ID3D12Resource>            _rtMeta; void* _rtMetaMapped = nullptr; UINT _rtMetaCap = 0; // {vbBase,ibBase}×인스턴스
+	void                              BuildRtGeometry(const std::vector<std::pair<const std::vector<Vtx>*, const std::vector<uint32>*>>& geom); // 집계 버퍼 채움
 
 	D3D12_RAYTRACING_TIER             _dxrTier = D3D12_RAYTRACING_TIER_NOT_SUPPORTED;
 	std::wstring                      _adapterName;

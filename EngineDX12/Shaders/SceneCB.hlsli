@@ -37,4 +37,12 @@ cbuffer SceneCB : register(b0)
     float4 gFog2;       // x 높이안개 시작Y, y 낙폭, z on(0/1), w _ — 높이 기반 안개
     float4 gDecalArr[8];    // xyz 위치, w 반경(0=off) — 다중 데칼(상향 투영)
     float4 gDecalColArr[8]; // rgb 색, w on
+    float4 gEnvSH[4];       // IBL 환경 SH-L1 (rgb 계수 ×4). [0].w = IBL 강도(0=off)
 };
+
+// IBL 환경 이라디언스 (SH-L1 — 큐브맵 베이크 계수). DDGI EvalIrradiance 와 동일 규약.
+float3 EvalEnvIrradiance(float3 N)
+{
+    return max(0.0, 0.886227 * gEnvSH[0].rgb
+        + 1.023328 * (gEnvSH[1].rgb * N.x + gEnvSH[2].rgb * N.y + gEnvSH[3].rgb * N.z));
+}

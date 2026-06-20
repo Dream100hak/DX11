@@ -114,7 +114,10 @@ void D3D12Device::DrawInspector()
 		ImGui::SliderFloat("Shadow Softness", &_shadowSoft, 0.0f, 0.12f); // T11
 		ImGui::Checkbox("Time of Day", &_todOn);                          // V4
 		if (_todOn) ImGui::SliderFloat("Hour", &_timeOfDay, 0.0f, 1.0f);
-		ImGui::SeparatorText("Sky");                                    // T20
+		ImGui::SeparatorText("Sky / IBL");                              // T20
+		ImGui::Checkbox("IBL (env cubemap)", &_iblOn);
+		HelpMarker("큐브맵을 SH 로 베이크한 이미지 기반 앰비언트 — PBR 머티리얼이 환경색을 받아 제대로 보입니다.\n반사 미스도 환경색으로 폴백. 데저트 큐브맵 기준.");
+		if (_iblOn) ImGui::SliderFloat("IBL Intensity", &_iblIntensity, 0.0f, 3.0f);
 		ImGui::ColorEdit3("Zenith", &_skyZenith.x);
 		ImGui::ColorEdit3("Horizon", &_skyHorizon.x);
 		ImGui::SliderFloat("Sun Size", &_sunSize, 50.0f, 4000.0f);

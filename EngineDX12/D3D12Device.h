@@ -54,6 +54,7 @@ struct SceneCB
 	DirectX::XMFLOAT4   fog2;       // 높이 안개 (시작Y/낙폭/on)
 	DirectX::XMFLOAT4   decalArr[8];
 	DirectX::XMFLOAT4   decalColArr[8];
+	DirectX::XMFLOAT4   envSH[4];   // IBL 환경 SH-L1 (rgb×4). [0].w=강도(0=off)
 };
 
 // ───────────────────────────────────────────────────────────
@@ -148,6 +149,10 @@ private:
 	ComPtr<ID3D12DescriptorHeap>      _skyCubeHeap; // t2~t4 테이블용(큐브 SRV)
 	bool                              _skyCubemapOn = false;
 	bool                              LoadSkyCubemap(const std::wstring& ddsPath); // DDS 큐브맵 로드 + SRV
+	// IBL — 큐브맵을 SH-L1 로 베이크(로드 시 1회) → cb 로 전달, 셰이더가 이미지기반 앰비언트/반사미스 평가
+	DirectX::XMFLOAT4                 _envSH[4]{};
+	bool                              _iblOn = true;
+	float                             _iblIntensity = 1.0f;
 	ComPtr<ID3D12PipelineState>       _gridPSO;    // 무한 씬 그리드
 	ComPtr<ID3D12PipelineState>       _outlinePSO; // 선택 아웃라인(인버티드 헐)
 	ComPtr<ID3D12PipelineState>       _wirePSO;    // 와이어프레임 토글

@@ -473,6 +473,54 @@ bool D3D12Device::LoadSkyCubemap(const std::wstring& ddsPath)
 	if (meta.arraySize < 6) { Log("SkyCubemap: not a cubemap (arraySize<6)"); return false; }
 	const UINT mips = (UINT)meta.mipLevels;
 
+	// ── IBL: 큐브맵을 SH-L1 로 투영 (CPU, 1회). 각 면 mip0 을 RGBA32F 로 변환 후 스트라이드 샘플. ──
+	{
+		double sh[4][3] = {}; double wsum = 0.0;
+		for (UINT face = 0; face < 6; ++face)
+		{
+			const Image* src = scratch.GetImage(0, face, 0); if (!src) continue;
+			ScratchImage conv; const Image* img = src;
+			if (meta.format != DXGI_FORMAT_R32G32B32A32_FLOAT)
+			{
+				HRESULT hr = IsCompressed(meta.format)
+					? Decompress(*src, DXGI_FORMAT_R32G32B32A32_FLOAT, conv)
+					: Convert(*src, DXGI_FORMAT_R32G32B32A32_FLOAT, TEX_FILTER_DEFAULT, TEX_THRESHOLD_DEFAULT, conv);
+				if (FAILED(hr)) continue;
+				img = conv.GetImage(0, 0, 0); if (!img) continue;
+			}
+			const UINT W = (UINT)img->width, H = (UINT)img->height;
+			const UINT step = max(1u, W / 64u); // ~64² 샘플/면
+			for (UINT y = 0; y < H; y += step)
+			{
+				const float* row = (const float*)(img->pixels + (size_t)y * img->rowPitch);
+				for (UINT x = 0; x < W; x += step)
+				{
+					float uc = 2.f * ((x + 0.5f) / W) - 1.f, vc = 2.f * ((y + 0.5f) / H) - 1.f;
+					DirectX::XMFLOAT3 d;
+					switch (face) {
+					case 0: d = {  1.f, -vc, -uc }; break; case 1: d = { -1.f, -vc,  uc }; break;
+					case 2: d = {  uc,  1.f,  vc }; break; case 3: d = {  uc, -1.f, -vc }; break;
+					case 4: d = {  uc, -vc,  1.f }; break; default: d = { -uc, -vc, -1.f }; break;
+					}
+					float il = 1.f / sqrtf(d.x * d.x + d.y * d.y + d.z * d.z); d.x *= il; d.y *= il; d.z *= il;
+					double w = 1.0 / powf(uc * uc + vc * vc + 1.f, 1.5f); // 텍셀 입체각 가중
+					const float* px = row + (size_t)x * 4;
+					double r = px[0], g = px[1], b = px[2];
+					double Y0 = 0.282095, Y1 = 0.488603;
+					sh[0][0] += r * Y0 * w; sh[0][1] += g * Y0 * w; sh[0][2] += b * Y0 * w;
+					sh[1][0] += r * Y1 * d.x * w; sh[1][1] += g * Y1 * d.x * w; sh[1][2] += b * Y1 * d.x * w;
+					sh[2][0] += r * Y1 * d.y * w; sh[2][1] += g * Y1 * d.y * w; sh[2][2] += b * Y1 * d.y * w;
+					sh[3][0] += r * Y1 * d.z * w; sh[3][1] += g * Y1 * d.z * w; sh[3][2] += b * Y1 * d.z * w;
+					wsum += w;
+				}
+			}
+		}
+		double norm = (wsum > 1e-6) ? (4.0 * 3.14159265358979 / wsum) : 0.0; // 구면 적분 정규화
+		for (int k = 0; k < 4; ++k)
+			_envSH[k] = DirectX::XMFLOAT4((float)(sh[k][0] * norm), (float)(sh[k][1] * norm), (float)(sh[k][2] * norm), 0.f);
+		Log("SkyCubemap: IBL SH-L1 baked");
+	}
+
 	D3D12_HEAP_PROPERTIES hpD{}; hpD.Type = D3D12_HEAP_TYPE_DEFAULT;
 	D3D12_RESOURCE_DESC td{};
 	td.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;

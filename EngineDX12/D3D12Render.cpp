@@ -247,6 +247,9 @@ void D3D12Device::Render()
 		cb.decalArr[i]    = on ? XMFLOAT4(_decals[i].pos.x, _decals[i].pos.y, _decals[i].pos.z, _decals[i].radius) : XMFLOAT4(0,0,0,0);
 		cb.decalColArr[i] = on ? XMFLOAT4(_decals[i].color.x, _decals[i].color.y, _decals[i].color.z, 1.f) : XMFLOAT4(0,0,0,0);
 	}
+	// IBL 환경 SH (베이크 계수) — [0].w 에 강도(0=off)
+	for (int k = 0; k < 4; ++k) cb.envSH[k] = _envSH[k];
+	cb.envSH[0].w = (_iblOn && _skyCube) ? _iblIntensity : 0.f;
 	memcpy(_cbMapped[_frameIndex], &cb, sizeof(cb));
 	_cbCache = cb; // 게임 뷰 패스 베이스(카메라 필드만 교체)
 

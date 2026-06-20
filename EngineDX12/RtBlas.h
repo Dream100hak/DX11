@@ -18,10 +18,12 @@ namespace RtBlas
 		return b;
 	}
 
-	// 월드 VB/IB 로 BLAS 빌드 (없으면 사이즈 산정 후 생성). 매 프레임 재빌드(동적 지오메트리).
+	// 월드 VB/IB 로 BLAS 빌드. 동적 지오메트리(스키닝)는 allowUpdate=true 로 첫 프레임만 풀 빌드,
+	// 이후 매 프레임 in-place refit(PERFORM_UPDATE) — 풀 리빌드보다 수배 저렴. built 는 초기빌드 여부 추적.
 	inline void Build(ID3D12Device5* dev, ID3D12GraphicsCommandList4* cmd,
 	                  ID3D12Resource* vb, ID3D12Resource* ib, UINT vcount, UINT icount, UINT stride,
-	                  ComPtr<ID3D12Resource>& blas, ComPtr<ID3D12Resource>& scratch)
+	                  ComPtr<ID3D12Resource>& blas, ComPtr<ID3D12Resource>& scratch,
+	                  bool& built, bool allowUpdate = false)
 	{
 		if (!vb || !ib || vcount == 0 || icount == 0) return;
 
@@ -36,10 +38,14 @@ namespace RtBlas
 		geom.Triangles.IndexCount = icount;
 		geom.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;
 
+		const bool doUpdate = allowUpdate && built && blas;
+
 		D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS in{};
 		in.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
 		in.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
 		in.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
+		if (allowUpdate) in.Flags |= D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_ALLOW_UPDATE;
+		if (doUpdate)    in.Flags |= D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PERFORM_UPDATE;
 		in.NumDescs = 1;
 		in.pGeometryDescs = &geom;
 
@@ -48,14 +54,18 @@ namespace RtBlas
 			D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO info{};
 			dev->GetRaytracingAccelerationStructurePrebuildInfo(&in, &info);
 			blas    = MakeASBuffer(dev, info.ResultDataMaxSizeInBytes, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE);
-			scratch = MakeASBuffer(dev, info.ScratchDataSizeInBytes, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+			// 스크래치는 빌드/업데이트 중 큰 쪽 (업데이트 스크래치는 보통 더 작음)
+			UINT64 scr = max(info.ScratchDataSizeInBytes, info.UpdateScratchDataSizeInBytes);
+			scratch = MakeASBuffer(dev, scr, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 		}
 
 		D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC build{};
 		build.Inputs = in;
 		build.DestAccelerationStructureData = blas->GetGPUVirtualAddress();
 		build.ScratchAccelerationStructureData = scratch->GetGPUVirtualAddress();
+		if (doUpdate) build.SourceAccelerationStructureData = blas->GetGPUVirtualAddress(); // in-place refit
 		cmd->BuildRaytracingAccelerationStructure(&build, 0, nullptr);
+		built = true;
 	}
 
 	// 단위행렬 인스턴스 desc (월드 베이크 지오메트리 — 변환은 이미 정점에 적용됨)

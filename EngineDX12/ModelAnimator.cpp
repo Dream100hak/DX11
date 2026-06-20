@@ -581,8 +581,9 @@ void ModelAnimator::RecordBuildBLAS(ID3D12GraphicsCommandList4* cmd)
 {
 	if (!_dev || _vtxCount == 0) return;
 	if (_blas && !_blasDirty) return; // 변경 없으면 기존 BLAS 유지
+	// 스키닝은 매 프레임 변형 → allowUpdate: 첫 프레임 풀빌드, 이후 in-place refit (풀빌드보다 수배 저렴)
 	RtBlas::Build(_dev->_device.Get(), cmd, _vb.Get(), _ib.Get(),
-	              _vtxCount, _idxCount, sizeof(Vtx), _blas, _blasScratch);
+	              _vtxCount, _idxCount, sizeof(Vtx), _blas, _blasScratch, _blasBuilt, true);
 	_blasDirty = false;
 }
 

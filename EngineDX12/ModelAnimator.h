@@ -182,6 +182,7 @@ private:
 
 	ComPtr<ID3D12Resource>              _blas, _blasScratch; // RT 통합 TLAS 인스턴스용
 	bool                                _blasDirty = true;   // 스키닝 변경 시에만 BLAS 재빌드
+	bool                                _blasBuilt = false;  // 초기 풀빌드 완료(이후 refit)
 	uint32                              _bakedVer = 0;       // 트랜스폼 더티 체크
 	bool                                _skinnedOnce = false;
 };

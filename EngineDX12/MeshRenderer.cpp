@@ -303,7 +303,7 @@ void MeshRenderer::RecordBuildBLAS(ID3D12GraphicsCommandList4* cmd)
 	if (!_dev || _local.empty()) return;
 	if (_blas && !_blasDirty) return; // 정적: 기존 BLAS 유지 (재빌드 생략)
 	RtBlas::Build(_dev->_device.Get(), cmd, _vb.Get(), _ib.Get(),
-	              (UINT)_local.size(), (UINT)_indices.size(), sizeof(Vtx), _blas, _blasScratch);
+	              (UINT)_local.size(), (UINT)_indices.size(), sizeof(Vtx), _blas, _blasScratch, _blasBuilt, false);
 	_blasDirty = false;
 }
 

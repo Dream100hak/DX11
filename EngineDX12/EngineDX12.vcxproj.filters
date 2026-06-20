@@ -1,248 +1,155 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Source Files">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx</Extensions>
+    <Filter Include="App">
+      <UniqueIdentifier>{a1b2c3d4-0010-4002-8003-00040005e010}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx</Extensions>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="Common.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="D3D12Device.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="MeshLoader.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="TextureLoader.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="ImGuiDx12.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="DebugDraw.h">
-      <Filter>Subsystems</Filter>
-    </ClInclude>
-    <ClInclude Include="Thumbnail.h">
-      <Filter>Subsystems</Filter>
-    </ClInclude>
-    <ClInclude Include="Ddgi.h">
-      <Filter>Subsystems</Filter>
-    </ClInclude>
-    <ClInclude Include="PostFX.h">
-      <Filter>Subsystems</Filter>
-    </ClInclude>
-    <ClInclude Include="FlyCamera.h">
-      <Filter>Subsystems</Filter>
-    </ClInclude>
-    <ClInclude Include="ModelScene.h">
-      <Filter>Subsystems</Filter>
-    </ClInclude>
-    <ClInclude Include="EditorWindow.h">
-      <Filter>Editor</Filter>
-    </ClInclude>
-    <ClInclude Include="EditorWindows.h">
-      <Filter>Editor</Filter>
-    </ClInclude>
-    <ClInclude Include="EditorManager.h">
-      <Filter>Editor</Filter>
-    </ClInclude>
-    <ClInclude Include="Define.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="Component.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="Transform.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="GameObject.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="Scene.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="SceneManager.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="Renderer.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="ModelRenderer.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="Camera.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="MeshRenderer.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="Collider.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="ParticleSystem.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="Scripts.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="ModelAnimator.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="SkyRenderer.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="GridRenderer.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="Light.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="Terrain.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="TimeManager.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="InputManager.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="ResourceManager.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="ImGuiManager.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="MonoBehaviour.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="Material.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="Mesh.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="GeometryHelper.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="Frustum.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="RenderContext.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <Filter Include="ImGui">
-      <UniqueIdentifier>{a1b2c3d4-0001-4002-8003-00040005e006}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Subsystems">
-      <UniqueIdentifier>{a1b2c3d4-0002-4002-8003-00040005e007}</UniqueIdentifier>
+    <Filter Include="Device &amp; Render">
+      <UniqueIdentifier>{a1b2c3d4-0011-4002-8003-00040005e011}</UniqueIdentifier>
     </Filter>
     <Filter Include="Editor">
-      <UniqueIdentifier>{a1b2c3d4-0003-4002-8003-00040005e008}</UniqueIdentifier>
+      <UniqueIdentifier>{a1b2c3d4-0012-4002-8003-00040005e012}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Core">
-      <UniqueIdentifier>{a1b2c3d4-0004-4002-8003-00040005e009}</UniqueIdentifier>
+    <Filter Include="Scene Graph">
+      <UniqueIdentifier>{a1b2c3d4-0013-4002-8003-00040005e013}</UniqueIdentifier>
     </Filter>
-    <ClCompile Include="Component.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="Transform.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="GameObject.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="Scene.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="Renderer.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="ModelRenderer.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="ModelAnimator.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="MeshRenderer.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="Camera.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="Frustum.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="Mesh.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="SkyRenderer.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="GridRenderer.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="EditorManager.cpp">
-      <Filter>Editor</Filter>
-    </ClCompile>
-    <ClCompile Include="DebugDraw.cpp">
-      <Filter>Subsystems</Filter>
-    </ClCompile>
-    <ClCompile Include="Thumbnail.cpp">
-      <Filter>Subsystems</Filter>
-    </ClCompile>
-    <ClCompile Include="Ddgi.cpp">
-      <Filter>Subsystems</Filter>
-    </ClCompile>
-    <ClCompile Include="PostFX.cpp">
-      <Filter>Subsystems</Filter>
-    </ClCompile>
-    <ClCompile Include="FlyCamera.cpp">
-      <Filter>Subsystems</Filter>
-    </ClCompile>
-    <ClCompile Include="D3D12Device.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="D3D12Render.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="D3D12Scene.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="D3D12Editor.cpp">
-      <Filter>Editor</Filter>
-    </ClCompile>
-    <ClCompile Include="ImGuiDx12.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Engine\imgui.cpp">
-      <Filter>ImGui</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Engine\imgui_draw.cpp">
-      <Filter>ImGui</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Engine\imgui_tables.cpp">
-      <Filter>ImGui</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Engine\imgui_widgets.cpp">
-      <Filter>ImGui</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Engine\imgui_impl_win32.cpp">
-      <Filter>ImGui</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Engine\ImGuizmo.cpp">
-      <Filter>ImGui</Filter>
-    </ClCompile>
+    <Filter Include="Components">
+      <UniqueIdentifier>{a1b2c3d4-0014-4002-8003-00040005e014}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resources">
+      <UniqueIdentifier>{a1b2c3d4-0015-4002-8003-00040005e015}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Subsystems">
+      <UniqueIdentifier>{a1b2c3d4-0016-4002-8003-00040005e016}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ImGui">
+      <UniqueIdentifier>{a1b2c3d4-0017-4002-8003-00040005e017}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ThirdParty">
+      <UniqueIdentifier>{a1b2c3d4-0018-4002-8003-00040005e018}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{a1b2c3d4-0019-4002-8003-00040005e019}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <!-- App -->
+    <ClCompile Include="main.cpp"><Filter>App</Filter></ClCompile>
+    <!-- Device &amp; Render -->
+    <ClCompile Include="D3D12Device.cpp"><Filter>Device &amp; Render</Filter></ClCompile>
+    <ClCompile Include="D3D12Render.cpp"><Filter>Device &amp; Render</Filter></ClCompile>
+    <ClCompile Include="D3D12Passes.cpp"><Filter>Device &amp; Render</Filter></ClCompile>
+    <ClCompile Include="D3D12Scene.cpp"><Filter>Device &amp; Render</Filter></ClCompile>
+    <ClCompile Include="Frustum.cpp"><Filter>Device &amp; Render</Filter></ClCompile>
+    <ClCompile Include="ImGuiDx12.cpp"><Filter>Device &amp; Render</Filter></ClCompile>
+    <ClCompile Include="Ddgi.cpp"><Filter>Device &amp; Render</Filter></ClCompile>
+    <!-- Editor -->
+    <ClCompile Include="D3D12Editor.cpp"><Filter>Editor</Filter></ClCompile>
+    <ClCompile Include="D3D12Inspector.cpp"><Filter>Editor</Filter></ClCompile>
+    <ClCompile Include="D3D12Spawn.cpp"><Filter>Editor</Filter></ClCompile>
+    <ClCompile Include="D3D12Serialize.cpp"><Filter>Editor</Filter></ClCompile>
+    <ClCompile Include="EditorManager.cpp"><Filter>Editor</Filter></ClCompile>
+    <ClCompile Include="EditorUtil.cpp"><Filter>Editor</Filter></ClCompile>
+    <!-- Scene Graph -->
+    <ClCompile Include="Scene.cpp"><Filter>Scene Graph</Filter></ClCompile>
+    <ClCompile Include="GameObject.cpp"><Filter>Scene Graph</Filter></ClCompile>
+    <ClCompile Include="Transform.cpp"><Filter>Scene Graph</Filter></ClCompile>
+    <ClCompile Include="Component.cpp"><Filter>Scene Graph</Filter></ClCompile>
+    <!-- Components -->
+    <ClCompile Include="Renderer.cpp"><Filter>Components</Filter></ClCompile>
+    <ClCompile Include="MeshRenderer.cpp"><Filter>Components</Filter></ClCompile>
+    <ClCompile Include="ModelRenderer.cpp"><Filter>Components</Filter></ClCompile>
+    <ClCompile Include="ModelAnimator.cpp"><Filter>Components</Filter></ClCompile>
+    <ClCompile Include="SkyRenderer.cpp"><Filter>Components</Filter></ClCompile>
+    <ClCompile Include="GridRenderer.cpp"><Filter>Components</Filter></ClCompile>
+    <ClCompile Include="Camera.cpp"><Filter>Components</Filter></ClCompile>
+    <ClCompile Include="Terrain.cpp"><Filter>Components</Filter></ClCompile>
+    <ClCompile Include="Foliage.cpp"><Filter>Components</Filter></ClCompile>
+    <!-- Resources -->
+    <ClCompile Include="Mesh.cpp"><Filter>Resources</Filter></ClCompile>
+    <ClCompile Include="FbxConverter.cpp"><Filter>Resources</Filter></ClCompile>
+    <!-- Subsystems -->
+    <ClCompile Include="PostFX.cpp"><Filter>Subsystems</Filter></ClCompile>
+    <ClCompile Include="Thumbnail.cpp"><Filter>Subsystems</Filter></ClCompile>
+    <ClCompile Include="DebugDraw.cpp"><Filter>Subsystems</Filter></ClCompile>
+    <ClCompile Include="FlyCamera.cpp"><Filter>Subsystems</Filter></ClCompile>
+    <!-- ImGui (third-party) -->
+    <ClCompile Include="..\Engine\imgui.cpp"><Filter>ImGui</Filter></ClCompile>
+    <ClCompile Include="..\Engine\imgui_draw.cpp"><Filter>ImGui</Filter></ClCompile>
+    <ClCompile Include="..\Engine\imgui_tables.cpp"><Filter>ImGui</Filter></ClCompile>
+    <ClCompile Include="..\Engine\imgui_widgets.cpp"><Filter>ImGui</Filter></ClCompile>
+    <ClCompile Include="..\Engine\imgui_impl_win32.cpp"><Filter>ImGui</Filter></ClCompile>
+    <ClCompile Include="..\Engine\ImGuizmo.cpp"><Filter>ImGui</Filter></ClCompile>
+    <!-- ThirdParty -->
+    <ClCompile Include="..\Libraries\Include\ufbx\ufbx.c"><Filter>ThirdParty</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <!-- App -->
+    <ClInclude Include="Common.h"><Filter>App</Filter></ClInclude>
+    <ClInclude Include="Define.h"><Filter>App</Filter></ClInclude>
+    <!-- Device &amp; Render -->
+    <ClInclude Include="D3D12Device.h"><Filter>Device &amp; Render</Filter></ClInclude>
+    <ClInclude Include="ModelScene.h"><Filter>Device &amp; Render</Filter></ClInclude>
+    <ClInclude Include="RenderContext.h"><Filter>Device &amp; Render</Filter></ClInclude>
+    <ClInclude Include="Frustum.h"><Filter>Device &amp; Render</Filter></ClInclude>
+    <ClInclude Include="ImGuiDx12.h"><Filter>Device &amp; Render</Filter></ClInclude>
+    <ClInclude Include="Ddgi.h"><Filter>Device &amp; Render</Filter></ClInclude>
+    <ClInclude Include="RtBlas.h"><Filter>Device &amp; Render</Filter></ClInclude>
+    <!-- Editor -->
+    <ClInclude Include="EditorManager.h"><Filter>Editor</Filter></ClInclude>
+    <ClInclude Include="EditorWindow.h"><Filter>Editor</Filter></ClInclude>
+    <ClInclude Include="EditorWindows.h"><Filter>Editor</Filter></ClInclude>
+    <ClInclude Include="EditorUtil.h"><Filter>Editor</Filter></ClInclude>
+    <ClInclude Include="ImGuiManager.h"><Filter>Editor</Filter></ClInclude>
+    <!-- Scene Graph -->
+    <ClInclude Include="Scene.h"><Filter>Scene Graph</Filter></ClInclude>
+    <ClInclude Include="SceneManager.h"><Filter>Scene Graph</Filter></ClInclude>
+    <ClInclude Include="GameObject.h"><Filter>Scene Graph</Filter></ClInclude>
+    <ClInclude Include="Transform.h"><Filter>Scene Graph</Filter></ClInclude>
+    <ClInclude Include="Component.h"><Filter>Scene Graph</Filter></ClInclude>
+    <ClInclude Include="MonoBehaviour.h"><Filter>Scene Graph</Filter></ClInclude>
+    <ClInclude Include="Scripts.h"><Filter>Scene Graph</Filter></ClInclude>
+    <!-- Components -->
+    <ClInclude Include="Renderer.h"><Filter>Components</Filter></ClInclude>
+    <ClInclude Include="MeshRenderer.h"><Filter>Components</Filter></ClInclude>
+    <ClInclude Include="ModelRenderer.h"><Filter>Components</Filter></ClInclude>
+    <ClInclude Include="ModelAnimator.h"><Filter>Components</Filter></ClInclude>
+    <ClInclude Include="SkyRenderer.h"><Filter>Components</Filter></ClInclude>
+    <ClInclude Include="GridRenderer.h"><Filter>Components</Filter></ClInclude>
+    <ClInclude Include="Camera.h"><Filter>Components</Filter></ClInclude>
+    <ClInclude Include="Light.h"><Filter>Components</Filter></ClInclude>
+    <ClInclude Include="Collider.h"><Filter>Components</Filter></ClInclude>
+    <ClInclude Include="ParticleSystem.h"><Filter>Components</Filter></ClInclude>
+    <ClInclude Include="Terrain.h"><Filter>Components</Filter></ClInclude>
+    <ClInclude Include="Foliage.h"><Filter>Components</Filter></ClInclude>
+    <ClInclude Include="Billboard.h"><Filter>Components</Filter></ClInclude>
+    <!-- Resources -->
+    <ClInclude Include="Material.h"><Filter>Resources</Filter></ClInclude>
+    <ClInclude Include="Mesh.h"><Filter>Resources</Filter></ClInclude>
+    <ClInclude Include="MeshLoader.h"><Filter>Resources</Filter></ClInclude>
+    <ClInclude Include="TextureLoader.h"><Filter>Resources</Filter></ClInclude>
+    <ClInclude Include="GeometryHelper.h"><Filter>Resources</Filter></ClInclude>
+    <ClInclude Include="ResourceManager.h"><Filter>Resources</Filter></ClInclude>
+    <ClInclude Include="FbxConverter.h"><Filter>Resources</Filter></ClInclude>
+    <!-- Subsystems -->
+    <ClInclude Include="PostFX.h"><Filter>Subsystems</Filter></ClInclude>
+    <ClInclude Include="Thumbnail.h"><Filter>Subsystems</Filter></ClInclude>
+    <ClInclude Include="DebugDraw.h"><Filter>Subsystems</Filter></ClInclude>
+    <ClInclude Include="FlyCamera.h"><Filter>Subsystems</Filter></ClInclude>
+    <ClInclude Include="TimeManager.h"><Filter>Subsystems</Filter></ClInclude>
+    <ClInclude Include="InputManager.h"><Filter>Subsystems</Filter></ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Shaders (런타임 DXC 컴파일 .hlsl) -->
+    <None Include="Shaders\SceneCB.hlsli"><Filter>Shaders</Filter></None>
+    <None Include="Shaders\Mesh.hlsl"><Filter>Shaders</Filter></None>
+    <None Include="Shaders\Gather.hlsl"><Filter>Shaders</Filter></None>
+    <None Include="Shaders\Sky.hlsl"><Filter>Shaders</Filter></None>
+    <None Include="Shaders\Grid.hlsl"><Filter>Shaders</Filter></None>
+    <None Include="Shaders\Outline.hlsl"><Filter>Shaders</Filter></None>
+    <None Include="Shaders\Particle.hlsl"><Filter>Shaders</Filter></None>
+    <None Include="Shaders\Tess.hlsl"><Filter>Shaders</Filter></None>
+    <None Include="Shaders\Water.hlsl"><Filter>Shaders</Filter></None>
+    <None Include="Shaders\ProbeViz.hlsl"><Filter>Shaders</Filter></None>
   </ItemGroup>
 </Project>

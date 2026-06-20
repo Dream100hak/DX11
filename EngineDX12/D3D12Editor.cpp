@@ -611,23 +611,21 @@ void D3D12Device::DrawMainMenuBar()
 void D3D12Device::DrawHierarchy()
 {
 	ImGui::Begin("Hierarchy");
-	ImGui::TextDisabled("ENVIRONMENT");
+	ImGui::TextDisabled("SCENE SETTINGS");
 	ImGui::Separator();
 
 	// 인라인 리네임 상태 (더블클릭/F2 진입 → InputText, Enter/포커스아웃 커밋, Esc 취소) — 함수 스코프(트리 람다 + F2 키 공용)
 	static int64 s_renameId = -1; static char s_renameBuf[128] = {}; static bool s_renameInit = false;
 
-	// 고정 환경/렌더 설정 엔티티 — 색상 코딩 태그 + 정렬
+	// 씬/렌더 전역 설정 (GameObject 가 아닌 싱글톤) — 점/스팟 라이트는 SCENE OBJECTS 에서 편집.
 	struct Fixed { const char* tag; ImVec4 col; std::string name; SelEntity e; };
 	const Fixed fixed[] = {
-		{ "CAM", ImVec4(0.40f,0.78f,0.92f,1), "Editor Camera",     SelEntity::Camera },
-		{ "SUN", ImVec4(0.96f,0.80f,0.32f,1), "Directional Light", SelEntity::Sun },
-		{ "GI",  ImVec4(0.66f,0.52f,0.86f,1), "DDGI Volume",       SelEntity::DDGI },
-		{ "PT",  ImVec4(0.95f,0.62f,0.32f,1), "Point Light",       SelEntity::Point },
-		{ "SPT", ImVec4(0.52f,0.70f,1.00f,1), "Spot Light",        SelEntity::Spot },
-		{ "FX",  ImVec4(0.42f,0.82f,0.70f,1), "Post / Render",     SelEntity::Post },
+		{ "CAM", ImVec4(0.40f,0.78f,0.92f,1), "Editor Camera",   SelEntity::Camera }, // 에디터 뷰포트
+		{ "SKY", ImVec4(0.96f,0.80f,0.32f,1), "Lighting / Sky",  SelEntity::Sun },    // 태양+하늘+그림자+앰비언트
+		{ "GI",  ImVec4(0.66f,0.52f,0.86f,1), "DDGI Volume",     SelEntity::DDGI },
+		{ "FX",  ImVec4(0.42f,0.82f,0.70f,1), "Post / Render",   SelEntity::Post },
 		{ "MDL", ImVec4(0.58f,0.68f,0.82f,1), WToUtf8(_scene._modelLabel), SelEntity::Model },
-		{ "GEO", ImVec4(0.74f,0.58f,0.36f,1), "Floor",             SelEntity::Floor },
+		{ "GEO", ImVec4(0.74f,0.58f,0.36f,1), "Floor",           SelEntity::Floor },
 	};
 	for (const Fixed& f : fixed)
 	{
@@ -822,7 +820,7 @@ void D3D12Device::DrawHierarchy()
 			std::vector<shared_ptr<GameObject>> roots;
 			for (auto& kv : _gameScene->GetCreatedObjects())
 			{
-				auto& obj = kv.second; if (!obj) continue;
+				auto& obj = kv.second; if (!obj || obj->IsEditorInternal()) continue; // 에디터 내부 인프라 숨김
 				auto t = obj->GetTransform();
 				if (!t || !t->GetParent()) roots.push_back(obj);
 			}

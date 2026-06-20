@@ -128,8 +128,14 @@ void D3D12Device::BuildGameScene()
 		return o;
 	};
 	_sunObj  = addLight(L"Directional Light", LightType::Directional, _sunColor, _lightIntensity);
+	_sunObj->SetEditorInternal(true); // 디렉셔널=환경 설정(Lighting/Sky)에서 편집 — 오브젝트 목록 중복 제거
 	_ptObj   = addLight(L"Point Light",       LightType::Point,       _pointColor, _pointIntensity);
 	_spotObj = addLight(L"Spot Light",        LightType::Spot,        _spotColor,  _spotIntensity);
+	// 점/스팟은 SCENE OBJECTS 의 GameObject 로 편집(스칼라 미러 제거) — 생성 시 초기 상태 1회 설정
+	if (auto l = _ptObj->GetLight())   { l->_enabled = _pointOn; l->_range = _pointRadius; }
+	if (auto t = _ptObj->GetTransform())   t->SetLocalPosition(_pointPos);
+	if (auto l = _spotObj->GetLight())  { l->_enabled = _spotOn; l->_range = _spotRadius; l->_direction = _spotDir; l->_spotAngleDeg = _spotConeDeg; }
+	if (auto t = _spotObj->GetTransform()) t->SetLocalPosition(_spotPos);
 
 	// 정적 메시 데모 — MeshRenderer 실드로우 검증용 큐브 (모델 옆, Opaque 버킷)
 	{
@@ -156,16 +162,12 @@ void D3D12Device::BuildGameScene()
 	}
 }
 
-// 스칼라 라이팅 파라미터 → Light 컴포넌트 미러 (CB 가 컴포넌트에서 읽도록). 무중단 전환.
+// 디렉셔널 sun 스칼라 → Light 컴포넌트 미러 (환경 Lighting/Sky 설정에서 편집).
+// 점/스팟은 더 이상 미러하지 않음 — SCENE OBJECTS 의 Light GameObject 로 직접 편집(중복 제거).
 void D3D12Device::SyncLights()
 {
 	if (_sunObj) { auto l = _sunObj->GetLight(); l->_color = _sunColor; l->_intensity = _lightIntensity;
 		float a = _lightAngle; l->_direction = Vec3{ cosf(a) * 0.6f, -1.f, sinf(a) * 0.6f }; }
-	if (_ptObj)  { auto l = _ptObj->GetLight(); l->_enabled = _pointOn; l->_color = _pointColor; l->_intensity = _pointIntensity; l->_range = _pointRadius;
-		if (auto t = _ptObj->GetTransform()) t->SetLocalPosition(_pointPos); }
-	if (_spotObj){ auto l = _spotObj->GetLight(); l->_enabled = _spotOn; l->_color = _spotColor; l->_intensity = _spotIntensity; l->_range = _spotRadius;
-		l->_spotAngleDeg = _spotConeDeg; l->_direction = _spotDir;
-		if (auto t = _spotObj->GetTransform()) t->SetLocalPosition(_spotPos); }
 }
 
 void D3D12Device::EnableDebugLayer()

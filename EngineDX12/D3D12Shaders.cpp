@@ -357,6 +357,7 @@ struct ProbeSH { float3 c0; float3 c1; float3 c2; float3 c3; };
 RaytracingAccelerationStructure gScene   : register(t0);
 StructuredBuffer<Vtx>           gVerts    : register(t1);
 StructuredBuffer<uint>          gIndices  : register(t2);
+StructuredBuffer<uint2>         gInstMeta : register(t3); // 인스턴스별 {vbBase, ibBase} (집계 지오메트리 페치)
 RWStructuredBuffer<ProbeSH>     gProbesRW : register(u0);
 RWStructuredBuffer<float2>      gDepthRW  : register(u1); // 옥타헤드럴 depth (mean, mean²)
 
@@ -433,8 +434,9 @@ void CSMain(uint3 tid : SV_DispatchThreadID)
         {
             uint prim = q.CommittedPrimitiveIndex();
             float2 b = q.CommittedTriangleBarycentrics();
-            uint i0 = gIndices[prim * 3 + 0], i1 = gIndices[prim * 3 + 1], i2 = gIndices[prim * 3 + 2];
-            Vtx v0 = gVerts[i0], v1 = gVerts[i1], v2 = gVerts[i2];
+            uint2 meta = gInstMeta[q.CommittedInstanceID()];      // {vbBase, ibBase}
+            uint i0 = gIndices[meta.y + prim * 3 + 0], i1 = gIndices[meta.y + prim * 3 + 1], i2 = gIndices[meta.y + prim * 3 + 2];
+            Vtx v0 = gVerts[meta.x + i0], v1 = gVerts[meta.x + i1], v2 = gVerts[meta.x + i2];
             float w0 = 1.0 - b.x - b.y;
             float3 n = normalize(v0.nrm * w0 + v1.nrm * b.x + v2.nrm * b.y);
             float3 alb = v0.col * w0 + v1.col * b.x + v2.col * b.y;

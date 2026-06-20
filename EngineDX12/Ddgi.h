@@ -27,7 +27,8 @@ public:
 	              D3D12_GPU_VIRTUAL_ADDRESS cb,
 	              D3D12_GPU_VIRTUAL_ADDRESS tlas,
 	              D3D12_GPU_VIRTUAL_ADDRESS vb,
-	              D3D12_GPU_VIRTUAL_ADDRESS ib);
+	              D3D12_GPU_VIRTUAL_ADDRESS ib,
+	              D3D12_GPU_VIRTUAL_ADDRESS instMeta);
 
 	D3D12_GPU_VIRTUAL_ADDRESS ProbesAddr() const { return _probes->GetGPUVirtualAddress(); }
 	D3D12_GPU_VIRTUAL_ADDRESS ProbeDepthAddr() const { return _probeDepth->GetGPUVirtualAddress(); }

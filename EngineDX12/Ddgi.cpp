@@ -28,18 +28,19 @@ void Ddgi::Create(ID3D12Device* device, const void* gatherCS, size_t gatherCSSiz
 	_probeDepth = DefaultBufferUAV(PROBE_COUNT * PROBE_OCT * PROBE_OCT * sizeof(XMFLOAT2));
 	_probeDepthState = D3D12_RESOURCE_STATE_COMMON;
 
-	// 컴퓨트 루트 시그니처: b0 CBV, u0 probes, u1 depth, t0 TLAS, t1 verts, t2 indices (전부 루트 디스크립터)
-	D3D12_ROOT_PARAMETER p[6]{};
+	// 컴퓨트 루트 시그니처: b0 CBV, u0 probes, u1 depth, t0 TLAS, t1 verts, t2 indices, t3 instMeta (전부 루트 디스크립터)
+	D3D12_ROOT_PARAMETER p[7]{};
 	p[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; p[0].Descriptor.ShaderRegister = 0;
 	p[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV; p[1].Descriptor.ShaderRegister = 0;
 	p[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV; p[2].Descriptor.ShaderRegister = 1; // depth
 	p[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; p[3].Descriptor.ShaderRegister = 0;
 	p[4].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; p[4].Descriptor.ShaderRegister = 1;
 	p[5].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; p[5].Descriptor.ShaderRegister = 2;
+	p[6].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; p[6].Descriptor.ShaderRegister = 3; // instMeta
 	for (auto& rp : p) rp.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
 	D3D12_ROOT_SIGNATURE_DESC rs{};
-	rs.NumParameters = 6;
+	rs.NumParameters = 7;
 	rs.pParameters = p;
 	rs.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
 
@@ -70,7 +71,8 @@ void Ddgi::Dispatch(ID3D12GraphicsCommandList4* cmd,
                     D3D12_GPU_VIRTUAL_ADDRESS cb,
                     D3D12_GPU_VIRTUAL_ADDRESS tlas,
                     D3D12_GPU_VIRTUAL_ADDRESS vb,
-                    D3D12_GPU_VIRTUAL_ADDRESS ib)
+                    D3D12_GPU_VIRTUAL_ADDRESS ib,
+                    D3D12_GPU_VIRTUAL_ADDRESS instMeta)
 {
 	// 프로브/depth 를 UAV 상태로 → RT 레이 수집 → 픽셀 읽기용 SRV 로 전환
 	Transition(cmd, _probes.Get(), _probeState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
@@ -84,6 +86,7 @@ void Ddgi::Dispatch(ID3D12GraphicsCommandList4* cmd,
 	cmd->SetComputeRootShaderResourceView(3, tlas);
 	cmd->SetComputeRootShaderResourceView(4, vb);
 	cmd->SetComputeRootShaderResourceView(5, ib);
+	cmd->SetComputeRootShaderResourceView(6, instMeta);
 	cmd->Dispatch((PROBE_COUNT + 63) / 64, 1, 1);
 
 	D3D12_RESOURCE_BARRIER uav[2]{};

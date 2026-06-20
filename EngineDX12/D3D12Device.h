@@ -249,6 +249,8 @@ private:
 
 	// Phase 3 — DDGI 프로브 볼륨 (Ddgi 클래스가 프로브 버퍼 + 컴퓨트 GI 디스패치 소유)
 	Ddgi                              _ddgi;
+	// RT 인스턴스별 지오메트리 메타 {vbBase, ibBase} (gather 셰이더 t3) — 집계 버퍼 페치용
+	ComPtr<ID3D12Resource>            _rtMeta; void* _rtMetaMapped = nullptr; UINT _rtMetaCap = 0;
 
 	D3D12_RAYTRACING_TIER             _dxrTier = D3D12_RAYTRACING_TIER_NOT_SUPPORTED;
 	std::wstring                      _adapterName;

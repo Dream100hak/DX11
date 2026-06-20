@@ -238,9 +238,18 @@ void D3D12Device::Render()
 		_scene.BuildTLAS(_cmdList.Get(), rtInst);
 	}
 
+	// RT 인스턴스 메타 {vbBase, ibBase} — Step1: 전부 {0,0}(모델 지오메트리). InstanceID 미설정이라 전부 [0] 참조 → 현행 동일.
+	if (!_rtMeta)
+	{
+		_rtMetaCap = ModelScene::MAX_INSTANCES;
+		std::vector<uint32> zeros(_rtMetaCap * 2, 0u);
+		_rtMeta = CreateUploadBuffer(zeros.data(), zeros.size() * sizeof(uint32));
+	}
+
 	// ── DDGI: 프로브 irradiance 갱신 (컴퓨트 RT) — 라스터 전에 ──
 	_ddgi.Dispatch(_cmdList.Get(), _cb[_frameIndex]->GetGPUVirtualAddress(),
-	               _scene._tlas->GetGPUVirtualAddress(), _scene._vb->GetGPUVirtualAddress(), _scene._ib->GetGPUVirtualAddress());
+	               _scene._tlas->GetGPUVirtualAddress(), _scene._vb->GetGPUVirtualAddress(), _scene._ib->GetGPUVirtualAddress(),
+	               _rtMeta->GetGPUVirtualAddress());
 
 	// ── 씬 3D → 오프스크린 RT (Scene 도킹 탭 이미지) ──
 	Transition(_sceneRT.Get(), _sceneRTState, D3D12_RESOURCE_STATE_RENDER_TARGET);

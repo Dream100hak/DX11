@@ -56,8 +56,6 @@ void D3D12Device::Render()
 	const float dt = DT;
 
 	_time += dt;
-	if (!_animPaused) _animTimeAcc += dt * _animSpeed; // 애니 재생/속도
-	if (_turntable) _turnAngle += dt * _turnSpeed;     // U14 턴테이블
 	UpdateParticles(dt);                               // W1 파티클
 	// U4 자동 노출 — 씬 조명 추정 휘도에 눈 적응(프리셋 Day/Night 전환 시 부드럽게 밝기 보정)
 	if (_autoExp)
@@ -224,9 +222,7 @@ void D3D12Device::Render()
 	memcpy(_cbMapped[_frameIndex], &cb, sizeof(cb));
 	_cbCache = cb; // 게임 뷰 패스 베이스(카메라 필드만 교체)
 
-	// ── 모델 갱신: 스키닝(or 바인드) + 기즈모 트랜스폼 적용 → VB (GPU 유휴, 전체 플러시) ──
-	_scene.UpdateAnimation(_animTimeAcc, _turntable, _turnAngle);
-
+	// (_scene 는 바닥 전용 — 정적 VB 는 생성 시 1회 업로드. 모델 스키닝은 ModelAnimator GameObject 가 자체 처리)
 	auto alloc = _allocators[_frameIndex];
 	ThrowIfFailed(alloc->Reset(), "Allocator Reset");
 	ThrowIfFailed(_cmdList->Reset(alloc.Get(), nullptr), "CmdList Reset");

@@ -770,7 +770,7 @@ void D3D12Device::DrawHierarchy()
 			// 검색 모드: 트리 무시, 이름 매칭 평면 목록 (에디터 내부 제외)
 			for (auto& kv : _gameScene->GetCreatedObjects())
 			{
-				auto& obj = kv.second; if (!obj || obj->IsEditorInternal()) continue;
+				auto& obj = kv.second; if (!obj || obj->IsEditorInternal() || obj == _modelObj) continue;
 				std::string nm = WToUtf8(obj->GetObjectName()), low = nm;
 				for (char& c : low) c = (char)tolower(c);
 				if (low.find(filterLow) == std::string::npos) continue;
@@ -785,7 +785,7 @@ void D3D12Device::DrawHierarchy()
 			std::vector<shared_ptr<GameObject>> roots;
 			for (auto& kv : _gameScene->GetCreatedObjects())
 			{
-				auto& obj = kv.second; if (!obj || obj->IsEditorInternal()) continue; // 에디터 내부 인프라 숨김
+				auto& obj = kv.second; if (!obj || obj->IsEditorInternal() || obj == _modelObj) continue; // 내부 인프라 + 바닥(=GEO 설정에서 편집) 숨김
 				auto t = obj->GetTransform();
 				if (!t || !t->GetParent()) roots.push_back(obj);
 			}

@@ -350,7 +350,6 @@ private:
 	int                               _ptCount = 1; DirectX::XMFLOAT4 _ptPosArr[MAX_PT]{}; DirectX::XMFLOAT4 _ptColArr[MAX_PT]{};
 	bool                              _probeViz = false; // T15
 	int                               _debugView = 0;    // T16: 0 none/1 albedo/2 normal/3 depth/4 GI
-	bool                              _animPaused = false; float _animSpeed = 1.0f, _animTimeAcc = 0.0f; // T17
 	bool                              _wantShot = false; // T19
 	DirectX::XMFLOAT3                 _skyZenith{ 0.13f, 0.22f, 0.44f }, _skyHorizon{ 0.52f, 0.60f, 0.72f }; float _sunSize = 900.f; // T20
 	void                              SaveScreenshot(); // T19
@@ -362,7 +361,6 @@ private:
 	bool                              _autoExp = false; float _expScale = 1.0f, _expTarget = 0.5f; // U4 자동노출
 	float                             _chroma = 0.0f, _grain = 0.0f, _sharpen = 0.0f;             // U5/U6/U7
 	DirectX::XMFLOAT3                 _floorColor{ 0.85f, 0.13f, 0.11f }; float _floorMetallic = 0.0f, _floorRough = 0.6f; // U9
-	bool                              _turntable = false; float _turnSpeed = 0.4f, _turnAngle = 0.0f; // U14
 	float                             _renderScale = 1.0f;  // U15
 	bool                              _showBones = false;   // U10
 	bool                              _showAABB = false;    // U11

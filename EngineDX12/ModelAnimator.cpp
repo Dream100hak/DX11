@@ -65,7 +65,8 @@ static std::unordered_map<std::wstring, std::shared_ptr<CachedModel>> s_modelCac
 bool ModelAnimator::Load(const std::wstring& meshPath)
 {
 	if (!_dev) return false;
-	_clip = AnimClip{}; _animated = false; _curClip = 0; _animTime = 0.f;
+	_curClip = 0; _animTime = 0.f; _prevClip = -1; _fadeDur = 0.f; _prevNorm = 0.f;
+	_clipData.clear();
 
 	auto createWorldVB = [&]()
 	{
@@ -77,9 +78,14 @@ bool ModelAnimator::Load(const std::wstring& meshPath)
 	};
 	auto finishClip = [&]()
 	{
-		std::wstring clipPath = FindClipA(_modelDir, _modelStem);
-		if (!clipPath.empty()) _animated = LoadClip(clipPath, _clip);
-		Skin(0); _skinnedOnce = true; _lastFrame = 0;
+		_clipData.assign(_clips.size(), AnimClip{});
+		// 기본 클립: 선호 이름(Idle 등) 우선, 없으면 0
+		std::wstring pref = FindClipA(_modelDir, _modelStem);
+		_curClip = 0;
+		for (size_t i = 0; i < _clips.size(); ++i)
+			if (_clips[i] == pref) { _curClip = (int)i; break; }
+		EnsureNotifies();
+		ComputeAndUpload(); _skinnedOnce = true;
 	};
 
 	// ── 캐시 히트: 파일/텍스처 재로드 없이 공유 (스폰 즉시) ──
@@ -250,55 +256,120 @@ void ModelAnimator::CreateMaterials()
 void ModelAnimator::SetClipIndex(int i)
 {
 	if (i < 0 || i >= (int)_clips.size()) return;
-	_curClip = i; _animTime = 0.f;
-	_animated = LoadClip(_clips[i], _clip);
+	_curClip = i; _animTime = 0.f; _prevClip = -1; _fadeDur = 0.f; _prevNorm = 0.f;
 	_skinnedOnce = false; // 일시정지 상태에서도 새 포즈 반영
 }
 
-void ModelAnimator::Skin(uint32 frame)
+void ModelAnimator::Play(int clip, float blend)
+{
+	if (clip < 0 || clip >= (int)_clips.size() || clip == _curClip) return;
+	if (blend > 0.f && _skinnedOnce)
+	{
+		_prevClip = _curClip; _prevTime = _animTime; _fadeDur = blend; _fadeElapsed = 0.f;
+	}
+	else _prevClip = -1;
+	_curClip = clip; _animTime = 0.f; _prevNorm = 0.f;
+	_skinnedOnce = false;
+}
+
+const AnimClip* ModelAnimator::ClipData(int i)
+{
+	if (i < 0 || i >= (int)_clips.size()) return nullptr;
+	if ((int)_clipData.size() != (int)_clips.size()) _clipData.assign(_clips.size(), AnimClip{});
+	AnimClip& c = _clipData[i];
+	if (!c.loaded) { LoadClip(_clips[i], c); c.loaded = true; }
+	return &c;
+}
+
+float ModelAnimator::ClipDuration(int i)
+{
+	const AnimClip* c = ClipData(i);
+	return (c && c->frameRate > 0.f && c->frameCount > 0) ? c->frameCount / c->frameRate : 0.f;
+}
+
+// 클립을 연속 시간(초)으로 샘플 — 인접 프레임 보간(S/T lerp, R slerp). 클립에 없는 본은 단위 포즈.
+void ModelAnimator::SamplePose(const AnimClip& clip, float timeSec, bool loop, std::vector<BonePose>& out)
+{
+	const size_t nb = _bonesData.size();
+	out.assign(nb, BonePose{});
+	if (clip.frameCount == 0) return;
+	const uint32 fc = clip.frameCount;
+	float fpos = timeSec * clip.frameRate;
+	uint32 f0, f1; float a;
+	if (loop)
+	{
+		float w = fmodf(fpos, (float)fc); if (w < 0.f) w += fc;
+		f0 = (uint32)w; a = w - f0; f1 = (f0 + 1) % fc;
+	}
+	else
+	{
+		if (fpos >= (float)(fc - 1)) { f0 = f1 = fc - 1; a = 0.f; }
+		else { f0 = (uint32)fpos; a = fpos - f0; f1 = f0 + 1; }
+	}
+	for (size_t b = 0; b < nb; ++b)
+	{
+		auto it = clip.bones.find(_bonesData[b].name);
+		if (it == clip.bones.end() || it->second.empty()) continue;
+		const std::vector<ClipFrameT>& fr = it->second;
+		uint32 i0 = f0 < fr.size() ? f0 : (uint32)fr.size() - 1;
+		uint32 i1 = f1 < fr.size() ? f1 : i0;
+		const ClipFrameT& k0 = fr[i0]; const ClipFrameT& k1 = fr[i1];
+		BonePose p;
+		XMStoreFloat3(&p.s, XMVectorLerp(XMLoadFloat3(&k0.s), XMLoadFloat3(&k1.s), a));
+		XMStoreFloat3(&p.t, XMVectorLerp(XMLoadFloat3(&k0.t), XMLoadFloat3(&k1.t), a));
+		XMStoreFloat4(&p.r, XMQuaternionNormalize(XMQuaternionSlerp(XMLoadFloat4(&k0.r), XMLoadFloat4(&k1.r), a)));
+		out[b] = p;
+	}
+}
+
+void ModelAnimator::BlendPose(std::vector<BonePose>& a, const std::vector<BonePose>& b, float w)
+{
+	const size_t n = min(a.size(), b.size());
+	for (size_t i = 0; i < n; ++i)
+	{
+		XMStoreFloat3(&a[i].s, XMVectorLerp(XMLoadFloat3(&a[i].s), XMLoadFloat3(&b[i].s), w));
+		XMStoreFloat3(&a[i].t, XMVectorLerp(XMLoadFloat3(&a[i].t), XMLoadFloat3(&b[i].t), w));
+		XMStoreFloat4(&a[i].r, XMQuaternionNormalize(XMQuaternionSlerp(XMLoadFloat4(&a[i].r), XMLoadFloat4(&b[i].r), w)));
+	}
+}
+
+void ModelAnimator::BuildSkinMatrices(const std::vector<BonePose>& local, std::vector<XMMATRIX>& skinOut)
+{
+	const size_t nb = _bonesData.size();
+	std::vector<XMMATRIX> global(nb);
+	skinOut.resize(nb);
+	for (size_t b = 0; b < nb; ++b)
+	{
+		const BonePose& p = local[b];
+		XMMATRIX m = XMMatrixScaling(p.s.x, p.s.y, p.s.z) *
+		             XMMatrixRotationQuaternion(XMLoadFloat4(&p.r)) *
+		             XMMatrixTranslation(p.t.x, p.t.y, p.t.z);
+		const LoadedBone& bone = _bonesData[b];
+		XMMATRIX parent = (bone.parent >= 0 && bone.parent < (int32_t)nb) ? global[bone.parent] : XMMatrixIdentity();
+		global[b] = m * parent;
+		skinOut[b] = XMMatrixInverse(nullptr, XMLoadFloat4x4(&bone.bind)) * global[b];
+	}
+}
+
+// 스킨 행렬(또는 바인드포즈)로 정점 변환 → 월드 VB 업로드 + AABB
+void ModelAnimator::SkinVerts(const std::vector<XMMATRIX>* skin)
 {
 	if (_vtxCount == 0) return;
 	const size_t nb = _bonesData.size();
-	const bool anim = _animated && _clip.frameCount > 0 && nb > 0;
-
-	std::vector<XMMATRIX> global, skin;
-	if (anim)
-	{
-		global.resize(nb); skin.resize(nb);
-		for (size_t b = 0; b < nb; ++b)
-		{
-			const LoadedBone& bone = _bonesData[b];
-			XMMATRIX matAnim = XMMatrixIdentity();
-			auto it = _clip.bones.find(bone.name);
-			if (it != _clip.bones.end() && frame < it->second.size())
-			{
-				const ClipFrameT& k = it->second[frame];
-				matAnim = XMMatrixScaling(k.s.x, k.s.y, k.s.z) *
-				          XMMatrixRotationQuaternion(XMLoadFloat4(&k.r)) *
-				          XMMatrixTranslation(k.t.x, k.t.y, k.t.z);
-			}
-			XMMATRIX parent = (bone.parent >= 0 && bone.parent < (int32_t)nb) ? global[bone.parent] : XMMatrixIdentity();
-			global[b] = matAnim * parent;
-			skin[b] = XMMatrixInverse(nullptr, XMLoadFloat4x4(&bone.bind)) * global[b];
-		}
-	}
-
-	// GameObject 월드행렬 = 배치 트랜스폼 (없으면 단위)
 	XMMATRIX M = XMMatrixIdentity();
 	if (auto t = GetTransform()) { Matrix wm = t->GetWorldMatrix(); M = XMLoadFloat4x4(&wm); }
 	XMVECTOR off = XMVectorSet(_modelOffset.x, _modelOffset.y, _modelOffset.z, 0.f);
 	const XMFLOAT3 modelC(0.82f, 0.78f, 0.72f);
-	const float scale = _modelScale; const bool useAnim = anim;
+	const float scale = _modelScale;
 	const SkinVtx* src = _skinSrc.data(); Vtx* dst = _world.data();
-	const XMMATRIX* skinM = skin.empty() ? nullptr : skin.data();
+	const XMMATRIX* skinM = (skin && !skin->empty()) ? skin->data() : nullptr;
 
-	// 정점 변환 병렬화 (코어 분산 — Debug 단일스레드 XMMath 병목 완화)
 	concurrency::parallel_for(uint32(0), _vtxCount, [&](uint32 i)
 	{
 		const SkinVtx& sv = src[i];
 		XMVECTOR bp = XMLoadFloat3(&sv.pos), bn = XMLoadFloat3(&sv.nrm), bt = XMLoadFloat3(&sv.tan);
 		XMVECTOR p, n, t;
-		if (useAnim && skinM)
+		if (skinM)
 		{
 			p = n = t = XMVectorZero(); float wsum = 0.f;
 			for (int j = 0; j < 4; ++j)
@@ -324,7 +395,6 @@ void ModelAnimator::Skin(uint32 frame)
 		dst[i].col = modelC; dst[i].uv = sv.uv;
 	});
 
-	// AABB 직렬 리덕션 (가벼움)
 	XMFLOAT3 mn(1e9f, 1e9f, 1e9f), mx(-1e9f, -1e9f, -1e9f);
 	for (uint32 i = 0; i < _vtxCount; ++i)
 	{
@@ -334,6 +404,100 @@ void ModelAnimator::Skin(uint32 frame)
 	}
 	_aabbMin = mn; _aabbMax = mx;
 	memcpy(_vbMapped, _world.data(), (size_t)_vtxCount * sizeof(Vtx));
+}
+
+// 현재(+페이드아웃) 클립을 블렌드한 최종 포즈를 만들어 스킨/업로드
+void ModelAnimator::ComputeAndUpload()
+{
+	const size_t nb = _bonesData.size();
+	const AnimClip* cur = ClipData(_curClip);
+	const bool anim = cur && cur->frameCount > 0 && nb > 0;
+	if (!anim) { SkinVerts(nullptr); return; }
+
+	std::vector<BonePose> pose;
+	SamplePose(*cur, _animTime, _loop, pose);
+
+	if (_prevClip >= 0 && _fadeDur > 0.f)
+	{
+		const AnimClip* prev = ClipData(_prevClip);
+		if (prev && prev->frameCount > 0)
+		{
+			std::vector<BonePose> from;
+			SamplePose(*prev, _prevTime, true, from);
+			float w = _fadeElapsed / _fadeDur; if (w > 1.f) w = 1.f;
+			BlendPose(from, pose, w); // from = lerp(prev, cur, w)
+			pose.swap(from);
+		}
+	}
+
+	std::vector<XMMATRIX> skin;
+	BuildSkinMatrices(pose, skin);
+	SkinVerts(&skin);
+}
+
+// 상태머신: Any/현재 상태에서 나가는 전이를 평가 → 조건 충족 시 크로스페이드 진입
+void ModelAnimator::EvalStateMachine()
+{
+	if (_states.empty()) return;
+	if (_curState < 0) { SetState(0); return; }
+
+	float dur = ClipDuration(_curClip);
+	float nt = dur > 0.f ? _animTime / dur : 1.f; // 비루프 정규화 진행도
+
+	auto pass = [&](const AnimTransition& tr) -> bool
+	{
+		if (tr.hasExitTime && nt < tr.exitTime) return false;
+		if (tr.param.empty()) return tr.hasExitTime; // 조건 없음 → ExitTime 도달 시만
+		auto it = _params.find(tr.param);
+		float v = (it != _params.end()) ? it->second : 0.f;
+		switch (tr.op) { case 0: return v > tr.value; case 1: return v < tr.value; default: return v != 0.f; }
+	};
+
+	for (const AnimTransition& tr : _transitions)
+	{
+		if (tr.from != -1 && tr.from != _curState) continue;
+		if (tr.to == _curState) continue;
+		if (tr.to < 0 || tr.to >= (int)_states.size()) continue;
+		if (pass(tr))
+		{
+			// 트리거(op==2) 소비
+			if (!tr.param.empty() && tr.op == 2) _params[tr.param] = 0.f;
+			SetState(tr.to, tr.blend);
+			break;
+		}
+	}
+}
+
+void ModelAnimator::SetState(int s, float blend)
+{
+	if (s < 0 || s >= (int)_states.size()) return;
+	const AnimState& st = _states[s];
+	float b = (_curState >= 0) ? blend : 0.f; // 최초 진입은 즉시
+	_loop = st.loop; _speed = st.speed;
+	_curState = s;
+	Play(st.clip, b);
+}
+
+void ModelAnimator::FireNotifies(int clip, float prevNorm, float curNorm)
+{
+	if (clip < 0 || clip >= (int)_notifies.size()) return;
+	const std::vector<AnimNotify>& list = _notifies[clip];
+	if (list.empty()) return;
+	auto fire = [&](const AnimNotify& n)
+	{
+		std::string msg = std::string(fs::path(_clips[clip]).stem().string()) + ":" + n.name;
+		_eventLog.push_back(msg);
+		if (_eventLog.size() > 8) _eventLog.erase(_eventLog.begin());
+		if (OnNotify) OnNotify(n.name);
+	};
+	if (curNorm >= prevNorm) // 정상 진행
+	{
+		for (const AnimNotify& n : list) if (n.time > prevNorm && n.time <= curNorm) fire(n);
+	}
+	else // 루프 랩어라운드 (prev..1] ∪ [0..cur]
+	{
+		for (const AnimNotify& n : list) if (n.time > prevNorm || n.time <= curNorm) fire(n);
+	}
 }
 
 void ModelAnimator::TransformBoundingBox()
@@ -347,22 +511,40 @@ void ModelAnimator::TransformBoundingBox()
 void ModelAnimator::UpdateWorld()
 {
 	if (!_dev || _vtxCount == 0) return;
-	const bool anim = _animated && _clip.frameCount > 0;
-	if (anim && _playing) _animTime += DT * _speed;
+	const AnimClip* cur = ClipData(_curClip);
+	const bool anim = cur && cur->frameCount > 0;
 
-	uint32 frame = 0;
+	// 시간 전진 (현재 + 페이드아웃 클립)
+	if (anim && _playing)
+	{
+		_animTime += DT * _speed;
+		if (_prevClip >= 0)
+		{
+			_prevTime += DT; _fadeElapsed += DT;
+			if (_fadeElapsed >= _fadeDur) _prevClip = -1;
+		}
+	}
+
+	// 상태머신 평가 (전이 충족 시 크로스페이드)
+	if (_useSM) EvalStateMachine();
+
+	// 노티파이 (현재 클립 정규화 시간 크로싱)
 	if (anim)
 	{
-		uint32 raw = (uint32)(_animTime * _clip.frameRate);
-		frame = _loop ? (raw % _clip.frameCount) : (raw < _clip.frameCount ? raw : _clip.frameCount - 1);
+		float dur = ClipDuration(_curClip);
+		float nt = (dur > 0.f) ? _animTime / dur : 0.f;
+		float curNorm = _loop ? (nt - floorf(nt)) : (nt > 1.f ? 1.f : nt);
+		FireNotifies(_curClip, _prevNorm, curNorm);
+		_prevNorm = curNorm;
 	}
+
+	// 더티 판단 — 재생/페이드 중이거나 트랜스폼 변경 시에만 재계산
 	uint32 ver = 0; if (auto t = GetTransform()) ver = t->Version();
+	const bool moving = (anim && _playing) || (_prevClip >= 0);
+	if (_skinnedOnce && !moving && ver == _bakedVer) return;
 
-	// 프레임도 트랜스폼도 그대로면 스킵 (60fps 렌더 × 30fps 클립 → 중복 프레임 생략)
-	if (_skinnedOnce && frame == _lastFrame && ver == _bakedVer) return;
-
-	Skin(frame);
-	_lastFrame = frame; _bakedVer = ver; _skinnedOnce = true; _blasDirty = true;
+	ComputeAndUpload();
+	_bakedVer = ver; _skinnedOnce = true; _blasDirty = true;
 }
 
 void ModelAnimator::RecordBuildBLAS(ID3D12GraphicsCommandList4* cmd)
@@ -436,19 +618,128 @@ void ModelAnimator::OnInspectorGUI()
 {
 	ImGui::SeparatorText("ModelAnimator");
 	ImGui::Text("Mesh: %ls  (%u verts, %u bones)", _modelStem.c_str(), _vtxCount, (uint32)_bonesData.size());
+
+	// \0 구분 클립 이름 콤보 항목 (재사용)
+	std::string names;
+	for (auto& c : _clips) { names += std::string(fs::path(c).stem().string()); names.push_back('\0'); }
+	names.push_back('\0');
+
+	// ── 재생 ──
 	if (!_clips.empty())
 	{
-		std::string names; // \0 구분 콤보 항목
-		for (auto& c : _clips) { names += std::string(fs::path(c).stem().string()); names.push_back('\0'); }
-		names.push_back('\0');
+		ImGui::BeginDisabled(_useSM); // 상태머신 ON 이면 클립은 SM 이 제어
 		int idx = _curClip;
-		if (ImGui::Combo("Clip", &idx, names.c_str())) SetClipIndex(idx);
-		ImGui::Text("Frames %u  @ %.0f fps", _clip.frameCount, _clip.frameRate);
+		if (ImGui::Combo("Clip", &idx, names.c_str())) Play(idx, _blendDefault); // 크로스페이드 전환
+		ImGui::EndDisabled();
+		const AnimClip* cd = ClipData(_curClip);
+		ImGui::Text("Frames %u  @ %.0f fps  (%.2fs)", cd ? cd->frameCount : 0,
+		            cd ? cd->frameRate : 0.f, ClipDuration(_curClip));
+		if (_prevClip >= 0)
+			ImGui::TextColored(ImVec4(0.6f, 0.85f, 1, 1), "Blending %.0f%%", 100.f * (_fadeDur > 0 ? _fadeElapsed / _fadeDur : 1.f));
 	}
 	else ImGui::TextDisabled("(no clips)");
 	ImGui::Checkbox("Playing", &_playing); ImGui::SameLine();
 	ImGui::Checkbox("Loop", &_loop);
 	ImGui::DragFloat("Speed", &_speed, 0.02f, 0.f, 4.f);
+	ImGui::SliderFloat("Blend Time", &_blendDefault, 0.f, 1.f, "%.2fs");
+	HelpMarker("클립 전환 시 크로스페이드(이전 포즈→새 포즈) 시간. 0이면 즉시 컷.");
+
+	// ── 상태머신 (코드 기반 Animator Controller) ──
+	if (ImGui::CollapsingHeader("State Machine"))
+	{
+		ImGui::Checkbox("Use State Machine", &_useSM);
+		HelpMarker("켜면 파라미터/전이 규칙으로 클립이 자동 전환됩니다 (게임 로직 주도).");
+		if (_useSM && _curState >= 0 && _curState < (int)_states.size())
+			ImGui::TextColored(ImVec4(0.6f, 1, 0.7f, 1), "Current: %s", _states[_curState].name.c_str());
+
+		// 상태 목록
+		ImGui::SeparatorText("States");
+		for (int s = 0; s < (int)_states.size(); ++s)
+		{
+			ImGui::PushID(s);
+			AnimState& st = _states[s];
+			char buf[64]; strncpy_s(buf, st.name.c_str(), sizeof(buf) - 1);
+			ImGui::SetNextItemWidth(110); if (ImGui::InputText("##n", buf, sizeof(buf))) st.name = buf;
+			ImGui::SameLine(); ImGui::SetNextItemWidth(110);
+			ImGui::Combo("##c", &st.clip, names.c_str());
+			ImGui::SameLine(); ImGui::SetNextItemWidth(60); ImGui::DragFloat("##sp", &st.speed, 0.02f, 0.f, 4.f, "x%.1f");
+			ImGui::SameLine(); ImGui::Checkbox("loop", &st.loop);
+			ImGui::SameLine(); if (ImGui::SmallButton("X")) { _states.erase(_states.begin() + s); ImGui::PopID(); break; }
+			ImGui::PopID();
+		}
+		if (ImGui::SmallButton("+ State")) _states.push_back({ "State" + std::to_string(_states.size()), _curClip, 1.f, true });
+
+		// 전이 목록
+		ImGui::SeparatorText("Transitions");
+		const char* ops[] = { ">", "<", "!=0 (trigger)" };
+		auto stateName = [&](int i) { return (i < 0) ? "Any" : (i < (int)_states.size() ? _states[i].name.c_str() : "?"); };
+		for (int t = 0; t < (int)_transitions.size(); ++t)
+		{
+			ImGui::PushID(1000 + t);
+			AnimTransition& tr = _transitions[t];
+			ImGui::SetNextItemWidth(80);
+			if (ImGui::BeginCombo("##from", stateName(tr.from)))
+			{
+				if (ImGui::Selectable("Any", tr.from == -1)) tr.from = -1;
+				for (int s = 0; s < (int)_states.size(); ++s) if (ImGui::Selectable(_states[s].name.c_str(), tr.from == s)) tr.from = s;
+				ImGui::EndCombo();
+			}
+			ImGui::SameLine(); ImGui::TextUnformatted("->"); ImGui::SameLine();
+			ImGui::SetNextItemWidth(80);
+			if (ImGui::BeginCombo("##to", stateName(tr.to)))
+			{
+				for (int s = 0; s < (int)_states.size(); ++s) if (ImGui::Selectable(_states[s].name.c_str(), tr.to == s)) tr.to = s;
+				ImGui::EndCombo();
+			}
+			char pbuf[48]; strncpy_s(pbuf, tr.param.c_str(), sizeof(pbuf) - 1);
+			ImGui::SetNextItemWidth(80); if (ImGui::InputTextWithHint("##p", "param", pbuf, sizeof(pbuf))) tr.param = pbuf;
+			ImGui::SameLine(); ImGui::SetNextItemWidth(90); ImGui::Combo("##op", &tr.op, ops, 3);
+			if (tr.op != 2) { ImGui::SameLine(); ImGui::SetNextItemWidth(60); ImGui::DragFloat("##v", &tr.value, 0.05f); }
+			ImGui::SameLine(); ImGui::SetNextItemWidth(60); ImGui::DragFloat("##bl", &tr.blend, 0.01f, 0.f, 1.f, "%.2fs");
+			ImGui::SameLine(); ImGui::Checkbox("exit", &tr.hasExitTime);
+			ImGui::SameLine(); if (ImGui::SmallButton("X")) { _transitions.erase(_transitions.begin() + t); ImGui::PopID(); break; }
+			ImGui::PopID();
+		}
+		if (ImGui::SmallButton("+ Transition")) _transitions.push_back({});
+
+		// 파라미터 (라이브 제어/테스트)
+		ImGui::SeparatorText("Parameters");
+		for (auto& kv : _params)
+		{
+			ImGui::PushID(kv.first.c_str());
+			ImGui::SetNextItemWidth(140); ImGui::DragFloat(kv.first.c_str(), &kv.second, 0.05f);
+			ImGui::SameLine(); if (ImGui::SmallButton("Set 1")) kv.second = 1.f;
+			ImGui::SameLine(); if (ImGui::SmallButton("0")) kv.second = 0.f;
+			ImGui::PopID();
+		}
+		static char newParam[48] = "";
+		ImGui::SetNextItemWidth(140); ImGui::InputTextWithHint("##np", "new param", newParam, sizeof(newParam));
+		ImGui::SameLine(); if (ImGui::SmallButton("+ Param") && newParam[0]) { _params[newParam] = 0.f; newParam[0] = 0; }
+	}
+
+	// ── 노티파이 (현재 클립에 이벤트 마커) + 이벤트 로그 ──
+	if (!_clips.empty() && ImGui::CollapsingHeader("Notifies & Events"))
+	{
+		EnsureNotifies();
+		ImGui::Text("Clip: %s", std::string(fs::path(_clips[_curClip]).stem().string()).c_str());
+		std::vector<AnimNotify>& list = _notifies[_curClip];
+		for (int i = 0; i < (int)list.size(); ++i)
+		{
+			ImGui::PushID(2000 + i);
+			char nb[48]; strncpy_s(nb, list[i].name.c_str(), sizeof(nb) - 1);
+			ImGui::SetNextItemWidth(120); if (ImGui::InputTextWithHint("##nm", "event", nb, sizeof(nb))) list[i].name = nb;
+			ImGui::SameLine(); ImGui::SetNextItemWidth(120); ImGui::SliderFloat("##tm", &list[i].time, 0.f, 1.f, "t=%.2f");
+			ImGui::SameLine(); if (ImGui::SmallButton("X")) { list.erase(list.begin() + i); ImGui::PopID(); break; }
+			ImGui::PopID();
+		}
+		if (ImGui::SmallButton("+ Notify")) list.push_back({ 0.5f, "event" });
+		HelpMarker("정규화 시간(0~1)에 도달하면 이벤트 발생. 게임은 OnNotify 콜백 또는 RecentEvents() 로 수신.");
+
+		ImGui::SeparatorText("Recent Events");
+		if (_eventLog.empty()) ImGui::TextDisabled("(none)");
+		for (auto it = _eventLog.rbegin(); it != _eventLog.rend(); ++it)
+			ImGui::BulletText("%s", it->c_str());
+	}
 
 	// ── 머티리얼 (서브메시 슬롯별 Element — 틴트는 .mmat 텍스처에 곱해짐) ──
 	EnsureSlotMats();

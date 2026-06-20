@@ -100,6 +100,7 @@ struct AnimClip
 {
 	float frameRate = 30.f;
 	uint32 frameCount = 0;
+	bool   loaded = false; // 지연 로드 가드 (실패 클립 매프레임 재시도 방지)
 	std::unordered_map<std::string, std::vector<ClipFrameT>> bones; // boneName → 프레임별 S/R/T
 };
 

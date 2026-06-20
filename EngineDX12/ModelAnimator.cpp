@@ -56,6 +56,8 @@ struct CachedModel
 	float modelScale = 1.f; DirectX::XMFLOAT3 modelOffset{};
 	std::vector<std::wstring> clips; std::wstring modelDir, modelStem;
 	ComPtr<ID3D12Resource> ib; D3D12_INDEX_BUFFER_VIEW ibv{};
+	ComPtr<ID3D12Resource> srcVB;                 // 소스 정점 (GPU 스키닝 입력 — 동일 메시 공유)
+	DirectX::XMFLOAT3 localMin{}, localMax{};     // 바인드포즈 로컬 AABB
 	std::vector<ComPtr<ID3D12Resource>> matResources; ComPtr<ID3D12Resource> whiteTex;
 	ComPtr<ID3D12DescriptorHeap> srvHeap; UINT srvInc = 0; uint32 matCount = 0;
 	std::vector<uint32> subMatSlot; bool hasTexture = false;
@@ -68,13 +70,18 @@ bool ModelAnimator::Load(const std::wstring& meshPath)
 	_curClip = 0; _animTime = 0.f; _prevClip = -1; _fadeDur = 0.f; _prevNorm = 0.f;
 	_clipData.clear();
 
-	auto createWorldVB = [&]()
+	auto createGpuBufs = [&]()
 	{
+		// 출력 월드 VB — DEFAULT+UAV (컴퓨트 스키닝이 기록, 래스터/BLAS/집계가 읽음)
 		const size_t vbSize = (size_t)_vtxCount * sizeof(Vtx);
-		_vb = MakeUploadA(_dev->_device.Get(), vbSize);
-		D3D12_RANGE nr{ 0, 0 }; _vb->Map(0, &nr, &_vbMapped);
+		_vb = _dev->CreateDefaultBuffer(vbSize, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, true);
+		_vbState = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 		_vbv.BufferLocation = _vb->GetGPUVirtualAddress(); _vbv.StrideInBytes = sizeof(Vtx); _vbv.SizeInBytes = (UINT)vbSize;
-		_world.assign(_vtxCount, Vtx{});
+		// 본 행렬(업로드, nb×64) + SkinParams CB(업로드, 256정렬) — 매프레임 갱신
+		const uint32 nb = (uint32)(_bonesData.empty() ? 1 : _bonesData.size());
+		_boneBuf = MakeUploadA(_dev->_device.Get(), (size_t)nb * 64); _boneCap = nb;
+		D3D12_RANGE nr{ 0, 0 }; _boneBuf->Map(0, &nr, &_boneMapped);
+		_skinCB = MakeUploadA(_dev->_device.Get(), 256); _skinCB->Map(0, &nr, &_skinCBMapped);
 	};
 	auto finishClip = [&]()
 	{
@@ -100,11 +107,12 @@ bool ModelAnimator::Load(const std::wstring& meshPath)
 		_bonesData = c.bones; _skinSrc = c.skinSrc; _indices = c.indices; _submeshes = c.submeshes;
 		_modelScale = c.modelScale; _modelOffset = c.modelOffset; _clips = c.clips;
 		_modelDir = c.modelDir; _modelStem = c.modelStem;
-		_ib = c.ib; _ibv = c.ibv;                 // GPU 리소스 공유
+		_ib = c.ib; _ibv = c.ibv; _srcVB = c.srcVB; // GPU 리소스 공유 (IB/소스정점)
+		_localMin = c.localMin; _localMax = c.localMax;
 		_matResources = c.matResources; _whiteTex = c.whiteTex; _srvHeap = c.srvHeap;
 		_srvInc = c.srvInc; _matCount = c.matCount; _subMatSlot = c.subMatSlot; _hasTexture = c.hasTexture;
 		_vtxCount = (uint32)_skinSrc.size(); _idxCount = (uint32)_indices.size();
-		createWorldVB();
+		createGpuBufs();
 		finishClip();
 		return true;
 	}
@@ -126,6 +134,7 @@ bool ModelAnimator::Load(const std::wstring& meshPath)
 	}
 	_modelScale = 2.2f / max(mx.y - mn.y, 0.001f);
 	_modelOffset = XMFLOAT3((mn.x + mx.x) * 0.5f, mn.y, (mn.z + mx.z) * 0.5f);
+	_localMin = mn; _localMax = mx; // 바인드포즈 로컬 AABB (월드 AABB 근사용)
 	_vtxCount = (uint32)_skinSrc.size();
 	_idxCount = (uint32)_indices.size();
 
@@ -138,7 +147,10 @@ bool ModelAnimator::Load(const std::wstring& meshPath)
 	void* p = nullptr; D3D12_RANGE nr2{ 0, 0 }; _ib->Map(0, &nr2, &p); memcpy(p, _indices.data(), ibSize); _ib->Unmap(0, nullptr);
 	_ibv.BufferLocation = _ib->GetGPUVirtualAddress(); _ibv.Format = DXGI_FORMAT_R32_UINT; _ibv.SizeInBytes = (UINT)ibSize;
 
-	createWorldVB();
+	// 공유 소스 정점 (GPU 스키닝 입력 — 바인드포즈, 인스턴스 불변)
+	_srcVB = _dev->CreateUploadBuffer(_skinSrc.data(), _skinSrc.size() * sizeof(SkinVtx));
+
+	createGpuBufs();
 	finishClip();
 
 	// 캐시에 등록
@@ -146,7 +158,7 @@ bool ModelAnimator::Load(const std::wstring& meshPath)
 	c->bones = _bonesData; c->skinSrc = _skinSrc; c->indices = _indices;
 	c->submeshes = _submeshes; c->modelScale = _modelScale; c->modelOffset = _modelOffset;
 	c->clips = _clips; c->modelDir = _modelDir; c->modelStem = _modelStem;
-	c->ib = _ib; c->ibv = _ibv;
+	c->ib = _ib; c->ibv = _ibv; c->srcVB = _srcVB; c->localMin = _localMin; c->localMax = _localMax;
 	c->matResources = _matResources; c->whiteTex = _whiteTex; c->srvHeap = _srvHeap;
 	c->srvInc = _srvInc; c->matCount = _matCount; c->subMatSlot = _subMatSlot; c->hasTexture = _hasTexture;
 	s_modelCache[meshPath] = c;
@@ -355,85 +367,102 @@ void ModelAnimator::BuildSkinMatrices(const std::vector<BonePose>& local, std::v
 	}
 }
 
-// 스킨 행렬(또는 바인드포즈)로 정점 변환 → 월드 VB 업로드 + AABB
-void ModelAnimator::SkinVerts(const std::vector<XMMATRIX>* skin)
-{
-	if (_vtxCount == 0) return;
-	const size_t nb = _bonesData.size();
-	XMMATRIX M = XMMatrixIdentity();
-	if (auto t = GetTransform()) { Matrix wm = t->GetWorldMatrix(); M = XMLoadFloat4x4(&wm); }
-	XMVECTOR off = XMVectorSet(_modelOffset.x, _modelOffset.y, _modelOffset.z, 0.f);
-	const XMFLOAT3 modelC(0.82f, 0.78f, 0.72f);
-	const float scale = _modelScale;
-	const SkinVtx* src = _skinSrc.data(); Vtx* dst = _world.data();
-	const XMMATRIX* skinM = (skin && !skin->empty()) ? skin->data() : nullptr;
+// SkinParams — Skinning.hlsl 의 cbuffer 와 바이트 일치 (row_major 2행렬 + 카운트)
+struct SkinParams { Matrix modelToWorld; Matrix world; uint32 vtxCount, boneCount, p0, p1; };
 
-	concurrency::parallel_for(uint32(0), _vtxCount, [&](uint32 i)
-	{
-		const SkinVtx& sv = src[i];
-		XMVECTOR bp = XMLoadFloat3(&sv.pos), bn = XMLoadFloat3(&sv.nrm), bt = XMLoadFloat3(&sv.tan);
-		XMVECTOR p, n, t;
-		if (skinM)
-		{
-			p = n = t = XMVectorZero(); float wsum = 0.f;
-			for (int j = 0; j < 4; ++j)
-			{
-				float w = sv.wgt[j]; uint32 bi = sv.idx[j];
-				if (w <= 0.f || bi >= nb) continue;
-				p = XMVectorAdd(p, XMVectorScale(XMVector3Transform(bp, skinM[bi]), w));
-				n = XMVectorAdd(n, XMVectorScale(XMVector3TransformNormal(bn, skinM[bi]), w));
-				t = XMVectorAdd(t, XMVectorScale(XMVector3TransformNormal(bt, skinM[bi]), w));
-				wsum += w;
-			}
-			if (wsum < 1e-4f) { p = bp; n = bn; t = bt; }
-		}
-		else { p = bp; n = bn; t = bt; }
-
-		XMVECTOR wp = XMVectorScale(XMVectorSubtract(p, off), scale);
-		wp = XMVector3Transform(wp, M);
-		n = XMVector3TransformNormal(n, M);
-		t = XMVector3TransformNormal(t, M);
-		XMStoreFloat3(&dst[i].pos, wp);
-		XMStoreFloat3(&dst[i].nrm, XMVector3Normalize(n));
-		XMStoreFloat3(&dst[i].tan, XMVector3Normalize(t));
-		dst[i].col = modelC; dst[i].uv = sv.uv;
-	});
-
-	XMFLOAT3 mn(1e9f, 1e9f, 1e9f), mx(-1e9f, -1e9f, -1e9f);
-	for (uint32 i = 0; i < _vtxCount; ++i)
-	{
-		const XMFLOAT3& P = dst[i].pos;
-		mn.x = min(mn.x, P.x); mn.y = min(mn.y, P.y); mn.z = min(mn.z, P.z);
-		mx.x = max(mx.x, P.x); mx.y = max(mx.y, P.y); mx.z = max(mx.z, P.z);
-	}
-	_aabbMin = mn; _aabbMax = mx;
-	memcpy(_vbMapped, _world.data(), (size_t)_vtxCount * sizeof(Vtx));
-}
-
-// 현재(+페이드아웃) 클립을 블렌드한 최종 포즈를 만들어 스킨/업로드
+// 현재(+페이드아웃) 클립을 블렌드 → 본 행렬/SkinParams 업로드 + 월드 AABB 근사.
+// 실제 정점 변환(스키닝)은 GPU 컴퓨트(RecordSkinning)가 수행. CPU 는 본 행렬(≈수십~백)만 계산.
 void ModelAnimator::ComputeAndUpload()
 {
 	const size_t nb = _bonesData.size();
 	const AnimClip* cur = ClipData(_curClip);
 	const bool anim = cur && cur->frameCount > 0 && nb > 0;
-	if (!anim) { SkinVerts(nullptr); return; }
 
-	SamplePose(*cur, _animTime, _loop, _poseA);
+	// 배치 행렬: 위치=오프셋/스케일/월드 베이크, 방향=월드 회전부
+	XMMATRIX M = XMMatrixIdentity();
+	if (auto t = GetTransform()) { Matrix wm = t->GetWorldMatrix(); M = XMLoadFloat4x4(&wm); }
+	XMMATRIX adjust = XMMatrixTranslation(-_modelOffset.x, -_modelOffset.y, -_modelOffset.z) *
+	                  XMMatrixScaling(_modelScale, _modelScale, _modelScale);
+	XMMATRIX modelToWorld = adjust * M;
 
-	if (_prevClip >= 0 && _fadeDur > 0.f)
+	uint32 boneCount = 0;
+	if (anim)
 	{
-		const AnimClip* prev = ClipData(_prevClip);
-		if (prev && prev->frameCount > 0)
+		SamplePose(*cur, _animTime, _loop, _poseA);
+		if (_prevClip >= 0 && _fadeDur > 0.f)
 		{
-			SamplePose(*prev, _prevTime, true, _poseB);
-			float w = _fadeElapsed / _fadeDur; if (w > 1.f) w = 1.f;
-			BlendPose(_poseB, _poseA, w); // _poseB = lerp(prev, cur, w)
-			_poseA.swap(_poseB);
+			const AnimClip* prev = ClipData(_prevClip);
+			if (prev && prev->frameCount > 0)
+			{
+				SamplePose(*prev, _prevTime, true, _poseB);
+				float w = _fadeElapsed / _fadeDur; if (w > 1.f) w = 1.f;
+				BlendPose(_poseB, _poseA, w); // _poseB = lerp(prev, cur, w)
+				_poseA.swap(_poseB);
+			}
 		}
+		BuildSkinMatrices(_poseA, _skin); // XMMATRIX = 행우선 64B = HLSL row_major float4x4
+		boneCount = (uint32)nb;
+		if (_boneMapped && _boneCap >= boneCount)
+			memcpy(_boneMapped, _skin.data(), (size_t)boneCount * sizeof(XMMATRIX));
 	}
 
-	BuildSkinMatrices(_poseA, _skin);
-	SkinVerts(&_skin);
+	// SkinParams 업로드 (boneCount=0 이면 셰이더가 바인드포즈 직접 사용)
+	if (_skinCBMapped)
+	{
+		SkinParams sp{};
+		XMStoreFloat4x4(&sp.modelToWorld, modelToWorld);
+		XMStoreFloat4x4(&sp.world, M);
+		sp.vtxCount = _vtxCount; sp.boneCount = boneCount;
+		memcpy(_skinCBMapped, &sp, sizeof(sp));
+	}
+
+	// 월드 AABB 근사 — 바인드포즈 로컬 AABB 8코너를 modelToWorld 변환 후 25% 패딩(스키닝 변형 여유)
+	XMVECTOR mn = XMVectorReplicate(1e9f), mx = XMVectorReplicate(-1e9f);
+	const XMFLOAT3 lo = _localMin, hi = _localMax;
+	for (int c = 0; c < 8; ++c)
+	{
+		XMVECTOR p = XMVectorSet((c & 1) ? hi.x : lo.x, (c & 2) ? hi.y : lo.y, (c & 4) ? hi.z : lo.z, 1.f);
+		p = XMVector3Transform(p, modelToWorld);
+		mn = XMVectorMin(mn, p); mx = XMVectorMax(mx, p);
+	}
+	XMVECTOR pad = XMVectorScale(XMVectorSubtract(mx, mn), 0.25f);
+	XMStoreFloat3(&_aabbMin, XMVectorSubtract(mn, pad));
+	XMStoreFloat3(&_aabbMax, XMVectorAdd(mx, pad));
+
+	_skinDirty = true;
+}
+
+// GPU 스키닝 디스패치 — 본 행렬 × 소스정점 → 월드 VB(UAV). 더티일 때만.
+void ModelAnimator::RecordSkinning(ID3D12GraphicsCommandList4* cmd)
+{
+	if (!_dev || !_vb || _vtxCount == 0 || !_skinDirty) return;
+
+	auto toState = [&](D3D12_RESOURCE_STATES to)
+	{
+		if (_vbState == to) return;
+		D3D12_RESOURCE_BARRIER b{}; b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+		b.Transition.pResource = _vb.Get(); b.Transition.StateBefore = _vbState; b.Transition.StateAfter = to;
+		b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+		cmd->ResourceBarrier(1, &b); _vbState = to;
+	};
+	toState(D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+	cmd->SetPipelineState(_dev->_skinPSO.Get());
+	cmd->SetComputeRootSignature(_dev->_skinRootSig.Get());
+	cmd->SetComputeRootConstantBufferView(0, _skinCB->GetGPUVirtualAddress());
+	cmd->SetComputeRootShaderResourceView(1, _srcVB->GetGPUVirtualAddress());
+	cmd->SetComputeRootShaderResourceView(2, _boneBuf->GetGPUVirtualAddress());
+	cmd->SetComputeRootUnorderedAccessView(3, _vb->GetGPUVirtualAddress());
+	cmd->Dispatch((_vtxCount + 63) / 64, 1, 1);
+
+	D3D12_RESOURCE_BARRIER uav{}; uav.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV; uav.UAV.pResource = _vb.Get();
+	cmd->ResourceBarrier(1, &uav);
+
+	// 결합 read 상태 — 래스터 VB + BLAS(NON_PIXEL) + 집계 복사(COPY_SOURCE) 동시 유효
+	toState(D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER |
+	        D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE |
+	        D3D12_RESOURCE_STATE_COPY_SOURCE);
+	_skinDirty = false;
 }
 
 // 상태머신: Any/현재 상태에서 나가는 전이를 평가 → 조건 충족 시 크로스페이드 진입

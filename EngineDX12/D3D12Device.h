@@ -167,6 +167,10 @@ private:
 	void                              RenderTessTerrain(const RenderContext& ctx); // 선택/첫 터레인을 테셀레이션으로
 	// 물 평면 (OFF 기본 — 토글)
 	ComPtr<ID3D12PipelineState>       _waterPSO;
+	// GPU 스키닝 컴퓨트 — ModelAnimator 가 본 행렬 × 소스정점 → 월드 VB(UAV) 계산 (CPU 스키닝 대체)
+	ComPtr<ID3D12RootSignature>       _skinRootSig;
+	ComPtr<ID3D12PipelineState>       _skinPSO;
+	void                              CreateSkinPipeline();
 	bool                              _waterOn = false;
 	float                             _waterLevel = 0.2f, _waterSize = 60.f, _waterGrid = 80.f;
 	void                              RenderWater(const RenderContext& ctx);

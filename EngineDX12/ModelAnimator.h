@@ -52,8 +52,9 @@ public:
 	virtual void TransformBoundingBox() override;
 	virtual void OnInspectorGUI() override;
 
-	// RT 통합 — 시간 전진+스키닝(AS 패스, Draw 전) + 자체 BLAS 빌드
+	// RT 통합 — 시간 전진+포즈 계산(CPU) + GPU 스키닝 디스패치 + 자체 BLAS 빌드 (AS 패스, Draw 전)
 	void UpdateWorld();
+	void RecordSkinning(ID3D12GraphicsCommandList4* cmd); // 본행렬 × 소스정점 → 월드 VB (컴퓨트)
 	void RecordBuildBLAS(ID3D12GraphicsCommandList4* cmd);
 	D3D12_GPU_VIRTUAL_ADDRESS BlasAddr() const { return _blas ? _blas->GetGPUVirtualAddress() : 0; }
 
@@ -106,8 +107,7 @@ private:
 	void  SamplePose(const AnimClip& clip, float timeSec, bool loop, std::vector<BonePose>& out);
 	void  BlendPose(std::vector<BonePose>& a, const std::vector<BonePose>& b, float w); // a = lerp(a,b,w)
 	void  BuildSkinMatrices(const std::vector<BonePose>& local, std::vector<DirectX::XMMATRIX>& skinOut);
-	void  SkinVerts(const std::vector<DirectX::XMMATRIX>* skin); // nullptr = 바인드포즈(정적)
-	void  ComputeAndUpload();           // 현재 블렌드 포즈 계산 → 스킨 → VB 업로드 (옛 Skin 대체)
+	void  ComputeAndUpload();           // 포즈 블렌드 → 본행렬/SkinParams 업로드 + AABB (GPU 디스패치는 RecordSkinning)
 	void  EvalStateMachine();
 	void  FireNotifies(int clip, float prevNorm, float curNorm);
 	void  EnsureNotifies() { if ((int)_notifies.size() < (int)_clips.size()) _notifies.resize(_clips.size()); }
@@ -152,14 +152,22 @@ private:
 	std::vector<std::string> _eventLog;             // 최근 발생 이벤트(인스펙터)
 	float _prevNorm = 0.f;
 
-	// GPU 버퍼 (월드 베이크 VB = 영속 매핑)
-	std::vector<Vtx>         _world;
-	ComPtr<ID3D12Resource>   _vb, _ib;
-	void*                    _vbMapped = nullptr;
+	// GPU 스키닝 버퍼
+	std::vector<Vtx>         _world;       // (미사용 — GPU 스키닝 후 CPU 미러 없음. 인터페이스 호환 유지)
+	ComPtr<ID3D12Resource>   _vb;          // 출력 월드 VB (DEFAULT+UAV — 컴퓨트가 기록, 래스터/BLAS/집계가 읽음)
+	ComPtr<ID3D12Resource>   _ib;          // 인덱스 (업로드, 정적)
+	ComPtr<ID3D12Resource>   _srcVB;       // 소스(바인드포즈) 정점 (업로드 SRV — 동일 메시 공유)
+	ComPtr<ID3D12Resource>   _boneBuf;     // 본 스킨 행렬 (업로드 SRV, 매프레임 갱신)
+	void*                    _boneMapped = nullptr; uint32 _boneCap = 0;
+	ComPtr<ID3D12Resource>   _skinCB;      // SkinParams (업로드 CBV)
+	void*                    _skinCBMapped = nullptr;
+	D3D12_RESOURCE_STATES    _vbState = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+	bool                     _skinDirty = true;
 	D3D12_VERTEX_BUFFER_VIEW _vbv{};
 	D3D12_INDEX_BUFFER_VIEW  _ibv{};
 	uint32                   _vtxCount = 0, _idxCount = 0;
 	DirectX::XMFLOAT3        _aabbMin{}, _aabbMax{};
+	DirectX::XMFLOAT3        _localMin{}, _localMax{}; // 바인드포즈 로컬 AABB (월드 AABB 근사용)
 
 	// 머티리얼 (슬롯×3 디퓨즈/노멀/스펙 — 모델 셰이더 t2/t3/t4)
 	std::vector<ComPtr<ID3D12Resource>> _matResources;

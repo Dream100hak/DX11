@@ -280,7 +280,9 @@ void D3D12Device::Render()
 				}
 				else if (auto an = o->GetModelAnimator())
 				{
-					an->UpdateWorld(); an->RecordBuildBLAS(_cmdList.Get());
+					an->UpdateWorld();                    // CPU: 포즈/본행렬/SkinParams 준비
+					an->RecordSkinning(_cmdList.Get());    // GPU: 컴퓨트 스키닝 → 월드 VB
+					an->RecordBuildBLAS(_cmdList.Get());
 					if (an->BlasAddr()) addInst(an->BlasAddr(), an->VbRes(), an->IbRes(), an->VtxCount(), an->IndexCount());
 				}
 			}

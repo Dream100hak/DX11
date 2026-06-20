@@ -86,6 +86,7 @@ void D3D12Device::Init(HWND hwnd, UINT width, UINT height)
 
 	// Phase 3 — DDGI 프로브 볼륨
 	CreateGI();
+	CreateSkinPipeline(); // GPU 스키닝 컴퓨트
 
 	// 포스트프로세스 (HDR 톤맵 / 블룸 / FXAA) — SceneRT SRV 생성 전에 힙/PSO 준비
 	_postfx.Init(_device.Get(), _sceneFmt);
@@ -779,6 +780,29 @@ void D3D12Device::CreateGI()
 	// gather 컴퓨트 셰이더는 공용 SceneCB 레이아웃에 의존 → 여기서 컴파일 후 바이트코드만 Ddgi 에 전달
 	ComPtr<IDxcBlob> cs = CompileHlsl(_shaderDir, L"Gather.hlsl",L"CSMain", L"cs_6_5");
 	_ddgi.Create(_device.Get(), cs->GetBufferPointer(), cs->GetBufferSize());
+}
+
+// GPU 스키닝 컴퓨트 PSO — b0 SkinParams / t0 소스정점 / t1 본행렬 / u0 출력 월드VB (전부 루트 디스크립터)
+void D3D12Device::CreateSkinPipeline()
+{
+	ComPtr<IDxcBlob> cs = CompileHlsl(_shaderDir, L"Skinning.hlsl", L"CSMain", L"cs_6_5");
+
+	D3D12_ROOT_PARAMETER p[4]{};
+	p[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; p[0].Descriptor.ShaderRegister = 0; // SkinParams
+	p[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; p[1].Descriptor.ShaderRegister = 0; // 소스정점
+	p[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; p[2].Descriptor.ShaderRegister = 1; // 본 행렬
+	p[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_UAV; p[3].Descriptor.ShaderRegister = 0; // 출력 월드 VB
+	for (auto& rp : p) rp.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+	D3D12_ROOT_SIGNATURE_DESC rs{}; rs.NumParameters = 4; rs.pParameters = p; rs.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+	ComPtr<ID3DBlob> sig, err;
+	ThrowIfFailed(D3D12SerializeRootSignature(&rs, D3D_ROOT_SIGNATURE_VERSION_1, &sig, &err), "Serialize Skin RootSig");
+	ThrowIfFailed(_device->CreateRootSignature(0, sig->GetBufferPointer(), sig->GetBufferSize(), IID_PPV_ARGS(&_skinRootSig)), "Create Skin RootSig");
+
+	D3D12_COMPUTE_PIPELINE_STATE_DESC pso{};
+	pso.pRootSignature = _skinRootSig.Get();
+	pso.CS = { cs->GetBufferPointer(), cs->GetBufferSize() };
+	ThrowIfFailed(_device->CreateComputePipelineState(&pso, IID_PPV_ARGS(&_skinPSO)), "Create Skin PSO");
 }
 
 void D3D12Device::CreateConstantBuffers()

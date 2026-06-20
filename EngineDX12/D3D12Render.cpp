@@ -238,8 +238,11 @@ void D3D12Device::Render()
 			d.InstanceID = (UINT)rtInst.size(); // gather 셰이더가 이 ID 로 geomList 메타 조회
 			rtInst.push_back(d); geomList.push_back({ v, i });
 		};
-		_scene.RecordBuildModelBLAS(_cmdList.Get()); // 모델+바닥 BLAS (인스턴스 0)
-		addInst(_scene._blas->GetGPUVirtualAddress(), &_scene._cpuVerts, &_scene._cpuIndices);
+		if (_showFloor) // 바닥 숨김 시 RT(그림자/GI)에서도 제외
+		{
+			_scene.RecordBuildModelBLAS(_cmdList.Get()); // 바닥 BLAS (인스턴스 0)
+			addInst(_scene._blas->GetGPUVirtualAddress(), &_scene._cpuVerts, &_scene._cpuIndices);
+		}
 		if (_gameScene)
 			for (auto& kv : _gameScene->GetCreatedObjects())
 			{

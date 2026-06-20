@@ -327,6 +327,7 @@ private:
 	float                             _pointRadius = 7.0f;
 	// 뷰포트 토글 (S10)
 	bool                              _showGrid = true, _showSky = true, _bloomOn = true, _wireframe = false;
+	bool                              _showFloor = true;    // 바닥 표시(래스터+RT). 끄면 바닥 그림자/GI 도 빠짐
 	bool                              _showStats = false;   // 씬뷰 통계 오버레이(FPS 그래프 + 카운트)
 	bool                              _resetLayout = false; // View > Reset Layout (EditorManager 가 다음 프레임 도킹 재구성)
 	bool                              _frustumCull = false; // 절두체 컬링(Opaque) — 기본 off(안전), 인스펙터 토글

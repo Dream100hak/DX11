@@ -531,6 +531,7 @@ void D3D12Device::DrawMainMenuBar()
 		if (ImGui::BeginMenu("View"))
 		{
 			ImGui::MenuItem("Grid", nullptr, &_showGrid);
+			ImGui::MenuItem("Floor", nullptr, &_showFloor);
 			ImGui::MenuItem("Sky", nullptr, &_showSky);
 			if (_skyCube) ImGui::MenuItem("Skybox Cubemap", nullptr, &_skyCubemapOn);
 			ImGui::MenuItem("Bloom", nullptr, &_bloomOn);

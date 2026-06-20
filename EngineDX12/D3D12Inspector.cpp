@@ -272,6 +272,7 @@ void D3D12Device::DrawInspector()
 
 	case SelEntity::Floor:
 		ImGui::SeparatorText("Floor / Ground");                        // U9 / U19
+		ImGui::Checkbox("Visible", &_showFloor); HelpMarker("바닥 표시(끄면 래스터+RT 그림자/GI 에서 모두 제외). View 메뉴에서도 토글.");
 		ImGui::ColorEdit3("Color", &_floorColor.x);
 		ImGui::SliderFloat("Metallic", &_floorMetallic, 0.0f, 1.0f);
 		ImGui::SliderFloat("Roughness", &_floorRough, 0.02f, 1.0f);

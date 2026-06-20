@@ -18,8 +18,9 @@ void ModelRenderer::TransformBoundingBox()
 void ModelRenderer::Draw(const RenderContext& ctx)
 {
 	if (!_dev) return;
-	auto* cmd = ctx.cmd;
 	D3D12Device& d = *_dev;
+	if (!d._showFloor) return; // 바닥 숨김 토글
+	auto* cmd = ctx.cmd;
 	ModelScene& sc = d._scene;
 
 	cmd->SetPipelineState(d._wireframe ? d._wirePSO.Get() : d._pso.Get()); // 그래픽스 PSO (컴퓨트 후 복귀)

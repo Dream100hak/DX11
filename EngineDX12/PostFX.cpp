@@ -144,6 +144,33 @@ float4 PSFxaa(VOut i) : SV_TARGET
     float lB = dot(rgbB, luma);
     return float4((lB < lMin || lB > lMax) ? rgbA : rgbB, 1.0);
 }
+// TAA — 히스토리(gHDR=t0) 재투영 + 현재(gBloom=t1) 이웃 클램프 시간적 누적. depth(t2)로 월드 복원.
+cbuffer TaaCB : register(b4) { row_major float4x4 gInvVPcur; row_major float4x4 gPrevVP; float2 gTaaTexel; float2 _tpad; };
+float4 PSTaa(VOut i) : SV_TARGET
+{
+    float3 cur = gBloom.Sample(gS, i.uv).rgb;
+    float depth = gDepth.Sample(gS, i.uv).r;
+    if (depth >= 0.9999) return float4(cur, 1.0); // 배경(하늘) — 현재값만
+    // 현재 픽셀 월드 복원 → 직전 클립 → 직전 UV (재투영)
+    float2 ndc = float2(i.uv.x * 2.0 - 1.0, 1.0 - i.uv.y * 2.0);
+    float4 wH = mul(float4(ndc, depth, 1.0), gInvVPcur);
+    float3 world = wH.xyz / wH.w;
+    float4 pc = mul(float4(world, 1.0), gPrevVP);
+    if (pc.w <= 0.0) return float4(cur, 1.0);
+    float2 prevUV = float2(pc.x / pc.w * 0.5 + 0.5, 0.5 - pc.y / pc.w * 0.5);
+    if (prevUV.x < 0.0 || prevUV.x > 1.0 || prevUV.y < 0.0 || prevUV.y > 1.0) return float4(cur, 1.0);
+    float3 hist = gHDR.Sample(gS, prevUV).rgb;
+    // 이웃(3x3) min/max 로 히스토리 클램프 — 고스팅/디스오클루전 억제
+    float3 nmin = cur, nmax = cur;
+    [unroll] for (int oy = -1; oy <= 1; ++oy)
+    [unroll] for (int ox = -1; ox <= 1; ++ox)
+    {
+        float3 s = gBloom.Sample(gS, i.uv + float2(ox, oy) * gTaaTexel).rgb;
+        nmin = min(nmin, s); nmax = max(nmax, s);
+    }
+    hist = clamp(hist, nmin, nmax);
+    return float4(lerp(hist, cur, 0.1), 1.0); // 90% 히스토리 누적
+}
 )";
 
 void PostFX::Init(ID3D12Device* device, DXGI_FORMAT sceneFmt)
@@ -167,7 +194,7 @@ void PostFX::Init(ID3D12Device* device, DXGI_FORMAT sceneFmt)
 	range.NumDescriptors = 2; range.BaseShaderRegister = 0; range.OffsetInDescriptorsFromTableStart = 0;
 	D3D12_DESCRIPTOR_RANGE rangeD{}; rangeD.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	rangeD.NumDescriptors = 1; rangeD.BaseShaderRegister = 2; rangeD.OffsetInDescriptorsFromTableStart = 0;
-	D3D12_ROOT_PARAMETER p[6]{};
+	D3D12_ROOT_PARAMETER p[7]{};
 	p[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 	p[0].DescriptorTable.NumDescriptorRanges = 1; p[0].DescriptorTable.pDescriptorRanges = &range;
 	p[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
@@ -186,10 +213,13 @@ void PostFX::Init(ID3D12Device* device, DXGI_FORMAT sceneFmt)
 	p[5].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
 	p[5].Constants.ShaderRegister = 3; p[5].Constants.Num32BitValues = 8; // b3: 렌즈왜곡/포스터/아나모픽/필터
 	p[5].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	p[6].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // b4: TAA 행렬(invVP/prevVP/texel)
+	p[6].Descriptor.ShaderRegister = 4;
+	p[6].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 	D3D12_STATIC_SAMPLER_DESC s{}; s.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
 	s.AddressU = s.AddressV = s.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP; s.ShaderRegister = 0;
 	s.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL; s.MaxLOD = D3D12_FLOAT32_MAX;
-	D3D12_ROOT_SIGNATURE_DESC rs{}; rs.NumParameters = 6; rs.pParameters = p; rs.NumStaticSamplers = 1; rs.pStaticSamplers = &s;
+	D3D12_ROOT_SIGNATURE_DESC rs{}; rs.NumParameters = 7; rs.pParameters = p; rs.NumStaticSamplers = 1; rs.pStaticSamplers = &s;
 	rs.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
 	ComPtr<ID3DBlob> sig, err;
 	ThrowIfFailed(D3D12SerializeRootSignature(&rs, D3D_ROOT_SIGNATURE_VERSION_1, &sig, &err), "post rootsig");
@@ -214,6 +244,14 @@ void PostFX::Init(ID3D12Device* device, DXGI_FORMAT sceneFmt)
 	makePSO(kTonemapShader, L"PSBright", DXGI_FORMAT_R16G16B16A16_FLOAT, _brightPSO);
 	makePSO(kTonemapShader, L"PSBlur",   DXGI_FORMAT_R16G16B16A16_FLOAT, _blurPSO);
 	makePSO(kTonemapShader, L"PSFxaa",   DXGI_FORMAT_R8G8B8A8_UNORM,     _fxaaPSO);
+	makePSO(kTonemapShader, L"PSTaa",    DXGI_FORMAT_R8G8B8A8_UNORM,     _taaPSO);
+
+	// TAA 행렬 CB (invVP 64 + prevVP 64 + texel 16 = 144 → 256 정렬)
+	D3D12_HEAP_PROPERTIES hpU{}; hpU.Type = D3D12_HEAP_TYPE_UPLOAD;
+	D3D12_RESOURCE_DESC cd{}; cd.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER; cd.Width = 256; cd.Height = 1;
+	cd.DepthOrArraySize = 1; cd.MipLevels = 1; cd.Format = DXGI_FORMAT_UNKNOWN; cd.SampleDesc.Count = 1; cd.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+	ThrowIfFailed(_device->CreateCommittedResource(&hpU, D3D12_HEAP_FLAG_NONE, &cd, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&_taaCB)), "taa cb");
+	D3D12_RANGE nr{ 0, 0 }; _taaCB->Map(0, &nr, &_taaCBMapped);
 }
 
 void PostFX::Resize(UINT w, UINT h, ID3D12Resource* sceneRT, ID3D12Resource* sceneDepth)
@@ -264,7 +302,15 @@ void PostFX::Resize(UINT w, UINT h, ID3D12Resource* sceneRT, ID3D12Resource* sce
 	D3D12_SHADER_RESOURCE_VIEW_DESC lsd{}; lsd.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	lsd.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D; lsd.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING; lsd.Texture2D.MipLevels = 1;
 	_device->CreateShaderResourceView(_sceneLDR.Get(), &lsd, ph); ph.ptr += _srvInc;  // 4 LDR
-	_device->CreateShaderResourceView(_sceneLDR2.Get(), &lsd, ph);                     // 5 LDR2
+	_device->CreateShaderResourceView(_sceneLDR2.Get(), &lsd, ph); ph.ptr += _srvInc; // 5 LDR2
+
+	// TAA 히스토리 버퍼 (R8G8B8A8) + SRV: slot6 history / slot7 current(LDR 두번째 뷰, 테이블 t0/t1 인접)
+	_taaHist.Reset();
+	ThrowIfFailed(_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &ld,
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, &cvl, IID_PPV_ARGS(&_taaHist)), "taa hist");
+	_taaHistState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	_device->CreateShaderResourceView(_taaHist.Get(), &lsd, ph); ph.ptr += _srvInc;   // 6 history
+	_device->CreateShaderResourceView(_sceneLDR.Get(), &lsd, ph);                      // 7 current (LDR)
 
 	_bloomReady = true;
 }
@@ -375,6 +421,45 @@ ID3D12Resource* PostFX::Fxaa(ID3D12GraphicsCommandList4* cmd, bool fxaaOn)
 	cmd->SetGraphicsRoot32BitConstants(1, 8, fc, 0);
 	cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	cmd->DrawInstanced(3, 1, 0, 0);
+	Transition(cmd, _sceneLDR2.Get(), _ldr2State, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	return _sceneLDR2.Get();
+}
+
+ID3D12Resource* PostFX::Taa(ID3D12GraphicsCommandList4* cmd, bool on,
+                            const DirectX::XMFLOAT4X4& invVP, const DirectX::XMFLOAT4X4& prevVP)
+{
+	if (!on || !_taaCBMapped) return _sceneLDR.Get();
+
+	// 행렬 CB 갱신 (invVP 64 + prevVP 64 + texel 8)
+	struct TaaCBData { DirectX::XMFLOAT4X4 invVP, prevVP; float tx, ty, p0, p1; } d{};
+	d.invVP = invVP; d.prevVP = prevVP; d.tx = 1.0f / float(_w); d.ty = 1.0f / float(_h);
+	memcpy(_taaCBMapped, &d, sizeof(d));
+
+	// 현재(LDR) + 히스토리 → LDR2
+	Transition(cmd, _sceneLDR2.Get(), _ldr2State, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	D3D12_CPU_DESCRIPTOR_HANDLE rtv2 = _rtvHeap->GetCPUDescriptorHandleForHeapStart(); rtv2.ptr += _rtvInc; // slot1 LDR2
+	cmd->OMSetRenderTargets(1, &rtv2, FALSE, nullptr);
+	D3D12_VIEWPORT vp{ 0, 0, float(_w), float(_h), 0, 1 };
+	D3D12_RECT sc{ 0, 0, LONG(_w), LONG(_h) };
+	cmd->RSSetViewports(1, &vp); cmd->RSSetScissorRects(1, &sc);
+	cmd->SetPipelineState(_taaPSO.Get());
+	cmd->SetGraphicsRootSignature(_rootSig.Get());
+	ID3D12DescriptorHeap* ph[] = { _srvHeap.Get() };
+	cmd->SetDescriptorHeaps(1, ph);
+	D3D12_GPU_DESCRIPTOR_HANDLE base = _srvHeap->GetGPUDescriptorHandleForHeapStart();
+	D3D12_GPU_DESCRIPTOR_HANDLE t01 = base; t01.ptr += UINT64(6) * _srvInc; // t0=hist(6), t1=current(7)
+	cmd->SetGraphicsRootDescriptorTable(0, t01);
+	D3D12_GPU_DESCRIPTOR_HANDLE dep = base; dep.ptr += UINT64(2) * _srvInc; // t2=depth
+	cmd->SetGraphicsRootDescriptorTable(4, dep);
+	cmd->SetGraphicsRootConstantBufferView(6, _taaCB->GetGPUVirtualAddress());
+	cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	cmd->DrawInstanced(3, 1, 0, 0);
+
+	// LDR2 → 히스토리 복사 (다음 프레임용) → 둘 다 읽기 상태
+	Transition(cmd, _sceneLDR2.Get(), _ldr2State, D3D12_RESOURCE_STATE_COPY_SOURCE);
+	Transition(cmd, _taaHist.Get(), _taaHistState, D3D12_RESOURCE_STATE_COPY_DEST);
+	cmd->CopyResource(_taaHist.Get(), _sceneLDR2.Get());
+	Transition(cmd, _taaHist.Get(), _taaHistState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	Transition(cmd, _sceneLDR2.Get(), _ldr2State, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	return _sceneLDR2.Get();
 }

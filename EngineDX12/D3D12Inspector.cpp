@@ -226,7 +226,11 @@ void D3D12Device::DrawInspector()
 		ImGui::SliderFloat("Fog Density", &_fogDensity, 0.0f, 0.08f);
 		ImGui::Checkbox("Height Fog", &_heightFog);
 		if (_heightFog) { ImGui::SliderFloat("Fog Height", &_fogHeight, -5.f, 20.f); ImGui::SliderFloat("Fog Falloff", &_fogFalloff, 0.02f, 2.f); }
-		ImGui::Checkbox("FXAA", &_fxaaOn);
+		ImGui::SeparatorText("Anti-Aliasing");
+		ImGui::Checkbox("TAA (temporal)", &_taaOn);
+		HelpMarker("시간적 AA — 서브픽셀 지터를 프레임마다 누적해 엣지/셰이더 지터를 정리.\nDDGI/RT/스키닝 노이즈에 특히 효과적. 빠른 모션엔 약간의 잔상(이웃 클램프로 억제).");
+		ImGui::SameLine(); ImGui::Checkbox("FXAA", &_fxaaOn);
+		if (_taaOn && _fxaaOn) ImGui::TextDisabled("(TAA 활성 시 FXAA 무시)");
 		ImGui::Checkbox("RT Reflection", &_reflectOn); HelpMarker("레이트레이싱 반사 — 거울/금속 표면에 씬 반사. Strength=혼합 비율.");
 		ImGui::SliderFloat("Reflect Strength", &_reflectStrength, 0.0f, 1.0f);
 		ImGui::SeparatorText("Ambient Occlusion (RT)");

@@ -153,6 +153,10 @@ private:
 	DirectX::XMFLOAT4                 _envSH[4]{};
 	bool                              _iblOn = true;
 	float                             _iblIntensity = 1.0f;
+	// TAA — 서브픽셀 지터 + 히스토리 재투영 (PostFX). 모션에서 셰이더/엣지 지터 정리.
+	bool                              _taaOn = false; // 인스펙터 Post > Anti-Aliasing 에서 토글
+	DirectX::XMFLOAT4X4               _prevViewProj{};
+	bool                              _hasPrevVP = false;
 	ComPtr<ID3D12PipelineState>       _gridPSO;    // 무한 씬 그리드
 	ComPtr<ID3D12PipelineState>       _outlinePSO; // 선택 아웃라인(인버티드 헐)
 	ComPtr<ID3D12PipelineState>       _wirePSO;    // 와이어프레임 토글

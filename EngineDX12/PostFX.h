@@ -37,6 +37,10 @@ public:
 	void Tonemap(ID3D12GraphicsCommandList4* cmd, const TonemapParams& p);
 	// FXAA: on 이면 LDR→LDR2 후 LDR2 반환, off 면 LDR 그대로 반환. (표시/리드백 대상)
 	ID3D12Resource* Fxaa(ID3D12GraphicsCommandList4* cmd, bool fxaaOn);
+	// TAA: 히스토리 재투영 + 이웃 클램프 시간적 누적. LDR(현재)+히스토리+깊이 → LDR2, 히스토리 갱신 후 LDR2 반환.
+	// invVP=현재(지터드) 역VP, prevVP=직전 프레임 VP. off 면 LDR 그대로 반환.
+	ID3D12Resource* Taa(ID3D12GraphicsCommandList4* cmd, bool on,
+	                    const DirectX::XMFLOAT4X4& invVP, const DirectX::XMFLOAT4X4& prevVP);
 
 	bool            Ready() const { return _bloomReady; }
 	ID3D12Resource* LdrResource() const { return _sceneLDR.Get(); } // 스크린샷 리드백/표시
@@ -49,7 +53,10 @@ private:
 	UINT          _w = 0, _h = 0;
 
 	ComPtr<ID3D12RootSignature>  _rootSig;
-	ComPtr<ID3D12PipelineState>  _tonemapPSO, _brightPSO, _blurPSO, _fxaaPSO;
+	ComPtr<ID3D12PipelineState>  _tonemapPSO, _brightPSO, _blurPSO, _fxaaPSO, _taaPSO;
+	ComPtr<ID3D12Resource>       _taaHist;     // TAA 히스토리(직전 결과)
+	D3D12_RESOURCE_STATES        _taaHistState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	ComPtr<ID3D12Resource>       _taaCB; void* _taaCBMapped = nullptr; // invVP/prevVP/texel
 	ComPtr<ID3D12DescriptorHeap> _srvHeap;   // 0 HDR씬 / 1 bloomA / 2 depth / 3 bloomB / 4 LDR / 5 LDR2
 	UINT                         _srvInc = 0;
 	ComPtr<ID3D12DescriptorHeap> _rtvHeap;   // 0 LDR / 1 LDR2 / 2 bloomA / 3 bloomB

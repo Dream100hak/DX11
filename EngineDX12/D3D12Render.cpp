@@ -144,7 +144,18 @@ void D3D12Device::Render()
 	float aspect = float(_sceneW) / float(_sceneH); // 씬 RT 비율 (왜곡 방지)
 	XMMATRIX proj = _camera.Proj(aspect); // V7
 	XMStoreFloat4x4(&_viewM, view); // ImGuizmo 용 (다음 프레임 BuildUI 에서 사용)
-	XMStoreFloat4x4(&_projM, proj);
+	XMStoreFloat4x4(&_projM, proj); // 기즈모/피킹은 지터 없는 proj 사용
+
+	// TAA 서브픽셀 지터 — 씬 렌더 행렬(projJ)에만 적용 (Halton 2,3). 누적으로 엣지/셰이더 AA.
+	XMMATRIX projJ = proj;
+	if (_taaOn)
+	{
+		auto halton = [](int idx, int b) { float f = 1, r = 0; while (idx > 0) { f /= b; r += f * (idx % b); idx /= b; } return r; };
+		int hi = (int)(_frameIdx % 8) + 1;
+		float jx = (halton(hi, 2) - 0.5f) * 2.0f / float(_sceneW);
+		float jy = (halton(hi, 3) - 0.5f) * 2.0f / float(_sceneH);
+		projJ.r[2] = XMVectorAdd(projJ.r[2], XMVectorSet(jx, jy, 0, 0));
+	}
 
 	// V4 시간대 — 태양 각도 + 하늘/세기 블렌드 (밤→낮→석양)
 	if (_todOn)
@@ -170,7 +181,7 @@ void D3D12Device::Render()
 	_flickerV = _flicker ?(0.65f + 0.35f * sinf(_time * 31.0f) * sinf(_time * 7.3f) + 0.1f * sinf(_time * 53.0f)) : 1.0f; // W9
 
 	SceneCB cb;
-	XMStoreFloat4x4(&cb.mvp, model * view * proj); // row_major HLSL → 전치 불필요
+	XMStoreFloat4x4(&cb.mvp, model * view * projJ); // 지터 적용(TAA) — 라스터 행렬
 	XMStoreFloat4x4(&cb.model, model);
 	cb.lightDir = sunL ? XMFLOAT4(sunL->_direction.x, sunL->_direction.y, sunL->_direction.z, sunL->_intensity)
 	                   : XMFLOAT4(cosf(a) * 0.6f, -1.0f, sinf(a) * 0.6f, _lightIntensity); // w=세기 (Light 컴포넌트 소스)
@@ -186,7 +197,7 @@ void D3D12Device::Render()
 	UINT ddgiBase = (ddgiDiv > 1) ? (_ddgiCursor % _ddgiTotal) : 0;
 	_ddgiCursor = (ddgiBase + ddgiSubset) % _ddgiTotal;
 	cb.giParams = XMFLOAT4(_giStrength, _time * 60.f, _ambient, (float)ddgiBase); // GI세기 / frame / ambient / 프로브베이스
-	XMStoreFloat4x4(&cb.invVP, XMMatrixInverse(nullptr, view * proj)); // 스카이 레이 복원
+	XMStoreFloat4x4(&cb.invVP, XMMatrixInverse(nullptr, view * projJ)); // 스카이 레이 복원 + TAA 재투영(지터드)
 	// ── 점/스팟 라이트: 씬의 모든 Light 컴포넌트에서 수집 (동적 추가 라이트 포함, 점=최대4 스팟=1) ──
 	int ptN = 0; XMFLOAT4 ptPosA[16] = {}, ptColA[16] = {};
 	bool haveSpot = false; XMFLOAT4 spotP{}, spotD{ 0,-1,0,0.5f }, spotC{};
@@ -425,9 +436,16 @@ void D3D12Device::Render()
 	tp.lensDistort = _lensDistort; tp.posterize = _posterize; tp.anamorphic = _anamorphic; tp.filterMode = _filterMode;
 	_postfx.Tonemap(_cmdList.Get(), tp);
 
-	// ── FXAA (LDR → LDR2), 표시 텍스처 선택 ──
-	ID3D12Resource* displayRes = _postfx.Fxaa(_cmdList.Get(), _fxaaOn);
-	_sceneTexId = _imgui.SetSceneTexture(displayRes); // FXAA on→LDR2, off→LDR
+	// ── AA: TAA(우선) 또는 FXAA (LDR → LDR2), 표시 텍스처 선택 ──
+	ID3D12Resource* displayRes;
+	if (_taaOn)
+	{
+		// 첫 프레임은 prevVP=0 → 셰이더가 재투영 실패로 현재값 사용(고스팅 없음). 이후 직전 VP 로 재투영.
+		displayRes = _postfx.Taa(_cmdList.Get(), true, cb.invVP, _hasPrevVP ? _prevViewProj : Matrix{});
+		XMStoreFloat4x4(&_prevViewProj, view * projJ); _hasPrevVP = true; // 다음 프레임용 (지터드 VP)
+	}
+	else { displayRes = _postfx.Fxaa(_cmdList.Get(), _fxaaOn); _hasPrevVP = false; }
+	_sceneTexId = _imgui.SetSceneTexture(displayRes);
 
 	// ── Game 뷰: 게임 카메라 시점 별도 RT (DDGI/TLAS 재사용) ──
 	RenderGameView();

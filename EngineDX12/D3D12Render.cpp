@@ -15,34 +15,56 @@
 
 using namespace DirectX;
 
-// RT 집계 지오메트리 — TLAS 인스턴스 순서대로 (월드정점, 인덱스) 를 한 버퍼로 모으고
-// 인스턴스별 {vbBase, ibBase} 를 _rtMeta 에 기록. gather 셰이더가 InstanceID 로 자기 지오메트리 페치.
-void D3D12Device::BuildRtGeometry(const std::vector<std::pair<const std::vector<Vtx>*, const std::vector<uint32>*>>& geom)
+// RT 집계 지오메트리 — TLAS 인스턴스 순서대로 각 인스턴스의 GPU VB/IB 를 CopyBufferRegion 으로
+// 한 버퍼(_rtVB/_rtIB, DEFAULT 힙)에 모으고 {vbBase,ibBase} 를 _rtMeta 에 기록.
+// CPU memcpy 폐지 → 정점이 GPU 에만 존재하는 GPU 스키닝 메시도 집계 가능. gather 셰이더는 동일.
+void D3D12Device::BuildRtGeometry(const std::vector<RtGeomSrc>& geom, ID3D12GraphicsCommandList4* cmd)
 {
 	uint32 totV = 0, totI = 0;
-	for (auto& g : geom) { totV += (uint32)g.first->size(); totI += (uint32)g.second->size(); }
+	for (auto& g : geom) { totV += g.vcount; totI += g.icount; }
 	if (totV == 0 || totI == 0) return;
-	auto ensure = [&](ComPtr<ID3D12Resource>& buf, void*& mapped, UINT& cap, UINT need)
+
+	auto ensureDef = [&](ComPtr<ID3D12Resource>& buf, UINT& cap, D3D12_RESOURCE_STATES& st, UINT need)
 	{
 		if (buf && cap >= need) return;
 		UINT n = max(need, cap ? cap * 2 : need);
-		buf = CreateUploadBuffer(nullptr, n);
-		D3D12_RANGE nr{ 0, 0 }; buf->Map(0, &nr, &mapped);
-		cap = n;
+		buf = CreateDefaultBuffer(n, D3D12_RESOURCE_STATE_COPY_DEST, false);
+		cap = n; st = D3D12_RESOURCE_STATE_COPY_DEST;
 	};
-	ensure(_rtVB, _rtVBMapped, _rtVBCap, totV * (UINT)sizeof(Vtx));
-	ensure(_rtIB, _rtIBMapped, _rtIBCap, totI * (UINT)sizeof(uint32));
-	ensure(_rtMeta, _rtMetaMapped, _rtMetaCap, (UINT)geom.size() * 2 * (UINT)sizeof(uint32));
-	Vtx* vdst = (Vtx*)_rtVBMapped; uint32* idst = (uint32*)_rtIBMapped; uint32* mdst = (uint32*)_rtMetaMapped;
+	ensureDef(_rtVB, _rtVBCap, _rtVBState, totV * (UINT)sizeof(Vtx));
+	ensureDef(_rtIB, _rtIBCap, _rtIBState, totI * (UINT)sizeof(uint32));
+	if (!_rtMeta || _rtMetaCap < (UINT)geom.size() * 2 * (UINT)sizeof(uint32))
+	{
+		UINT need = (UINT)geom.size() * 2 * (UINT)sizeof(uint32);
+		UINT n = max(need, _rtMetaCap ? _rtMetaCap * 2 : need);
+		_rtMeta = CreateUploadBuffer(nullptr, n);
+		D3D12_RANGE nr{ 0, 0 }; _rtMeta->Map(0, &nr, &_rtMetaMapped); _rtMetaCap = n;
+	}
+
+	auto toState = [&](ID3D12Resource* r, D3D12_RESOURCE_STATES& cur, D3D12_RESOURCE_STATES to)
+	{
+		if (cur == to) return;
+		D3D12_RESOURCE_BARRIER b{}; b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+		b.Transition.pResource = r; b.Transition.StateBefore = cur; b.Transition.StateAfter = to;
+		b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+		cmd->ResourceBarrier(1, &b); cur = to;
+	};
+	toState(_rtVB.Get(), _rtVBState, D3D12_RESOURCE_STATE_COPY_DEST);
+	toState(_rtIB.Get(), _rtIBState, D3D12_RESOURCE_STATE_COPY_DEST);
+
+	uint32* mdst = (uint32*)_rtMetaMapped;
 	uint32 vbBase = 0, ibBase = 0;
 	for (size_t k = 0; k < geom.size(); ++k)
 	{
-		const auto& V = *geom[k].first; const auto& I = *geom[k].second;
+		const RtGeomSrc& g = geom[k];
 		mdst[k * 2 + 0] = vbBase; mdst[k * 2 + 1] = ibBase;
-		if (!V.empty()) memcpy(vdst + vbBase, V.data(), V.size() * sizeof(Vtx));
-		if (!I.empty()) memcpy(idst + ibBase, I.data(), I.size() * sizeof(uint32));
-		vbBase += (uint32)V.size(); ibBase += (uint32)I.size();
+		if (g.vcount && g.vb) cmd->CopyBufferRegion(_rtVB.Get(), (UINT64)vbBase * sizeof(Vtx), g.vb, 0, (UINT64)g.vcount * sizeof(Vtx));
+		if (g.icount && g.ib) cmd->CopyBufferRegion(_rtIB.Get(), (UINT64)ibBase * sizeof(uint32), g.ib, 0, (UINT64)g.icount * sizeof(uint32));
+		vbBase += g.vcount; ibBase += g.icount;
 	}
+	// DDGI 루트 SRV 읽기용 상태로 (DEFAULT 힙은 명시 전이 필요)
+	toState(_rtVB.Get(), _rtVBState, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+	toState(_rtIB.Get(), _rtIBState, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 }
 
 // ───────────────────────────────────────────────────────────
@@ -231,17 +253,17 @@ void D3D12Device::Render()
 	// 더 이상 전역 모델 VB 와 인덱스 수가 맞을 필요 없음(OOB 가드 제거). geomList 는 rtInst 와 동순서.
 	{
 		std::vector<D3D12_RAYTRACING_INSTANCE_DESC> rtInst;
-		std::vector<std::pair<const std::vector<Vtx>*, const std::vector<uint32>*>> geomList;
-		auto addInst = [&](D3D12_GPU_VIRTUAL_ADDRESS blas, const std::vector<Vtx>* v, const std::vector<uint32>* i)
+		std::vector<RtGeomSrc> geomList;
+		auto addInst = [&](D3D12_GPU_VIRTUAL_ADDRESS blas, ID3D12Resource* vb, ID3D12Resource* ib, uint32 vc, uint32 ic)
 		{
 			auto d = RtBlas::IdentityInstance(blas);
 			d.InstanceID = (UINT)rtInst.size(); // gather 셰이더가 이 ID 로 geomList 메타 조회
-			rtInst.push_back(d); geomList.push_back({ v, i });
+			rtInst.push_back(d); geomList.push_back({ vb, ib, vc, ic });
 		};
 		if (_showFloor) // 바닥 숨김 시 RT(그림자/GI)에서도 제외
 		{
 			_scene.RecordBuildModelBLAS(_cmdList.Get()); // 바닥 BLAS (인스턴스 0)
-			addInst(_scene._blas->GetGPUVirtualAddress(), &_scene._cpuVerts, &_scene._cpuIndices);
+			addInst(_scene._blas->GetGPUVirtualAddress(), _scene._vb.Get(), _scene._ib.Get(), _scene._vertexCount, _scene._indexCount);
 		}
 		if (_gameScene)
 			for (auto& kv : _gameScene->GetCreatedObjects())
@@ -254,15 +276,15 @@ void D3D12Device::Render()
 				if (auto mr = o->GetMeshRenderer())
 				{
 					mr->UpdateWorld(); mr->RecordBuildBLAS(_cmdList.Get());
-					if (mr->BlasAddr()) addInst(mr->BlasAddr(), &mr->GetWorldVerts(), &mr->GetLocalIndices());
+					if (mr->BlasAddr()) addInst(mr->BlasAddr(), mr->VbRes(), mr->IbRes(), mr->VtxCount(), mr->IdxCount());
 				}
 				else if (auto an = o->GetModelAnimator())
 				{
 					an->UpdateWorld(); an->RecordBuildBLAS(_cmdList.Get());
-					if (an->BlasAddr()) addInst(an->BlasAddr(), &an->GetWorldVerts(), &an->GetIndices());
+					if (an->BlasAddr()) addInst(an->BlasAddr(), an->VbRes(), an->IbRes(), an->VtxCount(), an->IndexCount());
 				}
 			}
-		BuildRtGeometry(geomList); // 집계 정점/인덱스/메타 채움 (rtInst 동순서)
+		BuildRtGeometry(geomList, _cmdList.Get()); // 인스턴스별 GPU VB/IB → 집계 버퍼 복사 (rtInst 동순서)
 		// 모든 BLAS 빌드 완료 후 UAV 배리어(전체) → 통합 TLAS
 		D3D12_RESOURCE_BARRIER uav{}; uav.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV; uav.UAV.pResource = nullptr;
 		_cmdList->ResourceBarrier(1, &uav);

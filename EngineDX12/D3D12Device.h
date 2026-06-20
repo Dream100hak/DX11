@@ -249,10 +249,12 @@ private:
 	Ddgi                              _ddgi;
 	// RT 집계 지오메트리 — 모든 TLAS 인스턴스의 월드 정점/인덱스를 한 버퍼로 모아
 	// gather 셰이더가 InstanceID+{vbBase,ibBase}(t3 _rtMeta)로 자기 인스턴스 지오메트리를 페치.
-	ComPtr<ID3D12Resource>            _rtVB; void* _rtVBMapped = nullptr; UINT _rtVBCap = 0;     // 정점(Vtx)
-	ComPtr<ID3D12Resource>            _rtIB; void* _rtIBMapped = nullptr; UINT _rtIBCap = 0;     // 인덱스(uint32)
-	ComPtr<ID3D12Resource>            _rtMeta; void* _rtMetaMapped = nullptr; UINT _rtMetaCap = 0; // {vbBase,ibBase}×인스턴스
-	void                              BuildRtGeometry(const std::vector<std::pair<const std::vector<Vtx>*, const std::vector<uint32>*>>& geom); // 집계 버퍼 채움
+	// DEFAULT 힙: 각 인스턴스의 GPU VB/IB 를 CopyBufferRegion 으로 집계(CPU memcpy 폐지 — GPU 스키닝 호환).
+	ComPtr<ID3D12Resource>            _rtVB; UINT _rtVBCap = 0; D3D12_RESOURCE_STATES _rtVBState = D3D12_RESOURCE_STATE_COPY_DEST; // 정점(Vtx)
+	ComPtr<ID3D12Resource>            _rtIB; UINT _rtIBCap = 0; D3D12_RESOURCE_STATES _rtIBState = D3D12_RESOURCE_STATE_COPY_DEST; // 인덱스(uint32)
+	ComPtr<ID3D12Resource>            _rtMeta; void* _rtMetaMapped = nullptr; UINT _rtMetaCap = 0; // {vbBase,ibBase}×인스턴스(업로드)
+	struct RtGeomSrc { ID3D12Resource* vb; ID3D12Resource* ib; uint32 vcount; uint32 icount; }; // 집계 소스(인스턴스별 GPU 버퍼)
+	void                              BuildRtGeometry(const std::vector<RtGeomSrc>& geom, ID3D12GraphicsCommandList4* cmd); // GPU 복사로 집계
 
 	D3D12_RAYTRACING_TIER             _dxrTier = D3D12_RAYTRACING_TIER_NOT_SUPPORTED;
 	std::wstring                      _adapterName;

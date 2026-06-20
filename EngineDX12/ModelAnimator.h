@@ -41,8 +41,12 @@ public:
 	bool Load(const std::wstring& meshPath); // 메시+본+클립 로드, 월드 VB/IB 생성
 
 	uint32 IndexCount() const { return _idxCount; } // RT TLAS OOB 방어 가드용
+	uint32 VtxCount()   const { return _vtxCount; }
 	const std::vector<Vtx>&    GetWorldVerts() const { return _world; }   // RT 집계 페치용 (월드 베이크 스킨)
 	const std::vector<uint32>& GetIndices() const { return _indices; }
+	// RT 집계 GPU 복사용 — 자체 월드 VB/IB 리소스
+	ID3D12Resource* VbRes() const { return _vb.Get(); }
+	ID3D12Resource* IbRes() const { return _ib.Get(); }
 	virtual void Draw(const RenderContext& ctx) override;
 	virtual void RecordOutline(ID3D12GraphicsCommandList4* cmd) override;
 	virtual void TransformBoundingBox() override;

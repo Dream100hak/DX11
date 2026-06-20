@@ -36,6 +36,11 @@ public:
 	const vector<Vtx>&    GetLocalVerts() const { return _local; }   // 복제용
 	const vector<uint32>& GetLocalIndices() const { return _indices; }
 	const vector<Vtx>&    GetWorldVerts() const { return _world; }   // RT 집계 페치용 (월드 베이크)
+	// RT 집계 GPU 복사용 — 자체 월드 VB/IB 리소스 + 개수
+	ID3D12Resource* VbRes() const { return _vb.Get(); }
+	ID3D12Resource* IbRes() const { return _ib.Get(); }
+	uint32 VtxCount() const { return (uint32)_world.size(); }
+	uint32 IdxCount() const { return (uint32)_indices.size(); }
 	void     SetPrim(MeshPrim p) { _prim = p; } // 직렬화/재생성용 프리미티브 종류
 	MeshPrim GetPrim() const { return _prim; }
 

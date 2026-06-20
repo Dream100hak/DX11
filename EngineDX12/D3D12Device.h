@@ -251,6 +251,10 @@ private:
 
 	// Phase 3 — DDGI 프로브 볼륨 (Ddgi 클래스가 프로브 버퍼 + 컴퓨트 GI 디스패치 소유)
 	Ddgi                              _ddgi;
+	// DDGI 스로틀 — 매 프레임 프로브 전부 갱신 대신 1/N 만 라운드로빈 (GI 비용 절감, 약간의 응답 지연)
+	bool                              _ddgiThrottle = true;
+	int                               _ddgiDiv = 2;       // 분할 수 (500 의 약수: 1/2/4/5/10)
+	UINT                              _ddgiCursor = 0;     // 라운드로빈 프로브 베이스
 	// RT 집계 지오메트리 — 모든 TLAS 인스턴스의 월드 정점/인덱스를 한 버퍼로 모아
 	// gather 셰이더가 InstanceID+{vbBase,ibBase}(t3 _rtMeta)로 자기 인스턴스 지오메트리를 페치.
 	// DEFAULT 힙: 각 인스턴스의 GPU VB/IB 를 CopyBufferRegion 으로 집계(CPU memcpy 폐지 — GPU 스키닝 호환).

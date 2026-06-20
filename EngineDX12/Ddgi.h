@@ -22,13 +22,15 @@ public:
 
 	void Create(ID3D12Device* device, const void* gatherCS, size_t gatherCSSize);
 
-	// 매 프레임 프로브 irradiance 갱신 (RT 레이 수집). 결과는 픽셀 SRV 상태로 남긴다.
+	// 프로브 irradiance 갱신 (RT 레이 수집). probeCount 개만 디스패치(라운드로빈 스로틀 — base 는
+	// cb.giParams.w 로 셰이더에 전달). 결과는 픽셀 SRV 상태로 남긴다.
 	void Dispatch(ID3D12GraphicsCommandList4* cmd,
 	              D3D12_GPU_VIRTUAL_ADDRESS cb,
 	              D3D12_GPU_VIRTUAL_ADDRESS tlas,
 	              D3D12_GPU_VIRTUAL_ADDRESS vb,
 	              D3D12_GPU_VIRTUAL_ADDRESS ib,
-	              D3D12_GPU_VIRTUAL_ADDRESS instMeta);
+	              D3D12_GPU_VIRTUAL_ADDRESS instMeta,
+	              UINT probeCount = PROBE_COUNT);
 
 	D3D12_GPU_VIRTUAL_ADDRESS ProbesAddr() const { return _probes->GetGPUVirtualAddress(); }
 	D3D12_GPU_VIRTUAL_ADDRESS ProbeDepthAddr() const { return _probeDepth->GetGPUVirtualAddress(); }

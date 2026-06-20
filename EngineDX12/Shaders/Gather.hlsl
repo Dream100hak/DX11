@@ -59,7 +59,7 @@ float3 ProbeIrradiancePrev(float3 wpos, float3 N)
 void CSMain(uint3 tid : SV_DispatchThreadID)
 {
     uint PX = (uint)gGridDim.x, PY = (uint)gGridDim.y, PZ = (uint)gGridDim.z;
-    uint pi = tid.x;
+    uint pi = (uint)gGI.w + tid.x; // gGI.w = 프로브 베이스 오프셋 (라운드로빈 부분 갱신)
     if (pi >= PX * PY * PZ) return;
 
     uint px = pi % PX, py = (pi / PX) % PY, pz = pi / (PX * PY);

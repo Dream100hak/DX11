@@ -178,7 +178,14 @@ void D3D12Device::Render()
 	cb.gridMin  = XMFLOAT4(-6.5f, 0.2f, -6.5f, 0.f);
 	cb.gridMax  = XMFLOAT4( 6.5f, 4.0f,  6.5f, 0.f);
 	cb.gridDim  = XMFLOAT4(float(Ddgi::PROBE_X), float(Ddgi::PROBE_Y), float(Ddgi::PROBE_Z), 128.f); // 128 rays/probe
-	cb.giParams = XMFLOAT4(_giStrength, _time * 60.f, _ambient, 0.f); // GI세기 / frame / 앰비언트
+	// DDGI 스로틀 — 이번 프레임 갱신할 프로브 베이스/개수 (라운드로빈). 분할수가 500 을 나눠떨어뜨려야 균등.
+	const UINT _ddgiTotal = Ddgi::PROBE_COUNT;
+	int ddgiDiv = _ddgiThrottle ? max(1, _ddgiDiv) : 1;
+	while (ddgiDiv > 1 && (_ddgiTotal % (UINT)ddgiDiv) != 0) --ddgiDiv; // 약수 보정
+	UINT ddgiSubset = _ddgiTotal / (UINT)ddgiDiv;
+	UINT ddgiBase = (ddgiDiv > 1) ? (_ddgiCursor % _ddgiTotal) : 0;
+	_ddgiCursor = (ddgiBase + ddgiSubset) % _ddgiTotal;
+	cb.giParams = XMFLOAT4(_giStrength, _time * 60.f, _ambient, (float)ddgiBase); // GI세기 / frame / ambient / 프로브베이스
 	XMStoreFloat4x4(&cb.invVP, XMMatrixInverse(nullptr, view * proj)); // 스카이 레이 복원
 	// ── 점/스팟 라이트: 씬의 모든 Light 컴포넌트에서 수집 (동적 추가 라이트 포함, 점=최대4 스팟=1) ──
 	int ptN = 0; XMFLOAT4 ptPosA[16] = {}, ptColA[16] = {};
@@ -298,7 +305,8 @@ void D3D12Device::Render()
 	               _scene._tlas->GetGPUVirtualAddress(),
 	               (_rtVB ? _rtVB->GetGPUVirtualAddress() : _scene._vb->GetGPUVirtualAddress()),
 	               (_rtIB ? _rtIB->GetGPUVirtualAddress() : _scene._ib->GetGPUVirtualAddress()),
-	               (_rtMeta ? _rtMeta->GetGPUVirtualAddress() : _scene._vb->GetGPUVirtualAddress()));
+	               (_rtMeta ? _rtMeta->GetGPUVirtualAddress() : _scene._vb->GetGPUVirtualAddress()),
+		               ddgiSubset); // 스로틀: 이번 프레임 갱신 프로브 수
 
 	// ── 씬 3D → 오프스크린 RT (Scene 도킹 탭 이미지) ──
 	Transition(_sceneRT.Get(), _sceneRTState, D3D12_RESOURCE_STATE_RENDER_TARGET);

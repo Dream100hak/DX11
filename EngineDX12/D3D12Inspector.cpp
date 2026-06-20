@@ -136,6 +136,18 @@ void D3D12Device::DrawInspector()
 		ImGui::SliderFloat("Ambient", &_ambient, 0.0f, 0.2f);
 		ImGui::Checkbox("Show Probes", &_probeViz);                      // T15
 		ImGui::Spacing();
+		// 스로틀 — 매 프레임 프로브 전부 갱신 대신 1/N 라운드로빈 (GI 비용 절감, 약간의 응답 지연)
+		ImGui::Checkbox("Throttle (round-robin)", &_ddgiThrottle);
+		HelpMarker("매 프레임 프로브를 1/N 만 갱신해 GI 비용을 줄입니다. N 프레임마다 전체 1회전.\n동적 조명 반응이 약간 느려지지만 EMA 누적으로 잔상은 적습니다.");
+		if (_ddgiThrottle)
+		{
+			const char* divs[] = { "1/2 (2 frames)", "1/4 (4 frames)", "1/5 (5 frames)", "1/10 (10 frames)" };
+			const int divVal[] = { 2, 4, 5, 10 };
+			int cur = 0; for (int i = 0; i < 4; ++i) if (divVal[i] == _ddgiDiv) cur = i;
+			ImGui::SetNextItemWidth(160);
+			if (ImGui::Combo("Refresh", &cur, divs, 4)) _ddgiDiv = divVal[cur];
+		}
+		ImGui::Spacing();
 		ImGui::Text("Probes : %u  (%dx%dx%d)", Ddgi::PROBE_COUNT, Ddgi::PROBE_X, Ddgi::PROBE_Y, Ddgi::PROBE_Z);
 		ImGui::TextDisabled("SH-L1 + Chebyshev oct-depth visibility");
 		break;

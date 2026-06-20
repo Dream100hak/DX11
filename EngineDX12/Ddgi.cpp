@@ -72,7 +72,8 @@ void Ddgi::Dispatch(ID3D12GraphicsCommandList4* cmd,
                     D3D12_GPU_VIRTUAL_ADDRESS tlas,
                     D3D12_GPU_VIRTUAL_ADDRESS vb,
                     D3D12_GPU_VIRTUAL_ADDRESS ib,
-                    D3D12_GPU_VIRTUAL_ADDRESS instMeta)
+                    D3D12_GPU_VIRTUAL_ADDRESS instMeta,
+                    UINT probeCount)
 {
 	// 프로브/depth 를 UAV 상태로 → RT 레이 수집 → 픽셀 읽기용 SRV 로 전환
 	Transition(cmd, _probes.Get(), _probeState, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
@@ -87,7 +88,7 @@ void Ddgi::Dispatch(ID3D12GraphicsCommandList4* cmd,
 	cmd->SetComputeRootShaderResourceView(4, vb);
 	cmd->SetComputeRootShaderResourceView(5, ib);
 	cmd->SetComputeRootShaderResourceView(6, instMeta);
-	cmd->Dispatch((PROBE_COUNT + 63) / 64, 1, 1);
+	cmd->Dispatch((probeCount + 63) / 64, 1, 1); // 스로틀: 부분 프로브만 (base 는 cb.giParams.w)
 
 	D3D12_RESOURCE_BARRIER uav[2]{};
 	uav[0].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV; uav[0].UAV.pResource = _probes.Get();

@@ -2,7 +2,7 @@
 #include <dxcapi.h>
 
 // D3D12Device.cpp 의 공용 셰이더 컴파일 헬퍼
-ComPtr<IDxcBlob> CompileDxc(const char* src, const wchar_t* entry, const wchar_t* target);
+ComPtr<IDxcBlob> CompileDxc(const char* src, const wchar_t* entry, const wchar_t* target, const wchar_t* includeDir);
 
 // 포스트프로세스 공용 — 풀스크린 삼각형 VS
 static const char* kPostCommon = R"(
@@ -197,8 +197,8 @@ void PostFX::Init(ID3D12Device* device, DXGI_FORMAT sceneFmt)
 
 	auto makePSO = [&](const std::string& shader, const wchar_t* psEntry, DXGI_FORMAT fmt, ComPtr<ID3D12PipelineState>& out)
 	{
-		ComPtr<IDxcBlob> vs = CompileDxc(shader.c_str(), L"VSFull", L"vs_6_5");
-		ComPtr<IDxcBlob> ps = CompileDxc(shader.c_str(), psEntry, L"ps_6_5");
+		ComPtr<IDxcBlob> vs = CompileDxc(shader.c_str(), L"VSFull", L"vs_6_5", nullptr);
+		ComPtr<IDxcBlob> ps = CompileDxc(shader.c_str(), psEntry, L"ps_6_5", nullptr);
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC d{};
 		d.pRootSignature = _rootSig.Get();
 		d.VS = { vs->GetBufferPointer(), vs->GetBufferSize() };

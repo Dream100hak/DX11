@@ -3,8 +3,8 @@
 
 using namespace DirectX;
 
-// D3D12Device.cpp 의 공용 셰이더 컴파일 헬퍼
-ComPtr<IDxcBlob> CompileDxc(const char* src, const wchar_t* entry, const wchar_t* target);
+// D3D12Device.cpp 의 공용 셰이더 컴파일 헬퍼 (includeDir=null → #include 없음)
+ComPtr<IDxcBlob> CompileDxc(const char* src, const wchar_t* entry, const wchar_t* target, const wchar_t* includeDir);
 
 // 디버그 라인 셰이더 — b0 의 SceneCB 중 gMVP(첫 멤버)만 사용. pos+color 라인.
 static const char* kDbgLineShader = R"(
@@ -20,8 +20,8 @@ void DebugDraw::Init(ID3D12Device* device, ID3D12RootSignature* rootSig, DXGI_FO
 	_device = device;
 	_rootSig = rootSig;
 
-	ComPtr<IDxcBlob> vs = CompileDxc(kDbgLineShader, L"VSMain", L"vs_6_5");
-	ComPtr<IDxcBlob> ps = CompileDxc(kDbgLineShader, L"PSMain", L"ps_6_5");
+	ComPtr<IDxcBlob> vs = CompileDxc(kDbgLineShader, L"VSMain", L"vs_6_5", nullptr);
+	ComPtr<IDxcBlob> ps = CompileDxc(kDbgLineShader, L"PSMain", L"ps_6_5", nullptr);
 
 	D3D12_INPUT_ELEMENT_DESC il[] = {
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },

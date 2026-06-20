@@ -256,6 +256,7 @@ private:
 
 	D3D12_RAYTRACING_TIER             _dxrTier = D3D12_RAYTRACING_TIER_NOT_SUPPORTED;
 	std::wstring                      _adapterName;
+	std::wstring                      _shaderDir; // exe\Shaders (런타임 .hlsl 로드 경로 — CreatePipeline/CreateGI)
 	float                             _time = 0.f;
 
 	// 자유 비행 카메라 — FlyCamera 클래스가 상태/입력/뷰·프로젝션 소유

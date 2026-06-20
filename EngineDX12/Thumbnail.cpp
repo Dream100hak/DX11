@@ -6,8 +6,8 @@
 
 using namespace DirectX;
 
-// D3D12Device.cpp 의 공용 셰이더 컴파일 헬퍼
-ComPtr<IDxcBlob> CompileDxc(const char* src, const wchar_t* entry, const wchar_t* target);
+// D3D12Device.cpp 의 공용 셰이더 컴파일 헬퍼 (includeDir=null → #include 없음)
+ComPtr<IDxcBlob> CompileDxc(const char* src, const wchar_t* entry, const wchar_t* target, const wchar_t* includeDir);
 
 // 미니 람베르트 셰이더(pos+nrm) — b0 = 32비트 상수(mvp16 + lightDir4 + baseCol4)
 static const char* kThumbShader = R"(
@@ -65,8 +65,8 @@ void Thumbnail::Init(ID3D12Device* device, ID3D12CommandQueue* queue, ImGuiDx12*
 	ThrowIfFailed(D3D12SerializeRootSignature(&rs, D3D_ROOT_SIGNATURE_VERSION_1, &sig, &err), "Thumb RootSig");
 	ThrowIfFailed(_device->CreateRootSignature(0, sig->GetBufferPointer(), sig->GetBufferSize(), IID_PPV_ARGS(&_rootSig)), "Thumb CreateRootSig");
 
-	ComPtr<IDxcBlob> vs = CompileDxc(kThumbShader, L"VSMain", L"vs_6_5");
-	ComPtr<IDxcBlob> ps = CompileDxc(kThumbShader, L"PSMain", L"ps_6_5");
+	ComPtr<IDxcBlob> vs = CompileDxc(kThumbShader, L"VSMain", L"vs_6_5", nullptr);
+	ComPtr<IDxcBlob> ps = CompileDxc(kThumbShader, L"PSMain", L"ps_6_5", nullptr);
 
 	D3D12_INPUT_ELEMENT_DESC il[] = {
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },

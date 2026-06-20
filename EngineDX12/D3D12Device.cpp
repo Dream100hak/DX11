@@ -16,6 +16,7 @@
 #include "imgui_impl_win32.h"
 #include <dxcapi.h>
 #pragma comment(lib, "dxcompiler.lib")
+#include <fstream>
 #include <DirectXTex/DirectXTex.h>
 #ifdef _DEBUG
 #pragma comment(lib, "DirectXTex/DirectXTex_debug.lib")
@@ -28,10 +29,18 @@ D3D12Device* D3D12Device::s_main = nullptr;
 using namespace DirectX;
 
 // SceneCB 는 D3D12Device.h 로 이동 (Render.cpp 공용)
-// 인라인 HLSL 셰이더 소스(kSceneCB/kMeshShader/...)는 D3D12Shaders.cpp 로 이동
-#include "D3D12Shaders.h"
+// HLSL 셰이더 = Shaders/*.hlsl 파일 (런타임 DXC 컴파일, #include "SceneCB.hlsli"). 인라인 문자열 제거.
+ComPtr<IDxcBlob> CompileDxc(const char* src, const wchar_t* entry, const wchar_t* target, const wchar_t* includeDir); // 전방 선언
 
-ComPtr<IDxcBlob> CompileDxc(const char* src, const wchar_t* entry, const wchar_t* target); // 전방 선언
+// .hlsl 파일 로드 → DXC 컴파일 (#include 는 dir 에서 해석). 파일 없으면 즉시 중단(명확한 에러).
+static ComPtr<IDxcBlob> CompileHlsl(const std::wstring& dir, const std::wstring& file, const wchar_t* entry, const wchar_t* target)
+{
+	std::wstring path = dir + L"\\" + file;
+	std::ifstream f(path, std::ios::binary);
+	if (!f) { OutputDebugStringW((L"[Shader] file not found: " + path + L"\n").c_str()); throw std::runtime_error("shader file not found (Shaders/ 폴더 누락?)"); }
+	std::string src((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+	return CompileDxc(src.c_str(), entry, target, dir.c_str());
+}
 
 
 // ───────────────────────────────────────────────────────────
@@ -43,6 +52,13 @@ void D3D12Device::Init(HWND hwnd, UINT width, UINT height)
 	_hwnd = hwnd;
 
 	CoInitializeEx(nullptr, COINIT_MULTITHREADED); // WIC 텍스처 로딩용
+
+	// 셰이더 디렉터리 (exe\Shaders) — CreatePipeline/CreateGI 가 .hlsl 로드. 빌드가 exe 옆으로 복사.
+	{
+		wchar_t exe[MAX_PATH]{}; GetModuleFileNameW(nullptr, exe, MAX_PATH);
+		std::wstring dir(exe); dir = dir.substr(0, dir.find_last_of(L"\\/"));
+		_shaderDir = dir + L"\\Shaders";
+	}
 
 	EnableDebugLayer();
 	CreateDeviceAndQueue();
@@ -408,12 +424,14 @@ void D3D12Device::CreateRootSignature()
 
 // DXC 컴파일 (SM6.x) — RayQuery(인라인 RT, SM6.5) 때문에 FXC 대신 DXC 사용.
 // row_major 키워드로 DirectXMath(행우선) 일치는 셰이더 소스에서 명시.
-ComPtr<IDxcBlob> CompileDxc(const char* src, const wchar_t* entry, const wchar_t* target)
+ComPtr<IDxcBlob> CompileDxc(const char* src, const wchar_t* entry, const wchar_t* target, const wchar_t* includeDir)
 {
 	static ComPtr<IDxcUtils> utils;
 	static ComPtr<IDxcCompiler3> compiler;
+	static ComPtr<IDxcIncludeHandler> incHandler;
 	if (!utils) ThrowIfFailed(DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&utils)), "DxcCreateInstance Utils");
 	if (!compiler) ThrowIfFailed(DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&compiler)), "DxcCreateInstance Compiler");
+	if (!incHandler) ThrowIfFailed(utils->CreateDefaultIncludeHandler(&incHandler), "DXC IncludeHandler"); // #include 해석
 
 	DxcBuffer srcBuf{};
 	srcBuf.Ptr = src;
@@ -421,6 +439,7 @@ ComPtr<IDxcBlob> CompileDxc(const char* src, const wchar_t* entry, const wchar_t
 	srcBuf.Encoding = DXC_CP_UTF8;
 
 	std::vector<LPCWSTR> args = { L"-E", entry, L"-T", target, L"-HV", L"2021" };
+	if (includeDir && includeDir[0]) { args.push_back(L"-I"); args.push_back(includeDir); } // #include "SceneCB.hlsli" 검색 경로
 #if defined(_DEBUG)
 	args.push_back(L"-Zi");
 	args.push_back(L"-Qembed_debug");
@@ -428,7 +447,7 @@ ComPtr<IDxcBlob> CompileDxc(const char* src, const wchar_t* entry, const wchar_t
 #endif
 
 	ComPtr<IDxcResult> result;
-	ThrowIfFailed(compiler->Compile(&srcBuf, args.data(), (UINT)args.size(), nullptr, IID_PPV_ARGS(&result)), "DXC Compile");
+	ThrowIfFailed(compiler->Compile(&srcBuf, args.data(), (UINT)args.size(), incHandler.Get(), IID_PPV_ARGS(&result)), "DXC Compile");
 
 	ComPtr<IDxcBlobUtf8> errors;
 	result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&errors), nullptr);
@@ -519,8 +538,8 @@ bool D3D12Device::LoadSkyCubemap(const std::wstring& ddsPath)
 
 void D3D12Device::CreatePipeline()
 {
-	ComPtr<IDxcBlob> vs = CompileDxc(kMeshShader.c_str(), L"VSMain", L"vs_6_5");
-	ComPtr<IDxcBlob> ps = CompileDxc(kMeshShader.c_str(), L"PSMain", L"ps_6_5");
+	ComPtr<IDxcBlob> vs = CompileHlsl(_shaderDir, L"Mesh.hlsl",L"VSMain", L"vs_6_5");
+	ComPtr<IDxcBlob> ps = CompileHlsl(_shaderDir, L"Mesh.hlsl",L"PSMain", L"ps_6_5");
 
 	D3D12_INPUT_ELEMENT_DESC layout[] =
 	{
@@ -568,8 +587,8 @@ void D3D12Device::CreatePipeline()
 	ThrowIfFailed(_device->CreateGraphicsPipelineState(&wpso, IID_PPV_ARGS(&_wirePSO)), "CreateWirePSO");
 
 	// ── 스카이박스 PSO (풀스크린 삼각형, 깊이/입력레이아웃 없음, b0 만 사용) ──
-	ComPtr<IDxcBlob> svs = CompileDxc(kSkyShader.c_str(), L"VSMain", L"vs_6_5");
-	ComPtr<IDxcBlob> sps = CompileDxc(kSkyShader.c_str(), L"PSMain", L"ps_6_5");
+	ComPtr<IDxcBlob> svs = CompileHlsl(_shaderDir, L"Sky.hlsl",L"VSMain", L"vs_6_5");
+	ComPtr<IDxcBlob> sps = CompileHlsl(_shaderDir, L"Sky.hlsl",L"PSMain", L"ps_6_5");
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC spso{};
 	spso.pRootSignature = _rootSig.Get();
 	spso.VS = { svs->GetBufferPointer(), svs->GetBufferSize() };
@@ -586,8 +605,8 @@ void D3D12Device::CreatePipeline()
 	ThrowIfFailed(_device->CreateGraphicsPipelineState(&spso, IID_PPV_ARGS(&_skyPSO)), "CreateSkyPSO");
 
 	// ── 그리드 PSO (깊이 테스트 LESS_EQUAL/쓰기 없음, 알파 블렌드, SV_Depth 출력) ──
-	ComPtr<IDxcBlob> gvs = CompileDxc(kGridShader.c_str(), L"VSMain", L"vs_6_5");
-	ComPtr<IDxcBlob> gps = CompileDxc(kGridShader.c_str(), L"PSMain", L"ps_6_5");
+	ComPtr<IDxcBlob> gvs = CompileHlsl(_shaderDir, L"Grid.hlsl",L"VSMain", L"vs_6_5");
+	ComPtr<IDxcBlob> gps = CompileHlsl(_shaderDir, L"Grid.hlsl",L"PSMain", L"ps_6_5");
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpso = spso;
 	gpso.VS = { gvs->GetBufferPointer(), gvs->GetBufferSize() };
 	gpso.PS = { gps->GetBufferPointer(), gps->GetBufferSize() };
@@ -607,8 +626,8 @@ void D3D12Device::CreatePipeline()
 
 	// ── 파티클 빌보드 PSO (StructuredBuffer 인스턴싱, 가산 블렌드, 깊이 테스트/쓰기 없음) ──
 	{
-		ComPtr<IDxcBlob> pvs = CompileDxc(kParticleShader.c_str(), L"VSMain", L"vs_6_5");
-		ComPtr<IDxcBlob> pps = CompileDxc(kParticleShader.c_str(), L"PSMain", L"ps_6_5");
+		ComPtr<IDxcBlob> pvs = CompileHlsl(_shaderDir, L"Particle.hlsl",L"VSMain", L"vs_6_5");
+		ComPtr<IDxcBlob> pps = CompileHlsl(_shaderDir, L"Particle.hlsl",L"PSMain", L"ps_6_5");
 		// 검증된 그리드 PSO(gpso)를 베이스로 — 입력레이아웃 없음/TRIANGLE/깊이테스트/DSV 동일, 차이만 오버라이드
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC pp = gpso;
 		pp.VS = { pvs->GetBufferPointer(), pvs->GetBufferSize() };
@@ -622,10 +641,10 @@ void D3D12Device::CreatePipeline()
 
 	// ── 터레인 테셀레이션 PSO (VS/HS/DS/PS, PATCH 토폴로지) — 메인 opaque pso 베이스 ──
 	{
-		ComPtr<IDxcBlob> tvs = CompileDxc(kTessShader.c_str(), L"VSMain", L"vs_6_5");
-		ComPtr<IDxcBlob> ths = CompileDxc(kTessShader.c_str(), L"HSMain", L"hs_6_5");
-		ComPtr<IDxcBlob> tds = CompileDxc(kTessShader.c_str(), L"DSMain", L"ds_6_5");
-		ComPtr<IDxcBlob> tps = CompileDxc(kTessShader.c_str(), L"PSMain", L"ps_6_5");
+		ComPtr<IDxcBlob> tvs = CompileHlsl(_shaderDir, L"Tess.hlsl",L"VSMain", L"vs_6_5");
+		ComPtr<IDxcBlob> ths = CompileHlsl(_shaderDir, L"Tess.hlsl",L"HSMain", L"hs_6_5");
+		ComPtr<IDxcBlob> tds = CompileHlsl(_shaderDir, L"Tess.hlsl",L"DSMain", L"ds_6_5");
+		ComPtr<IDxcBlob> tps = CompileHlsl(_shaderDir, L"Tess.hlsl",L"PSMain", L"ps_6_5");
 		D3D12_INPUT_ELEMENT_DESC til[] = {
 			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 			{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -645,8 +664,8 @@ void D3D12Device::CreatePipeline()
 
 	// ── 물 평면 PSO (절차 그리드, 알파 블렌드, 깊이 테스트/쓰기) — 그리드 PSO(gpso) 베이스 ──
 	{
-		ComPtr<IDxcBlob> wvs = CompileDxc(kWaterShader.c_str(), L"VSMain", L"vs_6_5");
-		ComPtr<IDxcBlob> wps = CompileDxc(kWaterShader.c_str(), L"PSMain", L"ps_6_5");
+		ComPtr<IDxcBlob> wvs = CompileHlsl(_shaderDir, L"Water.hlsl",L"VSMain", L"vs_6_5");
+		ComPtr<IDxcBlob> wps = CompileHlsl(_shaderDir, L"Water.hlsl",L"PSMain", L"ps_6_5");
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC wp = gpso; // 입력레이아웃 없음/TRIANGLE/알파블렌드 베이스
 		wp.VS = { wvs->GetBufferPointer(), wvs->GetBufferSize() };
 		wp.PS = { wps->GetBufferPointer(), wps->GetBufferSize() };
@@ -656,8 +675,8 @@ void D3D12Device::CreatePipeline()
 	}
 
 	// ── 아웃라인 PSO (앞면 컬링 = 뒷면 렌더, 깊이 LESS/쓰기, 입력레이아웃 = 메시) ──
-	ComPtr<IDxcBlob> ovs = CompileDxc(kOutlineShader.c_str(), L"VSMain", L"vs_6_5");
-	ComPtr<IDxcBlob> ops = CompileDxc(kOutlineShader.c_str(), L"PSMain", L"ps_6_5");
+	ComPtr<IDxcBlob> ovs = CompileHlsl(_shaderDir, L"Outline.hlsl",L"VSMain", L"vs_6_5");
+	ComPtr<IDxcBlob> ops = CompileHlsl(_shaderDir, L"Outline.hlsl",L"PSMain", L"ps_6_5");
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC opso{};
 	opso.pRootSignature = _rootSig.Get();
 	opso.VS = { ovs->GetBufferPointer(), ovs->GetBufferSize() };
@@ -673,8 +692,8 @@ void D3D12Device::CreatePipeline()
 	ThrowIfFailed(_device->CreateGraphicsPipelineState(&opso, IID_PPV_ARGS(&_outlinePSO)), "CreateOutlinePSO");
 
 	// ── 프로브 시각화 PSO (POINTLIST, 깊이 테스트) ──
-	ComPtr<IDxcBlob> pvs = CompileDxc(kProbeViz.c_str(), L"VSMain", L"vs_6_5");
-	ComPtr<IDxcBlob> pps = CompileDxc(kProbeViz.c_str(), L"PSMain", L"ps_6_5");
+	ComPtr<IDxcBlob> pvs = CompileHlsl(_shaderDir, L"ProbeViz.hlsl",L"VSMain", L"vs_6_5");
+	ComPtr<IDxcBlob> pps = CompileHlsl(_shaderDir, L"ProbeViz.hlsl",L"PSMain", L"ps_6_5");
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC ppso{};
 	ppso.pRootSignature = _rootSig.Get();
 	ppso.VS = { pvs->GetBufferPointer(), pvs->GetBufferSize() };
@@ -758,7 +777,7 @@ void D3D12Device::Transition(ID3D12Resource* res, D3D12_RESOURCE_STATES& cur, D3
 void D3D12Device::CreateGI()
 {
 	// gather 컴퓨트 셰이더는 공용 SceneCB 레이아웃에 의존 → 여기서 컴파일 후 바이트코드만 Ddgi 에 전달
-	ComPtr<IDxcBlob> cs = CompileDxc(kGatherShader.c_str(), L"CSMain", L"cs_6_5");
+	ComPtr<IDxcBlob> cs = CompileHlsl(_shaderDir, L"Gather.hlsl",L"CSMain", L"cs_6_5");
 	_ddgi.Create(_device.Get(), cs->GetBufferPointer(), cs->GetBufferSize());
 }
 

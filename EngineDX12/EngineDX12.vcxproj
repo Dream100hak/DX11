@@ -58,7 +58,6 @@
     <ClInclude Include="Foliage.h" />
     <ClInclude Include="Billboard.h" />
     <ClInclude Include="EditorUtil.h" />
-    <ClInclude Include="D3D12Shaders.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Component.cpp" />
@@ -75,7 +74,6 @@
     <ClCompile Include="Frustum.cpp" />
     <ClCompile Include="Mesh.cpp" />
     <ClCompile Include="D3D12Device.cpp" />
-    <ClCompile Include="D3D12Shaders.cpp" />
     <ClCompile Include="D3D12Render.cpp" />
     <ClCompile Include="D3D12Passes.cpp" />
     <ClCompile Include="D3D12Scene.cpp" />
@@ -103,6 +101,19 @@
     <ClCompile Include="..\Engine\imgui_widgets.cpp" />
     <ClCompile Include="..\Engine\imgui_impl_win32.cpp" />
     <ClCompile Include="..\Engine\ImGuizmo.cpp" />
+  </ItemGroup>
+  <!-- HLSL 셰이더 — 런타임 DXC 컴파일(.hlsl 파일 로드). VS 의 FXC 자동컴파일 제외(None), 솔루션에만 표시. -->
+  <ItemGroup>
+    <None Include="Shaders\SceneCB.hlsli" />
+    <None Include="Shaders\Mesh.hlsl" />
+    <None Include="Shaders\Gather.hlsl" />
+    <None Include="Shaders\Sky.hlsl" />
+    <None Include="Shaders\Grid.hlsl" />
+    <None Include="Shaders\Outline.hlsl" />
+    <None Include="Shaders\Particle.hlsl" />
+    <None Include="Shaders\Tess.hlsl" />
+    <None Include="Shaders\Water.hlsl" />
+    <None Include="Shaders\ProbeViz.hlsl" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
@@ -191,5 +202,12 @@
       <DxcRuntime Include="$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" />
     </ItemGroup>
     <Copy SourceFiles="@(DxcRuntime)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" ContinueOnError="true" />
+  </Target>
+  <!-- HLSL 셰이더(.hlsl/.hlsli) 를 exe 옆 Shaders\ 로 복사 — 런타임에 _shaderDir 에서 로드/컴파일 -->
+  <Target Name="CopyShaders" AfterTargets="Build">
+    <ItemGroup>
+      <ShaderFiles Include="$(ProjectDir)Shaders\*.hlsl;$(ProjectDir)Shaders\*.hlsli" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ShaderFiles)" DestinationFolder="$(OutDir)Shaders\" SkipUnchangedFiles="true" />
   </Target>
 </Project>

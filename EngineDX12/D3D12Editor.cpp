@@ -624,8 +624,7 @@ void D3D12Device::DrawHierarchy()
 		{ "SKY", ImVec4(0.96f,0.80f,0.32f,1), "Lighting / Sky",  SelEntity::Sun },    // 태양+하늘+그림자+앰비언트
 		{ "GI",  ImVec4(0.66f,0.52f,0.86f,1), "DDGI Volume",     SelEntity::DDGI },
 		{ "FX",  ImVec4(0.42f,0.82f,0.70f,1), "Post / Render",   SelEntity::Post },
-		{ "MDL", ImVec4(0.58f,0.68f,0.82f,1), WToUtf8(_scene._modelLabel), SelEntity::Model },
-		{ "GEO", ImVec4(0.74f,0.58f,0.36f,1), "Floor",           SelEntity::Floor },
+		{ "GEO", ImVec4(0.74f,0.58f,0.36f,1), "Floor",           SelEntity::Floor }, // 모델은 SCENE OBJECTS 의 GameObject
 	};
 	for (const Fixed& f : fixed)
 	{

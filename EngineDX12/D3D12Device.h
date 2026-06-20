@@ -280,7 +280,7 @@ private:
 	void                              DrawLog();
 	void                              DrawProject();
 	enum class SelEntity { Model, Floor, Sun, DDGI, Camera, Point, Spot, Post };
-	SelEntity                         _sel = SelEntity::Model; // 하이어라키 선택 → 인스펙터 표시 대상
+	SelEntity                         _sel = SelEntity::Post;  // 하이어라키 선택 → 인스펙터 표시 대상 (모델은 GameObject 로 분리됨)
 	shared_ptr<GameObject>            _selectedGO;             // GameObject 기반 선택 (있으면 인스펙터가 컴포넌트 표시)
 	void                              CreateSceneRT(UINT w, UINT h); // 씬 오프스크린 RT/깊이 (재)생성
 	ImGuiDx12                         _imgui;

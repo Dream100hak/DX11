@@ -66,6 +66,8 @@ void ModelScene::CreateCubeGeometry()
 	const XMFLOAT3 modelC(0.82f, 0.78f, 0.72f);
 
 	// ── 스키닝 .mesh 모델 로드 (본+블렌드+서브메시) + .clip 애니메이션 ──
+	// _floorOnly 면 모델은 ModelAnimator GameObject 로 분리되었으므로 여기선 바닥+TLAS 만.
+	if (!_floorOnly)
 	{
 		// 기본값(직접 호출 시) — Archer
 		if (_modelStem.empty())
@@ -105,7 +107,8 @@ void ModelScene::CreateCubeGeometry()
 		}
 	}
 
-	_modelIndexCount = (uint32)indices.size(); // 바닥 추가 전 = 모델 인덱스 수
+	_modelIndexCount = (uint32)indices.size(); // 바닥 추가 전 = 모델 인덱스 수 (_floorOnly 면 0)
+	if (_floorOnly) { _modelMin = XMFLOAT3(-2.f, 0.f, -2.f); _modelMax = XMFLOAT3(2.f, 3.f, 2.f); } // 카메라 포커스 기본 박스
 
 	// ── 바닥 (평면 또는 V1 절차적 터레인 하이트맵) — 모델 정점 뒤에 추가 ──
 	{

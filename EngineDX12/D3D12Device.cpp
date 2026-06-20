@@ -56,12 +56,13 @@ void D3D12Device::Init(HWND hwnd, UINT width, UINT height)
 	CreatePipeline();
 	CreateConstantBuffers();
 
-	// 모델(기본 Archer) 로드 — 메시 + 바닥 + 텍스처 + BLAS/TLAS (런타임 교체 가능)
+	// 바닥 + BLAS/TLAS 인프라 (모델은 ModelAnimator GameObject 로 분리 — _floorOnly)
 	_scene.Init(this);
+	_scene._floorOnly = true;
 	{
 		wchar_t exe[MAX_PATH]{}; GetModuleFileNameW(nullptr, exe, MAX_PATH);
 		std::wstring dir(exe); dir = dir.substr(0, dir.find_last_of(L"\\/"));
-		_scene.Load(dir + L"\\..\\Resources\\Assets\\Models\\Archer\\Archer.mesh");
+		_scene.Load(dir + L"\\..\\Resources\\Assets\\Models\\Archer\\Archer.mesh"); // 경로=_modelDir/_modelStem(클립/스폰용), 지오메트리는 바닥만
 	}
 
 	GET_SINGLE(TimeManager)->Init(); // 델타타임 기준점
@@ -88,8 +89,9 @@ void D3D12Device::BuildGameScene()
 	_gameScene = make_shared<Scene>();
 	GET_SINGLE(SceneManager)->SetCurrentScene(_gameScene);
 
+	// 바닥 렌더러 (ModelScene 바닥 지오메트리를 그림 — mode0 gFloorMat). 모델 분리 후 _modelObj=바닥 핸들.
 	_modelObj = make_shared<GameObject>();
-	_modelObj->SetObjectName(L"Model");
+	_modelObj->SetObjectName(L"Floor");
 	_modelObj->GetOrAddTransform();
 	auto mr = make_shared<ModelRenderer>();
 	mr->Bind(this);
@@ -138,6 +140,9 @@ void D3D12Device::BuildGameScene()
 	if (auto t = _spotObj->GetTransform()) t->SetLocalPosition(_spotPos);
 
 	// (데모 검증용 체커 큐브 제거 — 필요 시 GameObject > 3D Object > Cube 로 언제든 추가)
+
+	// 메인 모델 — 이제 일반 ModelAnimator GameObject (자체 메시/클립/스키닝/BLAS). SCENE OBJECTS 에서 편집.
+	SpawnAnimatedModel(_scene._modelDir + _scene._modelStem + L".mesh", Vec3{ 0, 0, 0 });
 }
 
 // 디렉셔널 sun 스칼라 → Light 컴포넌트 미러 (환경 Lighting/Sky 설정에서 편집).

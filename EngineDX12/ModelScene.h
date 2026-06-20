@@ -75,6 +75,7 @@ public:
 	// ── 이름 / 빌드 옵션 ──
 	std::wstring                      _modelDir, _modelStem;
 	std::wstring                      _modelLabel = L"Archer";
+	bool                              _floorOnly = false;    // true=모델 미로드(바닥+TLAS만). 모델은 ModelAnimator GameObject 로 분리
 	bool                              _terrain = false;      // V1 절차 터레인
 	float                             _groundSize = 6.0f;    // U19
 

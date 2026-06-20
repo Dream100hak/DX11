@@ -137,29 +137,7 @@ void D3D12Device::BuildGameScene()
 	if (auto l = _spotObj->GetLight())  { l->_enabled = _spotOn; l->_range = _spotRadius; l->_direction = _spotDir; l->_spotAngleDeg = _spotConeDeg; }
 	if (auto t = _spotObj->GetTransform()) t->SetLocalPosition(_spotPos);
 
-	// 정적 메시 데모 — MeshRenderer 실드로우 검증용 큐브 (모델 옆, Opaque 버킷)
-	{
-		auto cubeObj = make_shared<GameObject>();
-		cubeObj->SetObjectName(L"Cube");
-		auto tr = cubeObj->GetOrAddTransform();
-		tr->SetLocalPosition(Vec3{ 2.2f, 0.5f, 0.f });
-		auto cmr = make_shared<MeshRenderer>(); cmr->Bind(this);
-		vector<Vtx> cv; vector<uint32> ci; GeometryHelper::CreateCube(cv, ci, 1.0f, Vec3{ 1.f, 1.f, 1.f });
-		cmr->SetGeometry(cv, ci); cmr->SetPrim(MeshPrim::Cube); // 복제/직렬화 복원 가능하도록 prim 지정
-		// 절차적 체커 텍스처 (SRV 바인딩 경로 검증, 파일 의존 없음)
-		{
-			const uint32 N = 64; std::vector<uint8_t> tex(N * N * 4);
-			for (uint32 y = 0; y < N; ++y) for (uint32 x = 0; x < N; ++x)
-			{
-				bool c = ((x / 8) + (y / 8)) & 1;
-				uint8_t* p = &tex[(y * N + x) * 4];
-				p[0] = c ? 230 : 60; p[1] = c ? 120 : 90; p[2] = c ? 60 : 200; p[3] = 255;
-			}
-			cmr->SetTexturePixels(tex, N, N);
-		}
-		cubeObj->AddComponent(cmr);
-		_gameScene->Add(cubeObj);
-	}
+	// (데모 검증용 체커 큐브 제거 — 필요 시 GameObject > 3D Object > Cube 로 언제든 추가)
 }
 
 // 디렉셔널 sun 스칼라 → Light 컴포넌트 미러 (환경 Lighting/Sky 설정에서 편집).

@@ -680,10 +680,37 @@ void ModelAnimator::OnInspectorGUI()
 	{
 		ImGui::Checkbox("Use State Machine", &_useSM);
 		HelpMarker("켜면 파라미터/전이 규칙으로 클립이 자동 전환됩니다 (게임 로직 주도).");
-		if (_useSM && _curState >= 0 && _curState < (int)_states.size())
-			ImGui::TextColored(ImVec4(0.6f, 1, 0.7f, 1), "Current: %s", _states[_curState].name.c_str());
 
-		// 상태 목록
+		// ── 빠른 시작: 흔한 로코모션(Idle/Run + Speed) 자동 구성 ──
+		if (ImGui::Button("Auto-setup Locomotion"))
+		{
+			auto lower = [](std::string s) { for (char& c : s) if (c >= 'A' && c <= 'Z') c += 32; return s; };
+			auto findClip = [&](std::initializer_list<const char*> keys, int fallback) -> int
+			{
+				for (const char* k : keys)
+					for (int i = 0; i < (int)_clips.size(); ++i)
+						if (lower(fs::path(_clips[i]).stem().string()).find(k) != std::string::npos) return i;
+				return fallback;
+			};
+			int idle = findClip({ "idle", "stand" }, 0);
+			int run  = findClip({ "sprint", "run", "jog", "walk" }, _clips.size() > 1 ? 1 : 0);
+			_states.clear(); _transitions.clear();
+			_states.push_back({ "Idle", idle, 1.f, true });
+			_states.push_back({ "Run",  run,  1.f, true });
+			_params["Speed"] = 0.f;
+			AnimTransition t1; t1.from = 0; t1.to = 1; t1.param = "Speed"; t1.op = 0; t1.value = 0.1f; t1.blend = 0.15f;
+			AnimTransition t2; t2.from = 1; t2.to = 0; t2.param = "Speed"; t2.op = 1; t2.value = 0.1f; t2.blend = 0.20f;
+			_transitions.push_back(t1); _transitions.push_back(t2);
+			_useSM = true; _curState = -1;
+		}
+		ImGui::SameLine(); HelpMarker("Idle/Run 상태 + Speed 파라미터 + 전이를 자동 생성합니다.\n아래 Parameters 의 Speed 를 0.1 이상으로 올리면 Run 으로 크로스페이드 전환됩니다.");
+
+		if (_useSM && _curState >= 0 && _curState < (int)_states.size())
+			ImGui::TextColored(ImVec4(0.6f, 1, 0.7f, 1), "● Current: %s", _states[_curState].name.c_str());
+		else if (_states.empty())
+			ImGui::TextDisabled("상태 없음 — 위 버튼으로 시작하거나 아래 + State 로 추가하세요.");
+
+		// 상태 목록 (이름 / 클립 / 속도 / 루프 / ▶미리보기 / 삭제)
 		ImGui::SeparatorText("States");
 		for (int s = 0; s < (int)_states.size(); ++s)
 		{
@@ -695,6 +722,8 @@ void ModelAnimator::OnInspectorGUI()
 			ImGui::Combo("##c", &st.clip, names.c_str());
 			ImGui::SameLine(); ImGui::SetNextItemWidth(60); ImGui::DragFloat("##sp", &st.speed, 0.02f, 0.f, 4.f, "x%.1f");
 			ImGui::SameLine(); ImGui::Checkbox("loop", &st.loop);
+			ImGui::SameLine(); if (ImGui::SmallButton("\xE2\x96\xB6")) { Play(st.clip, _blendDefault); } // ▶ 이 상태 클립 미리보기
+			if (ImGui::IsItemHovered()) ImGui::SetTooltip("이 상태의 클립을 즉시 재생(미리보기)");
 			ImGui::SameLine(); if (ImGui::SmallButton("X")) { _states.erase(_states.begin() + s); ImGui::PopID(); break; }
 			ImGui::PopID();
 		}

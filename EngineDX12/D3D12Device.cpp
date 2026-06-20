@@ -56,9 +56,8 @@ void D3D12Device::Init(HWND hwnd, UINT width, UINT height)
 	CreatePipeline();
 	CreateConstantBuffers();
 
-	// 바닥 + BLAS/TLAS 인프라 (모델은 ModelAnimator GameObject 로 분리 — _floorOnly)
+	// 바닥 + BLAS/TLAS 인프라 (모델은 ModelAnimator GameObject 로 분리)
 	_scene.Init(this);
-	_scene._floorOnly = true;
 	{
 		wchar_t exe[MAX_PATH]{}; GetModuleFileNameW(nullptr, exe, MAX_PATH);
 		std::wstring dir(exe); dir = dir.substr(0, dir.find_last_of(L"\\/"));

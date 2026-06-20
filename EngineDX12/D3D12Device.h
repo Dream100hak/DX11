@@ -234,10 +234,8 @@ private:
 	std::vector<int64>                _selIds;                   // 추가 선택(멀티셀렉트) — primary=_selectedGO 제외 id 목록
 	int64                             _anchorId = -1;            // Shift 범위 선택 기준(마지막 단일 클릭)
 	bool                              IsMultiSelected(int64 id) const { for (int64 s : _selIds) if (s == id) return true; return false; }
-	// 모델 교체 예약 (더블클릭/씬로드 — 다음 프레임 GPU 유휴 시점에 처리)
+	// _scene 재로드 예약 (바닥 터레인 토글/그라운드 사이즈 — 다음 프레임 GPU 유휴 시점에 처리)
 	std::wstring                      _pendingModel;
-	DirectX::XMFLOAT4X4               _pendingMatrix;
-	bool                              _hasPendingMatrix = false;
 	void                              SaveScene();     // .rtscene 저장 (quick)
 	void                              LoadScene();     // .rtscene 로드 (quick)
 	void                              SaveSceneTo(const std::wstring& path);

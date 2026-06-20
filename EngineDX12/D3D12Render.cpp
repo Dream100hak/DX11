@@ -102,8 +102,7 @@ void D3D12Device::Render()
 	if (!_pendingModel.empty())
 	{
 		std::wstring path = _pendingModel; _pendingModel.clear();
-		_scene.Load(path);
-		if (_hasPendingMatrix) { _scene._modelMatrix = _pendingMatrix; _hasPendingMatrix = false; } // 씬로드 트랜스폼 복원
+		_scene.Load(path); // 바닥 재생성(터레인 토글/그라운드 사이즈)
 	}
 
 	// Scene 창 크기 변경/렌더 스케일 변경 시 오프스크린 RT 재생성 (전체 플러시로 GPU 유휴)

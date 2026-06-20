@@ -232,11 +232,6 @@ void D3D12Device::DrawDebugLines()
 		_debugDraw.Cross(XMFLOAT3{ _terrainCursor.x, _terrainCursor.y + 0.05f, _terrainCursor.z }, col, 0.3f);
 	}
 
-	// 본 스켈레톤 — 오버레이(깊이 OFF) 배치에 추가해 메시 안에 묻혀도 보이게
-	if (_showBones)
-		for (size_t b = 0; b < _scene._boneWorld.size(); ++b)
-		{ int par = _scene._bonesData[b].parent; if (par >= 0 && par < (int)_scene._boneWorld.size()) _debugDraw.Line(_scene._boneWorld[b], _scene._boneWorld[par], { 0.2f, 1.0f, 1.0f }, /*overlay*/ true); }
-
 	_debugDraw.Flush(_cmdList.Get(), _cb[_frameIndex]->GetGPUVirtualAddress());
 }
 
@@ -251,7 +246,6 @@ void D3D12Device::ResetDefaults()
 	_bgMode = 0; _tonemapOp = 0; _exposure = 1;
 	_particlesOn = _decalOn = _stars = _flicker = _overlay = false; _letterbox = 0; _cloudAmt = 0;
 	_shadowStrength = 1; _hemiAmbient = 0;
-	DirectX::XMStoreFloat4x4(&_scene._modelMatrix, DirectX::XMMatrixIdentity());
 	Log("Reset scene to defaults");
 }
 

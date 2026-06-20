@@ -66,10 +66,6 @@ void D3D12Device::SaveSceneTo(const std::wstring& path)
 	  << ' ' << _pointColor.x << ' ' << _pointColor.y << ' ' << _pointColor.z << ' ' << _pointIntensity << ' ' << _pointRadius << '\n';
 	f << "gi " << _giStrength << ' ' << _ambient << ' ' << _exposure << '\n';
 	f << "model " << WToUtf8((_scene._modelDir + _scene._modelStem + L".mesh")) << '\n';
-	f << "xform";
-	const float* m = &_scene._modelMatrix._11;
-	for (int i = 0; i < 16; ++i) f << ' ' << m[i];
-	f << '\n';
 
 	// ── 멀티 오브젝트: 씬그래프의 MeshRenderer GameObject 들 (트랜스폼 + 머티리얼 + 텍스처) ──
 	int meshCount = 0, lightCount = 0, animCount = 0, foliageCount = 0;
@@ -260,7 +256,6 @@ void D3D12Device::LoadSceneFrom(const std::wstring& path)
 		else if (tag == "point") { int on; s >> on >> _pointPos.x >> _pointPos.y >> _pointPos.z >> _pointColor.x >> _pointColor.y >> _pointColor.z >> _pointIntensity >> _pointRadius; _pointOn = on != 0; }
 		else if (tag == "gi") s >> _giStrength >> _ambient >> _exposure;
 		else if (tag == "model") { std::getline(s >> std::ws, modelUtf8); }
-		else if (tag == "xform") { float* m = &_pendingMatrix._11; for (int i = 0; i < 16; ++i) s >> m[i]; _hasPendingMatrix = true; }
 		// ── 멀티 오브젝트 ──
 		else if (tag == "mobj") { std::string nm; std::getline(s >> std::ws, nm); curName = Utf8ToW(nm); curObj = findByName(curName); curAny = curObj; }
 		else if (tag == "mprim") { // 없는 오브젝트면 프리미티브 재생성 (스폰 오브젝트 영속)
@@ -474,7 +469,7 @@ void D3D12Device::LoadSceneFrom(const std::wstring& path)
 	{
 		int n = MultiByteToWideChar(CP_UTF8, 0, modelUtf8.c_str(), (int)modelUtf8.size(), nullptr, 0);
 		std::wstring wp(n, L'\0'); MultiByteToWideChar(CP_UTF8, 0, modelUtf8.c_str(), (int)modelUtf8.size(), wp.data(), n);
-		_pendingModel = wp; // 다음 프레임 GPU 유휴 시 로드 + _pendingMatrix 적용
+		_pendingModel = wp; // 다음 프레임 GPU 유휴 시 _scene 재로드(바닥/경로 갱신)
 	}
 	Log("Scene loaded: " + WToUtf8(path));
 }

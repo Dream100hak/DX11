@@ -28,11 +28,6 @@ void ModelRenderer::Draw(const RenderContext& ctx)
 	cmd->SetGraphicsRootShaderResourceView(1, sc._tlas->GetGPUVirtualAddress()); // TLAS (RayQuery)
 	cmd->SetGraphicsRootShaderResourceView(2, d._ddgi.ProbesAddr());     // DDGI 프로브
 	cmd->SetGraphicsRootShaderResourceView(5, d._ddgi.ProbeDepthAddr()); // 프로브 depth
-	if (sc._hasTexture)
-	{
-		ID3D12DescriptorHeap* heaps[] = { sc._srvHeap.Get() };
-		cmd->SetDescriptorHeaps(1, heaps);
-	}
 	cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	cmd->IASetVertexBuffers(0, 1, &sc._vbv);
 	cmd->IASetIndexBuffer(&sc._ibv);

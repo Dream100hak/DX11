@@ -78,6 +78,10 @@ bool ModelAnimator::Load(const std::wstring& meshPath)
 	};
 	auto finishClip = [&]()
 	{
+		// 역바인드 캐시 (로드 1회 — BuildSkinMatrices 의 매프레임 XMMatrixInverse 제거)
+		_invBind.resize(_bonesData.size());
+		for (size_t b = 0; b < _bonesData.size(); ++b)
+			_invBind[b] = XMMatrixInverse(nullptr, XMLoadFloat4x4(&_bonesData[b].bind));
 		_clipData.assign(_clips.size(), AnimClip{});
 		// 기본 클립: 선호 이름(Idle 등) 우선, 없으면 0
 		std::wstring pref = FindClipA(_modelDir, _modelStem);
@@ -336,7 +340,7 @@ void ModelAnimator::BlendPose(std::vector<BonePose>& a, const std::vector<BonePo
 void ModelAnimator::BuildSkinMatrices(const std::vector<BonePose>& local, std::vector<XMMATRIX>& skinOut)
 {
 	const size_t nb = _bonesData.size();
-	std::vector<XMMATRIX> global(nb);
+	_global.resize(nb);
 	skinOut.resize(nb);
 	for (size_t b = 0; b < nb; ++b)
 	{
@@ -345,9 +349,9 @@ void ModelAnimator::BuildSkinMatrices(const std::vector<BonePose>& local, std::v
 		             XMMatrixRotationQuaternion(XMLoadFloat4(&p.r)) *
 		             XMMatrixTranslation(p.t.x, p.t.y, p.t.z);
 		const LoadedBone& bone = _bonesData[b];
-		XMMATRIX parent = (bone.parent >= 0 && bone.parent < (int32_t)nb) ? global[bone.parent] : XMMatrixIdentity();
-		global[b] = m * parent;
-		skinOut[b] = XMMatrixInverse(nullptr, XMLoadFloat4x4(&bone.bind)) * global[b];
+		XMMATRIX parent = (bone.parent >= 0 && bone.parent < (int32_t)nb) ? _global[bone.parent] : XMMatrixIdentity();
+		_global[b] = m * parent;
+		skinOut[b] = _invBind[b] * _global[b]; // 캐시된 역바인드
 	}
 }
 
@@ -414,25 +418,22 @@ void ModelAnimator::ComputeAndUpload()
 	const bool anim = cur && cur->frameCount > 0 && nb > 0;
 	if (!anim) { SkinVerts(nullptr); return; }
 
-	std::vector<BonePose> pose;
-	SamplePose(*cur, _animTime, _loop, pose);
+	SamplePose(*cur, _animTime, _loop, _poseA);
 
 	if (_prevClip >= 0 && _fadeDur > 0.f)
 	{
 		const AnimClip* prev = ClipData(_prevClip);
 		if (prev && prev->frameCount > 0)
 		{
-			std::vector<BonePose> from;
-			SamplePose(*prev, _prevTime, true, from);
+			SamplePose(*prev, _prevTime, true, _poseB);
 			float w = _fadeElapsed / _fadeDur; if (w > 1.f) w = 1.f;
-			BlendPose(from, pose, w); // from = lerp(prev, cur, w)
-			pose.swap(from);
+			BlendPose(_poseB, _poseA, w); // _poseB = lerp(prev, cur, w)
+			_poseA.swap(_poseB);
 		}
 	}
 
-	std::vector<XMMATRIX> skin;
-	BuildSkinMatrices(pose, skin);
-	SkinVerts(&skin);
+	BuildSkinMatrices(_poseA, _skin);
+	SkinVerts(&_skin);
 }
 
 // 상태머신: Any/현재 상태에서 나가는 전이를 평가 → 조건 충족 시 크로스페이드 진입

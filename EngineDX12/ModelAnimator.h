@@ -112,11 +112,15 @@ private:
 
 	// 로드 데이터
 	std::vector<LoadedBone> _bonesData;
+	std::vector<DirectX::XMMATRIX> _invBind; // 역바인드 행렬 캐시 (로드 1회 — 매프레임 inverse 제거)
 	std::vector<SkinVtx>    _skinSrc;
 	std::vector<uint32>     _indices;
 	std::vector<SubMesh>    _submeshes;
 	std::vector<std::wstring> _clips;        // 클립 파일 경로
 	std::vector<AnimClip>     _clipData;     // 지연 로드 캐시 (_clips 와 동일 인덱스)
+	// 매프레임 재사용 스크래치 (힙 할당 제거)
+	std::vector<BonePose>           _poseA, _poseB;
+	std::vector<DirectX::XMMATRIX>  _global, _skin;
 	float                   _modelScale = 1.f;
 	DirectX::XMFLOAT3       _modelOffset{ 0,0,0 };
 	std::wstring            _modelDir, _modelStem;

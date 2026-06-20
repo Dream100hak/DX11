@@ -327,8 +327,6 @@ private:
 	DirectX::XMFLOAT3                 _pointColor{ 1.0f, 0.6f, 0.3f };
 	float                             _pointIntensity = 4.0f;
 	float                             _pointRadius = 7.0f;
-	// 편집 머티리얼 (S5)
-	float                             _matMetallic = 0.0f, _matRoughness = 0.5f, _matEmissive = 0.0f, _matTint = 1.0f;
 	// 뷰포트 토글 (S10)
 	bool                              _showGrid = true, _showSky = true, _bloomOn = true, _wireframe = false;
 	bool                              _showStats = false;   // 씬뷰 통계 오버레이(FPS 그래프 + 카운트)
@@ -355,7 +353,6 @@ private:
 	bool                              _animPaused = false; float _animSpeed = 1.0f, _animTimeAcc = 0.0f; // T17
 	bool                              _wantShot = false; // T19
 	DirectX::XMFLOAT3                 _skyZenith{ 0.13f, 0.22f, 0.44f }, _skyHorizon{ 0.52f, 0.60f, 0.72f }; float _sunSize = 900.f; // T20
-	DirectX::XMFLOAT3                 _diffuseTint{ 1.0f, 1.0f, 1.0f }; // T4 RGB 틴트
 	void                              SaveScreenshot(); // T19
 
 	// ── 추가 20종(U) ──
@@ -375,9 +372,6 @@ private:
 	std::vector<std::string>          _log;                 // U16 로그
 	void                              Log(const std::string& m);
 	void                              ResetDefaults();
-	struct Snapshot { DirectX::XMFLOAT4X4 m; float met, rough, emis, tint; DirectX::XMFLOAT3 dt; }; // U17
-	std::vector<Snapshot>             _undo, _redo;
-	void                              PushUndo(); void DoUndo(); void DoRedo();
 	float                             _frameTimes[120]{}; int _frameIdx = 0; // U18
 
 	// ── 3차 20종(V) ──

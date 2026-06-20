@@ -65,7 +65,6 @@ void D3D12Device::SaveSceneTo(const std::wstring& path)
 	f << "point " << (_pointOn ? 1 : 0) << ' ' << _pointPos.x << ' ' << _pointPos.y << ' ' << _pointPos.z
 	  << ' ' << _pointColor.x << ' ' << _pointColor.y << ' ' << _pointColor.z << ' ' << _pointIntensity << ' ' << _pointRadius << '\n';
 	f << "gi " << _giStrength << ' ' << _ambient << ' ' << _exposure << '\n';
-	f << "mat " << _matMetallic << ' ' << _matRoughness << ' ' << _matEmissive << ' ' << _matTint << '\n';
 	f << "model " << WToUtf8((_scene._modelDir + _scene._modelStem + L".mesh")) << '\n';
 	f << "xform";
 	const float* m = &_scene._modelMatrix._11;
@@ -260,7 +259,6 @@ void D3D12Device::LoadSceneFrom(const std::wstring& path)
 		else if (tag == "sun") { int an; s >> _lightIntensity >> _lightAngle >> an; _lightAnimate = an != 0; }
 		else if (tag == "point") { int on; s >> on >> _pointPos.x >> _pointPos.y >> _pointPos.z >> _pointColor.x >> _pointColor.y >> _pointColor.z >> _pointIntensity >> _pointRadius; _pointOn = on != 0; }
 		else if (tag == "gi") s >> _giStrength >> _ambient >> _exposure;
-		else if (tag == "mat") s >> _matMetallic >> _matRoughness >> _matEmissive >> _matTint;
 		else if (tag == "model") { std::getline(s >> std::ws, modelUtf8); }
 		else if (tag == "xform") { float* m = &_pendingMatrix._11; for (int i = 0; i < 16; ++i) s >> m[i]; _hasPendingMatrix = true; }
 		// ── 멀티 오브젝트 ──

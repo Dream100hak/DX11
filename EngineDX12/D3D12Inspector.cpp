@@ -218,6 +218,12 @@ void D3D12Device::DrawInspector()
 		ImGui::Checkbox("RT AO", &_aoOn); HelpMarker("레이트레이싱 앰비언트 오클루전 — 틈/접합부 음영. Radius=샘플 반경.");
 		ImGui::SliderFloat("AO Intensity", &_aoIntensity, 0.0f, 2.0f);
 		ImGui::SliderFloat("AO Radius", &_aoRadius, 0.1f, 2.0f);
+		// 전역 셰이딩/아웃라인 (모든 메시 공통 — 모델 인스펙터에서 이전)
+		ImGui::SeparatorText("Shading / Outline");
+		ImGui::SliderFloat("Normal Map", &_normalIntensity, 0.0f, 3.0f); HelpMarker("노멀맵 강도(법선 섭동 배율).");
+		ImGui::SliderInt("Toon Levels", &_toonLevels, 0, 6); HelpMarker("툰 셰이딩 계단 수(0=끔).");
+		ImGui::SliderFloat("Rim Power", &_rimPower, 0.0f, 8.0f); ImGui::ColorEdit3("Rim Color", &_rimColor.x);
+		ImGui::ColorEdit3("Outline Color", &_outlineColor.x); ImGui::SliderFloat("Outline Width", &_outlineThick, 0.0f, 0.03f);
 		ImGui::SeparatorText("Lens FX");
 		ImGui::SliderFloat("Chromatic Aberr.", &_chroma, 0.0f, 0.02f);
 		ImGui::SliderFloat("Film Grain", &_grain, 0.0f, 0.2f);
@@ -263,73 +269,6 @@ void D3D12Device::DrawInspector()
 			ImGui::PopID();
 		}
 		break;
-
-	case SelEntity::Model:
-	{
-		ImGui::SeparatorText(("Model: " + WToUtf8(_scene._modelLabel)).c_str());
-		ImGui::TextDisabled("Gizmo:");                                  // T2
-		ImGui::SameLine(); if (ImGui::RadioButton("Move", _gizmoOp == 7)) _gizmoOp = 7;
-		ImGui::SameLine(); if (ImGui::RadioButton("Rotate", _gizmoOp == 120)) _gizmoOp = 120;
-		ImGui::SameLine(); if (ImGui::RadioButton("Scale", _gizmoOp == 896)) _gizmoOp = 896;
-		ImGui::Checkbox("Local", &_gizmoLocal); ImGui::SameLine(); ImGui::Checkbox("Snap", &_snapOn);
-		if (ImGui::Button("Reset Transform")) { DirectX::XMStoreFloat4x4(&_scene._modelMatrix, DirectX::XMMatrixIdentity()); }
-		// 트랜스폼 수치 입력 (T3)
-		{
-			float t[3], r[3], sc[3];
-			ImGuizmo::DecomposeMatrixToComponents((float*)&_scene._modelMatrix, t, r, sc);
-			bool ch = false;
-			ch |= ImGui::DragFloat3("Position", t, 0.02f);
-			ch |= ImGui::DragFloat3("Rotation", r, 0.5f);
-			ch |= ImGui::DragFloat3("Scale", sc, 0.01f);
-			if (ch) ImGuizmo::RecomposeMatrixFromComponents(t, r, sc, (float*)&_scene._modelMatrix);
-		}
-		ImGui::SeparatorText("Material (PBR)");                         // T4/T5
-		if (ImGui::Button("Default")) { _matMetallic = 0; _matRoughness = 0.5f; _matEmissive = 0; _matTint = 1; _diffuseTint = { 1,1,1 }; }
-		ImGui::SameLine(); if (ImGui::Button("Gold")) { _matMetallic = 1; _matRoughness = 0.25f; _diffuseTint = { 1.0f, 0.78f, 0.34f }; }
-		ImGui::SameLine(); if (ImGui::Button("Chrome")) { _matMetallic = 1; _matRoughness = 0.08f; _diffuseTint = { 1,1,1 }; }
-		ImGui::SameLine(); if (ImGui::Button("Plastic")) { _matMetallic = 0; _matRoughness = 0.35f; _diffuseTint = { 1,1,1 }; }
-		if (ImGui::Button("Copper"))   { _matMetallic = 1; _matRoughness = 0.30f; _diffuseTint = { 0.95f, 0.64f, 0.54f }; _matEmissive = 0; }
-		ImGui::SameLine(); if (ImGui::Button("Rubber"))    { _matMetallic = 0; _matRoughness = 0.85f; _diffuseTint = { 0.10f, 0.10f, 0.11f }; _matEmissive = 0; }
-		ImGui::SameLine(); if (ImGui::Button("Emissive"))  { _matMetallic = 0; _matRoughness = 0.5f; _matEmissive = 3.0f; _matTint = 1.0f; }
-		ImGui::SameLine(); if (ImGui::Button("Glass"))     { _matMetallic = 0; _matRoughness = 0.02f; _diffuseTint = { 0.85f, 0.92f, 0.95f }; }
-		ImGui::ColorEdit3("Diffuse Tint", &_diffuseTint.x);
-		ImGui::SliderFloat("Metallic", &_matMetallic, 0.0f, 1.0f);
-		ImGui::SliderFloat("Roughness", &_matRoughness, 0.02f, 1.0f);
-		ImGui::SliderFloat("Emissive", &_matEmissive, 0.0f, 5.0f);
-		ImGui::SliderFloat("Brightness", &_matTint, 0.0f, 2.0f);
-		ImGui::SliderFloat("Normal Map", &_normalIntensity, 0.0f, 3.0f); // V9
-		ImGui::SeparatorText("Shading / Outline");
-		ImGui::SliderInt("Toon Levels", &_toonLevels, 0, 6);             // V2 (0=off)
-		ImGui::SliderFloat("Rim Power", &_rimPower, 0.0f, 8.0f);         // V3
-		ImGui::ColorEdit3("Rim Color", &_rimColor.x);
-		ImGui::ColorEdit3("Outline Color", &_outlineColor.x);           // V5
-		ImGui::SliderFloat("Outline Width", &_outlineThick, 0.0f, 0.03f);
-		// 애니메이션 (T17/T18)
-		if (!_scene._clips.empty())
-		{
-			ImGui::SeparatorText("Animation");
-			ImGui::Checkbox("Pause", &_animPaused);
-			ImGui::SliderFloat("Speed", &_animSpeed, 0.0f, 3.0f);
-			std::string clipNames; for (auto& c : _scene._clips) { clipNames += WToUtf8(fs::path(c).stem().wstring()); clipNames.push_back('\0'); }
-			if (ImGui::Combo("Clip", &_scene._curClip, clipNames.c_str()))
-			{ LoadClip(_scene._clips[_scene._curClip], _scene._clip); _scene._animated = _scene._clip.frameCount > 0; _animTimeAcc = 0.0f; }
-		}
-		ImGui::SeparatorText("Turntable / History");                   // U14 / U17
-		ImGui::Checkbox("Auto-rotate", &_turntable); ImGui::SameLine(); ImGui::SliderFloat("Rot Speed", &_turnSpeed, 0.05f, 2.0f);
-		if (ImGui::Button("Checkpoint")) PushUndo();
-		ImGui::SameLine(); if (ImGui::Button("Undo")) DoUndo();
-		ImGui::SameLine(); if (ImGui::Button("Redo")) DoRedo();
-		if (ImGui::Button("Snap To Ground")) // W10
-		{
-			float t[3], r[3], sc[3]; ImGuizmo::DecomposeMatrixToComponents((float*)&_scene._modelMatrix, t, r, sc);
-			t[1] -= _scene._modelMin.y; ImGuizmo::RecomposeMatrixFromComponents(t, r, sc, (float*)&_scene._modelMatrix);
-		}
-		ImGui::Checkbox("Show Bones", &_showBones); ImGui::SameLine(); ImGui::Checkbox("Show AABB", &_showAABB);
-		ImGui::SeparatorText("Info");
-		ImGui::Text("Verts %u  Tris %u  Bones %u", _scene._vertexCount, _scene._indexCount / 3, (unsigned)_scene._bonesData.size());
-		ImGui::Text("Submeshes %u  Materials %u", (unsigned)_scene._submeshes.size(), _scene._matCount);
-		break;
-	}
 
 	case SelEntity::Floor:
 		ImGui::SeparatorText("Floor / Ground");                        // U9 / U19

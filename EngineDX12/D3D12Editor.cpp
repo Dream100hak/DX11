@@ -81,13 +81,6 @@ void D3D12Device::DrawDebugLines()
 	if (_particlesOn) // W1: 파티클을 작은 월드 크로스로
 		for (auto& pt : _particles) { float s = (_particleMode == 0) ? 0.05f : 0.03f; _debugDraw.Cross(pt.pos, pt.col, s); }
 
-	if (_showAABB && _sel == SelEntity::Model)
-	{
-		XMFLOAT3 n = _scene._modelMin, x = _scene._modelMax, c{ 1.0f, 0.6f, 0.1f };
-		XMFLOAT3 p[8] = { {n.x,n.y,n.z},{x.x,n.y,n.z},{x.x,n.y,x.z},{n.x,n.y,x.z},{n.x,x.y,n.z},{x.x,x.y,n.z},{x.x,x.y,x.z},{n.x,x.y,x.z} };
-		int e[24] = { 0,1,1,2,2,3,3,0, 4,5,5,6,6,7,7,4, 0,4,1,5,2,6,3,7 };
-		for (int k = 0; k < 24; k += 2) _debugDraw.Line(p[e[k]], p[e[k + 1]], c);
-	}
 	// ── 씬 Light 컴포넌트 아이콘 (고정 3개 + 추가 라이트 전부) ──
 	if (_showLightIcons && _gameScene)
 	{
@@ -262,29 +255,6 @@ void D3D12Device::ResetDefaults()
 	Log("Reset scene to defaults");
 }
 
-void D3D12Device::PushUndo()
-{
-	Snapshot s; s.m = _scene._modelMatrix; s.met = _matMetallic; s.rough = _matRoughness; s.emis = _matEmissive; s.tint = _matTint; s.dt = _diffuseTint;
-	_undo.push_back(s); if (_undo.size() > 64) _undo.erase(_undo.begin()); _redo.clear();
-}
-void D3D12Device::DoUndo()
-{
-	if (_undo.empty()) return;
-	Snapshot cur; cur.m = _scene._modelMatrix; cur.met = _matMetallic; cur.rough = _matRoughness; cur.emis = _matEmissive; cur.tint = _matTint; cur.dt = _diffuseTint;
-	_redo.push_back(cur);
-	Snapshot s = _undo.back(); _undo.pop_back();
-	_scene._modelMatrix = s.m; _matMetallic = s.met; _matRoughness = s.rough; _matEmissive = s.emis; _matTint = s.tint; _diffuseTint = s.dt;
-	Log("Undo");
-}
-void D3D12Device::DoRedo()
-{
-	if (_redo.empty()) return;
-	Snapshot cur; cur.m = _scene._modelMatrix; cur.met = _matMetallic; cur.rough = _matRoughness; cur.emis = _matEmissive; cur.tint = _matTint; cur.dt = _diffuseTint;
-	_undo.push_back(cur);
-	Snapshot s = _redo.back(); _redo.pop_back();
-	_scene._modelMatrix = s.m; _matMetallic = s.met; _matRoughness = s.rough; _matEmissive = s.emis; _matTint = s.tint; _diffuseTint = s.dt;
-	Log("Redo");
-}
 
 // EditorTool 의 ImGuiManager::ApplyEditorStyle 이식 — 차콜 다크 + 블루 액센트 + 라운딩
 static void ApplyEditorStyle()
@@ -505,9 +475,6 @@ void D3D12Device::DrawMainMenuBar()
 		}
 		if (ImGui::BeginMenu("Edit"))
 		{
-			if (ImGui::MenuItem("Undo", "Ctrl+Z", false, !_undo.empty())) DoUndo();
-			if (ImGui::MenuItem("Redo", "Ctrl+Y", false, !_redo.empty())) DoRedo();
-			ImGui::Separator();
 			bool hasSel = _selectedGO && !_selectedGO->IsEditorInternal();
 			if (ImGui::MenuItem("Duplicate", "Ctrl+D", false, hasSel)) DuplicateSelectedObject();
 			if (ImGui::MenuItem("Delete", "Del", false, hasSel)) DeleteSelectedObject();
@@ -562,10 +529,9 @@ void D3D12Device::DrawMainMenuBar()
 		}
 		if (ImGui::BeginMenu("Component"))
 		{
-			if (ImGui::MenuItem("Mesh")) _sel = SelEntity::Model;
-			ImGui::MenuItem("Sound", nullptr, false, false);
-			if (ImGui::MenuItem("Light")) _sel = SelEntity::Sun;
+			if (ImGui::MenuItem("Lighting / Sky")) _sel = SelEntity::Sun;
 			if (ImGui::MenuItem("Camera")) _sel = SelEntity::Camera;
+			if (ImGui::MenuItem("Post / Render")) _sel = SelEntity::Post;
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("View"))
@@ -1077,62 +1043,40 @@ void D3D12Device::DrawSceneView()
 		if (u >= 0 && u <= 1 && v >= 0 && v <= 1) PickAt(u, v);
 	}
 
-	// ── ImGuizmo: 선택 GameObject / 모델 / 점광원 트랜스폼 조작 (이미지 영역 오버레이) ──
+	// ── ImGuizmo: 선택 GameObject 트랜스폼 조작 (이미지 영역 오버레이) ──
 	bool goGizmo = _selectedGO && _selectedGO != _modelObj && _selectedGO->GetTransform() && !_selectedGO->IsEditorInternal() && !terrainEditing;
-	if (goGizmo || (_sel == SelEntity::Model && _scene._modelMatrixInit) || _sel == SelEntity::Point)
+	if (goGizmo)
 	{
 		ImGuizmo::SetOrthographic(false);
 		ImGuizmo::SetDrawlist();
 		ImGuizmo::SetGizmoSizeClipSpace(_gizmoSize); // V6
 		ImGuizmo::SetRect(imgPos.x, imgPos.y, avail.x, avail.y);
-		if (goGizmo)
+		auto t = _selectedGO->GetTransform();
+		DirectX::XMFLOAT4X4 wm = t->GetWorldMatrix();
+		DirectX::XMFLOAT4X4 oldWM = wm; // 그룹 이동 델타 계산용
+		float snapVal = (_gizmoOp == 7) ? _snapT : (_gizmoOp == 120) ? _snapR : _snapS;
+		float snap3[3] = { snapVal, snapVal, snapVal };
+		if (ImGuizmo::Manipulate((const float*)&_viewM, (const float*)&_projM,
+			(ImGuizmo::OPERATION)_gizmoOp, _gizmoLocal ? ImGuizmo::LOCAL : ImGuizmo::WORLD,
+			(float*)&wm, nullptr, _snapOn ? snap3 : nullptr))
 		{
-			auto t = _selectedGO->GetTransform();
-			DirectX::XMFLOAT4X4 wm = t->GetWorldMatrix();
-			DirectX::XMFLOAT4X4 oldWM = wm; // 그룹 이동 델타 계산용
-			float snapVal = (_gizmoOp == 7) ? _snapT : (_gizmoOp == 120) ? _snapR : _snapS;
-			float snap3[3] = { snapVal, snapVal, snapVal };
-			if (ImGuizmo::Manipulate((const float*)&_viewM, (const float*)&_projM,
-				(ImGuizmo::OPERATION)_gizmoOp, _gizmoLocal ? ImGuizmo::LOCAL : ImGuizmo::WORLD,
-				(float*)&wm, nullptr, _snapOn ? snap3 : nullptr))
+			t->SetWorldMatrix(wm); // 월드→로컬 역산 + 분해 (부모 회전/스케일 안전)
+			// 멀티셀렉트 그룹 변환 — 월드 델타 W=inverse(old)·new 를 나머지 선택에 적용(이동/회전/스케일, 피벗=기즈모 중심)
+			if (!_selIds.empty())
 			{
-				t->SetWorldMatrix(wm); // 월드→로컬 역산 + 분해 (부모 회전/스케일 안전)
-				// 멀티셀렉트 그룹 변환 — 월드 델타 W=inverse(old)·new 를 나머지 선택에 적용(이동/회전/스케일, 피벗=기즈모 중심)
-				if (!_selIds.empty())
-				{
-					using namespace DirectX;
-					XMMATRIX oldW = XMLoadFloat4x4(&oldWM), newW = XMLoadFloat4x4(&wm);
-					XMMATRIX W = XMMatrixMultiply(XMMatrixInverse(nullptr, oldW), newW);
-					for (int64 id : _selIds)
-						if (auto o = _gameScene->GetCreatedObject(id))
-							if (auto ot = o->GetTransform())
-							{
-								XMFLOAT4X4 ow = ot->GetWorldMatrix();
-								XMFLOAT4X4 nw; XMStoreFloat4x4(&nw, XMMatrixMultiply(XMLoadFloat4x4(&ow), W));
-								ot->SetWorldMatrix(nw);
-							}
-				}
+				using namespace DirectX;
+				XMMATRIX oldW = XMLoadFloat4x4(&oldWM), newW = XMLoadFloat4x4(&wm);
+				XMMATRIX W = XMMatrixMultiply(XMMatrixInverse(nullptr, oldW), newW);
+				for (int64 id : _selIds)
+					if (auto o = _gameScene->GetCreatedObject(id))
+						if (auto ot = o->GetTransform())
+						{
+							XMFLOAT4X4 ow = ot->GetWorldMatrix();
+							XMFLOAT4X4 nw; XMStoreFloat4x4(&nw, XMMatrixMultiply(XMLoadFloat4x4(&ow), W));
+							ot->SetWorldMatrix(nw);
+						}
 			}
 		}
-		else if (_sel == SelEntity::Model)
-		{
-			float snapVal = (_gizmoOp == 7) ? _snapT : (_gizmoOp == 120) ? _snapR : _snapS;
-			float snap3[3] = { snapVal, snapVal, snapVal };
-			ImGuizmo::Manipulate((const float*)&_viewM, (const float*)&_projM,
-				(ImGuizmo::OPERATION)_gizmoOp, _gizmoLocal ? ImGuizmo::LOCAL : ImGuizmo::WORLD,
-				(float*)&_scene._modelMatrix, nullptr, _snapOn ? snap3 : nullptr);
-		}
-		else // Point — 이동만
-		{
-			DirectX::XMFLOAT4X4 m; DirectX::XMStoreFloat4x4(&m, DirectX::XMMatrixTranslation(_pointPos.x, _pointPos.y, _pointPos.z));
-			ImGuizmo::Manipulate((const float*)&_viewM, (const float*)&_projM,
-				ImGuizmo::TRANSLATE, ImGuizmo::WORLD, (float*)&m);
-			_pointPos = { m._41, m._42, m._43 };
-		}
-		static bool wasUsing = false;
-		bool using_ = ImGuizmo::IsUsing();
-		if (using_ && !wasUsing && _sel == SelEntity::Model) PushUndo(); // 조작 시작 시 되돌리기 지점
-		wasUsing = using_;
 	}
 
 	// W4 레터박스 + W5 오버레이 (씬 이미지 위 드로우리스트)
@@ -1293,21 +1237,6 @@ void D3D12Device::PickAt(float u, float v)
 	XMFLOAT3 ro; XMStoreFloat3(&ro, n);
 	XMFLOAT3 rdv; XMStoreFloat3(&rdv, XMVector3Normalize(XMVectorSubtract(f, n)));
 
-	// 모델 AABB 슬랩 테스트
-	float tModel = 1e9f; bool hitM = false;
-	{
-		float tmin = 0.0f, tmax = 1e9f; bool ok = true;
-		const float* ros = &ro.x; const float* rds = &rdv.x;
-		const float* bmn = &_scene._modelMin.x; const float* bmx = &_scene._modelMax.x;
-		for (int a = 0; a < 3; ++a)
-		{
-			if (fabsf(rds[a]) < 1e-7f) { if (ros[a] < bmn[a] || ros[a] > bmx[a]) { ok = false; break; } }
-			else { float inv = 1.0f / rds[a]; float t1 = (bmn[a] - ros[a]) * inv, t2 = (bmx[a] - ros[a]) * inv;
-				if (t1 > t2) { float tmp = t1; t1 = t2; t2 = tmp; }
-				tmin = max(tmin, t1); tmax = min(tmax, t2); if (tmin > tmax) { ok = false; break; } }
-		}
-		if (ok && tmax > 0) { hitM = true; tModel = max(tmin, 0.0f); }
-	}
 	// 바닥 평면 y=0 (±6)
 	float tFloor = 1e9f; bool hitF = false;
 	if (fabsf(rdv.y) > 1e-6f)
@@ -1349,9 +1278,8 @@ void D3D12Device::PickAt(float u, float v)
 		}
 	}
 
-	// 가장 가까운 히트 선택 (씬그래프 오브젝트 > 모델 > 바닥)
-	if (hitGO && tGO <= tModel && (!hitF || tGO <= tFloor)) { _selectedGO = hitGO; _sel = SelEntity::Model; }
-	else if (hitM && (!hitF || tModel <= tFloor)) { _selectedGO = nullptr; _sel = SelEntity::Model; }
+	// 가장 가까운 히트 선택 (씬그래프 오브젝트 > 바닥)
+	if (hitGO && (!hitF || tGO <= tFloor)) { _selectedGO = hitGO; _sel = SelEntity::Model; } // Model=오브젝트 선택 센티넬
 	else if (hitF) { _selectedGO = nullptr; _sel = SelEntity::Floor; }
 }
 

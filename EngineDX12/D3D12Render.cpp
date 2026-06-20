@@ -190,7 +190,7 @@ void D3D12Device::Render()
 		}
 	cb.pointPos   = ptN > 0 ? ptPosA[0] : XMFLOAT4(0, 0, 0, 0); // 단일 참조(스크린 갓레이 등) 호환
 	cb.pointColor = ptN > 0 ? ptColA[0] : XMFLOAT4(0, 0, 0, 0);
-	cb.matParams  = XMFLOAT4(_matMetallic, _matRoughness, _matEmissive, _matTint);
+	cb.matParams  = XMFLOAT4(0, 0.5f, 0, 1); // (gMatParams 미사용 — 모델 분리 후 per-object 루트상수가 머티리얼 담당)
 	cb.sunColor   = sunL ? XMFLOAT4(sunL->_color.x, sunL->_color.y, sunL->_color.z, _envIntensity)
 	                     : XMFLOAT4(_sunColor.x, _sunColor.y, _sunColor.z, _envIntensity);
 	cb.fog        = XMFLOAT4(_fogColor.x, _fogColor.y, _fogColor.z, _fogDensity);
@@ -202,7 +202,7 @@ void D3D12Device::Render()
 	cb.spotPos    = spotP;
 	cb.spotDir    = spotD;
 	cb.spotColor  = haveSpot ? spotC : XMFLOAT4(0, 0, 0, 0);
-	cb.tint       = XMFLOAT4(_diffuseTint.x * _matTint, _diffuseTint.y * _matTint, _diffuseTint.z * _matTint, _floorRough);
+	cb.tint       = XMFLOAT4(0, 0, 0, _floorRough); // gTint.w=바닥 거칠기만 사용(rgb 미사용)
 	cb.floorMat   = XMFLOAT4(_floorColor.x, _floorColor.y, _floorColor.z, _floorMetallic);
 	cb.ao         = XMFLOAT4(_aoOn ? 1.f : 0.f, _aoIntensity, _aoRadius, 0.f);
 	cb.shade      = XMFLOAT4(float(_toonLevels), _rimPower, _normalIntensity, _checker ? 1.f : 0.f);
@@ -326,9 +326,9 @@ void D3D12Device::Render()
 	if (sceneCam) drawBucket(sceneCam->GetVecBackground(), false);
 
 	// ── 선택 아웃라인 (인버티드 헐 → 이후 불투명 패스가 위를 덮어 림만 남음) ──
-	// 선택된 GameObject 의 렌더러를 우선 아웃라인. 없으면(레거시 단일 모델 선택 시) _scene 모델.
+	// 선택된 GameObject 렌더러 + 멀티셀렉트 전부 아웃라인.
 	auto outlineR = (_selectedGO && !_selectedGO->IsEditorInternal()) ? _selectedGO->GetRenderer() : nullptr;
-	if (outlineR || !_selIds.empty() || (_sel == SelEntity::Model && !_selectedGO && _scene._modelIndexCount > 0))
+	if (outlineR || !_selIds.empty())
 	{
 		_cmdList->SetPipelineState(_outlinePSO.Get());
 		_cmdList->SetGraphicsRootSignature(_rootSig.Get());
@@ -338,13 +338,6 @@ void D3D12Device::Render()
 		for (int64 id : _selIds)
 			if (auto o = _gameScene ? _gameScene->GetCreatedObject(id) : nullptr)
 				if (auto r = o->GetRenderer()) r->RecordOutline(_cmdList.Get());
-		if (!outlineR && _selIds.empty()) // 레거시 단일 모델 폴백
-		{
-			_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-			_cmdList->IASetVertexBuffers(0, 1, &_scene._vbv);
-			_cmdList->IASetIndexBuffer(&_scene._ibv);
-			_cmdList->DrawIndexedInstanced(_scene._modelIndexCount, 1, 0, 0, 0);
-		}
 	}
 
 	// ── 불투명 (모델+바닥+정적메시) — Opaque 큐 (절두체 컬링 옵션) ──

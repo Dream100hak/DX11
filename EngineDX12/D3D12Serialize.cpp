@@ -160,6 +160,12 @@ void D3D12Device::SaveSceneTo(const std::wstring& path)
 			f << "pprm " << ps->_mode << ' ' << (ps->_emitting ? 1 : 0) << ' ' << ps->_rate << ' ' << ps->_life
 			  << ' ' << ps->_speed << ' ' << ps->_gravity << ' ' << ps->_size
 			  << ' ' << ps->_color.x << ' ' << ps->_color.y << ' ' << ps->_color.z << '\n';
+			// 확장 파라미터 (방출형태/블렌드/버스트/곡선)
+			f << "pprm2 " << ps->_shape << ' ' << ps->_shapeRadius << ' ' << ps->_coneAngle
+			  << ' ' << ps->_boxSize.x << ' ' << ps->_boxSize.y << ' ' << ps->_boxSize.z
+			  << ' ' << ps->_dir.x << ' ' << ps->_dir.y << ' ' << ps->_dir.z << ' ' << ps->_spread
+			  << ' ' << ps->_blend << ' ' << ps->_soft << ' ' << ps->_sizeEnd << ' ' << ps->_fadeIn << ' ' << ps->_burst
+			  << ' ' << ps->_colorEnd.x << ' ' << ps->_colorEnd.y << ' ' << ps->_colorEnd.z << '\n';
 			f << "pxf " << p.x << ' ' << p.y << ' ' << p.z << ' ' << (obj->IsActive() ? 1 : 0) << '\n';
 			f << "ppar " << (parentName.empty() ? std::string("-") : WToUtf8(parentName)) << '\n';
 			WriteScripts(f, obj);
@@ -374,6 +380,15 @@ void D3D12Device::LoadSceneFrom(const std::wstring& path)
 			if (auto ps = std::dynamic_pointer_cast<ParticleSystem>(curPart->GetRenderer())) {
 				int em = 1; s >> ps->_mode >> em >> ps->_rate >> ps->_life >> ps->_speed >> ps->_gravity >> ps->_size
 					>> ps->_color.x >> ps->_color.y >> ps->_color.z; ps->_emitting = em != 0;
+			}
+		}
+		else if (tag == "pprm2" && curPart) {
+			if (auto ps = std::dynamic_pointer_cast<ParticleSystem>(curPart->GetRenderer())) {
+				s >> ps->_shape >> ps->_shapeRadius >> ps->_coneAngle
+				  >> ps->_boxSize.x >> ps->_boxSize.y >> ps->_boxSize.z
+				  >> ps->_dir.x >> ps->_dir.y >> ps->_dir.z >> ps->_spread
+				  >> ps->_blend >> ps->_soft >> ps->_sizeEnd >> ps->_fadeIn >> ps->_burst
+				  >> ps->_colorEnd.x >> ps->_colorEnd.y >> ps->_colorEnd.z;
 			}
 		}
 		else if (tag == "pxf" && curPart) {

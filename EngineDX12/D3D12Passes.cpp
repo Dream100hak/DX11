@@ -99,33 +99,41 @@ void D3D12Device::RenderParticles(const RenderContext& ctx)
 	using namespace DirectX;
 	if (!_gameScene || !_particlePSO) return;
 
-	struct PInst { XMFLOAT3 pos; float size; XMFLOAT3 col; float pad; }; // 32B (셰이더 Particle 와 동일 stride)
-	static std::vector<PInst> insts; insts.clear();
+	struct PInst { XMFLOAT3 pos; float size; XMFLOAT3 col; float soft; }; // 32B (셰이더 Particle 와 동일 stride)
+	static std::vector<PInst> addList, alphaList; addList.clear(); alphaList.clear();
 	for (auto& kv : _gameScene->GetCreatedObjects())
 	{
 		auto& o = kv.second; if (!o || !o->IsActive()) continue;
 		auto ps = std::dynamic_pointer_cast<ParticleSystem>(o->GetRenderer()); if (!ps) continue;
 		float sz0 = ps->Size(), sz1 = ps->SizeEnd(); const Vec3& ce = ps->ColorEnd();
+		float soft = ps->Soft(), fin = ps->FadeIn();
+		auto& dst = (ps->BlendMode() == ParticleSystem::BlendAlpha) ? alphaList : addList;
 		for (auto& p : ps->Particles())
 		{
 			float life01 = p.maxLife > 0.f ? p.life / p.maxLife : 1.f; // 1=갓태어남 → 0=소멸
 			float t = 1.f - life01;                                     // 수명 진행도
 			float sz = sz0 + (sz1 - sz0) * t;                           // 크기 보간
-			// 색은 입자 자체색(p.col, 모드별 랜덤) → ColorEnd 로 보간, 알파 페이드(life01)
-			float fade = life01;
+			float fadeIn = (fin > 0.f) ? min(1.f, t / fin) : 1.f;       // 초반 페이드인
+			float fade = min(fadeIn, life01);                           // 페이드인 ∧ 페이드아웃
 			XMFLOAT3 c{ (p.col.x + (ce.x - p.col.x) * t) * fade, (p.col.y + (ce.y - p.col.y) * t) * fade, (p.col.z + (ce.z - p.col.z) * t) * fade };
-			insts.push_back({ p.pos, sz, c, 0.f });
+			dst.push_back({ p.pos, sz, c, soft });
 		}
 	}
-	// Billboard 컴포넌트도 같은 빌보드 인스턴스로 수집 (1개 = 정적 쿼드)
+	// Billboard 컴포넌트도 가산 빌보드 인스턴스로 수집 (1개 = 정적 쿼드)
 	for (auto& kv : _gameScene->GetCreatedObjects())
 	{
 		auto& o = kv.second; if (!o || !o->IsActive()) continue;
 		auto bb = std::dynamic_pointer_cast<Billboard>(o->GetRenderer()); if (!bb) continue;
 		auto t = o->GetTransform(); Vec3 p = t ? t->GetLocalPosition() : Vec3{ 0,0,0 };
-		insts.push_back({ p, bb->Size(), bb->Tint(), 0.f });
+		addList.push_back({ p, bb->Size(), bb->Tint(), 1.f });
 	}
-	if (insts.empty()) return;
+	const UINT nAdd = (UINT)addList.size(), nAlpha = (UINT)alphaList.size();
+	if (nAdd + nAlpha == 0) return;
+
+	// 가산 먼저, 알파 뒤로 연속 배치 (루트 SRV GPUVA 오프셋으로 각 배치 인덱싱)
+	static std::vector<PInst> insts; insts.clear();
+	insts.insert(insts.end(), addList.begin(), addList.end());
+	insts.insert(insts.end(), alphaList.begin(), alphaList.end());
 
 	UINT bytes = (UINT)(insts.size() * sizeof(PInst));
 	if (_partInstCap < bytes)
@@ -149,11 +157,22 @@ void D3D12Device::RenderParticles(const RenderContext& ctx)
 	XMFLOAT3 r3, u3; XMStoreFloat3(&r3, right); XMStoreFloat3(&u3, up);
 	float bill[8] = { r3.x, r3.y, r3.z, 0.f, u3.x, u3.y, u3.z, 0.f };
 
-	_cmdList->SetPipelineState(_particlePSO.Get());
 	_cmdList->SetGraphicsRootSignature(_rootSig.Get());
 	_cmdList->SetGraphicsRootConstantBufferView(0, ctx.cb);                              // b0 = VP
-	_cmdList->SetGraphicsRootShaderResourceView(2, _partInst->GetGPUVirtualAddress());   // t1 = 파티클 StructuredBuffer
 	_cmdList->SetGraphicsRoot32BitConstants(4, 8, bill, 0);                              // b1 = 빌보드 기저
 	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	_cmdList->DrawInstanced(6, (UINT)insts.size(), 0, 0);                                // VB 없음(절차적)
+	const UINT stride = (UINT)sizeof(PInst);
+	D3D12_GPU_VIRTUAL_ADDRESS base = _partInst->GetGPUVirtualAddress();
+	if (nAdd) // 가산 배치
+	{
+		_cmdList->SetPipelineState(_particlePSO.Get());
+		_cmdList->SetGraphicsRootShaderResourceView(2, base);                            // t1 = 가산 입자 범위
+		_cmdList->DrawInstanced(6, nAdd, 0, 0);                                          // VB 없음(절차적)
+	}
+	if (nAlpha && _particleAlphaPSO) // 알파(연기) 배치
+	{
+		_cmdList->SetPipelineState(_particleAlphaPSO.Get());
+		_cmdList->SetGraphicsRootShaderResourceView(2, base + (UINT64)nAdd * stride);    // t1 = 알파 입자 범위 오프셋
+		_cmdList->DrawInstanced(6, nAlpha, 0, 0);
+	}
 }

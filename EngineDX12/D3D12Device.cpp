@@ -638,6 +638,11 @@ void D3D12Device::CreatePipeline()
 		pp.BlendState.RenderTarget[0].DestBlend = D3D12_BLEND_ONE;
 		pp.BlendState.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ONE;
 		ThrowIfFailed(_device->CreateGraphicsPipelineState(&pp, IID_PPV_ARGS(&_particlePSO)), "CreateParticlePSO");
+		// 알파(연기/먼지) 변형 — 프리멀티플라이드: Src=ONE, Dst=INV_SRC_ALPHA (PS 가 col*r, r 출력)
+		pp.BlendState.RenderTarget[0].SrcBlend = D3D12_BLEND_ONE;
+		pp.BlendState.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+		pp.BlendState.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_INV_SRC_ALPHA;
+		ThrowIfFailed(_device->CreateGraphicsPipelineState(&pp, IID_PPV_ARGS(&_particleAlphaPSO)), "CreateParticleAlphaPSO");
 	}
 
 	// ── 터레인 테셀레이션 PSO (VS/HS/DS/PS, PATCH 토폴로지) — 메인 opaque pso 베이스 ──

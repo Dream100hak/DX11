@@ -152,7 +152,8 @@ private:
 	ComPtr<ID3D12PipelineState>       _outlinePSO; // 선택 아웃라인(인버티드 헐)
 	ComPtr<ID3D12PipelineState>       _wirePSO;    // 와이어프레임 토글
 	ComPtr<ID3D12PipelineState>       _probePSO;   // DDGI 프로브 점 시각화
-	ComPtr<ID3D12PipelineState>       _particlePSO; // GPU 인스턴스드 빌보드 파티클
+	ComPtr<ID3D12PipelineState>       _particlePSO;      // GPU 인스턴스드 빌보드 파티클 (가산)
+	ComPtr<ID3D12PipelineState>       _particleAlphaPSO; // 알파 블렌드 변형 (연기/먼지)
 	ComPtr<ID3D12Resource>            _partInst;    // per-frame 인스턴스 업로드 버퍼
 	void*                             _partInstMapped = nullptr;
 	UINT                              _partInstCap = 0; // 바이트 용량

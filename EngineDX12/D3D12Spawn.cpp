@@ -161,8 +161,13 @@ void D3D12Device::SpawnCharacterShowcase()
 	for (auto& s : chars) SpawnAnimatedModel(modelPath(s.rel), s.pos);
 
 	// 정적 프롭 — Tower (Tower.fbx 재변환본, 나무 텍스처). 배경에 크게 배치.
-	if (auto tw = SpawnAnimatedModel(modelPath(L"Tower\\Tower.mesh"), Vec3{ 8.f, 0, -4.f }))
-		if (auto t = tw->GetTransform()) { Vec3 sc = t->GetLocalScale(); t->SetLocalScale(Vec3{ sc.x * 2.5f, sc.y * 2.5f, sc.z * 2.5f }); }
+	// Z-up 소스라 Y-up 엔진에선 누워서 임포트됨 → X -90° 회전으로 세움.
+	if (auto tw = SpawnAnimatedModel(modelPath(L"Tower\\Tower.mesh"), Vec3{ 0.f, 0, 7.f }))
+		if (auto t = tw->GetTransform())
+		{
+			Vec3 sc = t->GetLocalScale(); t->SetLocalScale(Vec3{ sc.x * 2.5f, sc.y * 2.5f, sc.z * 2.5f });
+			t->SetLocalRotation(Vec3{ -1.5708f, 0.f, 0.f }); // -90° X (라디안)
+		}
 
 	// 분위기 FX — 불 파티클 (가산 글로우)
 	if (auto o = SpawnEmpty(L"FX_Fire", Vec3{ 0.f, 0.3f, -2.5f }))

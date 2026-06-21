@@ -607,7 +607,10 @@ void D3D12Device::DrawFolderContents()
 	if (ImGui::Button("  ..  ") && !atRoot) _curDir = fs::path(_curDir).parent_path().wstring();
 	ImGui::EndDisabled();
 	ImGui::SameLine();
-	std::wstring rel = fs::relative(_curDir, fs::path(_assetRoot).parent_path()).wstring();
+	// non-throwing — fs::relative 는 weakly_canonical 내부에서 예외를 던질 수 있음(특정 경로/심볼릭/권한).
+	std::error_code relEc;
+	std::wstring rel = fs::relative(_curDir, fs::path(_assetRoot).parent_path(), relEc).wstring();
+	if (relEc || rel.empty()) rel = fs::path(_curDir).filename().wstring(); // 폴백: 현재 폴더명
 	ImGui::TextDisabled("%s", WToUtf8(rel).c_str());
 	ImGui::Separator();
 

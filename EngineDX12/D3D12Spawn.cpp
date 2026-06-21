@@ -160,7 +160,9 @@ void D3D12Device::SpawnCharacterShowcase()
 	};
 	for (auto& s : chars) SpawnAnimatedModel(modelPath(s.rel), s.pos);
 
-	// (Tower2 프롭은 .mesh 포맷이 스키닝 로더와 비호환 — 재변환 후 추가 예정)
+	// 정적 프롭 — Tower (Tower.fbx 재변환본, 나무 텍스처). 배경에 크게 배치.
+	if (auto tw = SpawnAnimatedModel(modelPath(L"Tower\\Tower.mesh"), Vec3{ 8.f, 0, -4.f }))
+		if (auto t = tw->GetTransform()) { Vec3 sc = t->GetLocalScale(); t->SetLocalScale(Vec3{ sc.x * 2.5f, sc.y * 2.5f, sc.z * 2.5f }); }
 
 	// 분위기 FX — 불 파티클 (가산 글로우)
 	if (auto o = SpawnEmpty(L"FX_Fire", Vec3{ 0.f, 0.3f, -2.5f }))

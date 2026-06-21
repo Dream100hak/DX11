@@ -206,10 +206,18 @@ void D3D12Device::SpawnActionArena()
 		player->AddComponent(make_shared<PlayerController>());
 	}
 
-	// 적 (정적 — AI 는 다음 단계). Mutant/Enemy 혼합.
-	SpawnAnimatedModel(modelPath(L"Mutant\\Mutant.mesh"), Vec3{ -4.f, 0, 6.f });
-	SpawnAnimatedModel(modelPath(L"Enemy\\Enemy.mesh"),   Vec3{  4.f, 0, 7.f });
-	SpawnAnimatedModel(modelPath(L"Mutant\\Mutant.mesh"), Vec3{  0.f, 0, 9.f });
+	// 적 — 추적/공격 AI (EnemyController). Mutant/Enemy 혼합.
+	auto spawnEnemy = [&](const wchar_t* rel, Vec3 pos, float hp, float spd)
+	{
+		if (auto e = SpawnAnimatedModel(modelPath(rel), pos))
+		{
+			auto ec = make_shared<EnemyController>(); ec->_maxHp = ec->_hp = hp; ec->_speed = spd;
+			e->AddComponent(ec);
+		}
+	};
+	spawnEnemy(L"Mutant\\Mutant.mesh", Vec3{ -4.f, 0, 6.f }, 80.f, 1.7f);
+	spawnEnemy(L"Enemy\\Enemy.mesh",   Vec3{  4.f, 0, 7.f }, 50.f, 2.3f);
+	spawnEnemy(L"Mutant\\Mutant.mesh", Vec3{  0.f, 0, 9.f }, 80.f, 1.7f);
 
 	// 게임 카메라 + 추적 스크립트 (Play 모드에서 플레이어 추적)
 	auto cam = make_shared<GameObject>();

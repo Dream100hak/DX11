@@ -262,7 +262,8 @@ float4 PSMain(VSOut i) : SV_TARGET
     float3 col = albedo * gGI.z * gSunColor.w * ao + direct + indirect * ao + spec;
     col += albedo * emissive;
     // ── IBL: 큐브맵 베이크 SH 환경 이라디언스 (이미지 기반 앰비언트) ──
-    if (gEnvSH[0].w > 0.0) col += albedo * EvalEnvIrradiance(N) * gEnvSH[0].w * ao;
+    // 디퓨즈 = albedo × irradiance / π (정규화). gEnvSH[0].w = 강도.
+    if (gEnvSH[0].w > 0.0) col += albedo * EvalEnvIrradiance(N) * (gEnvSH[0].w * 0.318310) * ao;
     // W7 헤미스피어 앰비언트 (하늘=위 / 바닥=아래)
     if (gExtra.y > 0.001)
     {

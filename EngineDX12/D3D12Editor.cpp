@@ -519,6 +519,7 @@ void D3D12Device::DrawMainMenuBar()
 			if (ImGui::MenuItem("Save Selected as Prefab...", nullptr, false, _selectedGO != nullptr)) SaveSelectedAsPrefab();
 			ImGui::Separator();
 			if (ImGui::MenuItem("Spawn Showcase Scene")) SpawnShowcase();
+			if (ImGui::MenuItem("Spawn Character Showcase")) SpawnCharacterShowcase();
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Component"))

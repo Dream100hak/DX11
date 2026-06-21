@@ -145,6 +145,41 @@ void D3D12Device::SpawnShowcase()
 	Log("Showcase scene spawned (terrain+water+foliage+fire+lights)");
 }
 
+// 캐릭터/프롭 쇼케이스 — 변환된 .mesh 모델들을 배치해 PBR/IBL/애니/TAA/파티클을 한눈에 체감.
+void D3D12Device::SpawnCharacterShowcase()
+{
+	if (!_gameScene) return;
+	auto modelPath = [&](const wchar_t* rel) { return _assetRoot + L"\\Models\\" + rel; };
+
+	// 애니 캐릭터 3종 (Archer 는 기본 씬에 이미 존재 → 함께 줄세움). 각자 기본 클립 자동 재생.
+	struct Spawn { const wchar_t* rel; Vec3 pos; };
+	const Spawn chars[] = {
+		{ L"Kachujin\\Kachujin.mesh", Vec3{ -3.f, 0, 0 } },
+		{ L"Mutant\\Mutant.mesh",     Vec3{  3.f, 0, 0 } },
+		{ L"Enemy\\Enemy.mesh",       Vec3{  0.f, 0, 3.f } },
+	};
+	for (auto& s : chars) SpawnAnimatedModel(modelPath(s.rel), s.pos);
+
+	// (Tower2 프롭은 .mesh 포맷이 스키닝 로더와 비호환 — 재변환 후 추가 예정)
+
+	// 분위기 FX — 불 파티클 (가산 글로우)
+	if (auto o = SpawnEmpty(L"FX_Fire", Vec3{ 0.f, 0.3f, -2.5f }))
+	{
+		auto ps = make_shared<ParticleSystem>();
+		ps->_shape = ParticleSystem::ShCone; ps->_coneAngle = 18.f; ps->_blend = ParticleSystem::BlendAdd;
+		ps->_rate = 130.f; ps->_life = 1.1f; ps->_speed = 1.6f; ps->_gravity = 1.2f;
+		ps->_size = 0.18f; ps->_sizeEnd = 0.02f; ps->_soft = 0.8f; ps->_fadeIn = 0.1f;
+		ps->_color = { 1.f, 0.7f, 0.2f }; ps->_colorEnd = { 1.f, 0.15f, 0.03f };
+		o->AddComponent(ps);
+	}
+
+	// 품질 옵션 보장 (체감용) + 카메라 프레이밍
+	_iblOn = true; _taaOn = true; _bloomOn = true;
+	// 정면(+z) 약간 위에서 그룹 프레이밍 (yaw=0 → +z 시선)
+	_camera.pos = { 0.f, 2.6f, -8.0f }; _camera.yaw = 0.f; _camera.pitch = -0.14f; _camera.orbit = false;
+	Log("Character showcase spawned (Archer/Kachujin/Mutant/Enemy + fire)");
+}
+
 // 선택 GameObject → .prefab (Mesh/Animator). 텍스트 포맷: type/prim|mesh/mat/xform.
 void D3D12Device::SaveSelectedAsPrefab()
 {

@@ -427,39 +427,38 @@ void D3D12Device::BuildUI()
 	ImGui::NewFrame();
 	ImGuizmo::BeginFrame();
 	_thumbnail.NewFrame(4); // 프레임당 신규 썸네일 생성 제한 (전체플러시 스터터 방지)
-	_editor.Update();
+	_editor.Update(); // 내부에서 ImGui::Render() 호출 — HUD 는 그 직전에 EditorManager 가 DrawGameHUD() 호출
+}
 
-	// ── 게임 HUD (Play 중 — 플레이어 HP / 적 수) ──
-	if (_playing && _gameScene)
+// 게임 HUD (Play 중 — 플레이어 HP / 적 수). EditorManager::Update 가 ImGui::Render() 직전에 호출(프레임 스코프 내).
+void D3D12Device::DrawGameHUD()
+{
+	if (!_playing || !_gameScene) return;
+	float php = -1.f, pmax = 100.f; int alive = 0, total = 0;
+	for (auto& kv : _gameScene->GetCreatedObjects())
 	{
-		float php = -1.f, pmax = 100.f; int alive = 0, total = 0;
-		for (auto& kv : _gameScene->GetCreatedObjects())
-		{
-			auto& o = kv.second; if (!o) continue;
-			if (auto pc = o->GetComponent<PlayerController>()) { php = pc->_hp; pmax = pc->_maxHp; }
-			if (auto ec = o->GetComponent<EnemyController>()) { ++total; if (!ec->_dead && o->IsActive()) ++alive; }
-		}
-		if (php >= 0.f)
-		{
-			ImGuiViewport* vp = ImGui::GetMainViewport();
-			ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + vp->WorkSize.x * 0.5f - 120.f, vp->WorkPos.y + 90.f), ImGuiCond_Always);
-			ImGui::SetNextWindowBgAlpha(0.4f);
-			ImGui::Begin("##HUD", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-				ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoInputs |
-				ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDocking);
-			if (php <= 0.f) ImGui::TextColored(ImVec4(1, 0.3f, 0.3f, 1), "YOU DIED");
-			else
-			{
-				ImGui::TextUnformatted("HP"); ImGui::SameLine();
-				ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImVec4(0.85f, 0.22f, 0.22f, 1));
-				ImGui::ProgressBar(php / (pmax > 0 ? pmax : 1.f), ImVec2(200, 16));
-				ImGui::PopStyleColor();
-			}
-			if (total > 0 && alive == 0) ImGui::TextColored(ImVec4(0.5f, 1, 0.5f, 1), "CLEAR!  (%d/%d)", total, total);
-			else ImGui::Text("Enemies: %d / %d", alive, total);
-			ImGui::End();
-		}
+		auto& o = kv.second; if (!o) continue;
+		if (auto pc = o->GetComponent<PlayerController>()) { php = pc->_hp; pmax = pc->_maxHp; }
+		if (auto ec = o->GetComponent<EnemyController>()) { ++total; if (!ec->_dead && o->IsActive()) ++alive; }
 	}
+	if (php < 0.f) return;
+	ImGuiViewport* vp = ImGui::GetMainViewport();
+	ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + vp->WorkSize.x * 0.5f - 120.f, vp->WorkPos.y + 90.f), ImGuiCond_Always);
+	ImGui::SetNextWindowBgAlpha(0.4f);
+	ImGui::Begin("##HUD", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoInputs |
+		ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDocking);
+	if (php <= 0.f) ImGui::TextColored(ImVec4(1, 0.3f, 0.3f, 1), "YOU DIED");
+	else
+	{
+		ImGui::TextUnformatted("HP"); ImGui::SameLine();
+		ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImVec4(0.85f, 0.22f, 0.22f, 1));
+		ImGui::ProgressBar(php / (pmax > 0 ? pmax : 1.f), ImVec2(200, 16));
+		ImGui::PopStyleColor();
+	}
+	if (total > 0 && alive == 0) ImGui::TextColored(ImVec4(0.5f, 1, 0.5f, 1), "CLEAR!  (%d/%d)", total, total);
+	else ImGui::Text("Enemies: %d / %d", alive, total);
+	ImGui::End();
 }
 
 // 메인 메뉴바 (EditorTool 구조: File / Edit / GameObject / Component / View) — MainMenuBarWindow 가 호출

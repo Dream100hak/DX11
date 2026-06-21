@@ -83,6 +83,9 @@ void EditorManager::Update()
 		w.second->Update();
 	}
 
+	// 게임 HUD (Play 중) — ImGui::Render() 직전 프레임 스코프 내에서 그림
+	if (_dev) _dev->DrawGameHUD();
+
 	// 4) ImGui 드로우 데이터 빌드
 	ImGui::Render();
 }

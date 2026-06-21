@@ -40,7 +40,7 @@ public:
 	// TAA: 히스토리 재투영 + 이웃 클램프 시간적 누적. LDR(현재)+히스토리+깊이 → LDR2, 히스토리 갱신 후 LDR2 반환.
 	// invVP=현재(지터드) 역VP, prevVP=직전 프레임 VP. off 면 LDR 그대로 반환.
 	ID3D12Resource* Taa(ID3D12GraphicsCommandList4* cmd, bool on,
-	                    const DirectX::XMFLOAT4X4& invVP, const DirectX::XMFLOAT4X4& prevVP);
+	                    const DirectX::XMFLOAT4X4& invVP, const DirectX::XMFLOAT4X4& prevVP, float sharpness);
 
 	bool            Ready() const { return _bloomReady; }
 	ID3D12Resource* LdrResource() const { return _sceneLDR.Get(); } // 스크린샷 리드백/표시

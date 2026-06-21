@@ -145,7 +145,32 @@ float4 PSFxaa(VOut i) : SV_TARGET
     return float4((lB < lMin || lB > lMax) ? rgbA : rgbB, 1.0);
 }
 // TAA — 히스토리(gHDR=t0) 재투영 + 현재(gBloom=t1) 이웃 클램프 시간적 누적. depth(t2)로 월드 복원.
-cbuffer TaaCB : register(b4) { row_major float4x4 gInvVPcur; row_major float4x4 gPrevVP; float2 gTaaTexel; float2 _tpad; };
+cbuffer TaaCB : register(b4) { row_major float4x4 gInvVPcur; row_major float4x4 gPrevVP; float2 gTaaTexel; float gTaaSharp; float _tpad; };
+// Catmull-Rom(바이큐빅) 히스토리 샘플 — bilinear 누적 블러 방지(TAA 선명도 핵심). 9탭.
+float3 SampleHistoryCR(float2 uv, float2 texel)
+{
+    float2 res = 1.0 / texel;
+    float2 sp = uv * res;
+    float2 tp1 = floor(sp - 0.5) + 0.5;
+    float2 f = sp - tp1;
+    float2 w0 = f * (-0.5 + f * (1.0 - 0.5 * f));
+    float2 w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
+    float2 w2 = f * (0.5 + f * (2.0 - 1.5 * f));
+    float2 w3 = f * f * (-0.5 + 0.5 * f);
+    float2 w12 = w1 + w2; float2 o12 = w2 / w12;
+    float2 p0 = (tp1 - 1.0) * texel, p3 = (tp1 + 2.0) * texel, p12 = (tp1 + o12) * texel;
+    float3 r = 0;
+    r += gHDR.SampleLevel(gS, float2(p0.x,  p0.y),  0).rgb * (w0.x  * w0.y);
+    r += gHDR.SampleLevel(gS, float2(p12.x, p0.y),  0).rgb * (w12.x * w0.y);
+    r += gHDR.SampleLevel(gS, float2(p3.x,  p0.y),  0).rgb * (w3.x  * w0.y);
+    r += gHDR.SampleLevel(gS, float2(p0.x,  p12.y), 0).rgb * (w0.x  * w12.y);
+    r += gHDR.SampleLevel(gS, float2(p12.x, p12.y), 0).rgb * (w12.x * w12.y);
+    r += gHDR.SampleLevel(gS, float2(p3.x,  p12.y), 0).rgb * (w3.x  * w12.y);
+    r += gHDR.SampleLevel(gS, float2(p0.x,  p3.y),  0).rgb * (w0.x  * w3.y);
+    r += gHDR.SampleLevel(gS, float2(p12.x, p3.y),  0).rgb * (w12.x * w3.y);
+    r += gHDR.SampleLevel(gS, float2(p3.x,  p3.y),  0).rgb * (w3.x  * w3.y);
+    return max(r, 0.0);
+}
 float4 PSTaa(VOut i) : SV_TARGET
 {
     float3 cur = gBloom.Sample(gS, i.uv).rgb;
@@ -159,17 +184,21 @@ float4 PSTaa(VOut i) : SV_TARGET
     if (pc.w <= 0.0) return float4(cur, 1.0);
     float2 prevUV = float2(pc.x / pc.w * 0.5 + 0.5, 0.5 - pc.y / pc.w * 0.5);
     if (prevUV.x < 0.0 || prevUV.x > 1.0 || prevUV.y < 0.0 || prevUV.y > 1.0) return float4(cur, 1.0);
-    float3 hist = gHDR.Sample(gS, prevUV).rgb;
-    // 이웃(3x3) min/max 로 히스토리 클램프 — 고스팅/디스오클루전 억제
-    float3 nmin = cur, nmax = cur;
+
+    // 이웃(3x3) min/max 클램프 범위 + 십자 이웃 평균(샤픈용)
+    float3 nmin = cur, nmax = cur, cross = 0;
     [unroll] for (int oy = -1; oy <= 1; ++oy)
     [unroll] for (int ox = -1; ox <= 1; ++ox)
     {
+        if (ox == 0 && oy == 0) continue;
         float3 s = gBloom.Sample(gS, i.uv + float2(ox, oy) * gTaaTexel).rgb;
         nmin = min(nmin, s); nmax = max(nmax, s);
+        if (ox == 0 || oy == 0) cross += s * 0.25;
     }
-    hist = clamp(hist, nmin, nmax);
-    return float4(lerp(hist, cur, 0.1), 1.0); // 90% 히스토리 누적
+    float3 hist = clamp(SampleHistoryCR(prevUV, gTaaTexel), nmin, nmax);
+    float3 outc = lerp(hist, cur, 0.1);            // 90% 히스토리 누적
+    outc += (cur - cross) * gTaaSharp;             // 언샤프 — 현재 프레임 고주파 복원
+    return float4(max(outc, 0.0), 1.0);
 }
 )";
 
@@ -426,13 +455,13 @@ ID3D12Resource* PostFX::Fxaa(ID3D12GraphicsCommandList4* cmd, bool fxaaOn)
 }
 
 ID3D12Resource* PostFX::Taa(ID3D12GraphicsCommandList4* cmd, bool on,
-                            const DirectX::XMFLOAT4X4& invVP, const DirectX::XMFLOAT4X4& prevVP)
+                            const DirectX::XMFLOAT4X4& invVP, const DirectX::XMFLOAT4X4& prevVP, float sharpness)
 {
 	if (!on || !_taaCBMapped) return _sceneLDR.Get();
 
-	// 행렬 CB 갱신 (invVP 64 + prevVP 64 + texel 8)
-	struct TaaCBData { DirectX::XMFLOAT4X4 invVP, prevVP; float tx, ty, p0, p1; } d{};
-	d.invVP = invVP; d.prevVP = prevVP; d.tx = 1.0f / float(_w); d.ty = 1.0f / float(_h);
+	// 행렬 CB 갱신 (invVP 64 + prevVP 64 + texel 8 + sharp 4)
+	struct TaaCBData { DirectX::XMFLOAT4X4 invVP, prevVP; float tx, ty, sharp, p1; } d{};
+	d.invVP = invVP; d.prevVP = prevVP; d.tx = 1.0f / float(_w); d.ty = 1.0f / float(_h); d.sharp = sharpness;
 	memcpy(_taaCBMapped, &d, sizeof(d));
 
 	// 현재(LDR) + 히스토리 → LDR2

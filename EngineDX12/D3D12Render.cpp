@@ -441,7 +441,7 @@ void D3D12Device::Render()
 	if (_taaOn)
 	{
 		// 첫 프레임은 prevVP=0 → 셰이더가 재투영 실패로 현재값 사용(고스팅 없음). 이후 직전 VP 로 재투영.
-		displayRes = _postfx.Taa(_cmdList.Get(), true, cb.invVP, _hasPrevVP ? _prevViewProj : Matrix{});
+		displayRes = _postfx.Taa(_cmdList.Get(), true, cb.invVP, _hasPrevVP ? _prevViewProj : Matrix{}, _taaSharp);
 		XMStoreFloat4x4(&_prevViewProj, view * projJ); _hasPrevVP = true; // 다음 프레임용 (지터드 VP)
 	}
 	else { displayRes = _postfx.Fxaa(_cmdList.Get(), _fxaaOn); _hasPrevVP = false; }

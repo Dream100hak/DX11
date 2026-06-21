@@ -216,6 +216,7 @@ private:
 	shared_ptr<GameObject>            SpawnTerrain(int gridN, float cellSize); // Terrain + MeshRenderer GameObject
 	void                              SpawnShowcase(); // 데모 씬 일괄 생성(터레인+물+식생+파티클+라이트)
 	void                              SpawnCharacterShowcase(); // 캐릭터/프롭 쇼케이스(PBR/IBL/애니/파티클 체감용)
+	void                              SpawnActionArena();       // 3인칭 액션 아레나(플레이어 컨트롤러+추적카메라+적)
 	// 터레인 편집 (씬뷰 브러시) — Terrain 선택 + Edit 토글 시 좌드래그로 스컬프트
 	bool                              _terrainEdit = false;
 	int                               _terrainBrush = 0;     // 0 Raise/1 Lower/2 Smooth/3 Flatten/4 Paint

@@ -76,6 +76,7 @@ public:
 	void  SetTrigger(const std::string& n) { _params[n] = 1.f; } // 1프레임 소비
 	bool  UseStateMachine() const { return _useSM; }
 	void  SetUseStateMachine(bool b) { _useSM = b; if (b) _curState = -1; }
+	void  SetupLocomotion(); // Idle/Run 상태 + Speed 파라미터 + 전이 자동 구성 (게임 코드/인스펙터 공용)
 	const std::vector<std::string>& RecentEvents() const { return _eventLog; }
 	std::function<void(const std::string&)> OnNotify; // 게임 콜백 (옵션)
 

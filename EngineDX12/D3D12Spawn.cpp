@@ -189,6 +189,51 @@ void D3D12Device::SpawnCharacterShowcase()
 	Log("Character showcase spawned (Archer/Kachujin/Mutant/Enemy + fire)");
 }
 
+// 3인칭 액션 아레나 — 조작 가능한 플레이어(컨트롤러+로코모션) + 추적 카메라 + 적 + 배경.
+// Play 모드에서 WASD/Shift 로 조작. (전투/AI 는 다음 단계)
+void D3D12Device::SpawnActionArena()
+{
+	if (!_gameScene) return;
+	ClearDynamicObjects();
+	auto modelPath = [&](const wchar_t* rel) { return _assetRoot + L"\\Models\\" + rel; };
+
+	// 플레이어 = Kachujin (Idle/Run 클립) + 로코모션 상태머신 + 컨트롤러 스크립트
+	auto player = SpawnAnimatedModel(modelPath(L"Kachujin\\Kachujin.mesh"), Vec3{ 0, 0, 0 });
+	if (player)
+	{
+		player->SetObjectName(L"Player");
+		if (auto an = player->GetModelAnimator()) an->SetupLocomotion();
+		player->AddComponent(make_shared<PlayerController>());
+	}
+
+	// 적 (정적 — AI 는 다음 단계). Mutant/Enemy 혼합.
+	SpawnAnimatedModel(modelPath(L"Mutant\\Mutant.mesh"), Vec3{ -4.f, 0, 6.f });
+	SpawnAnimatedModel(modelPath(L"Enemy\\Enemy.mesh"),   Vec3{  4.f, 0, 7.f });
+	SpawnAnimatedModel(modelPath(L"Mutant\\Mutant.mesh"), Vec3{  0.f, 0, 9.f });
+
+	// 게임 카메라 + 추적 스크립트 (Play 모드에서 플레이어 추적)
+	auto cam = make_shared<GameObject>();
+	cam->SetObjectName(L"GameCamera");
+	cam->GetOrAddTransform()->SetLocalPosition(Vec3{ 0, 3.2f, -6.f });
+	cam->AddComponent(make_shared<Camera>());
+	auto fc = make_shared<FollowCamera>(); cam->AddComponent(fc);
+	_gameScene->Add(cam);
+	if (player) fc->SetTarget(player);
+
+	// 배경 프롭 — 워치타워 (Z-up 보정 기립)
+	if (auto tw = SpawnAnimatedModel(modelPath(L"Tower\\Tower.mesh"), Vec3{ 0.f, 0, 16.f }))
+		if (auto t = tw->GetTransform())
+		{
+			Vec3 sc = t->GetLocalScale(); t->SetLocalScale(Vec3{ sc.x * 2.5f, sc.y * 2.5f, sc.z * 2.5f });
+			t->SetLocalRotation(Vec3{ -1.5708f, 0.f, 0.f });
+		}
+
+	_iblOn = true; _taaOn = true; _bloomOn = true;
+	// 에디터 카메라도 비슷한 시점 (Play 안 해도 배치 확인)
+	_camera.pos = { 0.f, 4.f, -8.f }; _camera.yaw = 0.f; _camera.pitch = -0.28f; _camera.orbit = false;
+	Log("Action arena spawned — Play 후 WASD 이동 / Shift 달리기");
+}
+
 // 선택 GameObject → .prefab (Mesh/Animator). 텍스트 포맷: type/prim|mesh/mat/xform.
 void D3D12Device::SaveSelectedAsPrefab()
 {

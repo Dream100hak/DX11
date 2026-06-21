@@ -645,6 +645,29 @@ void ModelAnimator::RecordOutline(ID3D12GraphicsCommandList4* cmd)
 	cmd->DrawIndexedInstanced(_idxCount, 1, 0, 0, 0);
 }
 
+// Idle/Run 상태 + Speed 파라미터 + 양방향 전이 자동 구성 (인스펙터 버튼 + 게임 코드 공용)
+void ModelAnimator::SetupLocomotion()
+{
+	auto lower = [](std::string s) { for (char& c : s) if (c >= 'A' && c <= 'Z') c += 32; return s; };
+	auto findClip = [&](std::initializer_list<const char*> keys, int fallback) -> int
+	{
+		for (const char* k : keys)
+			for (int i = 0; i < (int)_clips.size(); ++i)
+				if (lower(fs::path(_clips[i]).stem().string()).find(k) != std::string::npos) return i;
+		return fallback;
+	};
+	int idle = findClip({ "idle", "stand" }, 0);
+	int run  = findClip({ "sprint", "run", "jog", "walk" }, _clips.size() > 1 ? 1 : 0);
+	_states.clear(); _transitions.clear();
+	_states.push_back({ "Idle", idle, 1.f, true });
+	_states.push_back({ "Run",  run,  1.f, true });
+	_params["Speed"] = 0.f;
+	AnimTransition t1; t1.from = 0; t1.to = 1; t1.param = "Speed"; t1.op = 0; t1.value = 0.1f; t1.blend = 0.15f;
+	AnimTransition t2; t2.from = 1; t2.to = 0; t2.param = "Speed"; t2.op = 1; t2.value = 0.1f; t2.blend = 0.20f;
+	_transitions.push_back(t1); _transitions.push_back(t2);
+	_useSM = true; _curState = -1;
+}
+
 void ModelAnimator::OnInspectorGUI()
 {
 	ImGui::SeparatorText("ModelAnimator");
@@ -682,27 +705,7 @@ void ModelAnimator::OnInspectorGUI()
 		HelpMarker("켜면 파라미터/전이 규칙으로 클립이 자동 전환됩니다 (게임 로직 주도).");
 
 		// ── 빠른 시작: 흔한 로코모션(Idle/Run + Speed) 자동 구성 ──
-		if (ImGui::Button("Auto-setup Locomotion"))
-		{
-			auto lower = [](std::string s) { for (char& c : s) if (c >= 'A' && c <= 'Z') c += 32; return s; };
-			auto findClip = [&](std::initializer_list<const char*> keys, int fallback) -> int
-			{
-				for (const char* k : keys)
-					for (int i = 0; i < (int)_clips.size(); ++i)
-						if (lower(fs::path(_clips[i]).stem().string()).find(k) != std::string::npos) return i;
-				return fallback;
-			};
-			int idle = findClip({ "idle", "stand" }, 0);
-			int run  = findClip({ "sprint", "run", "jog", "walk" }, _clips.size() > 1 ? 1 : 0);
-			_states.clear(); _transitions.clear();
-			_states.push_back({ "Idle", idle, 1.f, true });
-			_states.push_back({ "Run",  run,  1.f, true });
-			_params["Speed"] = 0.f;
-			AnimTransition t1; t1.from = 0; t1.to = 1; t1.param = "Speed"; t1.op = 0; t1.value = 0.1f; t1.blend = 0.15f;
-			AnimTransition t2; t2.from = 1; t2.to = 0; t2.param = "Speed"; t2.op = 1; t2.value = 0.1f; t2.blend = 0.20f;
-			_transitions.push_back(t1); _transitions.push_back(t2);
-			_useSM = true; _curState = -1;
-		}
+		if (ImGui::Button("Auto-setup Locomotion")) SetupLocomotion();
 		ImGui::SameLine(); HelpMarker("Idle/Run 상태 + Speed 파라미터 + 전이를 자동 생성합니다.\n아래 Parameters 의 Speed 를 0.1 이상으로 올리면 Run 으로 크로스페이드 전환됩니다.");
 
 		if (_useSM && _curState >= 0 && _curState < (int)_states.size())

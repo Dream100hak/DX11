@@ -520,6 +520,7 @@ void D3D12Device::DrawMainMenuBar()
 			ImGui::Separator();
 			if (ImGui::MenuItem("Spawn Showcase Scene")) SpawnShowcase();
 			if (ImGui::MenuItem("Spawn Character Showcase")) SpawnCharacterShowcase();
+			if (ImGui::MenuItem("Spawn Action Arena")) SpawnActionArena();
 			ImGui::EndMenu();
 		}
 		if (ImGui::BeginMenu("Component"))

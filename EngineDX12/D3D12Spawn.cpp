@@ -149,14 +149,16 @@ void D3D12Device::SpawnShowcase()
 void D3D12Device::SpawnCharacterShowcase()
 {
 	if (!_gameScene) return;
+	ClearDynamicObjects(); // 재호출 시 누적 방지 (이전 캐릭터/파티클 제거 — 불 누적 = 블룸 폭발 원인)
 	auto modelPath = [&](const wchar_t* rel) { return _assetRoot + L"\\Models\\" + rel; };
 
-	// 애니 캐릭터 3종 (Archer 는 기본 씬에 이미 존재 → 함께 줄세움). 각자 기본 클립 자동 재생.
+	// 애니 캐릭터 4종 줄세움 (각자 기본 클립 자동 재생). 클리어로 기본 Archer 도 지워지므로 명시 스폰.
 	struct Spawn { const wchar_t* rel; Vec3 pos; };
 	const Spawn chars[] = {
-		{ L"Kachujin\\Kachujin.mesh", Vec3{ -3.f, 0, 0 } },
-		{ L"Mutant\\Mutant.mesh",     Vec3{  3.f, 0, 0 } },
-		{ L"Enemy\\Enemy.mesh",       Vec3{  0.f, 0, 3.f } },
+		{ L"Archer\\Archer.mesh",     Vec3{ -1.5f, 0, 0 } },
+		{ L"Kachujin\\Kachujin.mesh", Vec3{ -4.5f, 0, 0 } },
+		{ L"Mutant\\Mutant.mesh",     Vec3{  1.5f, 0, 0 } },
+		{ L"Enemy\\Enemy.mesh",       Vec3{  4.5f, 0, 0 } },
 	};
 	for (auto& s : chars) SpawnAnimatedModel(modelPath(s.rel), s.pos);
 
@@ -174,8 +176,8 @@ void D3D12Device::SpawnCharacterShowcase()
 	{
 		auto ps = make_shared<ParticleSystem>();
 		ps->_shape = ParticleSystem::ShCone; ps->_coneAngle = 18.f; ps->_blend = ParticleSystem::BlendAdd;
-		ps->_rate = 130.f; ps->_life = 1.1f; ps->_speed = 1.6f; ps->_gravity = 1.2f;
-		ps->_size = 0.18f; ps->_sizeEnd = 0.02f; ps->_soft = 0.8f; ps->_fadeIn = 0.1f;
+		ps->_rate = 90.f; ps->_life = 1.0f; ps->_speed = 1.6f; ps->_gravity = 1.2f;
+		ps->_size = 0.15f; ps->_sizeEnd = 0.02f; ps->_soft = 0.9f; ps->_fadeIn = 0.15f;
 		ps->_color = { 1.f, 0.7f, 0.2f }; ps->_colorEnd = { 1.f, 0.15f, 0.03f };
 		o->AddComponent(ps);
 	}

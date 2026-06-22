@@ -10,4 +10,5 @@ float4 VSMain(VIn i) : SV_POSITION
     wp += n * d * gOutline.w;          // 두께(카메라 거리 비례)
     return mul(float4(wp, 1.0), gMVP);
 }
-float4 PSMain() : SV_TARGET { return float4(gOutline.rgb, 1.0); } // 아웃라인 색(HDR)
+// 아웃라인은 에디터 오버레이 — 블룸 브라이트패스(임계 1.0)에 안 걸리게 LDR 로 클램프(번짐 방지).
+float4 PSMain() : SV_TARGET { return float4(min(gOutline.rgb, float3(0.8, 0.8, 0.8)), 1.0); }

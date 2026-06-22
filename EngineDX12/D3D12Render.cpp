@@ -415,7 +415,7 @@ void D3D12Device::Render()
 
 	// ── 블룸 (브라이트패스 → BlurH → BlurV, 반해상도) ── PostFX 가 처리
 	Transition(_sceneRT.Get(), _sceneRTState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-	bool bloomActive = _bloomOn && _postfx.Ready();
+	bool bloomActive = _bloomOn && !_wireframe && _postfx.Ready(); // 와이어프레임(디버그 뷰)은 블룸 제외
 	if (bloomActive) _postfx.Bloom(_cmdList.Get(), _bloomThreshold);
 
 	// ── 톤맵 (HDR 씬 RT → LDR RT, ACES + 노출 + 감마 + 블룸 + DOF/갓레이) ── PostFX 가 처리

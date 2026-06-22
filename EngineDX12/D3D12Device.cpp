@@ -738,7 +738,8 @@ void D3D12Device::CreatePipeline()
 	opso.InputLayout = { layout, _countof(layout) };
 	opso.RasterizerState = rast; opso.RasterizerState.CullMode = D3D12_CULL_MODE_FRONT;
 	opso.BlendState = blend;
-	opso.DepthStencilState = ds; // LESS, write on
+	opso.DepthStencilState = ds; // LESS 테스트
+	opso.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO; // 깊이 미기록 → 이후 불투명이 자기 영역 덮음(헐은 림만, 메시 와인딩 무관)
 	opso.SampleMask = UINT_MAX;
 	opso.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 	opso.NumRenderTargets = 1; opso.RTVFormats[0] = _sceneFmt;

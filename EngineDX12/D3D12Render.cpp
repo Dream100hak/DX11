@@ -489,14 +489,19 @@ void D3D12Device::Render()
 void D3D12Device::RenderGameView()
 {
 	using namespace DirectX;
-	if (!_gameWindowOpen || !_gameScene) return;
+	if (!_gameScene) return;
+	// 선택된 게임 카메라(비-에디터) = 씬뷰 프리뷰 인셋 대상 — Game 창이 닫혀 있어도 이때는 렌더해야 인셋이 갱신됨
+	bool wantPreview = _selectedGO && _selectedGO->IsActive() && !_selectedGO->IsEditorInternal() && _selectedGO->GetCamera();
+	if (!_gameWindowOpen && !wantPreview) return;
 
-	// 게임 카메라 = 비-에디터 내부 Camera GameObject (첫 번째)
+	// 카메라 = 선택된 카메라 우선(프리뷰), 없으면 비-에디터 Camera GameObject 첫 번째
 	shared_ptr<GameObject> camObj;
-	for (auto& kv : _gameScene->GetCreatedObjects())
+	if (wantPreview) camObj = _selectedGO;
+	else for (auto& kv : _gameScene->GetCreatedObjects())
 		if (auto& o = kv.second; o && o->IsActive() && !o->IsEditorInternal() && o->GetCamera()) { camObj = o; break; }
 
 	if (_pendingGameW && (_pendingGameW != _gameW || _pendingGameH != _gameH)) CreateGameRT(_pendingGameW, _pendingGameH);
+	if (!_gameRT) CreateGameRT(640, 360); // Game 창이 한 번도 안 열렸을 때 기본 크기로 보장(인셋 프리뷰용)
 	if (!_gameRT) return;
 
 	Transition(_gameRT.Get(), _gameRTState, D3D12_RESOURCE_STATE_RENDER_TARGET);

@@ -69,6 +69,8 @@ public:
 	void  SetPlaying(bool p) { _playing = p; }
 	int   ClipCount() const { return (int)_clips.size(); }
 	const std::vector<std::wstring>& ClipPaths() const { return _clips; }
+	// 디버그 스켈레톤 — 현재 포즈의 본 부모→자식 월드 선분(에디터 "Show Bones" 오버레이용)
+	void GetBoneLines(std::vector<std::pair<DirectX::XMFLOAT3, DirectX::XMFLOAT3>>& out);
 
 	// ── 상태머신 / 파라미터 (게임 코드·스크립트에서 제어) ──
 	void  SetBool(const std::string& n, bool v) { _params[n] = v ? 1.f : 0.f; }

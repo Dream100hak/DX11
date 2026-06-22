@@ -270,7 +270,8 @@ void D3D12Device::DrawInspector()
 		ImGui::Combo("View", &_debugView, "Lit\0Albedo\0Normal\0Depth\0GI\0");
 		ImGui::Checkbox("Wireframe", &_wireframe); ImGui::SameLine(); ImGui::Checkbox("Frustum Cull", &_frustumCull);
 		HelpMarker("절두체 컬링 — 화면 밖 오브젝트 드로우 생략(성능). 컬링 버그 의심 시 끄고 확인.");
-		ImGui::Checkbox("Show Bones", &_showBones); ImGui::SameLine(); ImGui::Checkbox("AABB", &_showAABB);
+		ImGui::Checkbox("Show Bones", &_showBones); HelpMarker("애니메이션 모델의 현재 포즈 스켈레톤(본 계층) 오버레이.");
+		ImGui::SameLine(); ImGui::Checkbox("AABB", &_showAABB); HelpMarker("씬 오브젝트의 월드 바운딩 박스(컬링/픽킹 범위) 오버레이.");
 		ImGui::Checkbox("Light Icons", &_showLightIcons); ImGui::SameLine(); ImGui::Checkbox("Spot Cone", &_showSpotCone);
 		ImGui::SeparatorText("Frame Time");
 		ImGui::PlotLines("ms", _frameTimes, 120, _frameIdx % 120, nullptr, 0.0f, 40.0f, ImVec2(0, 60));

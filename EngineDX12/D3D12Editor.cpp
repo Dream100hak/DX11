@@ -161,6 +161,34 @@ void D3D12Device::DrawDebugLines()
 			}
 		}
 
+	// ── 월드 AABB / 스켈레톤 본 (씬그래프 GameObject 단위 — 모델 인스펙터에서 이전된 디버그 뷰) ──
+	if ((_showAABB || _showBones) && _gameScene)
+		for (auto& kv : _gameScene->GetCreatedObjects())
+		{
+			auto& o = kv.second; if (!o || !o->IsActive() || o->IsEditorInternal()) continue;
+			auto r = o->GetRenderer(); if (!r) continue;
+			if (_showAABB) // 렌더러 월드 바운딩 박스(스키닝/트랜스폼 반영, SortGameObject 갱신)
+			{
+				const DirectX::BoundingBox& bb = r->GetBoundingBox();
+				XMFLOAT3 c = bb.Center, e = bb.Extents;
+				XMFLOAT3 p[8] = {
+					{c.x-e.x,c.y-e.y,c.z-e.z},{c.x+e.x,c.y-e.y,c.z-e.z},{c.x+e.x,c.y-e.y,c.z+e.z},{c.x-e.x,c.y-e.y,c.z+e.z},
+					{c.x-e.x,c.y+e.y,c.z-e.z},{c.x+e.x,c.y+e.y,c.z-e.z},{c.x+e.x,c.y+e.y,c.z+e.z},{c.x-e.x,c.y+e.y,c.z+e.z} };
+				int e8[24] = { 0,1,1,2,2,3,3,0, 4,5,5,6,6,7,7,4, 0,4,1,5,2,6,3,7 };
+				const XMFLOAT3 cy{ 0.2f, 0.85f, 1.0f };
+				for (int k = 0; k < 24; k += 2) _debugDraw.Line(p[e8[k]], p[e8[k + 1]], cy);
+			}
+			if (_showBones) // 애니메이터 현재 포즈 스켈레톤 (부모→자식 선분 + 관절 크로스)
+				if (auto anm = std::dynamic_pointer_cast<ModelAnimator>(r))
+				{
+					std::vector<std::pair<XMFLOAT3, XMFLOAT3>> lines;
+					anm->GetBoneLines(lines);
+					const XMFLOAT3 bc{ 1.0f, 0.45f, 0.1f };
+					// overlay=true → 깊이 무시(메시 관통) — 안 하면 본이 메시 안에 가려 안 보임
+					for (auto& ln : lines) { _debugDraw.Line(ln.first, ln.second, bc, true); _debugDraw.Cross(ln.second, bc, 0.025f, true); }
+				}
+		}
+
 	// ParticleSystem 컴포넌트 입자는 GPU 인스턴스드 빌보드(RenderParticles)로 렌더 — 여기선 생략.
 
 	// ── 디렉셔널 라이트(태양) 방향 화살표 (씬 원점 위, 노랑) ──
@@ -1145,12 +1173,43 @@ void D3D12Device::DrawSceneView()
 		if (ImGui::IsKeyPressed(ImGuiKey_Escape, false)) { _selectedGO = nullptr; _selIds.clear(); _anchorId = -1; } // 선택 해제
 		if (ImGui::IsKeyPressed(ImGuiKey_Home, false)) FrameAll();        // 전체 프레이밍
 	}
-	// RMB 비행 중 마우스 휠 = 이동 속도 조절 (Unity 풍)
-	if ((_sceneHovered || _sceneFocused) && ImGui::IsMouseDown(1))
+	// 마우스 휠: RMB 비행 중이면 이동 속도 조절(Unity 풍), 평상시엔 시선 방향 도리 줌(앞=확대)
+	if (_sceneHovered || _sceneFocused)
 	{
 		float wheel = ImGui::GetIO().MouseWheel;
-		if (wheel != 0.0f) _camera.moveSpeed = max(0.5f, min(50.0f, _camera.moveSpeed * (1.0f + wheel * 0.12f)));
+		if (wheel != 0.0f)
+		{
+			if (ImGui::IsMouseDown(1))
+				_camera.moveSpeed = max(0.5f, min(50.0f, _camera.moveSpeed * (1.0f + wheel * 0.12f)));
+			else
+			{
+				using namespace DirectX;
+				float step = wheel * 0.6f * (ImGui::GetIO().KeyShift ? _camera.fastMul : 1.0f);
+				XMStoreFloat3(&_camera.pos, XMVectorAdd(_camera.Eye(), XMVectorScale(_camera.Forward(), step)));
+			}
+		}
 	}
+
+	// ── 카메라 프리뷰 인셋 (선택된 게임 카메라 — Unity 풍, 씬뷰 우하단) ──
+	//   RenderGameView 가 선택 카메라를 _gameRT(_gameTexId)에 렌더 → 여기서 작게 오버레이.
+	if (_gameTexId && _selectedGO && _selectedGO->IsActive() && !_selectedGO->IsEditorInternal() && _selectedGO->GetCamera())
+	{
+		float pw = min(320.0f, avail.x * 0.30f);
+		float ph = pw * (float)_gameH / (float)max(1u, _gameW); // RT 종횡비 유지
+		const float m = 12.0f, titleH = 18.0f;
+		ImVec2 imgEnd(imgPos.x + avail.x, imgPos.y + avail.y);
+		ImVec2 p0(imgEnd.x - pw - m, imgEnd.y - ph - m);
+		ImVec2 p1(p0.x + pw, p0.y + ph);
+		ImVec2 t0(p0.x, p0.y - titleH);
+		ImDrawList* dl = ImGui::GetWindowDrawList();
+		dl->AddRectFilled(t0, ImVec2(p1.x, p0.y), IM_COL32(25, 25, 30, 230));           // 타이틀바
+		dl->AddRectFilled(ImVec2(p0.x, p0.y - 1), p1, IM_COL32(0, 0, 0, 255));           // 배경
+		dl->AddImage((ImTextureID)_gameTexId, p0, p1);
+		dl->AddRect(t0, p1, IM_COL32(255, 255, 255, 160));                               // 테두리
+		std::string label = "Camera Preview  " + WToUtf8(_selectedGO->GetObjectName());
+		dl->AddText(ImVec2(t0.x + 5, t0.y + 3), IM_COL32(220, 220, 220, 255), label.c_str());
+	}
+
 	ImGui::End();
 
 	DrawGameView(); // "Game" 도킹 창 (게임 카메라 시점)

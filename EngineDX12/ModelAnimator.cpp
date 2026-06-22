@@ -416,20 +416,61 @@ void ModelAnimator::ComputeAndUpload()
 		memcpy(_skinCBMapped, &sp, sizeof(sp));
 	}
 
-	// 월드 AABB 근사 — 바인드포즈 로컬 AABB 8코너를 modelToWorld 변환 후 25% 패딩(스키닝 변형 여유)
+	// 월드 AABB — 애니 중이면 현재 포즈 본 위치 기준(포즈를 따라 타이트하게), 아니면 바인드포즈 로컬 AABB.
 	XMVECTOR mn = XMVectorReplicate(1e9f), mx = XMVectorReplicate(-1e9f);
-	const XMFLOAT3 lo = _localMin, hi = _localMax;
-	for (int c = 0; c < 8; ++c)
+	if (anim && _global.size() == nb && nb > 0)
 	{
-		XMVECTOR p = XMVectorSet((c & 1) ? hi.x : lo.x, (c & 2) ? hi.y : lo.y, (c & 4) ? hi.z : lo.z, 1.f);
-		p = XMVector3Transform(p, modelToWorld);
-		mn = XMVectorMin(mn, p); mx = XMVectorMax(mx, p);
+		// 본 조인트 월드 위치로 바운드 산출 → 메시 살/손발/머리 여유로 고정 마진(월드 단위 m) 확장.
+		// 바인드포즈 T자(팔 벌림) 박스보다 훨씬 타이트하고, 무릎 꿇기 등 포즈 변화도 따라감.
+		for (size_t b = 0; b < nb; ++b)
+		{
+			XMVECTOR p = XMVector3Transform(_global[b].r[3], modelToWorld);
+			mn = XMVectorMin(mn, p); mx = XMVectorMax(mx, p);
+		}
+		XMVECTOR margin = XMVectorSet(0.22f, 0.22f, 0.22f, 0.f);
+		XMStoreFloat3(&_aabbMin, XMVectorSubtract(mn, margin));
+		XMStoreFloat3(&_aabbMax, XMVectorAdd(mx, margin));
 	}
-	XMVECTOR pad = XMVectorScale(XMVectorSubtract(mx, mn), 0.25f);
-	XMStoreFloat3(&_aabbMin, XMVectorSubtract(mn, pad));
-	XMStoreFloat3(&_aabbMax, XMVectorAdd(mx, pad));
+	else
+	{
+		const XMFLOAT3 lo = _localMin, hi = _localMax;
+		for (int c = 0; c < 8; ++c)
+		{
+			XMVECTOR p = XMVectorSet((c & 1) ? hi.x : lo.x, (c & 2) ? hi.y : lo.y, (c & 4) ? hi.z : lo.z, 1.f);
+			p = XMVector3Transform(p, modelToWorld);
+			mn = XMVectorMin(mn, p); mx = XMVectorMax(mx, p);
+		}
+		XMVECTOR pad = XMVectorScale(XMVectorSubtract(mx, mn), 0.1f); // 패딩 25%→10% (덜 헐겁게)
+		XMStoreFloat3(&_aabbMin, XMVectorSubtract(mn, pad));
+		XMStoreFloat3(&_aabbMax, XMVectorAdd(mx, pad));
+	}
 
 	_skinDirty = true;
+}
+
+// 디버그 스켈레톤 — _global(현재 포즈, 모델 로컬) × modelToWorld 로 본 월드 위치 산출 →
+// 부모가 있는 본마다 (부모, 자식) 선분 추가. UpdateWorld 직후 호출(이 프레임 포즈 반영).
+void ModelAnimator::GetBoneLines(std::vector<std::pair<XMFLOAT3, XMFLOAT3>>& out)
+{
+	const size_t nb = _bonesData.size();
+	if (nb == 0 || _global.size() < nb) return; // 포즈 미계산(바인드포즈/클립 없음) → 생략
+
+	XMMATRIX M = XMMatrixIdentity();
+	if (auto t = GetTransform()) { Matrix wm = t->GetWorldMatrix(); M = XMLoadFloat4x4(&wm); }
+	XMMATRIX adjust = XMMatrixTranslation(-_modelOffset.x, -_modelOffset.y, -_modelOffset.z) *
+	                  XMMatrixScaling(_modelScale, _modelScale, _modelScale);
+	XMMATRIX modelToWorld = adjust * M;
+
+	auto bonePos = [&](size_t b) {
+		XMVECTOR p = XMVector3Transform(_global[b].r[3], modelToWorld); // _global[b] 의 평행이동행
+		XMFLOAT3 f; XMStoreFloat3(&f, p); return f; };
+
+	for (size_t b = 0; b < nb; ++b)
+	{
+		int parent = _bonesData[b].parent;
+		if (parent < 0 || parent >= (int)nb) continue;
+		out.emplace_back(bonePos(parent), bonePos(b));
+	}
 }
 
 // GPU 스키닝 디스패치 — 본 행렬 × 소스정점 → 월드 VB(UAV). 더티일 때만.

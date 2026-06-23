@@ -199,8 +199,11 @@ void D3D12Device::SpawnActionArena()
 
 	// 스타일라이즈드 아트디렉션 + 아레나 무드 (모래/돌 바닥, 그리드 끔)
 	ApplyLookProfile(1);
-	_floorColor = { 0.46f, 0.34f, 0.24f }; _floorRough = 0.72f; _floorMetallic = 0.f;
+	_floorColor = { 0.30f, 0.22f, 0.16f }; _floorRough = 0.78f; _floorMetallic = 0.f; // 어두운 모래/흙
 	_showGrid = false;
+	// 스톤 위주 씬이라 기본 Stylized 노출이 날아감 → 톤 다운 (대비/무드 확보)
+	_exposure = 0.92f; _bloomThreshold = 1.15f; _bloomIntensity = 0.6f;
+	_iblIntensity = 0.85f; _envIntensity = 0.85f; _ambient = 0.035f;
 
 	// 플레이어 = Kachujin (Idle/Run 클립) + 로코모션 상태머신 + 컨트롤러 스크립트
 	auto player = SpawnAnimatedModel(modelPath(L"Kachujin\\Kachujin.mesh"), Vec3{ 0, 0, 0 });
@@ -233,27 +236,27 @@ void D3D12Device::SpawnActionArena()
 	_gameScene->Add(cam);
 	if (player) fc->SetTarget(player);
 
-	// 배경 프롭 — 워치타워 (Z-up 보정 기립)
-	if (auto tw = SpawnAnimatedModel(modelPath(L"Tower\\Tower.mesh"), Vec3{ 0.f, 0, 16.f }))
-		if (auto t = tw->GetTransform())
-		{
-			Vec3 sc = t->GetLocalScale(); t->SetLocalScale(Vec3{ sc.x * 2.5f, sc.y * 2.5f, sc.z * 2.5f });
-			t->SetLocalRotation(Vec3{ -1.5708f, 0.f, 0.f });
-		}
-
-	// ── 아레나 경계 돌기둥 (원형 8개) — 스타일라이즈드 스톤 ──
+	// ── 환경 프롭 — Kenney Graveyard Kit(CC0) 저폴리 스톤. 솔리드 스타일라이즈드 틴트(Y-up, 회전 불필요) ──
+	auto gprop = [&](const wchar_t* mesh, Vec3 pos, float yawDeg, float scale, Vec3 col, float rough)
 	{
-		vector<Vtx> cv; vector<uint32> ci; GeometryHelper::CreateCylinder(cv, ci, 0.5f, 1.0f);
-		const int N = 8; const float R = 10.f;
-		for (int i = 0; i < N; ++i)
+		auto o = SpawnAnimatedModel(modelPath((std::wstring(L"Graveyard\\") + mesh).c_str()), pos);
+		if (o)
 		{
-			float a = i * 6.2831853f / N;
-			auto o = SpawnMeshObject(L"Pillar", cv, ci, Vec3{ cosf(a) * R, 1.6f, sinf(a) * R }, MeshPrim::Cylinder, false);
-			if (!o) continue;
-			o->GetTransform()->SetLocalScale(Vec3{ 0.8f, 3.2f, 0.8f });
-			if (auto mr = o->GetMeshRenderer()) { auto& m = mr->GetMaterial(); m._diffuse = { 0.52f, 0.48f, 0.43f }; m._metallic = 0.f; m._roughness = 0.85f; }
+			if (auto t = o->GetTransform()) { t->SetLocalScale(Vec3{ scale, scale, scale }); t->SetLocalRotation(Vec3{ 0.f, yawDeg * 0.0174533f, 0.f }); }
+			if (auto an = o->GetModelAnimator()) { auto& m = an->GetMaterial(); m._diffuse = col; m._roughness = rough; m._metallic = 0.f; m._diffuseTex.clear(); }
 		}
-	}
+	};
+	const Vec3 kStone{ 0.34f, 0.32f, 0.29f }, kStoneDark{ 0.22f, 0.21f, 0.20f }, kGrave{ 0.40f, 0.39f, 0.36f };
+	// 경계 기둥 8개(원형) + 중앙 제단 + 배경 대형 크립트 + 흩어진 묘비/벽
+	{ const int N = 8; const float R = 10.f;
+	  for (int i = 0; i < N; ++i) { float a = i * 6.2831853f / N; gprop(L"pillar-large.mesh", Vec3{ cosf(a) * R, 0, sinf(a) * R }, a * 57.2958f, 1.2f, kStone, 0.85f); } }
+	gprop(L"altar-stone.mesh", Vec3{ 0.f, 0, -4.5f }, 0.f, 1.3f, kStoneDark, 0.8f);
+	gprop(L"crypt-large.mesh", Vec3{ 0.f, 0, 17.f }, 0.f, 1.6f, kStone, 0.85f);
+	gprop(L"stone-wall.mesh",  Vec3{ 0.f, 0, 13.f }, 0.f, 2.4f, kStoneDark, 0.85f);
+	gprop(L"gravestone-cross.mesh", Vec3{ -3.5f, 0, -6.f }, 18.f, 1.1f, kGrave, 0.8f);
+	gprop(L"gravestone-round.mesh", Vec3{  3.5f, 0, -5.f }, -24.f, 1.1f, kGrave, 0.8f);
+	gprop(L"gravestone-cross.mesh", Vec3{  7.5f, 0, 3.f }, 50.f, 1.0f, kGrave, 0.8f);
+	gprop(L"gravestone-round.mesh", Vec3{ -7.5f, 0, 4.f }, -12.f, 1.0f, kGrave, 0.8f);
 
 	// ── 분위기 — 화톳불 2개(가산 글로우) + 액센트 라이트(따뜻 2 / 차가운 림 1) ──
 	auto spawnTorchFire = [&](Vec3 pos)

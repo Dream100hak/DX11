@@ -197,6 +197,11 @@ void D3D12Device::SpawnActionArena()
 	ClearDynamicObjects();
 	auto modelPath = [&](const wchar_t* rel) { return _assetRoot + L"\\Models\\" + rel; };
 
+	// 스타일라이즈드 아트디렉션 + 아레나 무드 (모래/돌 바닥, 그리드 끔)
+	ApplyLookProfile(1);
+	_floorColor = { 0.46f, 0.34f, 0.24f }; _floorRough = 0.72f; _floorMetallic = 0.f;
+	_showGrid = false;
+
 	// 플레이어 = Kachujin (Idle/Run 클립) + 로코모션 상태머신 + 컨트롤러 스크립트
 	auto player = SpawnAnimatedModel(modelPath(L"Kachujin\\Kachujin.mesh"), Vec3{ 0, 0, 0 });
 	if (player)
@@ -236,10 +241,48 @@ void D3D12Device::SpawnActionArena()
 			t->SetLocalRotation(Vec3{ -1.5708f, 0.f, 0.f });
 		}
 
+	// ── 아레나 경계 돌기둥 (원형 8개) — 스타일라이즈드 스톤 ──
+	{
+		vector<Vtx> cv; vector<uint32> ci; GeometryHelper::CreateCylinder(cv, ci, 0.5f, 1.0f);
+		const int N = 8; const float R = 10.f;
+		for (int i = 0; i < N; ++i)
+		{
+			float a = i * 6.2831853f / N;
+			auto o = SpawnMeshObject(L"Pillar", cv, ci, Vec3{ cosf(a) * R, 1.6f, sinf(a) * R }, MeshPrim::Cylinder, false);
+			if (!o) continue;
+			o->GetTransform()->SetLocalScale(Vec3{ 0.8f, 3.2f, 0.8f });
+			if (auto mr = o->GetMeshRenderer()) { auto& m = mr->GetMaterial(); m._diffuse = { 0.52f, 0.48f, 0.43f }; m._metallic = 0.f; m._roughness = 0.85f; }
+		}
+	}
+
+	// ── 분위기 — 화톳불 2개(가산 글로우) + 액센트 라이트(따뜻 2 / 차가운 림 1) ──
+	auto spawnTorchFire = [&](Vec3 pos)
+	{
+		if (auto o = SpawnEmpty(L"Torch_Fire", pos))
+		{
+			auto ps = make_shared<ParticleSystem>();
+			ps->_shape = ParticleSystem::ShCone; ps->_coneAngle = 16.f; ps->_blend = ParticleSystem::BlendAdd;
+			ps->_rate = 80.f; ps->_life = 0.9f; ps->_speed = 1.7f; ps->_gravity = 1.0f;
+			ps->_size = 0.16f; ps->_sizeEnd = 0.02f; ps->_soft = 0.9f; ps->_fadeIn = 0.15f;
+			ps->_color = { 1.f, 0.7f, 0.25f }; ps->_colorEnd = { 1.f, 0.18f, 0.04f };
+			o->AddComponent(ps);
+		}
+	};
+	spawnTorchFire(Vec3{ -6.f, 0.3f, -2.f });
+	spawnTorchFire(Vec3{  6.f, 0.3f, -2.f });
+	auto accentLight = [&](Vec3 pos, Vec3 col, float inten, float range)
+	{
+		if (auto o = SpawnLight(1, L"Accent", pos)) if (auto l = o->GetLight()) { l->_color = col; l->_intensity = inten; l->_range = range; }
+	};
+	accentLight(Vec3{ -6.f, 1.6f, -2.f }, Vec3{ 1.0f, 0.55f, 0.22f }, 5.f, 9.f);  // 화톳불 따뜻
+	accentLight(Vec3{  6.f, 1.6f, -2.f }, Vec3{ 1.0f, 0.55f, 0.22f }, 5.f, 9.f);
+	accentLight(Vec3{  0.f, 3.0f, 11.f }, Vec3{ 0.40f, 0.62f, 1.0f }, 3.5f, 16.f); // 차가운 림(뒤쪽)
+
 	_iblOn = true; _taaOn = true; _bloomOn = true;
+	_selectedGO = nullptr; _sel = SelEntity::Post; // 스폰 중 라이트가 선택된 상태 해제(기즈모 정리)
 	// 에디터 카메라도 비슷한 시점 (Play 안 해도 배치 확인)
 	_camera.pos = { 0.f, 4.f, -8.f }; _camera.yaw = 0.f; _camera.pitch = -0.28f; _camera.orbit = false;
-	Log("Action arena spawned — Play 후 WASD 이동 / Shift 달리기");
+	Log("Stylized action arena spawned — Play 후 WASD 이동 / Shift 달리기");
 }
 
 // 선택 GameObject → .prefab (Mesh/Animator). 텍스트 포맷: type/prim|mesh/mat/xform.

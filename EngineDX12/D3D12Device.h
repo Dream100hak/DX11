@@ -13,6 +13,7 @@
 #include "MeshRenderer.h"
 #include "EditorManager.h"
 #include "EditorWindows.h"
+#include "RenderSettings.h"
 #include <string>
 
 // 상수버퍼 (HLSL SceneCB 와 일치, row_major)
@@ -63,7 +64,7 @@ struct SceneCB
 // D3D12Device — DX11 엔진의 Graphics 에 대응하는 DX12 디바이스/스왑체인 래퍼.
 // Phase 0~3 + DDGI(SH/가시성/다중바운스) + .mesh 모델 + 스키닝 애니메이션.
 // ───────────────────────────────────────────────────────────
-class D3D12Device
+class D3D12Device : public RenderSettings // 룩/포스트 튜닝 파라미터는 RenderSettings 로 분리(상속 — 기존 참조 무변경)
 {
 public:
 	static const UINT FRAME_COUNT = 2; // 더블 버퍼
@@ -152,18 +153,11 @@ private:
 	bool                              _skyCubemapOn = false;
 	bool                              LoadSkyCubemap(const std::wstring& ddsPath); // DDS 큐브맵 로드 + SRV
 	// IBL — 큐브맵을 SH-L1 로 베이크(로드 시 1회) → cb 로 전달, 셰이더가 이미지기반 앰비언트/반사미스 평가
-	DirectX::XMFLOAT4                 _envSH[4]{};
-	bool                              _iblOn = true;
-	float                             _iblIntensity = 1.0f;
-	// TAA — 서브픽셀 지터 + 히스토리 재투영 (PostFX). 모션에서 셰이더/엣지 지터 정리.
-	bool                              _taaOn = false; // 인스펙터 Post > Anti-Aliasing 에서 토글
-	float                             _taaSharp = 0.35f; // 언샤프 강도 (TAA 소프트닝 보정)
+	DirectX::XMFLOAT4                 _envSH[4]{};  // 큐브맵 베이크 SH (런타임 계산값 — 토글/강도는 RenderSettings)
+	// TAA/모션블러 직전 VP (런타임 상태 — 토글/강도는 RenderSettings)
 	DirectX::XMFLOAT4X4               _prevViewProj{};
 	bool                              _hasPrevVP = false;
-	// 모션블러 (카메라) — 비지터드 직전 VP 로 화면속도 복원, 속도 방향 블러
 	DirectX::XMFLOAT4X4               _prevVPNoJit{};
-	bool                              _motionBlurOn = false;
-	float                             _motionBlurIntensity = 1.5f;
 	ComPtr<ID3D12PipelineState>       _gridPSO;    // 무한 씬 그리드
 	ComPtr<ID3D12PipelineState>       _outlinePSO; // 선택 아웃라인(인버티드 헐)
 	ComPtr<ID3D12PipelineState>       _wirePSO;    // 와이어프레임 토글
@@ -195,10 +189,8 @@ private:
 	void                              DrawDebugLines(); // 에디터 상태 → 라인 빌드 → _debugDraw 드로우
 	DXGI_FORMAT                       _sceneFmt = DXGI_FORMAT_R16G16B16A16_FLOAT; // 씬 RT(HDR)
 
-	// 포스트프로세스 (블룸/톤맵/FXAA) — PostFX 클래스가 RT/힙/PSO 소유
+	// 포스트프로세스 (블룸/톤맵/FXAA) — PostFX 클래스가 RT/힙/PSO 소유 (파라미터는 RenderSettings)
 	PostFX                            _postfx;
-	float                             _exposure = 1.0f;      // 에디터 파라미터(인스펙터/씬저장) → TonemapParams
-	float                             _bloomIntensity = 0.6f; // 〃
 	ComPtr<ID3D12Resource>            _cb[FRAME_COUNT];
 	void*                             _cbMapped[FRAME_COUNT] = {};
 	UINT64                            _flushValue = 0;
@@ -254,7 +246,6 @@ private:
 	int                               _spawnCounter = 0;         // 고유 이름 접미사
 	struct DecalItem { Vec3 pos{ 0,0,0 }; float radius = 2.f; Vec3 color{ 0.8f,0.1f,0.1f }; }; // 다중 데칼(상향 투영)
 	std::vector<DecalItem>            _decals;
-	bool                              _heightFog = false; float _fogHeight = 3.f, _fogFalloff = 0.3f; // 높이 안개
 	std::vector<int64>                _selIds;                   // 추가 선택(멀티셀렉트) — primary=_selectedGO 제외 id 목록
 	int64                             _anchorId = -1;            // Shift 범위 선택 기준(마지막 단일 클릭)
 	bool                              IsMultiSelected(int64 id) const { for (int64 s : _selIds) if (s == id) return true; return false; }
@@ -356,36 +347,24 @@ private:
 	DirectX::XMFLOAT4X4               _viewM, _projM;      // ImGuizmo 용 (Render 에서 갱신)
 	int                               _gizmoOp = 7;        // ImGuizmo::TRANSLATE (헤더에 ImGuizmo 미포함 → int)
 	void                              PickAt(float u, float v); // 씬뷰 클릭 → 레이 픽킹 (모델 AABB = _scene._modelMin/Max)
-	// 인스펙터에서 편집하는 라이팅/GI 파라미터 (Render 가 매 프레임 SceneCB 에 반영)
-	float                             _lightIntensity = 1.2f;
+	// 태양 애니메이션 (런타임/모드 — 색/세기/GI/ambient 는 RenderSettings)
 	bool                              _lightAnimate = true;
 	float                             _lightAngle = 0.f;
-	float                             _giStrength = 0.45f;
-	float                             _ambient = 0.03f;
 	// 점 조명 (S6)
 	bool                              _pointOn = true;
 	DirectX::XMFLOAT3                 _pointPos{ 1.6f, 1.6f, 1.2f };
 	DirectX::XMFLOAT3                 _pointColor{ 1.0f, 0.6f, 0.3f };
 	float                             _pointIntensity = 4.0f;
 	float                             _pointRadius = 7.0f;
-	// 뷰포트 토글 (S10)
-	bool                              _showGrid = true, _showSky = true, _bloomOn = true, _wireframe = false;
-	bool                              _showFloor = true;    // 바닥 표시(래스터+RT). 끄면 바닥 그림자/GI 도 빠짐
+	// 뷰포트 토글 (S10) — showGrid/showSky/showFloor 는 RenderSettings
+	bool                              _wireframe = false;
 	bool                              _showStats = false;   // 씬뷰 통계 오버레이(FPS 그래프 + 카운트)
 	bool                              _resetLayout = false; // View > Reset Layout (EditorManager 가 다음 프레임 도킹 재구성)
 	bool                              _frustumCull = false; // 절두체 컬링(Opaque) — 기본 off(안전), 인스펙터 토글
 	static D3D12Device*               s_main;               // Get() 전역 접근용
 
-	// ── 20종 확장 상태 ── (카메라 FOV/이동속도/Near·Far/오빗/북마크는 FlyCamera 로 이동)
+	// ── 확장 상태 (튜닝 파라미터는 RenderSettings 로 이동 — 여기엔 툴/씬/런타임만) ──
 	bool                              _gizmoLocal = false, _snapOn = false; float _snapT = 0.5f, _snapR = 15.f, _snapS = 0.1f; // T2
-	DirectX::XMFLOAT3                 _sunColor{ 1.0f, 0.96f, 0.88f }; float _envIntensity = 1.0f; // T5
-	float                             _bloomThreshold = 1.0f; // T6 (셰이더 전달)
-	int                               _tonemapOp = 0; // T7: 0 ACES / 1 Reinhard / 2 Filmic
-	float                             _contrast = 1.0f, _saturation = 1.0f, _temperature = 0.0f, _vignette = 0.25f; // T8
-	DirectX::XMFLOAT3                 _fogColor{ 0.55f, 0.62f, 0.72f }; float _fogDensity = 0.0f; // T9
-	bool                              _fxaaOn = true; // T10
-	float                             _shadowSoft = 0.0f; // T11 (소프트 그림자 반경)
-	bool                              _reflectOn = false; float _reflectStrength = 0.5f; // T12
 	bool                              _spotOn = false; DirectX::XMFLOAT3 _spotPos{ -1.6f, 2.4f, 0.0f }, _spotColor{ 0.5f, 0.7f, 1.0f }; // T13
 	float                             _spotIntensity = 6.0f, _spotRadius = 9.0f, _spotConeDeg = 28.0f; DirectX::XMFLOAT3 _spotDir{ 0.4f, -1.0f, 0.0f };
 	static const int                  MAX_PT = 16; // T14 다중 점광원 (러프 클러스터드 대체 — 캡 상향)
@@ -393,16 +372,10 @@ private:
 	bool                              _probeViz = false; // T15
 	int                               _debugView = 0;    // T16: 0 none/1 albedo/2 normal/3 depth/4 GI
 	bool                              _wantShot = false; // T19
-	DirectX::XMFLOAT3                 _skyZenith{ 0.13f, 0.22f, 0.44f }, _skyHorizon{ 0.52f, 0.60f, 0.72f }; float _sunSize = 900.f; // T20
 	void                              SaveScreenshot(); // T19
 
-	// ── 추가 20종(U) ──
-	bool                              _aoOn = false; float _aoIntensity = 1.0f, _aoRadius = 0.6f; // U1 RT AO
-	bool                              _dofOn = false; float _dofFocus = 6.0f, _dofRange = 4.0f;   // U2 DOF
-	bool                              _volOn = false; float _volStrength = 0.5f;                  // U3 갓레이
-	bool                              _autoExp = false; float _expScale = 1.0f, _expTarget = 0.5f; // U4 자동노출
-	float                             _chroma = 0.0f, _grain = 0.0f, _sharpen = 0.0f;             // U5/U6/U7
-	DirectX::XMFLOAT3                 _floorColor{ 0.85f, 0.13f, 0.11f }; float _floorMetallic = 0.0f, _floorRough = 0.6f; // U9
+	// ── 런타임/툴 상태 (U) ──
+	float                             _expScale = 1.0f;     // U4 자동노출 — 매 프레임 계산값(런타임)
 	float                             _renderScale = 1.0f;  // U15
 	bool                              _showBones = false;   // U10
 	bool                              _showAABB = false;    // U11
@@ -414,39 +387,18 @@ private:
 	void                              ResetDefaults();
 	float                             _frameTimes[120]{}; int _frameIdx = 0; // U18
 
-	// ── 3차 20종(V) ──
+	// ── 툴/모드/런타임 상태 (V — 시각 파라미터는 RenderSettings) ──
 	bool                              _wantReload = false; // V1 재생성 트리거 (_terrain 토글은 Scene._terrain)
-	int                               _toonLevels = 0;          // V2 (0=off)
-	float                             _rimPower = 0.0f; DirectX::XMFLOAT3 _rimColor{ 0.3f, 0.55f, 1.0f }; // V3
-	bool                              _todOn = false; float _timeOfDay = 0.35f; // V4 시간대
-	DirectX::XMFLOAT3                 _outlineColor{ 1.7f, 0.85f, 0.12f }; float _outlineThick = 0.005f; // V5
+	bool                              _todOn = false; float _timeOfDay = 0.35f; // V4 시간대(모드)
 	float                             _gizmoSize = 0.1f;        // V6
-	// V7 Near/Far/Orbit, V8 북마크 → FlyCamera
-	float                             _normalIntensity = 1.0f;  // V9
-	float                             _lensDistort = 0.0f;      // V10
-	float                             _posterize = 0.0f;        // V11 (0=off)
-	int                               _filterMode = 0;          // V12 none/sepia/gray/invert
-	float                             _ev = 0.0f;               // V13 EV
 	bool                              _ptOrbit = false; float _ptOrbitSpeed = 0.6f, _ptOrbitAng = 0.0f; // V14
-	float                             _gridCell = 1.0f, _gridFade = 60.0f; // V15
-	bool                              _checker = false;         // V16
-	int                               _bgMode = 0;              // V17 0 sky / 1 solid
-	DirectX::XMFLOAT3                 _bgColor{ 0.06f, 0.07f, 0.10f }; // V17
-	bool                              _anamorphic = false;      // V19
 	bool                              _hiresShot = false;       // V20 (캡처 후 렌더스케일 복원)
 
-	// ── 4차 10종(W) ──
+	// ── 파티클/데칼 (W — letterbox/overlay/shadowStrength/hemi/stars/flicker/cloud 는 RenderSettings) ──
 	struct Particle { DirectX::XMFLOAT3 pos, vel, col; float life; }; // W1
 	std::vector<Particle>             _particles; bool _particlesOn = false; int _particleMode = 0; // 0 sparks / 1 snow
 	void                              UpdateParticles(float dt);
 	bool                              _decalOn = false; DirectX::XMFLOAT3 _decalPos{ 0,0,0 }, _decalColor{ 1.0f, 0.9f, 0.2f }; float _decalRadius = 1.5f; // W2
-	float                             _cloudAmt = 0.0f;         // W3
-	float                             _letterbox = 0.0f;        // W4
-	bool                              _overlay = false;         // W5
-	float                             _shadowStrength = 1.0f;   // W6
-	float                             _hemiAmbient = 0.0f;      // W7
-	bool                              _stars = false;           // W8
-	bool                              _flicker = false; float _flickerV = 1.0f; // W9
 
 	// FolderContents 상태
 	std::wstring                      _assetRoot;          // Resources/Assets 절대경로

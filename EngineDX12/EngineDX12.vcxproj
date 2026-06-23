@@ -54,6 +54,7 @@
     <ClInclude Include="EditorWindow.h" />
     <ClInclude Include="EditorWindows.h" />
     <ClInclude Include="EditorManager.h" />
+    <ClInclude Include="RenderSettings.h" />
     <ClInclude Include="FbxConverter.h" />
     <ClInclude Include="Foliage.h" />
     <ClInclude Include="Billboard.h" />

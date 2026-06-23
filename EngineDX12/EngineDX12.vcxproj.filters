@@ -89,6 +89,7 @@
     <ClInclude Include="Define.h"><Filter>App</Filter></ClInclude>
     <!-- Device &amp; Render -->
     <ClInclude Include="D3D12Device.h"><Filter>Device &amp; Render</Filter></ClInclude>
+    <ClInclude Include="RenderSettings.h"><Filter>Device &amp; Render</Filter></ClInclude>
     <ClInclude Include="ModelScene.h"><Filter>Device &amp; Render</Filter></ClInclude>
     <ClInclude Include="RenderContext.h"><Filter>Device &amp; Render</Filter></ClInclude>
     <ClInclude Include="Frustum.h"><Filter>Device &amp; Render</Filter></ClInclude>

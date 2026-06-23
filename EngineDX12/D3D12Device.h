@@ -339,6 +339,12 @@ private:
 	ComPtr<ID3D12DescriptorHeap>      _gameRtvHeap, _gameDsvHeap;
 	D3D12_RESOURCE_STATES             _gameRTState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 	D3D12_RESOURCE_STATES             _gameDepthState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+	// 게임뷰 속도 G버퍼 + 모션블러 (씬뷰와 동일 — 게임 카메라 기준)
+	ComPtr<ID3D12Resource>            _gameVelRT;
+	ComPtr<ID3D12DescriptorHeap>      _gameVelRtvHeap;
+	D3D12_RESOURCE_STATES             _gameVelRTState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	DirectX::XMFLOAT4X4               _gamePrevVP{};
+	bool                              _hasGamePrevVP = false;
 	UINT                              _gameW = 640, _gameH = 360, _pendingGameW = 0, _pendingGameH = 0;
 	uint64                            _gameTexId = 0;
 	SceneCB                           _cbCache{}; // 직전 에디터 CB (게임 패스 베이스)

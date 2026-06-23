@@ -549,6 +549,9 @@ void D3D12Device::RenderGameView()
 	D3D12_VIEWPORT vp{ 0, 0, float(_gameW), float(_gameH), 0, 1 }; D3D12_RECT scr{ 0, 0, (LONG)_gameW, (LONG)_gameH };
 	_cmdList->RSSetViewports(1, &vp); _cmdList->RSSetScissorRects(1, &scr);
 
+	// 모션블러용 — 게임 카메라 invVP(비지터드)와 직전 프레임 VP 보존(블록 안에서 갱신 전 캡처)
+	Matrix gameInvVP{}; Matrix gamePrevForMB = _gamePrevVP; bool gameHadPrev = _hasGamePrevVP; bool gameValid = false;
+
 	if (camObj)
 	{
 		auto t = camObj->GetTransform(); auto cam = camObj->GetCamera();
@@ -561,6 +564,9 @@ void D3D12Device::RenderGameView()
 		XMStoreFloat4x4(&g.mvp, view * proj);
 		XMVECTOR eye = W.r[3]; XMStoreFloat4(&g.camPos, eye);
 		XMStoreFloat4x4(&g.invVP, XMMatrixInverse(nullptr, view * proj));
+		XMStoreFloat4x4(&g.curVPnj, view * proj);   // 속도 패스(게임 카메라)
+		g.prevVPnj = _gamePrevVP;
+		gameInvVP = g.invVP; gameValid = true;      // 모션블러 camVel 복원용
 		memcpy(_gameCBMapped, &g, sizeof(g));
 
 		RenderContext ctx{}; ctx.cmd = _cmdList.Get(); ctx.cb = _gameCB->GetGPUVirtualAddress();
@@ -569,6 +575,27 @@ void D3D12Device::RenderGameView()
 		auto draw = [&](vector<shared_ptr<GameObject>>& b) { for (auto& o : b) { if (!o || !o->IsActive()) continue; auto r = o->GetRenderer(); if (r) r->Draw(ctx); } };
 		draw(cam->GetVecBackground()); // 스카이
 		draw(cam->GetVecOpaque());     // 모델/메시/애니 (그리드=Transparent 생략)
+
+		// ── 속도 G버퍼 (모션블러 ON) — 게임 카메라 기준 오브젝트 고유 속도 → _gameVelRT (깊이 재사용) ──
+		if (_motionBlurOn && _gamePostfx.Ready())
+		{
+			Transition(_gameVelRT.Get(), _gameVelRTState, D3D12_RESOURCE_STATE_RENDER_TARGET);
+			D3D12_CPU_DESCRIPTOR_HANDLE vrtv = _gameVelRtvHeap->GetCPUDescriptorHandleForHeapStart();
+			_cmdList->OMSetRenderTargets(1, &vrtv, FALSE, &dsv);
+			const float zero[4] = { 0, 0, 0, 0 };
+			_cmdList->ClearRenderTargetView(vrtv, zero, 0, nullptr);
+			_cmdList->RSSetViewports(1, &vp); _cmdList->RSSetScissorRects(1, &scr);
+			_cmdList->SetPipelineState(_velPSO.Get());
+			_cmdList->SetGraphicsRootSignature(_rootSig.Get());
+			_cmdList->SetGraphicsRootConstantBufferView(0, _gameCB->GetGPUVirtualAddress());
+			for (auto& o : cam->GetVecOpaque())
+			{
+				if (!o || !o->IsActive()) continue;
+				auto r = o->GetRenderer(); if (r) r->RecordVelocity(_cmdList.Get());
+			}
+			Transition(_gameVelRT.Get(), _gameVelRTState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+		}
+		XMStoreFloat4x4(&_gamePrevVP, view * proj); _hasGamePrevVP = true; // 다음 프레임용
 	}
 
 	// 포스트 (블룸/톤맵/FXAA — 게임 전용 PostFX)
@@ -582,6 +609,9 @@ void D3D12Device::RenderGameView()
 	tp.time = _time * 60.f; tp.expScale = _expScale;
 	_gamePostfx.Tonemap(_cmdList.Get(), tp);
 	ID3D12Resource* disp = _gamePostfx.Fxaa(_cmdList.Get(), _fxaaOn);
+	// 카메라 + 오브젝트 모션블러 (게임 카메라 기준) — velRT(오브젝트) + depth 재투영(카메라) 합산
+	if (_motionBlurOn && gameValid && gameHadPrev)
+		disp = _gamePostfx.MotionBlur(_cmdList.Get(), true, disp, gameInvVP, gamePrevForMB, _motionBlurIntensity);
 	_gameTexId = _imgui.SetGameTexture(disp);
 }
 

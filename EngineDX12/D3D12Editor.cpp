@@ -446,7 +446,23 @@ void D3D12Device::CreateGameRT(UINT w, UINT h)
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsv{}; dsv.Format = DXGI_FORMAT_D32_FLOAT; dsv.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
 	_device->CreateDepthStencilView(_gameDepth.Get(), &dsv, _gameDsvHeap->GetCPUDescriptorHandleForHeapStart());
 
-	_gamePostfx.Resize(w, h, _gameRT.Get(), _gameDepth.Get(), nullptr); // 게임 뷰는 모션블러 미사용(velRT 없음)
+	// 게임뷰 속도 G버퍼 (RG16F) — 모션블러용
+	D3D12_RESOURCE_DESC gvrd{}; gvrd.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	gvrd.Width = w; gvrd.Height = h; gvrd.DepthOrArraySize = 1; gvrd.MipLevels = 1; gvrd.Format = kVelFmt; gvrd.SampleDesc.Count = 1;
+	gvrd.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+	D3D12_CLEAR_VALUE gvcv{}; gvcv.Format = kVelFmt;
+	_gameVelRT.Reset();
+	ThrowIfFailed(_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &gvrd,
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, &gvcv, IID_PPV_ARGS(&_gameVelRT)), "game vel RT");
+	_gameVelRTState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	if (!_gameVelRtvHeap)
+	{
+		D3D12_DESCRIPTOR_HEAP_DESC hd{}; hd.NumDescriptors = 1; hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+		ThrowIfFailed(_device->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&_gameVelRtvHeap)), "game vel RTV heap");
+	}
+	_device->CreateRenderTargetView(_gameVelRT.Get(), nullptr, _gameVelRtvHeap->GetCPUDescriptorHandleForHeapStart());
+
+	_gamePostfx.Resize(w, h, _gameRT.Get(), _gameDepth.Get(), _gameVelRT.Get());
 	_gameTexId = _imgui.SetGameTexture(_gamePostfx.LdrResource());
 }
 

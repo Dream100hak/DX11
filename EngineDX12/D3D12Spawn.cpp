@@ -201,9 +201,10 @@ void D3D12Device::SpawnActionArena()
 	ApplyLookProfile(1);
 	_floorColor = { 0.30f, 0.22f, 0.16f }; _floorRough = 0.78f; _floorMetallic = 0.f; // 어두운 모래/흙
 	_showGrid = false;
-	// 스톤 위주 씬이라 기본 Stylized 노출이 날아감 → 톤 다운 (대비/무드 확보)
-	_exposure = 0.92f; _bloomThreshold = 1.15f; _bloomIntensity = 0.6f;
-	_iblIntensity = 0.85f; _envIntensity = 0.85f; _ambient = 0.035f;
+	// 스톤 위주 씬 — 블룸 폭발 방지(가산 불꽃+과노출). 보수적 노출/블룸 + 자동노출 명시 OFF.
+	_autoExp = false;                                  // 자동노출 OFF (켜져 있으면 과적응으로 화이트아웃)
+	_exposure = 0.85f; _bloomThreshold = 1.45f; _bloomIntensity = 0.32f; // 임계 높이고 강도 낮춰 폭발 차단
+	_iblIntensity = 0.8f; _envIntensity = 0.8f; _ambient = 0.03f;
 
 	// 플레이어 = Kachujin (Idle/Run 클립) + 로코모션 상태머신 + 컨트롤러 스크립트
 	auto player = SpawnAnimatedModel(modelPath(L"Kachujin\\Kachujin.mesh"), Vec3{ 0, 0, 0 });
@@ -264,22 +265,23 @@ void D3D12Device::SpawnActionArena()
 		if (auto o = SpawnEmpty(L"Torch_Fire", pos))
 		{
 			auto ps = make_shared<ParticleSystem>();
-			ps->_shape = ParticleSystem::ShCone; ps->_coneAngle = 16.f; ps->_blend = ParticleSystem::BlendAdd;
-			ps->_rate = 80.f; ps->_life = 0.9f; ps->_speed = 1.7f; ps->_gravity = 1.0f;
-			ps->_size = 0.16f; ps->_sizeEnd = 0.02f; ps->_soft = 0.9f; ps->_fadeIn = 0.15f;
-			ps->_color = { 1.f, 0.7f, 0.25f }; ps->_colorEnd = { 1.f, 0.18f, 0.04f };
+			// 작고 차분한 불꽃 — 가산 누적 폭발 방지(레이트/사이즈/색 톤다운)
+			ps->_shape = ParticleSystem::ShCone; ps->_coneAngle = 14.f; ps->_blend = ParticleSystem::BlendAdd;
+			ps->_rate = 30.f; ps->_life = 0.7f; ps->_speed = 1.3f; ps->_gravity = 1.0f;
+			ps->_size = 0.10f; ps->_sizeEnd = 0.015f; ps->_soft = 0.9f; ps->_fadeIn = 0.2f;
+			ps->_color = { 0.9f, 0.5f, 0.18f }; ps->_colorEnd = { 0.7f, 0.12f, 0.02f };
 			o->AddComponent(ps);
 		}
 	};
-	spawnTorchFire(Vec3{ -6.f, 0.3f, -2.f });
-	spawnTorchFire(Vec3{  6.f, 0.3f, -2.f });
+	spawnTorchFire(Vec3{ -8.f, 0.3f, -1.f });
+	spawnTorchFire(Vec3{  8.f, 0.3f, -1.f });
 	auto accentLight = [&](Vec3 pos, Vec3 col, float inten, float range)
 	{
 		if (auto o = SpawnLight(1, L"Accent", pos)) if (auto l = o->GetLight()) { l->_color = col; l->_intensity = inten; l->_range = range; }
 	};
-	accentLight(Vec3{ -6.f, 1.6f, -2.f }, Vec3{ 1.0f, 0.55f, 0.22f }, 5.f, 9.f);  // 화톳불 따뜻
-	accentLight(Vec3{  6.f, 1.6f, -2.f }, Vec3{ 1.0f, 0.55f, 0.22f }, 5.f, 9.f);
-	accentLight(Vec3{  0.f, 3.0f, 11.f }, Vec3{ 0.40f, 0.62f, 1.0f }, 3.5f, 16.f); // 차가운 림(뒤쪽)
+	accentLight(Vec3{ -8.f, 1.4f, -1.f }, Vec3{ 1.0f, 0.55f, 0.22f }, 2.4f, 7.f);  // 화톳불 따뜻
+	accentLight(Vec3{  8.f, 1.4f, -1.f }, Vec3{ 1.0f, 0.55f, 0.22f }, 2.4f, 7.f);
+	accentLight(Vec3{  0.f, 3.0f, 11.f }, Vec3{ 0.40f, 0.62f, 1.0f }, 2.0f, 14.f); // 차가운 림(뒤쪽)
 
 	_iblOn = true; _taaOn = true; _bloomOn = true;
 	_selectedGO = nullptr; _sel = SelEntity::Post; // 스폰 중 라이트가 선택된 상태 해제(기즈모 정리)

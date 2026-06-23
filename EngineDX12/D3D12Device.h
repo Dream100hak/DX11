@@ -371,6 +371,8 @@ private:
 	std::vector<std::string>          _log;                 // U16 로그
 	void                              Log(const std::string& m);
 	void                              ResetDefaults();
+	int                               _lookProfile = 0;   // 0 Neutral / 1 Stylized(그블풍) / 2 Realistic(디아풍)
+	void                              ApplyLookProfile(int p); // RenderSettings 룩 묶음을 프리셋으로 일괄 세팅
 	float                             _frameTimes[120]{}; int _frameIdx = 0; // U18
 
 	// ── 툴/모드/런타임 상태 (V — 시각 파라미터는 RenderSettings) ──

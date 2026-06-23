@@ -195,6 +195,10 @@ void D3D12Device::DrawInspector()
 		break;
 
 	case SelEntity::Post:                                               // T6/T7/T8/T9/T10/T12/T16
+		ImGui::SeparatorText("Look Profile");
+		HelpMarker("아트디렉션 프리셋 — 룩 파라미터(톤맵/툰/림/GI/AO/포그/하늘...)를 한 번에 세팅.\n\"한 엔진, 두 아트디렉션\" 시연. 디바이스/씬/디버그 상태는 안 건드림.");
+		if (ImGui::Combo("Profile", &_lookProfile, "Neutral\0Stylized (그랑블루풍)\0Realistic (디아블로풍)\0"))
+			ApplyLookProfile(_lookProfile);
 		ImGui::SeparatorText("Tonemap / Exposure");
 		ImGui::Combo("Operator", &_tonemapOp, "ACES\0Reinhard\0Filmic\0");
 		ImGui::SliderFloat("Exposure", &_exposure, 0.1f, 4.0f);

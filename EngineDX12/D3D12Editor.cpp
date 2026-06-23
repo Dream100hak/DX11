@@ -277,6 +277,47 @@ void D3D12Device::ResetDefaults()
 	Log("Reset scene to defaults");
 }
 
+// Look Profile — RenderSettings(룩 묶음)를 프리셋으로 일괄 세팅. "한 엔진, 두 아트디렉션" 시연.
+// 디바이스/씬/디버그 상태는 안 건드림(RenderSettings 만 대입). 0 Neutral / 1 Stylized / 2 Realistic.
+void D3D12Device::ApplyLookProfile(int p)
+{
+	_lookProfile = p;
+	RenderSettings& s = *this;       // 베이스(룩 파라미터) 부분만 대입
+	s = RenderSettings{};            // 기본값에서 시작
+	if (p == 1) // Stylized — 그랑블루 리링크풍 (툰+PBR, 림, 밝고 채도 높게)
+	{
+		s._toonLevels = 3; s._rimPower = 2.2f; s._rimColor = { 0.55f, 0.72f, 1.0f }; s._normalIntensity = 1.1f;
+		s._exposure = 1.15f; s._tonemapOp = 0; // ACES
+		s._bloomOn = true; s._bloomIntensity = 0.95f; s._bloomThreshold = 0.85f;
+		s._contrast = 1.06f; s._saturation = 1.20f; s._vignette = 0.18f;
+		s._iblOn = true; s._iblIntensity = 1.2f; s._envIntensity = 1.2f; s._giStrength = 0.55f; s._ambient = 0.05f;
+		s._aoOn = true; s._aoIntensity = 0.8f; s._aoRadius = 0.6f;
+		s._skyZenith = { 0.18f, 0.32f, 0.58f }; s._skyHorizon = { 0.68f, 0.76f, 0.86f }; s._sunSize = 900.f;
+		s._sunColor = { 1.0f, 0.97f, 0.90f }; s._lightIntensity = 1.5f;
+		s._motionBlurOn = true; s._motionBlurIntensity = 1.2f;
+		Log("Look Profile: Stylized (그랑블루풍)");
+	}
+	else if (p == 2) // Realistic — 디아블로풍 (툰 0, 어둡고 묵직, RT/AO/볼류메트릭/포그 강조)
+	{
+		s._toonLevels = 0; s._rimPower = 0.0f; s._normalIntensity = 1.2f;
+		s._exposure = 0.92f; s._tonemapOp = 2; // Filmic
+		s._bloomOn = true; s._bloomIntensity = 0.4f; s._bloomThreshold = 1.25f;
+		s._contrast = 1.16f; s._saturation = 0.85f; s._temperature = -0.10f; s._vignette = 0.45f;
+		s._iblOn = true; s._iblIntensity = 0.7f; s._envIntensity = 0.7f; s._giStrength = 0.35f; s._ambient = 0.02f; s._hemiAmbient = 0.06f;
+		s._aoOn = true; s._aoIntensity = 1.4f; s._aoRadius = 0.85f;
+		s._reflectOn = true; s._reflectStrength = 0.5f;
+		s._volOn = true; s._volStrength = 0.6f;
+		s._fogColor = { 0.24f, 0.26f, 0.31f }; s._fogDensity = 0.045f; s._heightFog = true; s._fogHeight = 3.f; s._fogFalloff = 0.35f;
+		s._shadowStrength = 1.0f; s._shadowSoft = 0.3f;
+		s._skyZenith = { 0.05f, 0.07f, 0.12f }; s._skyHorizon = { 0.17f, 0.19f, 0.25f }; s._sunSize = 600.f;
+		s._sunColor = { 0.92f, 0.85f, 0.76f }; s._lightIntensity = 1.0f;
+		s._floorColor = { 0.30f, 0.28f, 0.26f }; s._floorRough = 0.85f; s._floorMetallic = 0.0f;
+		s._motionBlurOn = true; s._motionBlurIntensity = 1.4f;
+		Log("Look Profile: Realistic (디아블로풍)");
+	}
+	else Log("Look Profile: Neutral (기본)");
+}
+
 
 // EditorTool 의 ImGuiManager::ApplyEditorStyle 이식 — 차콜 다크 + 블루 액센트 + 라운딩
 static void ApplyEditorStyle()

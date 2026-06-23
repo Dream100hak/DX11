@@ -228,7 +228,7 @@ void D3D12Device::DrawDebugLines()
 			auto cam = o->GetCamera(); auto t = o->GetTransform(); if (!cam || !t) continue;
 			Matrix wm = t->GetWorldMatrix(); XMMATRIX W = XMLoadFloat4x4(&wm);
 			float nz = cam->_near, fz = min(cam->_far, 12.0f); // 멀리 잘라 화면에 들어오게
-			float aspect = float(_gameW) / float(_gameH);
+			float aspect = float(_gameView.Width()) / float(_gameView.Height());
 			float th = tanf(XMConvertToRadians(cam->_fov) * 0.5f);
 			auto corner = [&](float z, float sx, float sy) {
 				float h = th * z, w = h * aspect;
@@ -420,63 +420,6 @@ void D3D12Device::CreateSceneRT(UINT w, UINT h)
 	_sceneTexId = _imgui.SetSceneTexture(_postfx.LdrResource()); // ImGui 는 톤맵된 LDR 표시
 }
 
-// Game 뷰 오프스크린 RT (게임 카메라 시점) — CreateSceneRT 미러
-void D3D12Device::CreateGameRT(UINT w, UINT h)
-{
-	_gameW = w; _gameH = h;
-	D3D12_HEAP_PROPERTIES hp{}; hp.Type = D3D12_HEAP_TYPE_DEFAULT;
-	D3D12_RESOURCE_DESC rd{}; rd.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	rd.Width = w; rd.Height = h; rd.DepthOrArraySize = 1; rd.MipLevels = 1; rd.Format = _sceneFmt; rd.SampleDesc.Count = 1;
-	rd.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-	D3D12_CLEAR_VALUE cvc{}; cvc.Format = rd.Format; cvc.Color[3] = 1.0f;
-	_gameRT.Reset();
-	ThrowIfFailed(_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &rd, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, &cvc, IID_PPV_ARGS(&_gameRT)), "game RT");
-	_gameRTState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-	if (!_gameRtvHeap) { D3D12_DESCRIPTOR_HEAP_DESC hd{}; hd.NumDescriptors = 1; hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV; ThrowIfFailed(_device->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&_gameRtvHeap)), "game RTV heap"); }
-	_device->CreateRenderTargetView(_gameRT.Get(), nullptr, _gameRtvHeap->GetCPUDescriptorHandleForHeapStart());
-
-	D3D12_RESOURCE_DESC dd{}; dd.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	dd.Width = w; dd.Height = h; dd.DepthOrArraySize = 1; dd.MipLevels = 1; dd.Format = DXGI_FORMAT_R32_TYPELESS; dd.SampleDesc.Count = 1;
-	dd.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
-	D3D12_CLEAR_VALUE cvd{}; cvd.Format = DXGI_FORMAT_D32_FLOAT; cvd.DepthStencil.Depth = 1.0f;
-	_gameDepth.Reset();
-	ThrowIfFailed(_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &dd, D3D12_RESOURCE_STATE_DEPTH_WRITE, &cvd, IID_PPV_ARGS(&_gameDepth)), "game depth");
-	_gameDepthState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
-	if (!_gameDsvHeap) { D3D12_DESCRIPTOR_HEAP_DESC hd{}; hd.NumDescriptors = 1; hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV; ThrowIfFailed(_device->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&_gameDsvHeap)), "game DSV heap"); }
-	D3D12_DEPTH_STENCIL_VIEW_DESC dsv{}; dsv.Format = DXGI_FORMAT_D32_FLOAT; dsv.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-	_device->CreateDepthStencilView(_gameDepth.Get(), &dsv, _gameDsvHeap->GetCPUDescriptorHandleForHeapStart());
-
-	// 게임뷰 속도 G버퍼 (RG16F) — 모션블러용
-	D3D12_RESOURCE_DESC gvrd{}; gvrd.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	gvrd.Width = w; gvrd.Height = h; gvrd.DepthOrArraySize = 1; gvrd.MipLevels = 1; gvrd.Format = kVelFmt; gvrd.SampleDesc.Count = 1;
-	gvrd.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-	D3D12_CLEAR_VALUE gvcv{}; gvcv.Format = kVelFmt;
-	_gameVelRT.Reset();
-	ThrowIfFailed(_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &gvrd,
-		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, &gvcv, IID_PPV_ARGS(&_gameVelRT)), "game vel RT");
-	_gameVelRTState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-	if (!_gameVelRtvHeap)
-	{
-		D3D12_DESCRIPTOR_HEAP_DESC hd{}; hd.NumDescriptors = 1; hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-		ThrowIfFailed(_device->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&_gameVelRtvHeap)), "game vel RTV heap");
-	}
-	_device->CreateRenderTargetView(_gameVelRT.Get(), nullptr, _gameVelRtvHeap->GetCPUDescriptorHandleForHeapStart());
-
-	_gamePostfx.Resize(w, h, _gameRT.Get(), _gameDepth.Get(), _gameVelRT.Get());
-	_gameTexId = _imgui.SetGameTexture(_gamePostfx.LdrResource());
-}
-
-// "Game" 도킹 창 — 게임 카메라 렌더 결과 표시 (DrawSceneView 끝에서 호출)
-void D3D12Device::DrawGameView()
-{
-	ImGui::Begin("Game");
-	_gameWindowOpen = !ImGui::IsWindowCollapsed();
-	ImVec2 avail = ImGui::GetContentRegionAvail();
-	_pendingGameW = (UINT)max(8.0f, avail.x);
-	_pendingGameH = (UINT)max(8.0f, avail.y);
-	if (_gameTexId) ImGui::Image((ImTextureID)_gameTexId, avail);
-	ImGui::End();
-}
 
 // ImGui NewFrame ~ Render 는 EditorManager 가 담당 (메뉴바/도킹 호스트/패널 순회/Render)
 void D3D12Device::BuildUI()
@@ -1221,11 +1164,11 @@ void D3D12Device::DrawSceneView()
 	}
 
 	// ── 카메라 프리뷰 인셋 (선택된 게임 카메라 — Unity 풍, 씬뷰 우하단) ──
-	//   RenderGameView 가 선택 카메라를 _gameRT(_gameTexId)에 렌더 → 여기서 작게 오버레이.
-	if (_gameTexId && _selectedGO && _selectedGO->IsActive() && !_selectedGO->IsEditorInternal() && _selectedGO->GetCamera())
+	//   GameView 가 선택 카메라를 RT(TexId)에 렌더 → 여기서 작게 오버레이.
+	if (_gameView.TexId() && _selectedGO && _selectedGO->IsActive() && !_selectedGO->IsEditorInternal() && _selectedGO->GetCamera())
 	{
 		float pw = min(320.0f, avail.x * 0.30f);
-		float ph = pw * (float)_gameH / (float)max(1u, _gameW); // RT 종횡비 유지
+		float ph = pw * (float)_gameView.Height() / (float)max(1u, _gameView.Width()); // RT 종횡비 유지
 		const float m = 12.0f, titleH = 18.0f;
 		ImVec2 imgEnd(imgPos.x + avail.x, imgPos.y + avail.y);
 		ImVec2 p0(imgEnd.x - pw - m, imgEnd.y - ph - m);
@@ -1234,7 +1177,7 @@ void D3D12Device::DrawSceneView()
 		ImDrawList* dl = ImGui::GetWindowDrawList();
 		dl->AddRectFilled(t0, ImVec2(p1.x, p0.y), IM_COL32(25, 25, 30, 230));           // 타이틀바
 		dl->AddRectFilled(ImVec2(p0.x, p0.y - 1), p1, IM_COL32(0, 0, 0, 255));           // 배경
-		dl->AddImage((ImTextureID)_gameTexId, p0, p1);
+		dl->AddImage((ImTextureID)_gameView.TexId(), p0, p1);
 		dl->AddRect(t0, p1, IM_COL32(255, 255, 255, 160));                               // 테두리
 		std::string label = "Camera Preview  " + WToUtf8(_selectedGO->GetObjectName());
 		dl->AddText(ImVec2(t0.x + 5, t0.y + 3), IM_COL32(220, 220, 220, 255), label.c_str());
@@ -1242,7 +1185,7 @@ void D3D12Device::DrawSceneView()
 
 	ImGui::End();
 
-	DrawGameView(); // "Game" 도킹 창 (게임 카메라 시점)
+	_gameView.DrawWindow(); // "Game" 도킹 창 (게임 카메라 시점)
 }
 
 void D3D12Device::DrawLog()

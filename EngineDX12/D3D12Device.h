@@ -14,6 +14,7 @@
 #include "EditorManager.h"
 #include "EditorWindows.h"
 #include "RenderSettings.h"
+#include "GameView.h"
 #include <string>
 
 // 상수버퍼 (HLSL SceneCB 와 일치, row_major)
@@ -115,6 +116,7 @@ private:
 	friend class GridRenderer;
 	friend class Foliage;
 	friend class EditorManager;
+	friend class GameView;
 
 	// Phase 3 (DDGI) — 프로브/컴퓨트는 Ddgi 클래스가 소유. CreateGI 는 셰이더 컴파일 후 위임
 	void CreateGI();
@@ -324,26 +326,10 @@ private:
 	uint64                            _sceneTexId = 0;     // ImGui::Image 핸들
 	bool                              _sceneHovered = false, _sceneFocused = false;
 
-	// ── Game 뷰 — 게임 카메라(비-에디터 Camera GameObject) 시점 별도 RT ──
-	ComPtr<ID3D12Resource>            _gameCB; void* _gameCBMapped = nullptr;
-	ComPtr<ID3D12Resource>            _gameRT, _gameDepth;
-	ComPtr<ID3D12DescriptorHeap>      _gameRtvHeap, _gameDsvHeap;
-	D3D12_RESOURCE_STATES             _gameRTState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-	D3D12_RESOURCE_STATES             _gameDepthState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
-	// 게임뷰 속도 G버퍼 + 모션블러 (씬뷰와 동일 — 게임 카메라 기준)
-	ComPtr<ID3D12Resource>            _gameVelRT;
-	ComPtr<ID3D12DescriptorHeap>      _gameVelRtvHeap;
-	D3D12_RESOURCE_STATES             _gameVelRTState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-	DirectX::XMFLOAT4X4               _gamePrevVP{};
-	bool                              _hasGamePrevVP = false;
-	UINT                              _gameW = 640, _gameH = 360, _pendingGameW = 0, _pendingGameH = 0;
-	uint64                            _gameTexId = 0;
+	// ── Game 뷰 — GameView 클래스로 분리(RT/velocity/postfx/창). per-frame CB·에디터베이스 CB 만 디바이스 잔류 ──
+	ComPtr<ID3D12Resource>            _gameCB; void* _gameCBMapped = nullptr; // 게임 패스 per-frame CB (GameView 가 _dev-> 로 사용)
 	SceneCB                           _cbCache{}; // 직전 에디터 CB (게임 패스 베이스)
-	PostFX                            _gamePostfx;
-	bool                              _gameWindowOpen = true;
-	void                              CreateGameRT(UINT w, UINT h);
-	void                              RenderGameView(); // 게임 카메라 → _gameRT (Scene 패스 후)
-	void                              DrawGameView();   // "Game" 도킹 창
+	GameView                          _gameView;
 	DirectX::XMFLOAT4X4               _viewM, _projM;      // ImGuizmo 용 (Render 에서 갱신)
 	int                               _gizmoOp = 7;        // ImGuizmo::TRANSLATE (헤더에 ImGuizmo 미포함 → int)
 	void                              PickAt(float u, float v); // 씬뷰 클릭 → 레이 픽킹 (모델 AABB = _scene._modelMin/Max)

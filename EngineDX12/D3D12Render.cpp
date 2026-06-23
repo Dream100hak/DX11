@@ -481,8 +481,8 @@ void D3D12Device::Render()
 	_hasPrevVP = true;
 	_sceneTexId = _imgui.SetSceneTexture(displayRes);
 
-	// ── Game 뷰: 게임 카메라 시점 별도 RT (DDGI/TLAS 재사용) ──
-	RenderGameView();
+	// ── Game 뷰: 게임 카메라 시점 별도 RT (DDGI/TLAS 재사용) — GameView 클래스가 담당 ──
+	_gameView.Render();
 
 	// ── 백버퍼: 에디터 UI(도킹+씬 이미지) ImGui 드로우 ──
 	D3D12_RESOURCE_BARRIER toRT{};
@@ -519,99 +519,4 @@ void D3D12Device::Render()
 	if (_wantShot) { _wantShot = false; SaveScreenshot(); if (_hiresShot) { _renderScale = 1.0f; _hiresShot = false; } } // GPU 유휴 시점 리드백
 }
 
-// ── Game 뷰 — 배치된 게임 카메라(비-에디터 Camera) 시점을 별도 RT 에 렌더 (DDGI/TLAS 재사용) ──
-void D3D12Device::RenderGameView()
-{
-	using namespace DirectX;
-	if (!_gameScene) return;
-	// 선택된 게임 카메라(비-에디터) = 씬뷰 프리뷰 인셋 대상 — Game 창이 닫혀 있어도 이때는 렌더해야 인셋이 갱신됨
-	bool wantPreview = _selectedGO && _selectedGO->IsActive() && !_selectedGO->IsEditorInternal() && _selectedGO->GetCamera();
-	if (!_gameWindowOpen && !wantPreview) return;
-
-	// 카메라 = 선택된 카메라 우선(프리뷰), 없으면 비-에디터 Camera GameObject 첫 번째
-	shared_ptr<GameObject> camObj;
-	if (wantPreview) camObj = _selectedGO;
-	else for (auto& kv : _gameScene->GetCreatedObjects())
-		if (auto& o = kv.second; o && o->IsActive() && !o->IsEditorInternal() && o->GetCamera()) { camObj = o; break; }
-
-	if (_pendingGameW && (_pendingGameW != _gameW || _pendingGameH != _gameH)) CreateGameRT(_pendingGameW, _pendingGameH);
-	if (!_gameRT) CreateGameRT(640, 360); // Game 창이 한 번도 안 열렸을 때 기본 크기로 보장(인셋 프리뷰용)
-	if (!_gameRT) return;
-
-	Transition(_gameRT.Get(), _gameRTState, D3D12_RESOURCE_STATE_RENDER_TARGET);
-	Transition(_gameDepth.Get(), _gameDepthState, D3D12_RESOURCE_STATE_DEPTH_WRITE);
-	D3D12_CPU_DESCRIPTOR_HANDLE rtv = _gameRtvHeap->GetCPUDescriptorHandleForHeapStart();
-	D3D12_CPU_DESCRIPTOR_HANDLE dsv = _gameDsvHeap->GetCPUDescriptorHandleForHeapStart();
-	_cmdList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
-	float clr[4] = { 0.02f, 0.02f, 0.03f, 1.f };
-	_cmdList->ClearRenderTargetView(rtv, clr, 0, nullptr);
-	_cmdList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.f, 0, 0, nullptr);
-	D3D12_VIEWPORT vp{ 0, 0, float(_gameW), float(_gameH), 0, 1 }; D3D12_RECT scr{ 0, 0, (LONG)_gameW, (LONG)_gameH };
-	_cmdList->RSSetViewports(1, &vp); _cmdList->RSSetScissorRects(1, &scr);
-
-	// 모션블러용 — 게임 카메라 invVP(비지터드)와 직전 프레임 VP 보존(블록 안에서 갱신 전 캡처)
-	Matrix gameInvVP{}; Matrix gamePrevForMB = _gamePrevVP; bool gameHadPrev = _hasGamePrevVP; bool gameValid = false;
-
-	if (camObj)
-	{
-		auto t = camObj->GetTransform(); auto cam = camObj->GetCamera();
-		Matrix wm = t->GetWorldMatrix(); XMMATRIX W = XMLoadFloat4x4(&wm);
-		XMMATRIX view = XMMatrixInverse(nullptr, W);
-		float aspect = float(_gameW) / float(_gameH);
-		XMMATRIX proj = XMMatrixPerspectiveFovLH(XMConvertToRadians(cam->_fov), aspect, cam->_near, cam->_far);
-
-		SceneCB g = _cbCache; // 에디터 CB 베이스 + 카메라 필드 교체
-		XMStoreFloat4x4(&g.mvp, view * proj);
-		XMVECTOR eye = W.r[3]; XMStoreFloat4(&g.camPos, eye);
-		XMStoreFloat4x4(&g.invVP, XMMatrixInverse(nullptr, view * proj));
-		XMStoreFloat4x4(&g.curVPnj, view * proj);   // 속도 패스(게임 카메라)
-		g.prevVPnj = _gamePrevVP;
-		gameInvVP = g.invVP; gameValid = true;      // 모션블러 camVel 복원용
-		memcpy(_gameCBMapped, &g, sizeof(g));
-
-		RenderContext ctx{}; ctx.cmd = _cmdList.Get(); ctx.cb = _gameCB->GetGPUVirtualAddress();
-		XMStoreFloat4x4(&ctx.view, view); XMStoreFloat4x4(&ctx.proj, proj);
-		cam->SetView(ctx.view); cam->SetProjection(ctx.proj); cam->SortGameObject();
-		auto draw = [&](vector<shared_ptr<GameObject>>& b) { for (auto& o : b) { if (!o || !o->IsActive()) continue; auto r = o->GetRenderer(); if (r) r->Draw(ctx); } };
-		draw(cam->GetVecBackground()); // 스카이
-		draw(cam->GetVecOpaque());     // 모델/메시/애니 (그리드=Transparent 생략)
-
-		// ── 속도 G버퍼 (모션블러 ON) — 게임 카메라 기준 오브젝트 고유 속도 → _gameVelRT (깊이 재사용) ──
-		if (_motionBlurOn && _gamePostfx.Ready())
-		{
-			Transition(_gameVelRT.Get(), _gameVelRTState, D3D12_RESOURCE_STATE_RENDER_TARGET);
-			D3D12_CPU_DESCRIPTOR_HANDLE vrtv = _gameVelRtvHeap->GetCPUDescriptorHandleForHeapStart();
-			_cmdList->OMSetRenderTargets(1, &vrtv, FALSE, &dsv);
-			const float zero[4] = { 0, 0, 0, 0 };
-			_cmdList->ClearRenderTargetView(vrtv, zero, 0, nullptr);
-			_cmdList->RSSetViewports(1, &vp); _cmdList->RSSetScissorRects(1, &scr);
-			_cmdList->SetPipelineState(_velPSO.Get());
-			_cmdList->SetGraphicsRootSignature(_rootSig.Get());
-			_cmdList->SetGraphicsRootConstantBufferView(0, _gameCB->GetGPUVirtualAddress());
-			for (auto& o : cam->GetVecOpaque())
-			{
-				if (!o || !o->IsActive()) continue;
-				auto r = o->GetRenderer(); if (r) r->RecordVelocity(_cmdList.Get());
-			}
-			Transition(_gameVelRT.Get(), _gameVelRTState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-		}
-		XMStoreFloat4x4(&_gamePrevVP, view * proj); _hasGamePrevVP = true; // 다음 프레임용
-	}
-
-	// 포스트 (블룸/톤맵/FXAA — 게임 전용 PostFX)
-	Transition(_gameRT.Get(), _gameRTState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-	bool bloomA = _bloomOn && _gamePostfx.Ready();
-	if (bloomA) _gamePostfx.Bloom(_cmdList.Get(), _bloomThreshold);
-	Transition(_gameDepth.Get(), _gameDepthState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-	PostFX::TonemapParams tp{};
-	tp.exposure = _exposure * powf(2.f, _ev); tp.bloomIntensity = _bloomIntensity; tp.bloomEnabled = bloomA; tp.tonemapOp = _tonemapOp;
-	tp.contrast = _contrast; tp.saturation = _saturation; tp.temperature = _temperature; tp.vignette = _vignette;
-	tp.time = _time * 60.f; tp.expScale = _expScale;
-	_gamePostfx.Tonemap(_cmdList.Get(), tp);
-	ID3D12Resource* disp = _gamePostfx.Fxaa(_cmdList.Get(), _fxaaOn);
-	// 카메라 + 오브젝트 모션블러 (게임 카메라 기준) — velRT(오브젝트) + depth 재투영(카메라) 합산
-	if (_motionBlurOn && gameValid && gameHadPrev)
-		disp = _gamePostfx.MotionBlur(_cmdList.Get(), true, disp, gameInvVP, gamePrevForMB, _motionBlurIntensity);
-	_gameTexId = _imgui.SetGameTexture(disp);
-}
 

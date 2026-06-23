@@ -90,8 +90,8 @@ void D3D12Device::Init(HWND hwnd, UINT width, UINT height)
 
 	// 포스트프로세스 (HDR 톤맵 / 블룸 / FXAA) — SceneRT SRV 생성 전에 힙/PSO 준비
 	_postfx.Init(_device.Get(), _sceneFmt);
-	_gamePostfx.Init(_device.Get(), _sceneFmt);                 // Game 뷰 전용 포스트
-	_gameCB = CreateUploadBuffer(nullptr, sizeof(SceneCB));     // 게임 카메라 CB
+	_gameView.Init(this, _sceneFmt);                            // Game 뷰 (RT/postfx/창) 초기화
+	_gameCB = CreateUploadBuffer(nullptr, sizeof(SceneCB));     // 게임 카메라 per-frame CB (GameView 가 사용)
 	{ D3D12_RANGE nr{ 0,0 }; _gameCB->Map(0, &nr, &_gameCBMapped); }
 
 	// 에디터 UI (ImGui DX12 + 도킹)

@@ -55,6 +55,7 @@
     <ClInclude Include="EditorWindows.h" />
     <ClInclude Include="EditorManager.h" />
     <ClInclude Include="RenderSettings.h" />
+    <ClInclude Include="GameView.h" />
     <ClInclude Include="FbxConverter.h" />
     <ClInclude Include="Foliage.h" />
     <ClInclude Include="Billboard.h" />
@@ -84,6 +85,7 @@
     <ClCompile Include="D3D12Inspector.cpp" />
     <ClCompile Include="EditorUtil.cpp" />
     <ClCompile Include="EditorManager.cpp" />
+    <ClCompile Include="GameView.cpp" />
     <ClCompile Include="DebugDraw.cpp" />
     <ClCompile Include="Thumbnail.cpp" />
     <ClCompile Include="Ddgi.cpp" />

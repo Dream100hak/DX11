@@ -55,6 +55,8 @@ struct SceneCB
 	DirectX::XMFLOAT4   decalArr[8];
 	DirectX::XMFLOAT4   decalColArr[8];
 	DirectX::XMFLOAT4   envSH[4];   // IBL 환경 SH-L1 (rgb×4). [0].w=강도(0=off)
+	DirectX::XMFLOAT4X4 curVPnj;    // 비지터드 현재 VP (속도 패스 — 오브젝트 화면속도)
+	DirectX::XMFLOAT4X4 prevVPnj;   // 비지터드 직전 VP (속도 패스)
 };
 
 // ───────────────────────────────────────────────────────────
@@ -158,6 +160,10 @@ private:
 	float                             _taaSharp = 0.35f; // 언샤프 강도 (TAA 소프트닝 보정)
 	DirectX::XMFLOAT4X4               _prevViewProj{};
 	bool                              _hasPrevVP = false;
+	// 모션블러 (카메라) — 비지터드 직전 VP 로 화면속도 복원, 속도 방향 블러
+	DirectX::XMFLOAT4X4               _prevVPNoJit{};
+	bool                              _motionBlurOn = false;
+	float                             _motionBlurIntensity = 1.5f;
 	ComPtr<ID3D12PipelineState>       _gridPSO;    // 무한 씬 그리드
 	ComPtr<ID3D12PipelineState>       _outlinePSO; // 선택 아웃라인(인버티드 헐)
 	ComPtr<ID3D12PipelineState>       _wirePSO;    // 와이어프레임 토글
@@ -316,6 +322,12 @@ private:
 	ComPtr<ID3D12DescriptorHeap>      _sceneRtvHeap;
 	ComPtr<ID3D12DescriptorHeap>      _sceneDsvHeap;
 	D3D12_RESOURCE_STATES             _sceneRTState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	// 속도 G버퍼 (RG16F — 오브젝트 고유 화면속도). 모션블러가 카메라속도와 합산.
+	ComPtr<ID3D12Resource>            _velRT;
+	ComPtr<ID3D12DescriptorHeap>      _velRtvHeap;
+	D3D12_RESOURCE_STATES             _velRTState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	ComPtr<ID3D12PipelineState>       _velPSO;
+	static const DXGI_FORMAT          kVelFmt = DXGI_FORMAT_R16G16_FLOAT;
 	UINT                              _sceneW = 1280, _sceneH = 720;       // 현재 RT 크기
 	UINT                              _pendingSceneW = 0, _pendingSceneH = 0; // Scene 창 컨텐츠 크기
 	uint64                            _sceneTexId = 0;     // ImGui::Image 핸들

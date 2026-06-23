@@ -29,7 +29,7 @@ public:
 	void Init(ID3D12Device* device, DXGI_FORMAT sceneFmt);
 	// 씬 RT/깊이 크기 변경 시 LDR/LDR2/블룸 재생성 + 모든 SRV/RTV 갱신.
 	// sceneRT/sceneDepth 는 소유하지 않음 — 포스트 SRV 힙에 뷰만 만든다.
-	void Resize(UINT w, UINT h, ID3D12Resource* sceneRT, ID3D12Resource* sceneDepth);
+	void Resize(UINT w, UINT h, ID3D12Resource* sceneRT, ID3D12Resource* sceneDepth, ID3D12Resource* velRT);
 
 	// 블룸: sceneRT(HDR, slot0) → 브라이트패스 → BlurH → BlurV → bloomA. (호출 전 sceneRT 는 PSR 상태)
 	void Bloom(ID3D12GraphicsCommandList4* cmd, float threshold);
@@ -41,6 +41,10 @@ public:
 	// invVP=현재(지터드) 역VP, prevVP=직전 프레임 VP. off 면 LDR 그대로 반환.
 	ID3D12Resource* Taa(ID3D12GraphicsCommandList4* cmd, bool on,
 	                    const DirectX::XMFLOAT4X4& invVP, const DirectX::XMFLOAT4X4& prevVP, float sharpness);
+	// 카메라 모션블러 — depth+invVP+prevVP 로 화면속도 복원 후 컬러를 속도 방향으로 블러.
+	// input(LDR 또는 LDR2) → 반대 버퍼로 핑퐁, 결과 반환. off 면 input 그대로.
+	ID3D12Resource* MotionBlur(ID3D12GraphicsCommandList4* cmd, bool on, ID3D12Resource* input,
+	                           const DirectX::XMFLOAT4X4& invVP, const DirectX::XMFLOAT4X4& prevVP, float intensity);
 
 	bool            Ready() const { return _bloomReady; }
 	ID3D12Resource* LdrResource() const { return _sceneLDR.Get(); } // 스크린샷 리드백/표시
@@ -53,7 +57,8 @@ private:
 	UINT          _w = 0, _h = 0;
 
 	ComPtr<ID3D12RootSignature>  _rootSig;
-	ComPtr<ID3D12PipelineState>  _tonemapPSO, _brightPSO, _blurPSO, _fxaaPSO, _taaPSO;
+	ComPtr<ID3D12PipelineState>  _tonemapPSO, _brightPSO, _blurPSO, _fxaaPSO, _taaPSO, _mbPSO;
+	ComPtr<ID3D12Resource>       _mbCB; void* _mbCBMapped = nullptr; // 모션블러 invVP/prevVP/texel/intensity
 	ComPtr<ID3D12Resource>       _taaHist;     // TAA 히스토리(직전 결과)
 	D3D12_RESOURCE_STATES        _taaHistState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 	ComPtr<ID3D12Resource>       _taaCB; void* _taaCBMapped = nullptr; // invVP/prevVP/texel

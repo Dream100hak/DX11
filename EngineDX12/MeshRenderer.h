@@ -22,6 +22,7 @@ public:
 
 	virtual void Draw(const RenderContext& ctx) override;
 	virtual void RecordOutline(ID3D12GraphicsCommandList4* cmd) override;
+	virtual void RecordVelocity(ID3D12GraphicsCommandList4* cmd) override; // 정적/강체 — prev=cur VB(카메라 속도만)
 	virtual void TransformBoundingBox() override;
 	virtual void OnInspectorGUI() override; // 머티리얼/텍스처 편집
 

@@ -24,6 +24,7 @@ cbuffer PostCB2 : register(b1) { float gChroma; float gGrain; float gSharpen; fl
 cbuffer PostCB3 : register(b2) { float gSunSX; float gSunSY; float gVolStr; float gDofFocus; float gDofRange; float gDofOn; float gVolOn; float _p3; };
 cbuffer PostCB4 : register(b3) { float gLensDistort; float gPosterize; float gAnamorphic; float gFilterMode; float _q0; float _q1; float _q2; float _q3; };
 Texture2D gDepth : register(t2);
+Texture2D gVel : register(t3); // 오브젝트 속도 G버퍼 (TAA 재투영 보정 + 모션블러)
 float3 ACES(float3 x){ float a=2.51,b=0.03,c=2.43,d=0.59,e=0.14; return saturate((x*(a*x+b))/(x*(c*x+d)+e)); }
 float3 Filmic(float3 x){ x=max(0,x-0.004); return (x*(6.2*x+0.5))/(x*(6.2*x+1.7)+0.06); } // 감마 내장
 float4 PSTonemap(VOut i) : SV_TARGET
@@ -183,6 +184,7 @@ float4 PSTaa(VOut i) : SV_TARGET
     float4 pc = mul(float4(world, 1.0), gPrevVP);
     if (pc.w <= 0.0) return float4(cur, 1.0);
     float2 prevUV = float2(pc.x / pc.w * 0.5 + 0.5, 0.5 - pc.y / pc.w * 0.5);
+    prevUV -= gVel.Sample(gS, i.uv).rg; // 오브젝트 고유 모션 보정(velRT) — 애니 메시 재투영 정확도↑(지글거림 제거)
     if (prevUV.x < 0.0 || prevUV.x > 1.0 || prevUV.y < 0.0 || prevUV.y > 1.0) return float4(cur, 1.0);
 
     // 이웃(3x3) min/max 클램프 범위 + 십자 이웃 평균(샤픈용)
@@ -200,6 +202,34 @@ float4 PSTaa(VOut i) : SV_TARGET
     outc += (cur - cross) * gTaaSharp;             // 언샤프 — 현재 프레임 고주파 복원
     return float4(max(outc, 0.0), 1.0);
 }
+// 모션블러 — 카메라속도(depth+prevVP 복원) + 오브젝트 고유속도(velRT) 합산 방향으로 컬러 누적 블러.
+// b4 TaaCB 재사용(gTaaSharp = 강도). gHDR(t0)=컬러, gDepth(t2)=깊이, gVel(t3)=오브젝트 속도.
+float4 PSMotionBlur(VOut i) : SV_TARGET
+{
+    float3 col = gHDR.Sample(gS, i.uv).rgb;
+    float depth = gDepth.Sample(gS, i.uv).r;
+    // 카메라 속도 (전 픽셀 — 하늘 포함, depth 재투영)
+    float2 camVel = float2(0, 0);
+    float2 ndc = float2(i.uv.x * 2.0 - 1.0, 1.0 - i.uv.y * 2.0);
+    float4 wH = mul(float4(ndc, depth, 1.0), gInvVPcur);
+    float3 world = wH.xyz / wH.w;
+    float4 pc = mul(float4(world, 1.0), gPrevVP);
+    if (pc.w > 0.0) { float2 prevUV = float2(pc.x / pc.w * 0.5 + 0.5, 0.5 - pc.y / pc.w * 0.5); camVel = i.uv - prevUV; }
+    // 오브젝트 고유 속도 (드로우된 지오메트리만 — 하늘/미드로우=0)
+    float2 objVel = (depth < 0.9999) ? gVel.Sample(gS, i.uv).rg : float2(0, 0);
+    float2 vel = (camVel + objVel) * gTaaSharp;     // gTaaSharp = 강도
+    float vlen = length(vel);
+    const float kMax = 0.06;                        // 최대 블러 길이(과도 streak 방지)
+    if (vlen > kMax) vel *= kMax / vlen;
+    if (vlen < 0.0005) return float4(col, 1.0);     // 거의 정지 — 그대로
+    const int N = 12; float3 acc = col; float wsum = 1.0;
+    [unroll] for (int k = 1; k < N; ++k)
+    {
+        float t = (float)k / (float)(N - 1);
+        acc += gHDR.Sample(gS, i.uv - vel * t).rgb; wsum += 1.0;
+    }
+    return float4(acc / wsum, 1.0);
+}
 )";
 
 void PostFX::Init(ID3D12Device* device, DXGI_FORMAT sceneFmt)
@@ -208,7 +238,7 @@ void PostFX::Init(ID3D12Device* device, DXGI_FORMAT sceneFmt)
 	_sceneFmt = sceneFmt;
 
 	// 공용 SRV 힙 (shader-visible)
-	D3D12_DESCRIPTOR_HEAP_DESC hd{}; hd.NumDescriptors = 8;
+	D3D12_DESCRIPTOR_HEAP_DESC hd{}; hd.NumDescriptors = 9;
 	hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV; hd.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	ThrowIfFailed(_device->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&_srvHeap)), "post srv heap");
 	_srvInc = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -223,7 +253,9 @@ void PostFX::Init(ID3D12Device* device, DXGI_FORMAT sceneFmt)
 	range.NumDescriptors = 2; range.BaseShaderRegister = 0; range.OffsetInDescriptorsFromTableStart = 0;
 	D3D12_DESCRIPTOR_RANGE rangeD{}; rangeD.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	rangeD.NumDescriptors = 1; rangeD.BaseShaderRegister = 2; rangeD.OffsetInDescriptorsFromTableStart = 0;
-	D3D12_ROOT_PARAMETER p[7]{};
+	D3D12_DESCRIPTOR_RANGE rangeV{}; rangeV.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	rangeV.NumDescriptors = 1; rangeV.BaseShaderRegister = 3; rangeV.OffsetInDescriptorsFromTableStart = 0; // t3 velocity
+	D3D12_ROOT_PARAMETER p[8]{};
 	p[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 	p[0].DescriptorTable.NumDescriptorRanges = 1; p[0].DescriptorTable.pDescriptorRanges = &range;
 	p[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
@@ -245,10 +277,13 @@ void PostFX::Init(ID3D12Device* device, DXGI_FORMAT sceneFmt)
 	p[6].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // b4: TAA 행렬(invVP/prevVP/texel)
 	p[6].Descriptor.ShaderRegister = 4;
 	p[6].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	p[7].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE; // t3 velocity (모션블러)
+	p[7].DescriptorTable.NumDescriptorRanges = 1; p[7].DescriptorTable.pDescriptorRanges = &rangeV;
+	p[7].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 	D3D12_STATIC_SAMPLER_DESC s{}; s.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
 	s.AddressU = s.AddressV = s.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP; s.ShaderRegister = 0;
 	s.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL; s.MaxLOD = D3D12_FLOAT32_MAX;
-	D3D12_ROOT_SIGNATURE_DESC rs{}; rs.NumParameters = 7; rs.pParameters = p; rs.NumStaticSamplers = 1; rs.pStaticSamplers = &s;
+	D3D12_ROOT_SIGNATURE_DESC rs{}; rs.NumParameters = 8; rs.pParameters = p; rs.NumStaticSamplers = 1; rs.pStaticSamplers = &s;
 	rs.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
 	ComPtr<ID3DBlob> sig, err;
 	ThrowIfFailed(D3D12SerializeRootSignature(&rs, D3D_ROOT_SIGNATURE_VERSION_1, &sig, &err), "post rootsig");
@@ -274,6 +309,7 @@ void PostFX::Init(ID3D12Device* device, DXGI_FORMAT sceneFmt)
 	makePSO(kTonemapShader, L"PSBlur",   DXGI_FORMAT_R16G16B16A16_FLOAT, _blurPSO);
 	makePSO(kTonemapShader, L"PSFxaa",   DXGI_FORMAT_R8G8B8A8_UNORM,     _fxaaPSO);
 	makePSO(kTonemapShader, L"PSTaa",    DXGI_FORMAT_R8G8B8A8_UNORM,     _taaPSO);
+	makePSO(kTonemapShader, L"PSMotionBlur", DXGI_FORMAT_R8G8B8A8_UNORM, _mbPSO);
 
 	// TAA 행렬 CB (invVP 64 + prevVP 64 + texel 16 = 144 → 256 정렬)
 	D3D12_HEAP_PROPERTIES hpU{}; hpU.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -281,9 +317,13 @@ void PostFX::Init(ID3D12Device* device, DXGI_FORMAT sceneFmt)
 	cd.DepthOrArraySize = 1; cd.MipLevels = 1; cd.Format = DXGI_FORMAT_UNKNOWN; cd.SampleDesc.Count = 1; cd.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 	ThrowIfFailed(_device->CreateCommittedResource(&hpU, D3D12_HEAP_FLAG_NONE, &cd, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&_taaCB)), "taa cb");
 	D3D12_RANGE nr{ 0, 0 }; _taaCB->Map(0, &nr, &_taaCBMapped);
+
+	// 모션블러 CB (TaaCB 와 동일 레이아웃 — 별도 버퍼라 TAA 와 충돌 없음)
+	ThrowIfFailed(_device->CreateCommittedResource(&hpU, D3D12_HEAP_FLAG_NONE, &cd, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&_mbCB)), "mb cb");
+	_mbCB->Map(0, &nr, &_mbCBMapped);
 }
 
-void PostFX::Resize(UINT w, UINT h, ID3D12Resource* sceneRT, ID3D12Resource* sceneDepth)
+void PostFX::Resize(UINT w, UINT h, ID3D12Resource* sceneRT, ID3D12Resource* sceneDepth, ID3D12Resource* velRT)
 {
 	_w = w; _h = h;
 	D3D12_HEAP_PROPERTIES hp{}; hp.Type = D3D12_HEAP_TYPE_DEFAULT;
@@ -339,7 +379,12 @@ void PostFX::Resize(UINT w, UINT h, ID3D12Resource* sceneRT, ID3D12Resource* sce
 		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, &cvl, IID_PPV_ARGS(&_taaHist)), "taa hist");
 	_taaHistState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 	_device->CreateShaderResourceView(_taaHist.Get(), &lsd, ph); ph.ptr += _srvInc;   // 6 history
-	_device->CreateShaderResourceView(_sceneLDR.Get(), &lsd, ph);                      // 7 current (LDR)
+	_device->CreateShaderResourceView(_sceneLDR.Get(), &lsd, ph); ph.ptr += _srvInc;  // 7 current (LDR)
+	// 8 velocity (RG16F) — 모션블러 t3. velRT null(게임 뷰)이면 더미(씬RT)로 — 모션블러 미사용이라 샘플 안 됨.
+	D3D12_SHADER_RESOURCE_VIEW_DESC vsd{};
+	vsd.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D; vsd.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING; vsd.Texture2D.MipLevels = 1;
+	if (velRT) { vsd.Format = DXGI_FORMAT_R16G16_FLOAT; _device->CreateShaderResourceView(velRT, &vsd, ph); }
+	else       { vsd.Format = _sceneFmt;                _device->CreateShaderResourceView(sceneRT, &vsd, ph); }
 
 	_bloomReady = true;
 }
@@ -480,6 +525,8 @@ ID3D12Resource* PostFX::Taa(ID3D12GraphicsCommandList4* cmd, bool on,
 	cmd->SetGraphicsRootDescriptorTable(0, t01);
 	D3D12_GPU_DESCRIPTOR_HANDLE dep = base; dep.ptr += UINT64(2) * _srvInc; // t2=depth
 	cmd->SetGraphicsRootDescriptorTable(4, dep);
+	D3D12_GPU_DESCRIPTOR_HANDLE vel = base; vel.ptr += UINT64(8) * _srvInc; // t3=velocity (오브젝트 모션 보정)
+	cmd->SetGraphicsRootDescriptorTable(7, vel);
 	cmd->SetGraphicsRootConstantBufferView(6, _taaCB->GetGPUVirtualAddress());
 	cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	cmd->DrawInstanced(3, 1, 0, 0);
@@ -491,4 +538,44 @@ ID3D12Resource* PostFX::Taa(ID3D12GraphicsCommandList4* cmd, bool on,
 	Transition(cmd, _taaHist.Get(), _taaHistState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	Transition(cmd, _sceneLDR2.Get(), _ldr2State, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	return _sceneLDR2.Get();
+}
+
+ID3D12Resource* PostFX::MotionBlur(ID3D12GraphicsCommandList4* cmd, bool on, ID3D12Resource* input,
+                                   const DirectX::XMFLOAT4X4& invVP, const DirectX::XMFLOAT4X4& prevVP, float intensity)
+{
+	if (!on || !_mbCBMapped || !_bloomReady) return input;
+
+	struct CB { DirectX::XMFLOAT4X4 invVP, prevVP; float tx, ty, inten, pad; } d{};
+	d.invVP = invVP; d.prevVP = prevVP; d.tx = 1.0f / float(_w); d.ty = 1.0f / float(_h); d.inten = intensity;
+	memcpy(_mbCBMapped, &d, sizeof(d));
+
+	// input(LDR slot4) → LDR2(slot1 rtv) 또는 input(LDR2 slot5) → LDR(slot0 rtv) 핑퐁
+	bool inIsLDR = (input == _sceneLDR.Get());
+	UINT srcSlot = inIsLDR ? 4u : 5u;
+	UINT dstRtv  = inIsLDR ? 1u : 0u;
+	ID3D12Resource* out = inIsLDR ? _sceneLDR2.Get() : _sceneLDR.Get();
+	D3D12_RESOURCE_STATES& outState = inIsLDR ? _ldr2State : _ldrState;
+
+	Transition(cmd, out, outState, D3D12_RESOURCE_STATE_RENDER_TARGET);
+	D3D12_CPU_DESCRIPTOR_HANDLE rtv = _rtvHeap->GetCPUDescriptorHandleForHeapStart(); rtv.ptr += UINT64(dstRtv) * _rtvInc;
+	cmd->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
+	D3D12_VIEWPORT vp{ 0, 0, float(_w), float(_h), 0, 1 };
+	D3D12_RECT sc{ 0, 0, LONG(_w), LONG(_h) };
+	cmd->RSSetViewports(1, &vp); cmd->RSSetScissorRects(1, &sc);
+	cmd->SetPipelineState(_mbPSO.Get());
+	cmd->SetGraphicsRootSignature(_rootSig.Get());
+	ID3D12DescriptorHeap* ph[] = { _srvHeap.Get() };
+	cmd->SetDescriptorHeaps(1, ph);
+	D3D12_GPU_DESCRIPTOR_HANDLE base = _srvHeap->GetGPUDescriptorHandleForHeapStart();
+	D3D12_GPU_DESCRIPTOR_HANDLE col = base; col.ptr += UINT64(srcSlot) * _srvInc; // t0 = 입력 컬러
+	cmd->SetGraphicsRootDescriptorTable(0, col);
+	D3D12_GPU_DESCRIPTOR_HANDLE dep = base; dep.ptr += UINT64(2) * _srvInc;        // t2 = depth
+	cmd->SetGraphicsRootDescriptorTable(4, dep);
+	D3D12_GPU_DESCRIPTOR_HANDLE vel = base; vel.ptr += UINT64(8) * _srvInc;        // t3 = velocity
+	cmd->SetGraphicsRootDescriptorTable(7, vel);
+	cmd->SetGraphicsRootConstantBufferView(6, _mbCB->GetGPUVirtualAddress());      // b4
+	cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	cmd->DrawInstanced(3, 1, 0, 0);
+	Transition(cmd, out, outState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	return out;
 }

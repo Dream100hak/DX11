@@ -77,6 +77,9 @@ bool ModelAnimator::Load(const std::wstring& meshPath)
 		_vb = _dev->CreateDefaultBuffer(vbSize, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, true);
 		_vbState = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 		_vbv.BufferLocation = _vb->GetGPUVirtualAddress(); _vbv.StrideInBytes = sizeof(Vtx); _vbv.SizeInBytes = (UINT)vbSize;
+		// 직전 프레임 월드 VB (속도 G버퍼) — UAV 불필요(복사 대상)
+		_vbPrev = _dev->CreateDefaultBuffer(vbSize, D3D12_RESOURCE_STATE_COMMON, false);
+		_vbPrevState = D3D12_RESOURCE_STATE_COMMON; _vbPrevInit = false;
 		// 본 행렬(업로드, nb×64) + SkinParams CB(업로드, 256정렬) — 매프레임 갱신
 		const uint32 nb = (uint32)(_bonesData.empty() ? 1 : _bonesData.size());
 		_boneBuf = MakeUploadA(_dev->_device.Get(), (size_t)nb * 64); _boneCap = nb;
@@ -476,7 +479,7 @@ void ModelAnimator::GetBoneLines(std::vector<std::pair<XMFLOAT3, XMFLOAT3>>& out
 // GPU 스키닝 디스패치 — 본 행렬 × 소스정점 → 월드 VB(UAV). 더티일 때만.
 void ModelAnimator::RecordSkinning(ID3D12GraphicsCommandList4* cmd)
 {
-	if (!_dev || !_vb || _vtxCount == 0 || !_skinDirty) return;
+	if (!_dev || !_vb || _vtxCount == 0) return;
 
 	auto toState = [&](D3D12_RESOURCE_STATES to)
 	{
@@ -486,6 +489,26 @@ void ModelAnimator::RecordSkinning(ID3D12GraphicsCommandList4* cmd)
 		b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 		cmd->ResourceBarrier(1, &b); _vbState = to;
 	};
+	auto toPrev = [&](D3D12_RESOURCE_STATES to)
+	{
+		if (!_vbPrev || _vbPrevState == to) return;
+		D3D12_RESOURCE_BARRIER b{}; b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+		b.Transition.pResource = _vbPrev.Get(); b.Transition.StateBefore = _vbPrevState; b.Transition.StateAfter = to;
+		b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+		cmd->ResourceBarrier(1, &b); _vbPrevState = to;
+	};
+
+	// 직전 프레임 월드 정점 보존 (속도 G버퍼) — _vb 가 직전 결과(combined read, COPY_SOURCE 포함)일 때 복사.
+	// 매프레임 수행: 애니 중이면 prev=직전포즈→objVel=프레임델타, 정지면 prev=cur→objVel=0.
+	if (_vbPrev && _vbPrevInit)
+	{
+		toPrev(D3D12_RESOURCE_STATE_COPY_DEST);
+		cmd->CopyResource(_vbPrev.Get(), _vb.Get());
+		toPrev(D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+	}
+
+	if (!_skinDirty) return; // 포즈 변화 없음 — 재스킨 생략(prev 는 위에서 cur 와 동기화)
+
 	toState(D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
 	cmd->SetPipelineState(_dev->_skinPSO.Get());
@@ -504,6 +527,26 @@ void ModelAnimator::RecordSkinning(ID3D12GraphicsCommandList4* cmd)
 	        D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE |
 	        D3D12_RESOURCE_STATE_COPY_SOURCE);
 	_skinDirty = false;
+
+	// 첫 스킨 후 prev 초기화 (prev=cur → 첫 프레임 objVel 0, 이후 프레임부터 정상 델타)
+	if (_vbPrev && !_vbPrevInit)
+	{
+		toPrev(D3D12_RESOURCE_STATE_COPY_DEST);
+		cmd->CopyResource(_vbPrev.Get(), _vb.Get());
+		toPrev(D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		_vbPrevInit = true;
+	}
+}
+
+// 속도 G버퍼 — 현재 월드 VB(드로우) + 직전 프레임 월드 VB(gPrevVB t0, 루트 slot1) → 셰이더가 오브젝트 고유 속도 기록.
+void ModelAnimator::RecordVelocity(ID3D12GraphicsCommandList4* cmd)
+{
+	if (!_dev || !_vb || !_vbPrev || _vtxCount == 0 || !_vbPrevInit) return;
+	cmd->SetGraphicsRootShaderResourceView(1, _vbPrev->GetGPUVirtualAddress());
+	cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	cmd->IASetVertexBuffers(0, 1, &_vbv);
+	cmd->IASetIndexBuffer(&_ibv);
+	cmd->DrawIndexedInstanced(_idxCount, 1, 0, 0, 0);
 }
 
 // 상태머신: Any/현재 상태에서 나가는 전이를 평가 → 조건 충족 시 크로스페이드 진입

@@ -198,6 +198,8 @@ void D3D12Device::Render()
 	_ddgiCursor = (ddgiBase + ddgiSubset) % _ddgiTotal;
 	cb.giParams = XMFLOAT4(_giStrength, _time * 60.f, _ambient, (float)ddgiBase); // GI세기 / frame / ambient / 프로브베이스
 	XMStoreFloat4x4(&cb.invVP, XMMatrixInverse(nullptr, view * projJ)); // 스카이 레이 복원 + TAA 재투영(지터드)
+	XMStoreFloat4x4(&cb.curVPnj, view * proj);   // 속도 패스 — 비지터드 현재 VP
+	cb.prevVPnj = _prevVPNoJit;                  // 속도 패스 — 비지터드 직전 VP (지난 프레임 말 저장)
 	// ── 점/스팟 라이트: 씬의 모든 Light 컴포넌트에서 수집 (동적 추가 라이트 포함, 점=최대4 스팟=1) ──
 	int ptN = 0; XMFLOAT4 ptPosA[16] = {}, ptColA[16] = {};
 	bool haveSpot = false; XMFLOAT4 spotP{}, spotD{ 0,-1,0,0.5f }, spotC{};
@@ -413,6 +415,30 @@ void D3D12Device::Render()
 		_cmdList->DrawInstanced(Ddgi::PROBE_COUNT, 1, 0, 0);
 	}
 
+	// ── 속도 G버퍼 (모션블러 또는 TAA ON 시) — 불투명 지오메트리 오브젝트 고유 화면속도를 _velRT 에 기록 ──
+	//    모션블러: 카메라속도와 합산. TAA: 재투영 보정(애니 지글거림 제거). 깊이는 메인 패스 것 재사용(쓰기 X).
+	if ((_motionBlurOn || _taaOn) && _postfx.Ready() && sceneCam)
+	{
+		Transition(_velRT.Get(), _velRTState, D3D12_RESOURCE_STATE_RENDER_TARGET);
+		D3D12_CPU_DESCRIPTOR_HANDLE vrtv = _velRtvHeap->GetCPUDescriptorHandleForHeapStart();
+		D3D12_CPU_DESCRIPTOR_HANDLE vdsv = _sceneDsvHeap->GetCPUDescriptorHandleForHeapStart();
+		_cmdList->OMSetRenderTargets(1, &vrtv, FALSE, &vdsv);
+		const float zero[4] = { 0, 0, 0, 0 };
+		_cmdList->ClearRenderTargetView(vrtv, zero, 0, nullptr);
+		_cmdList->RSSetViewports(1, &vp); _cmdList->RSSetScissorRects(1, &sc);
+		_cmdList->SetPipelineState(_velPSO.Get());
+		_cmdList->SetGraphicsRootSignature(_rootSig.Get());
+		_cmdList->SetGraphicsRootConstantBufferView(0, _cb[_frameIndex]->GetGPUVirtualAddress());
+		for (auto& obj : sceneCam->GetVecOpaque())
+		{
+			if (!obj || !obj->IsActive()) continue;
+			auto r = obj->GetRenderer(); if (!r) continue;
+			if (_frustumCull && !sceneCam->GetFrustum().Contains(r->GetBoundingBox())) continue;
+			r->RecordVelocity(_cmdList.Get());
+		}
+		Transition(_velRT.Get(), _velRTState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	}
+
 	// ── 블룸 (브라이트패스 → BlurH → BlurV, 반해상도) ── PostFX 가 처리
 	Transition(_sceneRT.Get(), _sceneRTState, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 	bool bloomActive = _bloomOn && !_wireframe && _postfx.Ready(); // 와이어프레임(디버그 뷰)은 블룸 제외
@@ -439,12 +465,20 @@ void D3D12Device::Render()
 	// ── AA: TAA(우선) 또는 FXAA (LDR → LDR2), 표시 텍스처 선택 ──
 	ID3D12Resource* displayRes;
 	if (_taaOn)
-	{
 		// 첫 프레임은 prevVP=0 → 셰이더가 재투영 실패로 현재값 사용(고스팅 없음). 이후 직전 VP 로 재투영.
 		displayRes = _postfx.Taa(_cmdList.Get(), true, cb.invVP, _hasPrevVP ? _prevViewProj : Matrix{}, _taaSharp);
-		XMStoreFloat4x4(&_prevViewProj, view * projJ); _hasPrevVP = true; // 다음 프레임용 (지터드 VP)
+	else
+		displayRes = _postfx.Fxaa(_cmdList.Get(), _fxaaOn);
+
+	// ── 카메라 모션블러 (AA 결과에 적용) — 비지터드 행렬(정지 화면 미세블러 방지) ──
+	if (_motionBlurOn && _hasPrevVP)
+	{
+		Matrix invVPnj; XMStoreFloat4x4(&invVPnj, XMMatrixInverse(nullptr, view * proj));
+		displayRes = _postfx.MotionBlur(_cmdList.Get(), true, displayRes, invVPnj, _prevVPNoJit, _motionBlurIntensity);
 	}
-	else { displayRes = _postfx.Fxaa(_cmdList.Get(), _fxaaOn); _hasPrevVP = false; }
+	XMStoreFloat4x4(&_prevViewProj, view * projJ);   // TAA 재투영용 (지터드)
+	XMStoreFloat4x4(&_prevVPNoJit, view * proj);     // 모션블러용 (비지터드)
+	_hasPrevVP = true;
 	_sceneTexId = _imgui.SetSceneTexture(displayRes);
 
 	// ── Game 뷰: 게임 카메라 시점 별도 RT (DDGI/TLAS 재사용) ──

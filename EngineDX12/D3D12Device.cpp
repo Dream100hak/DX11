@@ -381,9 +381,9 @@ void D3D12Device::CreateRootSignature()
 	params[0].Descriptor.ShaderRegister = 0;
 	params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-	params[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; // TLAS
+	params[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; // t0: 메인=TLAS(PS), 속도패스=직전 VB(VS) → ALL 가시
 	params[1].Descriptor.ShaderRegister = 0; // t0
-	params[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	params[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
 	params[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV; // 프로브
 	params[2].Descriptor.ShaderRegister = 1; // t1
@@ -634,6 +634,19 @@ void D3D12Device::CreatePipeline()
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC wpso = pso;
 	wpso.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
 	ThrowIfFailed(_device->CreateGraphicsPipelineState(&wpso, IID_PPV_ARGS(&_wirePSO)), "CreateWirePSO");
+
+	// ── 속도 G버퍼 PSO (Velocity.hlsl) — 입력레이아웃 동일(+SV_VertexID), RG16F, 깊이 테스트만(쓰기 X) ──
+	{
+		ComPtr<IDxcBlob> vvs = CompileHlsl(_shaderDir, L"Velocity.hlsl", L"VSMain", L"vs_6_5");
+		ComPtr<IDxcBlob> vps = CompileHlsl(_shaderDir, L"Velocity.hlsl", L"PSMain", L"ps_6_5");
+		D3D12_GRAPHICS_PIPELINE_STATE_DESC vp = pso;
+		vp.VS = { vvs->GetBufferPointer(), vvs->GetBufferSize() };
+		vp.PS = { vps->GetBufferPointer(), vps->GetBufferSize() };
+		vp.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;       // 깊이 읽기만(메인 패스 깊이 재사용)
+		vp.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;       // 가시 표면만 기록
+		vp.RTVFormats[0] = kVelFmt;
+		ThrowIfFailed(_device->CreateGraphicsPipelineState(&vp, IID_PPV_ARGS(&_velPSO)), "CreateVelPSO");
+	}
 
 	// ── 스카이박스 PSO (풀스크린 삼각형, 깊이/입력레이아웃 없음, b0 만 사용) ──
 	ComPtr<IDxcBlob> svs = CompileHlsl(_shaderDir, L"Sky.hlsl",L"VSMain", L"vs_6_5");

@@ -270,7 +270,7 @@ void D3D12Device::ResetDefaults()
 	_toonLevels = 0; _rimPower = 0; _normalIntensity = 1; _chroma = _grain = _sharpen = 0;
 	_lensDistort = 0; _posterize = 0; _filterMode = 0; _anamorphic = false; _renderScale = 1;
 	_contrast = _saturation = 1; _temperature = 0; _vignette = 0.25f; _ev = 0; _fogDensity = 0;
-	_aoOn = _dofOn = _volOn = _autoExp = _checker = _scene._terrain = _todOn = false; _wantReload = true;
+	_aoOn = _dofOn = _volOn = _autoExp = _checker = _scene._terrain = _todOn = _motionBlurOn = false; _wantReload = true;
 	_bgMode = 0; _tonemapOp = 0; _exposure = 1;
 	_particlesOn = _decalOn = _stars = _flicker = _overlay = false; _letterbox = 0; _cloudAmt = 0;
 	_shadowStrength = 1; _hemiAmbient = 0;
@@ -400,8 +400,22 @@ void D3D12Device::CreateSceneRT(UINT w, UINT h)
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsv{}; dsv.Format = DXGI_FORMAT_D32_FLOAT; dsv.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
 	_device->CreateDepthStencilView(_sceneDepth.Get(), &dsv, _sceneDsvHeap->GetCPUDescriptorHandleForHeapStart());
 
-	// 후처리 RT/힙(LDR/LDR2/블룸 + SRV) 재생성 — sceneRT/depth SRV 포함
-	_postfx.Resize(w, h, _sceneRT.Get(), _sceneDepth.Get());
+	// 속도 G버퍼 (RG16F) — 모션블러 오브젝트 속도
+	D3D12_RESOURCE_DESC vrd = rd; vrd.Format = kVelFmt;
+	D3D12_CLEAR_VALUE vcv{}; vcv.Format = kVelFmt; // 0 = 모션 없음
+	_velRT.Reset();
+	ThrowIfFailed(_device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &vrd,
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, &vcv, IID_PPV_ARGS(&_velRT)), "vel RT");
+	_velRTState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	if (!_velRtvHeap)
+	{
+		D3D12_DESCRIPTOR_HEAP_DESC hd{}; hd.NumDescriptors = 1; hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+		ThrowIfFailed(_device->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&_velRtvHeap)), "vel RTV heap");
+	}
+	_device->CreateRenderTargetView(_velRT.Get(), nullptr, _velRtvHeap->GetCPUDescriptorHandleForHeapStart());
+
+	// 후처리 RT/힙(LDR/LDR2/블룸 + SRV) 재생성 — sceneRT/depth/velocity SRV 포함
+	_postfx.Resize(w, h, _sceneRT.Get(), _sceneDepth.Get(), _velRT.Get());
 
 	_sceneTexId = _imgui.SetSceneTexture(_postfx.LdrResource()); // ImGui 는 톤맵된 LDR 표시
 }
@@ -432,7 +446,7 @@ void D3D12Device::CreateGameRT(UINT w, UINT h)
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsv{}; dsv.Format = DXGI_FORMAT_D32_FLOAT; dsv.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
 	_device->CreateDepthStencilView(_gameDepth.Get(), &dsv, _gameDsvHeap->GetCPUDescriptorHandleForHeapStart());
 
-	_gamePostfx.Resize(w, h, _gameRT.Get(), _gameDepth.Get());
+	_gamePostfx.Resize(w, h, _gameRT.Get(), _gameDepth.Get(), nullptr); // 게임 뷰는 모션블러 미사용(velRT 없음)
 	_gameTexId = _imgui.SetGameTexture(_gamePostfx.LdrResource());
 }
 

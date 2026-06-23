@@ -108,6 +108,7 @@
     <None Include="Shaders\Mesh.hlsl" />
     <None Include="Shaders\Gather.hlsl" />
     <None Include="Shaders\Skinning.hlsl" />
+    <None Include="Shaders\Velocity.hlsl" />
     <None Include="Shaders\Sky.hlsl" />
     <None Include="Shaders\Grid.hlsl" />
     <None Include="Shaders\Outline.hlsl" />

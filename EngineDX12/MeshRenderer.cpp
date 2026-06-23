@@ -317,6 +317,17 @@ void MeshRenderer::RecordOutline(ID3D12GraphicsCommandList4* cmd)
 	cmd->DrawIndexedInstanced((UINT)_indices.size(), 1, 0, 0, 0);
 }
 
+// 속도 G버퍼 — 정적/강체 메시는 직전 정점=현재 정점(prev VB=cur VB) → 오브젝트 고유 모션 0(카메라 모션만 별도 복원).
+void MeshRenderer::RecordVelocity(ID3D12GraphicsCommandList4* cmd)
+{
+	if (!_dev || _local.empty() || !_vb) return;
+	cmd->SetGraphicsRootShaderResourceView(1, _vb->GetGPUVirtualAddress()); // gPrevVB(t0) = 현재 VB
+	cmd->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	cmd->IASetVertexBuffers(0, 1, &_vbv);
+	cmd->IASetIndexBuffer(&_ibv);
+	cmd->DrawIndexedInstanced((UINT)_indices.size(), 1, 0, 0, 0);
+}
+
 void MeshRenderer::Draw(const RenderContext& ctx)
 {
 	if (!_dev || _local.empty()) return;

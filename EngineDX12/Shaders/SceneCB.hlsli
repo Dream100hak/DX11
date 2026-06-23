@@ -38,6 +38,8 @@ cbuffer SceneCB : register(b0)
     float4 gDecalArr[8];    // xyz 위치, w 반경(0=off) — 다중 데칼(상향 투영)
     float4 gDecalColArr[8]; // rgb 색, w on
     float4 gEnvSH[4];       // IBL 환경 SH-L1 (rgb 계수 ×4). [0].w = IBL 강도(0=off)
+    row_major float4x4 gCurVPnj;  // 비지터드 현재 VP (속도 패스)
+    row_major float4x4 gPrevVPnj; // 비지터드 직전 VP (속도 패스)
 };
 
 // IBL 환경 이라디언스 (SH-L1 — 큐브맵 베이크 계수). DDGI EvalIrradiance 와 동일 규약.

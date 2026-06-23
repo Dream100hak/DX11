@@ -145,6 +145,7 @@
     <None Include="Shaders\Mesh.hlsl"><Filter>Shaders</Filter></None>
     <None Include="Shaders\Gather.hlsl"><Filter>Shaders</Filter></None>
     <None Include="Shaders\Skinning.hlsl"><Filter>Shaders</Filter></None>
+    <None Include="Shaders\Velocity.hlsl"><Filter>Shaders</Filter></None>
     <None Include="Shaders\Sky.hlsl"><Filter>Shaders</Filter></None>
     <None Include="Shaders\Grid.hlsl"><Filter>Shaders</Filter></None>
     <None Include="Shaders\Outline.hlsl"><Filter>Shaders</Filter></None>

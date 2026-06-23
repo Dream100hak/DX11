@@ -232,6 +232,8 @@ void D3D12Device::DrawInspector()
 		ImGui::SameLine(); ImGui::Checkbox("FXAA", &_fxaaOn);
 		if (_taaOn) { ImGui::SliderFloat("TAA Sharpness", &_taaSharp, 0.0f, 1.0f); HelpMarker("TAA 소프트닝 보정 — 높이면 선명, 너무 높으면 엣지 링잉."); }
 		if (_taaOn && _fxaaOn) ImGui::TextDisabled("(TAA 활성 시 FXAA 무시)");
+		ImGui::Checkbox("Motion Blur", &_motionBlurOn); HelpMarker("카메라 모션블러 — 카메라가 움직일 때 화면속도 방향으로 컬러 블러(depth 재투영).\n현재는 카메라 모션 기준(움직이는 오브젝트 개별 블러는 다음 단계 모션벡터 버퍼).");
+		if (_motionBlurOn) ImGui::SliderFloat("MB Intensity", &_motionBlurIntensity, 0.1f, 4.0f);
 		ImGui::Checkbox("RT Reflection", &_reflectOn); HelpMarker("레이트레이싱 반사 — 거울/금속 표면에 씬 반사. Strength=혼합 비율.");
 		ImGui::SliderFloat("Reflect Strength", &_reflectStrength, 0.0f, 1.0f);
 		ImGui::SeparatorText("Ambient Occlusion (RT)");

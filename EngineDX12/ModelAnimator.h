@@ -49,6 +49,7 @@ public:
 	ID3D12Resource* IbRes() const { return _ib.Get(); }
 	virtual void Draw(const RenderContext& ctx) override;
 	virtual void RecordOutline(ID3D12GraphicsCommandList4* cmd) override;
+	virtual void RecordVelocity(ID3D12GraphicsCommandList4* cmd) override; // 스키닝 — prev=_vbPrev(애니 모션 캡처)
 	virtual void TransformBoundingBox() override;
 	virtual void OnInspectorGUI() override;
 
@@ -158,6 +159,9 @@ private:
 	// GPU 스키닝 버퍼
 	std::vector<Vtx>         _world;       // (미사용 — GPU 스키닝 후 CPU 미러 없음. 인터페이스 호환 유지)
 	ComPtr<ID3D12Resource>   _vb;          // 출력 월드 VB (DEFAULT+UAV — 컴퓨트가 기록, 래스터/BLAS/집계가 읽음)
+	ComPtr<ID3D12Resource>   _vbPrev;      // 직전 프레임 월드 VB (속도 G버퍼 — 매프레임 _vb 복사)
+	D3D12_RESOURCE_STATES    _vbPrevState = D3D12_RESOURCE_STATE_COMMON;
+	bool                     _vbPrevInit = false;
 	ComPtr<ID3D12Resource>   _ib;          // 인덱스 (업로드, 정적)
 	ComPtr<ID3D12Resource>   _srcVB;       // 소스(바인드포즈) 정점 (업로드 SRV — 동일 메시 공유)
 	ComPtr<ID3D12Resource>   _boneBuf;     // 본 스킨 행렬 (업로드 SRV, 매프레임 갱신)
